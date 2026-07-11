@@ -113,10 +113,28 @@ class PlannerAgent(BaseAgent):
     expertise = ("planning", "scheduling", "goals")
     tone = "organized"
     personality = "steady coordinator"
-    capabilities = ("planner.capture_task", "planner.prepare_reminder")
+    capabilities = (
+        "planner.capture_task",
+        "planner.prepare_reminder",
+        "mission.create_mission",
+        "mission.complete_mission",
+        "mission.list_active_missions",
+        "mission.get_next_mission",
+        "mission.generate_recovery_mission",
+    )
 
     async def handle(self, event: Event) -> AgentResponse:
         text = _message(event)
+        mission = self.tools.get("mission")
+        if mission and _looks_like_mission_request(text):
+            result = _handle_mission_request(mission, text, event.trace_id)
+            return self._response(
+                event,
+                handled=result.success,
+                message=result.message,
+                data={"tool": "mission", "result": result.to_dict()},
+            )
+
         data: dict[str, Any] = {"captured_task": text}
         notification = self.tools.get("notification")
         if notification and "remind" in text.lower():
@@ -221,3 +239,36 @@ def _extract_app_name(text: str) -> str:
     if "youtube" in lowered:
         return "YouTube"
     return text or "requested app"
+
+
+def _looks_like_mission_request(text: str) -> bool:
+    lowered = text.lower()
+    return any(keyword in lowered for keyword in ("mission", "quest", "boss", "xp", "streak"))
+
+
+def _handle_mission_request(mission: Any, text: str, trace_id: str) -> Any:
+    lowered = text.lower().strip()
+    if "next" in lowered:
+        return mission.get_next_mission(trace_id=trace_id)
+    if "recovery" in lowered:
+        return mission.generate_recovery_mission(trace_id=trace_id)
+    if "list" in lowered or "active" in lowered:
+        return mission.list_active_missions(trace_id=trace_id)
+    complete_match = re.search(r"complete\s+(?:mission\s+)?([a-f0-9]{8,32})", lowered)
+    if complete_match:
+        return mission.complete_mission(complete_match.group(1), trace_id=trace_id)
+
+    mission_type = "side_quest"
+    if "main quest" in lowered:
+        mission_type = "main_quest"
+    elif "boss" in lowered:
+        mission_type = "boss_fight"
+    elif "daily" in lowered:
+        mission_type = "daily_mission"
+    title = re.sub(
+        r"^(create|add|start)?\s*(a\s*)?(main quest|side quest|boss fight|daily mission|mission|quest)\s*",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    ).strip()
+    return mission.create_mission(title or text, mission_type, trace_id=trace_id)

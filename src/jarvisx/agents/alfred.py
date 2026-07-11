@@ -38,7 +38,12 @@ class IntentClassifier:
         ("device_control", "device", "device", ("open ", "launch ", "start app", "youtube", "android")),
         ("memory", "memory", "memory", ("remember", "recall", "memory", "obsidian", "note")),
         ("research", "research", "research", ("research", "summarize", "documentation", "docs", "find info")),
-        ("planning", "planner", "planning", ("schedule", "remind", "todo", "task", "goal")),
+        (
+            "planning",
+            "planner",
+            "planning",
+            ("schedule", "remind", "todo", "task", "goal", "mission", "quest", "boss", "xp", "streak"),
+        ),
         ("editing", "editing", "editing", ("video", "thumbnail", "subtitle", "render")),
         ("cad", "cad", "cad", ("cad", "stl", "3d model", "manufacturing", "dimension")),
         ("shadowbroker", "shadowbroker", "shadowbroker", ("osint", "threat", "security", "trend monitoring")),

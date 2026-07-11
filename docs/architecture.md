@@ -63,6 +63,30 @@ Edith must not communicate directly with agents. Any future mobile transport, vo
 
 The base runtime uses only the Python standard library. Networked integrations such as Supabase, remote search, and hosted LLMs should be adapters behind tools or model providers. The system should continue to boot and route tasks even when those adapters are unavailable.
 
+## Mission system
+
+Mission System v1 is owned by the Planner Agent through `MissionTool`. It is designed for momentum and continuity rather than checklist management.
+
+Supported mission types:
+
+- `main_quest`
+- `side_quest`
+- `boss_fight`
+- `daily_mission`
+- `recovery_mission`
+
+Supported operations:
+
+- `create_mission()`
+- `complete_mission()`
+- `list_active_missions()`
+- `get_next_mission()`
+- `generate_recovery_mission()`
+
+Mission persistence is append-only. The Mission Tool writes mission events through `LocalMemoryTool.save_memory(..., "project")` and reconstructs current state from project memory records. This keeps the vault boundary inside the Memory Tool while still allowing XP totals, progress, streaks, and inactivity recovery to be rebuilt offline.
+
+Recovery missions are generated when continuity has been interrupted. They are intentionally small and high priority so the next suggested mission favors restart momentum.
+
 ## Memory layers
 
 - Human-readable memory: Obsidian-compatible Markdown files in the configured vault.

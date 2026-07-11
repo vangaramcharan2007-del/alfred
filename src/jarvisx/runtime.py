@@ -23,6 +23,7 @@ from jarvisx.core.logging import StructuredLogger
 from jarvisx.models.router import ModelRouter
 from jarvisx.tools.device import DeviceTool
 from jarvisx.tools.memory import LocalMemoryTool
+from jarvisx.tools.missions import MissionTool
 from jarvisx.tools.notifications import NotificationTool
 from jarvisx.tools.research import ResearchTool
 
@@ -48,11 +49,17 @@ def create_default_runtime(
     device_tool = DeviceTool()
     notification_tool = NotificationTool()
     research_tool = ResearchTool()
+    mission_tool = MissionTool(memory_tool=memory_tool, logger=logger)
 
     registry.register(MemoryAgent(tools={"memory": memory_tool}, logger=logger))
     registry.register(DeviceAgent(tools={"device": device_tool}, logger=logger))
     registry.register(ResearchAgent(tools={"research": research_tool}, logger=logger))
-    registry.register(PlannerAgent(tools={"notification": notification_tool}, logger=logger))
+    registry.register(
+        PlannerAgent(
+            tools={"notification": notification_tool, "mission": mission_tool},
+            logger=logger,
+        )
+    )
     registry.register(EditingAgent(tools={}, logger=logger))
     registry.register(CADAgent(tools={}, logger=logger))
     registry.register(ShadowBrokerAgent(tools={"research": research_tool}, logger=logger))
@@ -73,6 +80,7 @@ def create_default_runtime(
     health.register("hermes", lambda: HealthStatus.ok("Hermes ready"))
     health.register("agent_registry", lambda: HealthStatus.ok(f"{len(registry)} agents registered"))
     health.register("memory_tool", memory_tool.health)
+    health.register("mission_tool", mission_tool.health)
     health.register("device_tool", device_tool.health)
     health.register("research_tool", research_tool.health)
 

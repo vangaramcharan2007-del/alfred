@@ -27,6 +27,7 @@ Examples:
 
 - `DeviceTool`: prepares or executes Android actions.
 - `LocalMemoryTool`: stores and retrieves Markdown memory in the configured Obsidian vault.
+- `MissionTool`: stores append-only mission events through `LocalMemoryTool`.
 - `NotificationTool`: sends or schedules notifications.
 - `ResearchTool`: reads local docs now, web adapters later.
 
@@ -36,3 +37,10 @@ Examples:
 - Add memory behavior through tool methods before changing agents.
 - Keep Memory v1 keyword-only until a later architecture decision introduces semantic search.
 - New memory categories must be added to the category map and covered by tests.
+
+## Mission extension rules
+
+- Mission data must persist through the Memory Tool.
+- Do not make missions a conventional todo list; preserve XP, momentum, streak, and recovery semantics.
+- New mission types must define XP and priority defaults.
+- Mission state should remain reconstructable from append-only events.

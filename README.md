@@ -11,6 +11,7 @@ It is not a chatbot. The core is an event-driven multi-agent runtime where Alfre
 - Agent registry and sandbox-friendly base agent contracts.
 - Specialist agent stubs for Memory, Device, Research, Planner, Editing, CAD, ShadowBroker, and Debug.
 - Tool layer with Markdown-backed Obsidian memory, Android-device planning, notification, and research placeholders.
+- Mission System v1 with quests, boss fights, XP, streaks, and recovery missions.
 - Alfred local REST API and lightweight Edith HTTP client.
 - Structured JSON logging, failure reports, and health checks.
 - Unit tests for routing, event delivery, memory, health checks, and failure reporting.
@@ -56,6 +57,28 @@ Memory operations are exposed only through `LocalMemoryTool`:
 - `list_memories(category)`
 
 Search is keyword-only. There are no embeddings, vector databases, or RAG components in Memory v1.
+
+## Mission System v1
+
+Mission System v1 is a momentum layer, not a traditional todo app. It tracks continuity through narrative mission types, XP, progress, streaks, and recovery missions after inactivity.
+
+Mission types:
+
+- `main_quest`
+- `side_quest`
+- `boss_fight`
+- `daily_mission`
+- `recovery_mission`
+
+Mission operations are exposed through `MissionTool`:
+
+- `create_mission()`
+- `complete_mission()`
+- `list_active_missions()`
+- `get_next_mission()`
+- `generate_recovery_mission()`
+
+Mission data is persisted as append-only mission events through `LocalMemoryTool.save_memory(..., "project")`. The Mission Tool does not read or write vault files directly; it reconstructs state from project memory records.
 
 ## Edith Communication v1
 
