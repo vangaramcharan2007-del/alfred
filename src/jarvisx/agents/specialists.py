@@ -69,7 +69,7 @@ class DeviceAgent(BaseAgent):
             parameters = device_action.get("parameters", {})
             if not isinstance(parameters, dict):
                 parameters = {}
-            result = device.prepare_device_action(action, parameters)
+            result = device.prepare_device_action(action, parameters, trace_id=event.trace_id)
             return self._response(
                 event,
                 handled=result.success,
@@ -79,7 +79,7 @@ class DeviceAgent(BaseAgent):
 
         text = _message(event)
         app_name = _extract_app_name(text)
-        result = device.prepare_open_app(app_name)
+        result = device.prepare_open_app(app_name, trace_id=event.trace_id)
         return self._response(
             event,
             handled=result.success,

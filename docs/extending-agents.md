@@ -44,3 +44,10 @@ Examples:
 - Do not make missions a conventional todo list; preserve XP, momentum, streak, and recovery semantics.
 - New mission types must define XP and priority defaults.
 - Mission state should remain reconstructable from append-only events.
+
+## Android adapter rules
+
+- Device actions must continue to flow through Alfred, Hermes, Device Agent, and Device Tool.
+- Edith must not call agents or tools directly.
+- MacroDroid payloads must include the current trace ID.
+- New Android actions should be added to `SUPPORTED_DEVICE_ACTIONS`, implemented in `DeviceTool`, and covered by adapter tests.

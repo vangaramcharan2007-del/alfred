@@ -10,7 +10,7 @@ It is not a chatbot. The core is an event-driven multi-agent runtime where Alfre
 - Hermes in-process event bus with trace IDs and target-based delivery.
 - Agent registry and sandbox-friendly base agent contracts.
 - Specialist agent stubs for Memory, Device, Research, Planner, Editing, CAD, ShadowBroker, and Debug.
-- Tool layer with Markdown-backed Obsidian memory, Android-device planning, notification, and research placeholders.
+- Tool layer with Markdown-backed Obsidian memory, Android MacroDroid intents, notification, and research placeholders.
 - Mission System v1 with quests, boss fights, XP, streaks, and recovery missions.
 - Alfred local REST API and lightweight Edith HTTP client.
 - Structured JSON logging, failure reports, and health checks.
@@ -119,6 +119,24 @@ response = edith.device_action(
     trace_id="edith-demo-1",
 )
 ```
+
+## Android Adapter v1
+
+Device actions are converted by `DeviceTool` into MacroDroid-compatible Android broadcast intent payloads. The adapter prepares local intent data only; execution remains on Edith or the Android device.
+
+MacroDroid trigger contract:
+
+- Broadcast action: `com.projectjarvisx.MACRODROID_INTENT`
+- Package hint: `com.arlosoft.macrodroid`
+- Extras include `jarvis_action` and `trace_id`
+
+Supported `jarvis_action` values:
+
+- `open_app`
+- `notification`
+- `speak_text`
+
+The route remains `Edith -> Alfred REST API -> Hermes -> Device Agent -> DeviceTool -> MacroDroid intent`.
 
 ## Architecture principles
 

@@ -59,6 +59,28 @@ Each request either supplies a trace ID through `trace_id` or `X-Trace-ID`, or A
 
 Edith must not communicate directly with agents. Any future mobile transport, voice adapter, or MacroDroid bridge should remain behind the Edith client or device tools while keeping Alfred as the API gateway.
 
+## Android adapter
+
+Android Adapter v1 lives behind `DeviceTool`. It converts supported device actions into MacroDroid-compatible broadcast intent payloads without executing them directly.
+
+The internal route is preserved:
+
+```text
+Alfred
+  -> Hermes
+  -> Device Agent
+  -> DeviceTool
+  -> MacroDroid intent payload
+```
+
+MacroDroid should listen for broadcast action `com.projectjarvisx.MACRODROID_INTENT`. The payload extras include:
+
+- `jarvis_action`: one of `open_app`, `notification`, or `speak_text`
+- `trace_id`: the Hermes/API trace ID
+- action-specific values such as `app_name`, `package_hint`, `title`, `body`, or `text`
+
+This adapter is local-first. It prepares the Android intent contract and leaves actual execution to Edith, MacroDroid, or a future Android bridge.
+
 ## Offline-first design
 
 The base runtime uses only the Python standard library. Networked integrations such as Supabase, remote search, and hosted LLMs should be adapters behind tools or model providers. The system should continue to boot and route tasks even when those adapters are unavailable.
