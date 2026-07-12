@@ -8,6 +8,7 @@ from typing import Any, Optional
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from jarvisx.adapters.voice_interface import VoiceManager
 from jarvisx.agents.base import AgentResponse
 from jarvisx.runtime import JarvisRuntime, create_default_runtime
 
@@ -43,6 +44,7 @@ def serve(
 def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
     class AlfredRequestHandler(BaseHTTPRequestHandler):
         server_version = "JarvisXAlfred/0.1"
+        voice_manager = VoiceManager(runtime)
 
         def do_GET(self) -> None:
             route = urlparse(self.path).path
@@ -57,6 +59,11 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
 
         def do_POST(self) -> None:
             route = urlparse(self.path).path
+            
+            if route == "/voice":
+                self._handle_voice()
+                return
+
             payload, parse_error = self._read_json()
             trace_id = _trace_id(payload, self.headers.get("X-Trace-ID"))
             if parse_error:
@@ -107,6 +114,25 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
                 return
             response = asyncio.run(runtime.alfred.process(message, trace_id=trace_id, source="edith"))
             self._write_agent_response(response)
+
+        def _handle_voice(self) -> None:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+            if length == 0:
+                self._write_json(
+                    HTTPStatus.BAD_REQUEST,
+                    {"handled": False, "trace_id": uuid4().hex, "message": "No audio data provided."},
+                )
+                return
+            audio_data = self.rfile.read(length)
+            trace_id = self.headers.get("X-Trace-ID") or uuid4().hex
+            
+            audio_response = asyncio.run(self.voice_manager.process_voice_input(audio_data, trace_id=trace_id))
+            
+            self.send_response(HTTPStatus.OK.value)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(len(audio_response)))
+            self.end_headers()
+            self.wfile.write(audio_response)
 
         def _handle_notify(self, payload: dict[str, Any], trace_id: str) -> None:
             title = str(payload.get("title", "Jarvis X"))
