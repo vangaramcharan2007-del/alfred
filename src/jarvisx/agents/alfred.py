@@ -106,7 +106,7 @@ class AlfredOrchestrator:
             payload={"message": message},
         )
         intent = self.classifier.classify(message)
-        model = self.model_router.select(intent.task_class)
+        model = self.model_router.select(intent.task_class, message)
         self.logger.write(
             "info",
             "alfred.intent.selected",

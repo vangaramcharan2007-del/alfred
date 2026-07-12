@@ -21,6 +21,7 @@ class AlfredRoutingTests(unittest.TestCase):
             response.data["result"]["data"]["package_hint"],
             "com.google.android.youtube",
         )
+        self.assertEqual(response.model["tier"], "tier_1_fast")
 
     def test_remember_routes_to_memory_agent(self) -> None:
         runtime = create_default_runtime()
@@ -35,6 +36,15 @@ class AlfredRoutingTests(unittest.TestCase):
         self.assertTrue(response.handled)
         self.assertEqual(response.agent_id, "debug")
         self.assertIn("will not deploy", response.message.lower())
+        self.assertEqual(response.model["tier"], "tier_2_reasoning")
+
+    def test_long_message_routes_to_tier_2(self) -> None:
+        runtime = create_default_runtime()
+        # A long message (over 15 words) should be tier_2_reasoning even if it's a device command
+        long_message = "open youtube and also can you please explain to me how I can watch some programming tutorials on it"
+        response = asyncio.run(runtime.alfred.process(long_message))
+        self.assertTrue(response.handled)
+        self.assertEqual(response.model["tier"], "tier_2_reasoning")
 
 
 if __name__ == "__main__":
