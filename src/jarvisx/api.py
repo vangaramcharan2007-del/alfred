@@ -8,6 +8,7 @@ from typing import Any, Optional
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from jarvisx.adapters.vision_interface import VisionManager
 from jarvisx.adapters.voice_interface import VoiceManager
 from jarvisx.agents.base import AgentResponse
 from jarvisx.runtime import JarvisRuntime, create_default_runtime
@@ -45,6 +46,7 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
     class AlfredRequestHandler(BaseHTTPRequestHandler):
         server_version = "JarvisXAlfred/0.1"
         voice_manager = VoiceManager(runtime)
+        vision_manager = VisionManager(runtime)
 
         def do_GET(self) -> None:
             route = urlparse(self.path).path
@@ -62,6 +64,10 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
             
             if route == "/voice":
                 self._handle_voice()
+                return
+
+            if route == "/vision":
+                self._handle_vision()
                 return
 
             payload, parse_error = self._read_json()
@@ -133,6 +139,25 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
             self.send_header("Content-Length", str(len(audio_response)))
             self.end_headers()
             self.wfile.write(audio_response)
+
+        def _handle_vision(self) -> None:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+            if length == 0:
+                self._write_json(
+                    HTTPStatus.BAD_REQUEST,
+                    {"handled": False, "trace_id": uuid4().hex, "message": "No image data provided."},
+                )
+                return
+            image_data = self.rfile.read(length)
+            trace_id = self.headers.get("X-Trace-ID") or uuid4().hex
+            
+            vision_response = asyncio.run(self.vision_manager.process_image_input(image_data, trace_id=trace_id))
+            
+            self.send_response(HTTPStatus.OK.value)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(vision_response)))
+            self.end_headers()
+            self.wfile.write(vision_response)
 
         def _handle_notify(self, payload: dict[str, Any], trace_id: str) -> None:
             title = str(payload.get("title", "Jarvis X"))

@@ -67,7 +67,7 @@ class ModelRouter:
             ),
         }
 
-    def select(self, task_class: str, message: str = "") -> ModelProfile:
+    def select(self, task_class: str, message: str = "", has_image: bool = False) -> ModelProfile:
         # Determine base profile based on task_class
         if task_class in {"debug", "coding"}:
             base_profile = self._profiles["coding"]
@@ -83,7 +83,7 @@ class ModelRouter:
             base_profile = self._profiles["intent"]
             
         # Determine tier dynamically based on complexity
-        tier = self._determine_tier(task_class, message)
+        tier = self._determine_tier(task_class, message, has_image)
         
         # Return a new ModelProfile with the determined tier
         return ModelProfile(
@@ -94,7 +94,10 @@ class ModelRouter:
             tier=tier,
         )
 
-    def _determine_tier(self, task_class: str, message: str) -> str:
+    def _determine_tier(self, task_class: str, message: str, has_image: bool) -> str:
+        if has_image:
+            return "tier_2_reasoning"
+            
         complex_classes = {"coding", "reasoning", "planning", "debug", "shadowbroker", "cad", "editing"}
         if task_class in complex_classes:
             return "tier_2_reasoning"

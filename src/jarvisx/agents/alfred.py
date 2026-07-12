@@ -98,6 +98,7 @@ class AlfredOrchestrator:
         *,
         trace_id: Optional[str] = None,
         source: str = "user",
+        has_image: bool = False,
     ) -> AgentResponse:
         user_event = self._event(
             event_type="user.message.received",
@@ -106,7 +107,7 @@ class AlfredOrchestrator:
             payload={"message": message},
         )
         intent = self.classifier.classify(message)
-        model = self.model_router.select(intent.task_class, message)
+        model = self.model_router.select(intent.task_class, message, has_image=has_image)
         self.logger.write(
             "info",
             "alfred.intent.selected",
