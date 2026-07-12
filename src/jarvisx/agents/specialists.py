@@ -149,18 +149,45 @@ class PlannerAgent(BaseAgent):
 
 class EditingAgent(BaseAgent):
     agent_id = "editing"
-    role = "Media workflow specialist"
-    expertise = ("video editing", "thumbnails", "subtitles")
-    tone = "creative and specific"
-    personality = "practical editor"
-    capabilities = ("editing.plan_workflow", "editing.prepare_assets")
+    role = "Local file system manipulator and code editor"
+    expertise = ("file reading", "file writing", "code editing")
+    tone = "precise"
+    personality = "careful coder"
+    capabilities = ("file.read", "file.write", "file.edit")
 
     async def handle(self, event: Event) -> AgentResponse:
+        file_system = self.tools.get("file")
+        if not file_system:
+            return self._response(
+                event,
+                handled=False,
+                message="Editing Agent requires the 'file' tool to operate.",
+                data={"error": "Missing FileSystem tool"}
+            )
+            
+        text = _message(event).lower()
+        # Stub implementation mapping keywords to mock results
+        action_taken = "Prepared a plan to edit the file system."
+        
+        if "write a script" in text or "create a file" in text or "write code" in text:
+            # Simulate a write action
+            try:
+                file_system.write_file("stub.txt", "Stub content")
+                action_taken = "Created 'stub.txt' in the sandbox workspace."
+            except Exception as e:
+                action_taken = f"Failed: {str(e)}"
+        elif "read file" in text:
+            try:
+                content = file_system.read_file("stub.txt")
+                action_taken = f"Read 'stub.txt': {content}"
+            except Exception as e:
+                action_taken = f"Failed to read: {str(e)}"
+                
         return self._response(
             event,
             handled=True,
-            message="Editing Agent prepared a media workflow plan.",
-            data={"workflow_request": _message(event), "tools_needed": ["media", "file"]},
+            message=action_taken,
+            data={"workflow_request": _message(event), "tools_needed": ["file"]},
         )
 
 

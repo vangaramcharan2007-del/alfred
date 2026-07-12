@@ -44,7 +44,7 @@ class IntentClassifier:
             "planning",
             ("schedule", "remind", "todo", "task", "goal", "mission", "quest", "boss", "xp", "streak"),
         ),
-        ("editing", "editing", "editing", ("video", "thumbnail", "subtitle", "render")),
+        ("editing", "editing", "editing", ("create a file", "write a script", "edit code", "write code", "edit file")),
         ("cad", "cad", "cad", ("cad", "stl", "3d model", "manufacturing", "dimension")),
         ("shadowbroker", "shadowbroker", "shadowbroker", ("osint", "threat", "security", "trend monitoring")),
         ("debug", "debug", "debug", ("debug", "error", "failure", "logs", "test", "patch", "fix")),

@@ -46,6 +46,14 @@ class AlfredRoutingTests(unittest.TestCase):
         self.assertTrue(response.handled)
         self.assertEqual(response.model["tier"], "tier_2_reasoning")
 
+    def test_editing_routes_to_editing_agent(self) -> None:
+        runtime = create_default_runtime()
+        response = asyncio.run(runtime.alfred.process("create a file named test.py"))
+        self.assertTrue(response.handled)
+        self.assertEqual(response.agent_id, "editing")
+        # According to our routing rules, editing maps to tier_2_reasoning
+        self.assertEqual(response.model["tier"], "tier_2_reasoning")
+
 
 if __name__ == "__main__":
     unittest.main()

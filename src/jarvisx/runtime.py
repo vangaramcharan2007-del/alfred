@@ -22,6 +22,7 @@ from jarvisx.core.hermes import HermesBus
 from jarvisx.core.logging import StructuredLogger
 from jarvisx.models.router import ModelRouter
 from jarvisx.tools.device import DeviceTool
+from jarvisx.tools.file_system import FileSystem
 from jarvisx.tools.memory import LocalMemoryTool
 from jarvisx.tools.missions import MissionTool
 from jarvisx.tools.notifications import NotificationTool
@@ -67,7 +68,7 @@ def create_default_runtime(
             logger=logger,
         )
     )
-    registry.register(EditingAgent(tools={}, logger=logger))
+    registry.register(EditingAgent(tools={"file": FileSystem(root_dir=".")}, logger=logger))
     registry.register(CADAgent(tools={}, logger=logger))
     registry.register(ShadowBrokerAgent(tools={"research": research_tool}, logger=logger))
     registry.register(DebugAgent(tools={}, logger=logger))
