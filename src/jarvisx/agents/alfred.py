@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from jarvisx.agents.base import AgentResponse
 from jarvisx.agents.registry import AgentRegistry
@@ -82,12 +82,14 @@ class AlfredOrchestrator:
         registry: AgentRegistry,
         classifier: IntentClassifier,
         model_router: ModelRouter,
+        personalization_tool: Optional[Any] = None,
         logger: Optional[StructuredLogger] = None,
     ) -> None:
         self.hermes = hermes
         self.registry = registry
         self.classifier = classifier
         self.model_router = model_router
+        self.personalization_tool = personalization_tool
         self.logger = logger or StructuredLogger()
 
     async def process(
@@ -112,6 +114,7 @@ class AlfredOrchestrator:
             intent=intent.to_dict(),
             model=model.to_dict(),
         )
+        response_config = self._response_config(user_event.trace_id)
 
         task_event = user_event.child(
             event_type="agent.task.requested",
@@ -121,9 +124,15 @@ class AlfredOrchestrator:
                 "message": message,
                 "intent": intent.to_dict(),
                 "model": model.to_dict(),
+                "response_config": response_config,
             },
         )
-        return await self._delegate(task_event, intent=intent, model=model.to_dict())
+        return await self._delegate(
+            task_event,
+            intent=intent,
+            model=model.to_dict(),
+            response_config=response_config,
+        )
 
     async def notify(
         self,
@@ -156,6 +165,7 @@ class AlfredOrchestrator:
             payload={"device_action": {"action": normalized_action, "parameters": parameters or {}}},
         )
         model = self.model_router.select("device").to_dict()
+        response_config = self._response_config(root_event.trace_id)
         intent = Intent(
             label="device_action",
             agent_id="device",
@@ -187,6 +197,7 @@ class AlfredOrchestrator:
                     "intent": intent.to_dict(),
                     "failure": failure.to_dict(),
                     "supported_actions": list(SUPPORTED_DEVICE_ACTIONS),
+                    "response_config": response_config,
                 },
                 model=model,
             )
@@ -199,13 +210,19 @@ class AlfredOrchestrator:
                 "message": f"device_action:{normalized_action}",
                 "intent": intent.to_dict(),
                 "model": model,
+                "response_config": response_config,
                 "device_action": {
                     "action": normalized_action,
                     "parameters": parameters or {},
                 },
             },
         )
-        return await self._delegate(task_event, intent=intent, model=model)
+        return await self._delegate(
+            task_event,
+            intent=intent,
+            model=model,
+            response_config=response_config,
+        )
 
     async def _delegate(
         self,
@@ -213,6 +230,7 @@ class AlfredOrchestrator:
         *,
         intent: Intent,
         model: dict[str, object],
+        response_config: dict[str, object],
     ) -> AgentResponse:
         if not self.registry.maybe_get(intent.agent_id):
             failure = FailureReport(
@@ -228,19 +246,29 @@ class AlfredOrchestrator:
                 handled=False,
                 message="Alfred could not route the task.",
                 trace_id=task_event.trace_id,
-                data={"intent": intent.to_dict(), "failure": failure.to_dict()},
+                data={
+                    "intent": intent.to_dict(),
+                    "failure": failure.to_dict(),
+                    "response_config": response_config,
+                },
                 model=model,
             )
 
         responses = await self.hermes.publish(task_event)
         response = next((item for item in responses if isinstance(item, AgentResponse)), None)
         if response:
+            response_data = {
+                **response.data,
+                "intent": intent.to_dict(),
+                "orchestrator_response_config": response_config,
+            }
+            response_data.setdefault("response_config", response_config)
             return AgentResponse(
                 agent_id=response.agent_id,
                 handled=response.handled,
                 message=response.message,
                 trace_id=response.trace_id,
-                data={**response.data, "intent": intent.to_dict()},
+                data=response_data,
                 model=model,
             )
         failure = FailureReport(
@@ -256,9 +284,29 @@ class AlfredOrchestrator:
             handled=False,
             message="Alfred routed the task, but no agent responded.",
             trace_id=task_event.trace_id,
-            data={"intent": intent.to_dict(), "failure": failure.to_dict()},
+            data={
+                "intent": intent.to_dict(),
+                "failure": failure.to_dict(),
+                "response_config": response_config,
+            },
             model=model,
         )
+
+    def _response_config(self, trace_id: str) -> dict[str, object]:
+        if not self.personalization_tool:
+            return {
+                "style_only": True,
+                "logic_boundaries": {
+                    "affects_routing": False,
+                    "affects_permissions": False,
+                    "affects_execution": False,
+                    "affects_model_selection": False,
+                },
+            }
+        result = self.personalization_tool.get_response_config(self.agent_id, trace_id=trace_id)
+        if result.success:
+            return result.data
+        return {"style_only": True, "error": result.message}
 
     def _event(
         self,

@@ -109,6 +109,39 @@ Mission persistence is append-only. The Mission Tool writes mission events throu
 
 Recovery missions are generated when continuity has been interrupted. They are intentionally small and high priority so the next suggested mission favors restart momentum.
 
+## Personality and modes
+
+Personality and Modes v1 is owned by `PersonalizationTool`. It is a style and response-configuration layer only.
+
+Hard boundaries:
+
+- It must not change routing.
+- It must not change permissions.
+- It must not execute actions.
+- It must not choose models.
+- It must not bypass Hermes or agent delegation.
+
+Built-in modes:
+
+- `focus`: shorter responses, minimal distractions, active-mission emphasis.
+- `study`: detailed explanations, teaching orientation, more examples.
+- `builder`: coding and project emphasis, active development missions.
+- `research`: exploration and deeper information gathering.
+- `companion`: conversational interaction with preference/context awareness.
+- `emergency`: concise wording, speed, and critical actions.
+
+Built-in personalities exist for Alfred, Edith, and Hermes. Future agents can use a fallback profile immediately, or store a custom profile through `set_personality()`.
+
+Persistence is append-only through `LocalMemoryTool.save_memory(..., "preference")`, which places personalization events in the Obsidian `Preferences/` folder. Startup restoration replays those events to recover active mode and custom profiles.
+
+Integration points:
+
+- Alfred attaches current response configuration to orchestration responses.
+- Edith returns its own agent-specific response configuration when activated.
+- Mission Tool reads the current mode for mission priority bias.
+
+These integrations are advisory style/configuration metadata. Business logic remains owned by the relevant agent and tool.
+
 ## Memory layers
 
 - Human-readable memory: Obsidian-compatible Markdown files in the configured vault.

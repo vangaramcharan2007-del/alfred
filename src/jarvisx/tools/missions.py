@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 import json
 import re
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 from uuid import uuid4
 
 from jarvisx.core.health import HealthStatus
@@ -47,10 +47,12 @@ class MissionTool(BaseTool):
         self,
         *,
         memory_tool: LocalMemoryTool,
+        personalization_tool: Optional[Any] = None,
         logger: Optional[StructuredLogger] = None,
         now: Optional[Callable[[], datetime]] = None,
     ) -> None:
         self.memory_tool = memory_tool
+        self.personalization_tool = personalization_tool
         self.logger = logger or StructuredLogger()
         self._now = now or (lambda: datetime.now(timezone.utc))
 
@@ -183,11 +185,11 @@ class MissionTool(BaseTool):
         if not state_result.success:
             return state_result
         active = [
-            mission
+            self._mission_with_mode_priority(mission, trace_id=trace_id)
             for mission in state_result.data["missions"].values()
             if mission["status"] == "active"
         ]
-        active.sort(key=lambda mission: (-int(mission["priority"]), mission["created_at"]))
+        active.sort(key=lambda mission: (-int(mission["mode_priority"]), mission["created_at"]))
         return ToolResult(
             success=True,
             message=f"Found {len(active)} active mission(s).",
@@ -233,6 +235,21 @@ class MissionTool(BaseTool):
 
     def health(self) -> HealthStatus:
         return self.memory_tool.health()
+
+    def _mission_with_mode_priority(
+        self,
+        mission: dict[str, object],
+        *,
+        trace_id: Optional[str],
+    ) -> dict[str, object]:
+        enriched = dict(mission)
+        bias = {}
+        if self.personalization_tool:
+            bias = self.personalization_tool.mode_priority_bias(trace_id=trace_id)
+        mode_boost = int(bias.get(str(mission.get("type")), 0))
+        enriched["mode_priority"] = int(mission["priority"]) + mode_boost
+        enriched["mode_priority_boost"] = mode_boost
+        return enriched
 
     def _load_state(self, *, trace_id: Optional[str] = None) -> ToolResult:
         memories = self.memory_tool.list_memories("project", trace_id=trace_id)

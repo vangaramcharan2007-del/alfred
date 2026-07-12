@@ -12,6 +12,7 @@ It is not a chatbot. The core is an event-driven multi-agent runtime where Alfre
 - Specialist agent stubs for Memory, Device, Research, Planner, Editing, CAD, ShadowBroker, and Debug.
 - Tool layer with Markdown-backed Obsidian memory, Android MacroDroid intents, notification, and research placeholders.
 - Mission System v1 with quests, boss fights, XP, streaks, and recovery missions.
+- Personality and Modes v1 for style-only communication adaptation.
 - Alfred local REST API and lightweight Edith HTTP client.
 - Structured JSON logging, failure reports, and health checks.
 - Unit tests for routing, event delivery, memory, health checks, and failure reporting.
@@ -79,6 +80,36 @@ Mission operations are exposed through `MissionTool`:
 - `generate_recovery_mission()`
 
 Mission data is persisted as append-only mission events through `LocalMemoryTool.save_memory(..., "project")`. The Mission Tool does not read or write vault files directly; it reconstructs state from project memory records.
+
+## Personality and Modes v1
+
+Personalities and modes adapt communication style without changing logic, routing, permissions, model selection, or execution.
+
+Built-in personalities:
+
+- Alfred
+- Edith
+- Hermes
+
+Supported modes:
+
+- `focus`
+- `study`
+- `builder`
+- `research`
+- `companion`
+- `emergency`
+
+Personalization operations are exposed through `PersonalizationTool`:
+
+- `set_mode()`
+- `get_mode()`
+- `set_personality()`
+- `get_personality()`
+- `list_modes()`
+- `list_personalities()`
+
+State is stored through Memory Tool in `Preferences/`. Runtime startup restores the active mode and saved personalities by replaying preference events. Custom future-agent profiles can be saved with communication-style fields such as `tone`, `style`, `verbosity`, `warmth`, `examples`, `pacing`, and `notes`.
 
 ## Edith Communication v1
 

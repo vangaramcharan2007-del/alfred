@@ -16,6 +16,11 @@ class EdithAgent(BaseAgent):
         message = str(event.payload.get("message", ""))
         notification = self.tools.get("notification")
         data = {"requested_message": message}
+        personalization = self.tools.get("personalization")
+        if personalization:
+            style = personalization.get_response_config(self.agent_id, trace_id=event.trace_id)
+            if style.success:
+                data["response_config"] = style.data
         if notification and "notification" in message.lower():
             result = notification.prepare_notification("Jarvis X", message)
             data["notification"] = result.to_dict()

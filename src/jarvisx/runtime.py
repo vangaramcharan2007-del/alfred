@@ -25,6 +25,7 @@ from jarvisx.tools.device import DeviceTool
 from jarvisx.tools.memory import LocalMemoryTool
 from jarvisx.tools.missions import MissionTool
 from jarvisx.tools.notifications import NotificationTool
+from jarvisx.tools.personalization import PersonalizationTool
 from jarvisx.tools.research import ResearchTool
 
 
@@ -34,6 +35,7 @@ class JarvisRuntime:
     registry: AgentRegistry
     alfred: AlfredOrchestrator
     health: HealthMonitor
+    personalization: PersonalizationTool
 
 
 def create_default_runtime(
@@ -49,7 +51,12 @@ def create_default_runtime(
     device_tool = DeviceTool()
     notification_tool = NotificationTool()
     research_tool = ResearchTool()
-    mission_tool = MissionTool(memory_tool=memory_tool, logger=logger)
+    personalization_tool = PersonalizationTool(memory_tool=memory_tool, logger=logger)
+    mission_tool = MissionTool(
+        memory_tool=memory_tool,
+        personalization_tool=personalization_tool,
+        logger=logger,
+    )
 
     registry.register(MemoryAgent(tools={"memory": memory_tool}, logger=logger))
     registry.register(DeviceAgent(tools={"device": device_tool}, logger=logger))
@@ -64,7 +71,16 @@ def create_default_runtime(
     registry.register(CADAgent(tools={}, logger=logger))
     registry.register(ShadowBrokerAgent(tools={"research": research_tool}, logger=logger))
     registry.register(DebugAgent(tools={}, logger=logger))
-    registry.register(EdithAgent(tools={"device": device_tool, "notification": notification_tool}, logger=logger))
+    registry.register(
+        EdithAgent(
+            tools={
+                "device": device_tool,
+                "notification": notification_tool,
+                "personalization": personalization_tool,
+            },
+            logger=logger,
+        )
+    )
     registry.bind(hermes)
 
     model_router = ModelRouter()
@@ -73,6 +89,7 @@ def create_default_runtime(
         registry=registry,
         classifier=IntentClassifier(),
         model_router=model_router,
+        personalization_tool=personalization_tool,
         logger=logger,
     )
 
@@ -80,8 +97,15 @@ def create_default_runtime(
     health.register("hermes", lambda: HealthStatus.ok("Hermes ready"))
     health.register("agent_registry", lambda: HealthStatus.ok(f"{len(registry)} agents registered"))
     health.register("memory_tool", memory_tool.health)
+    health.register("personalization_tool", personalization_tool.health)
     health.register("mission_tool", mission_tool.health)
     health.register("device_tool", device_tool.health)
     health.register("research_tool", research_tool.health)
 
-    return JarvisRuntime(hermes=hermes, registry=registry, alfred=alfred, health=health)
+    return JarvisRuntime(
+        hermes=hermes,
+        registry=registry,
+        alfred=alfred,
+        health=health,
+        personalization=personalization_tool,
+    )

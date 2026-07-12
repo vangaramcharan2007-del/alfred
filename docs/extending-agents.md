@@ -28,6 +28,7 @@ Examples:
 - `DeviceTool`: prepares or executes Android actions.
 - `LocalMemoryTool`: stores and retrieves Markdown memory in the configured Obsidian vault.
 - `MissionTool`: stores append-only mission events through `LocalMemoryTool`.
+- `PersonalizationTool`: stores style-only mode and personality preferences through `LocalMemoryTool`.
 - `NotificationTool`: sends or schedules notifications.
 - `ResearchTool`: reads local docs now, web adapters later.
 
@@ -51,3 +52,12 @@ Examples:
 - Edith must not call agents or tools directly.
 - MacroDroid payloads must include the current trace ID.
 - New Android actions should be added to `SUPPORTED_DEVICE_ACTIONS`, implemented in `DeviceTool`, and covered by adapter tests.
+
+## Personality and mode extension rules
+
+- Add built-in modes in `src/jarvisx/config/personalization.py`.
+- Add built-in personalities in `src/jarvisx/config/personalization.py`.
+- Custom future-agent profiles should be stored with `PersonalizationTool.set_personality()`.
+- Personality fields must remain communication-style fields only.
+- Never allow mode or personality data to alter routing, permissions, execution, or model selection.
+- Add tests for any new mode influence on response configuration or mission priority.
