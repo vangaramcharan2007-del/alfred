@@ -4,14 +4,23 @@ import json
 from typing import Optional
 
 from jarvisx.runtime import JarvisRuntime
+from jarvisx.clients.elevenlabs_client import ElevenLabsClient
+from jarvisx.clients.openai_client import OpenAIClient
 
 
 class STTProvider:
-    """Stub Speech-to-Text provider."""
+    """Speech-to-Text provider with OpenAI Whisper + Stub fallback."""
     
+    def __init__(self, client: Optional[OpenAIClient] = None):
+        self.client = client or OpenAIClient()
+        
     def transcribe(self, audio_data: bytes) -> str:
-        # In a real implementation, this would call Whisper, Deepgram, etc.
-        # For this stub, we'll try to extract text if it's JSON, otherwise return a default.
+        if self.client.is_configured:
+            transcription = self.client.transcribe(audio_data)
+            if transcription:
+                return transcription
+                
+        # Fallback to stub parsing for tests or offline
         try:
             payload = json.loads(audio_data.decode("utf-8"))
             return str(payload.get("text", "Simulated voice input text"))
@@ -20,11 +29,22 @@ class STTProvider:
 
 
 class TTSProvider:
-    """Stub Text-to-Speech provider."""
+    """Text-to-Speech provider with ElevenLabs + Stub fallback."""
     
+    def __init__(self, client: Optional[ElevenLabsClient] = None):
+        self.client = client or ElevenLabsClient()
+        
     def synthesize(self, text: str, agent_id: str, mode_config: dict[str, object]) -> bytes:
-        # In a real implementation, this would call ElevenLabs, OpenAI TTS, etc.
-        # We respect agent_id for the voice profile and mode_config for pacing.
+        if self.client.is_configured:
+            voice_id = ElevenLabsClient.VOICE_ALFRED
+            if agent_id == "edith":
+                voice_id = ElevenLabsClient.VOICE_EDITH
+                
+            audio_out = self.client.synthesize(text, voice_id=voice_id)
+            if audio_out:
+                return audio_out
+                
+        # Fallback stub implementation
         metadata = {
             "text": text,
             "voice_profile": agent_id,
