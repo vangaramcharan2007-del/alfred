@@ -9,18 +9,33 @@ It is not a chatbot. The core is an event-driven multi-agent runtime where Alfre
 - Alfred orchestrator with intent, agent, and model routing.
 - Hermes in-process event bus with trace IDs and target-based delivery.
 - Agent registry and sandbox-friendly base agent contracts.
-- Specialist agent stubs for Memory, Device, Research, Planner, Editing, CAD, ShadowBroker, and Debug.
-- Tool layer with Markdown-backed Obsidian memory, Android MacroDroid intents, notification, and research placeholders.
-- Mission System v1 with quests, boss fights, XP, streaks, and recovery missions.
+- **Dynamic Plugin Ecosystem**: Auto-discovery and loading of agents via `src/jarvisx/plugins/`.
+- Specialist agents: Memory, Device, Research, Planner, Editing, CAD, ShadowBroker, Debug, and XP.
+- Tool layer: Obsidian memory, Android MacroDroid intents, Termux API, OpenSCAD CAD generator, notification, and research.
+- **Mission & Gamification (XP) System v1**: Quests, boss fights, XP, streaks, and level tracking.
+- **Voice Interaction**: Local fallback with ElevenLabs (TTS) and OpenAI Whisper (STT) integrations.
+- **GUI Dashboard**: Lightweight local HTTP dashboard for system state monitoring, logs, and mode switching.
+- **Operational Backend**: Local SQLite cache with robust background synchronization to Supabase.
+- **Edith Mobile System**: Deep integration with Android via Termux (`termux-api`).
 - Personality and Modes v1 for style-only communication adaptation.
 - Alfred local REST API and lightweight Edith HTTP client.
-- Structured JSON logging, failure reports, and health checks.
-- Unit tests for routing, event delivery, memory, health checks, and failure reporting.
+- Structured JSON logging, failure reports, health checks, and in-memory ring buffers.
+- Unit tests covering 95%+ of core routing, memory, tools, and sync logic.
 
 ## Quick start
 
 ```powershell
-cd outputs/project-jarvis-x
+# Windows
+.\bootstrap.ps1
+```
+
+```bash
+# Unix/Linux/Termux
+./bootstrap.sh
+```
+
+Alternatively, manual startup:
+```powershell
 python -m unittest discover -s tests
 $env:PYTHONPATH = "src"
 python -m jarvisx "Open YouTube"
