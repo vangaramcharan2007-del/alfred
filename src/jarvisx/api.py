@@ -4,6 +4,7 @@ import asyncio
 import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urlparse
 from uuid import uuid4
@@ -50,6 +51,18 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
 
         def do_GET(self) -> None:
             route = urlparse(self.path).path
+            if route == "/dashboard":
+                self._serve_dashboard()
+                return
+            if route == "/api/state":
+                self._handle_api_state()
+                return
+            if route == "/api/agents":
+                self._handle_api_agents()
+                return
+            if route == "/api/logs":
+                self._handle_api_logs()
+                return
             if route == "/status":
                 trace_id = self.headers.get("X-Trace-ID") or uuid4().hex
                 self._write_json(HTTPStatus.OK, _status_payload(runtime, trace_id=trace_id))
@@ -94,6 +107,12 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
                 return
             if route == "/device_action":
                 self._handle_device_action(payload, trace_id)
+                return
+            if route == "/api/mode":
+                self._handle_api_mode(payload, trace_id)
+                return
+            if route == "/api/personality":
+                self._handle_api_personality(payload, trace_id)
                 return
 
             self._write_json(
@@ -210,6 +229,81 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+
+        # ── Dashboard & API Endpoints ──
+
+        def _serve_dashboard(self) -> None:
+            html_path = Path(__file__).resolve().parent / "dashboard" / "index.html"
+            if not html_path.exists():
+                self._write_json(
+                    HTTPStatus.NOT_FOUND,
+                    {"handled": False, "message": "Dashboard HTML not found."},
+                )
+                return
+            body = html_path.read_bytes()
+            self.send_response(HTTPStatus.OK.value)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _handle_api_state(self) -> None:
+            mode_result = runtime.personalization.get_mode()
+            personalities_result = runtime.personalization.list_personalities()
+            health_checks = {
+                name: {"healthy": status.healthy, "message": status.message}
+                for name, status in runtime.health.run_all().items()
+            }
+            recent_logs = runtime.alfred.logger.recent(20)
+            self._write_json(HTTPStatus.OK, {
+                "mode": mode_result.data.get("mode", {}),
+                "personalities": personalities_result.data.get("personalities", {}),
+                "health": health_checks,
+                "recent_logs": recent_logs,
+            })
+
+        def _handle_api_agents(self) -> None:
+            agents = runtime.registry.describe()
+            self._write_json(HTTPStatus.OK, {"agents": agents})
+
+        def _handle_api_logs(self) -> None:
+            logs = runtime.alfred.logger.recent(50)
+            self._write_json(HTTPStatus.OK, {"logs": logs})
+
+        def _handle_api_mode(self, payload: dict[str, Any], trace_id: str) -> None:
+            mode = str(payload.get("mode", "")).strip()
+            if not mode:
+                self._write_json(
+                    HTTPStatus.BAD_REQUEST,
+                    {"success": False, "message": "Mode was empty."},
+                )
+                return
+            result = runtime.personalization.set_mode(mode, trace_id=trace_id)
+            self._write_json(
+                HTTPStatus.OK if result.success else HTTPStatus.BAD_REQUEST,
+                {"success": result.success, "message": result.message, "data": result.data},
+            )
+
+        def _handle_api_personality(self, payload: dict[str, Any], trace_id: str) -> None:
+            agent_id = str(payload.get("agent_id", "")).strip()
+            profile = payload.get("profile", {})
+            if not agent_id:
+                self._write_json(
+                    HTTPStatus.BAD_REQUEST,
+                    {"success": False, "message": "Agent id was empty."},
+                )
+                return
+            if not isinstance(profile, dict):
+                self._write_json(
+                    HTTPStatus.BAD_REQUEST,
+                    {"success": False, "message": "Profile must be a JSON object."},
+                )
+                return
+            result = runtime.personalization.set_personality(agent_id, profile, trace_id=trace_id)
+            self._write_json(
+                HTTPStatus.OK if result.success else HTTPStatus.BAD_REQUEST,
+                {"success": result.success, "message": result.message, "data": result.data},
+            )
 
     return AlfredRequestHandler
 
