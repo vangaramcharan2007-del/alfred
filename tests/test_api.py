@@ -21,6 +21,7 @@ class AlfredApiTests(unittest.TestCase):
             log_path=root / "jarvisx.jsonl",
             obsidian_vault=root / "vault",
         )
+        runtime.startup_manager.is_ready = True
         self.server = create_alfred_api_server(runtime, host="127.0.0.1", port=0)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()

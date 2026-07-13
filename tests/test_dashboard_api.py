@@ -16,6 +16,7 @@ class DashboardApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.runtime = create_default_runtime()
+        cls.runtime.startup_manager.is_ready = True
         cls.server = create_alfred_api_server(cls.runtime, port=0)
         cls.port = cls.server.server_address[1]
         cls.server_thread = threading.Thread(target=cls.server.serve_forever)

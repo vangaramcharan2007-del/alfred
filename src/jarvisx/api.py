@@ -30,16 +30,33 @@ def create_alfred_api_server(
     return AlfredApiServer((host, port), runtime or create_default_runtime())
 
 
+import threading
+
 def serve(
     *,
     host: str = "127.0.0.1",
     port: int = 8765,
     runtime: Optional[JarvisRuntime] = None,
 ) -> None:
+    runtime = runtime or create_default_runtime()
+    
+    # 1. Run boot sequence (blocks until complete)
+    asyncio.run(runtime.startup_manager.boot())
+    
+    # 2. Start continuous health monitor in a background thread
+    runtime.continuous_health.stop() # Ensure clean state
+    runtime.continuous_health._running = True
+    monitor_thread = threading.Thread(
+        target=lambda: asyncio.run(runtime.continuous_health._monitor_loop()),
+        daemon=True
+    )
+    monitor_thread.start()
+    
     server = create_alfred_api_server(runtime, host=host, port=port)
     try:
         server.serve_forever()
     finally:
+        runtime.continuous_health.stop()
         server.server_close()
 
 
@@ -130,6 +147,9 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
             )
 
         def _handle_chat(self, payload: dict[str, Any], trace_id: str) -> None:
+            if not runtime.startup_manager.is_ready:
+                self._write_json(HTTPStatus.SERVICE_UNAVAILABLE, {"handled": False, "message": "Jarvis X is still initializing."})
+                return
             message = str(payload.get("message", "")).strip()
             if not message:
                 self._write_json(
@@ -141,6 +161,9 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
             self._write_agent_response(response)
 
         def _handle_voice(self) -> None:
+            if not runtime.startup_manager.is_ready:
+                self._write_json(HTTPStatus.SERVICE_UNAVAILABLE, {"handled": False, "message": "Jarvis X is still initializing."})
+                return
             length = int(self.headers.get("Content-Length", "0") or "0")
             if length == 0:
                 self._write_json(
@@ -322,12 +345,19 @@ def _status_payload(runtime: JarvisRuntime, *, trace_id: str) -> dict[str, Any]:
         name: {"healthy": status.healthy, "message": status.message}
         for name, status in runtime.health.run_all().items()
     }
+    
+    providers = {}
+    for cat in runtime.fallback_manager.registry.get_all_categories():
+        active = runtime.fallback_manager.get_active(cat)
+        providers[cat] = active.capability.name if active else "NONE"
+        
     healthy = all(check["healthy"] for check in checks.values())
     return {
         "handled": healthy,
         "trace_id": trace_id,
         "status": "ok" if healthy else "degraded",
         "checks": checks,
+        "providers": providers,
     }
 
 

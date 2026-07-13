@@ -23,6 +23,7 @@ class TestJarvisE2E(unittest.TestCase):
             obsidian_vault=self.vault_path,
             log_path=self.log_path
         )
+        self.runtime.startup_manager.is_ready = True
 
     def tearDown(self):
         with contextlib.suppress(Exception):

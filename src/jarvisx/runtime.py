@@ -38,6 +38,18 @@ from jarvisx.tools.xp import XPTool
 from jarvisx.tools.cad import CADTool
 from jarvisx.tools.workflow import WorkflowTool
 
+from jarvisx.core.providers.provider_registry import ProviderRegistry
+from jarvisx.core.providers.fallback_manager import FallbackManager
+from jarvisx.core.providers.provider_router import ProviderRouter
+from jarvisx.core.providers.startup_manager import StartupManager
+from jarvisx.core.providers.health_monitor import ContinuousHealthMonitor
+
+from jarvisx.core.providers.llm import OpenAIProvider, GeminiProvider, ClaudeProvider, GroqProvider, OpenRouterProvider, OllamaProvider, LlamaCppProvider, LocalGGUFProvider
+from jarvisx.core.providers.tts import ElevenLabsProvider, PiperProvider, Pyttsx3Provider
+from jarvisx.core.providers.stt import WhisperAPIProvider, FasterWhisperProvider, WhisperCppProvider
+from jarvisx.core.providers.memory import SupabaseProvider, SQLiteProvider, LocalFilesProvider
+from jarvisx.core.providers.vision import TesseractProvider, FutureOCRProvider
+
 
 @dataclass(frozen=True)
 class JarvisRuntime:
@@ -46,6 +58,11 @@ class JarvisRuntime:
     alfred: AlfredOrchestrator
     health: HealthMonitor
     personalization: PersonalizationTool
+    provider_registry: ProviderRegistry
+    fallback_manager: FallbackManager
+    provider_router: ProviderRouter
+    startup_manager: StartupManager
+    continuous_health: ContinuousHealthMonitor
 
 
 def create_default_runtime(
@@ -128,10 +145,52 @@ def create_default_runtime(
     health.register("research_tool", research_tool.health)
     health.register("xp_tool", xp_tool.health)
 
+    # Provider Setup
+    provider_registry = ProviderRegistry()
+    
+    # Register LLMs
+    provider_registry.register(GeminiProvider())
+    provider_registry.register(OpenAIProvider())
+    provider_registry.register(ClaudeProvider())
+    provider_registry.register(GroqProvider())
+    provider_registry.register(OpenRouterProvider())
+    provider_registry.register(OllamaProvider())
+    provider_registry.register(LlamaCppProvider())
+    provider_registry.register(LocalGGUFProvider())
+    
+    # Register TTS
+    provider_registry.register(ElevenLabsProvider())
+    provider_registry.register(PiperProvider())
+    provider_registry.register(Pyttsx3Provider())
+    
+    # Register STT
+    provider_registry.register(WhisperAPIProvider())
+    provider_registry.register(FasterWhisperProvider())
+    provider_registry.register(WhisperCppProvider())
+    
+    # Register MEMORY
+    provider_registry.register(SupabaseProvider())
+    provider_registry.register(SQLiteProvider())
+    provider_registry.register(LocalFilesProvider())
+    
+    # Register VISION
+    provider_registry.register(TesseractProvider())
+    provider_registry.register(FutureOCRProvider())
+    
+    fallback_manager = FallbackManager(provider_registry)
+    provider_router = ProviderRouter(fallback_manager)
+    startup_manager = StartupManager(fallback_manager, health)
+    continuous_health = ContinuousHealthMonitor(health, fallback_manager)
+
     return JarvisRuntime(
         hermes=hermes,
         registry=registry,
         alfred=alfred,
         health=health,
         personalization=personalization_tool,
+        provider_registry=provider_registry,
+        fallback_manager=fallback_manager,
+        provider_router=provider_router,
+        startup_manager=startup_manager,
+        continuous_health=continuous_health,
     )
