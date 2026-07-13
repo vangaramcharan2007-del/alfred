@@ -31,6 +31,7 @@ from jarvisx.tools.notifications import NotificationTool
 from jarvisx.tools.operational_db import OperationalDatabase
 from jarvisx.tools.personalization import PersonalizationTool
 from jarvisx.tools.research import ResearchTool
+from jarvisx.tools.termux import TermuxTool
 from jarvisx.tools.xp import XPTool
 
 
@@ -78,13 +79,13 @@ def create_default_runtime(
     registry.register(EditingAgent(tools={"file": FileSystem(root_dir=".")}, logger=logger))
     registry.register(CADAgent(tools={}, logger=logger))
     registry.register(ShadowBrokerAgent(tools={"research": research_tool}, logger=logger))
-    registry.register(DebugAgent(tools={}, logger=logger))
+    registry.register(DebugAgent(tools={"termux": termux_tool}, logger=logger))
     registry.register(
         EdithAgent(
             tools={
-                "device": device_tool,
                 "notification": notification_tool,
                 "personalization": personalization_tool,
+                "termux": termux_tool,
             },
             logger=logger,
         )
