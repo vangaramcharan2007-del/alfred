@@ -14,10 +14,12 @@ class TesseractProvider(BaseProvider):
         return ProviderCapability("VISION", "Tesseract", 10, True)
         
     async def check_health(self) -> bool:
-        return self.client.is_available()
+        from jarvisx.clients.tesseract_client import HAVE_TESSERACT
+        return HAVE_TESSERACT
         
     async def benchmark(self) -> float:
-        return 150.0 if self.client.is_available() else float('inf')
+        from jarvisx.clients.tesseract_client import HAVE_TESSERACT
+        return 100.0 if HAVE_TESSERACT else float('inf')
 
 
 class FutureOCRProvider(BaseProvider):

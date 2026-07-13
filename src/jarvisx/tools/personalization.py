@@ -8,9 +8,10 @@ import re
 from typing import Callable, Optional
 from uuid import uuid4
 
-from jarvisx.config.personalization import DEFAULT_PERSONALITIES, MODE_CONFIGS
 from jarvisx.core.health import HealthStatus
 from jarvisx.core.logging import StructuredLogger
+from jarvisx.core.configuration import ConfigurationManager
+from jarvisx.config.personalization import MODE_CONFIGS
 from jarvisx.tools.base import BaseTool, ToolResult
 from jarvisx.tools.memory import LocalMemoryTool
 
@@ -19,15 +20,9 @@ PERSONALIZATION_SCHEMA = "jarvisx.personalization_event.v1"
 PERSONALIZATION_MARKER = "JARVISX_PERSONALIZATION_EVENT"
 DEFAULT_MODE = "companion"
 SAFE_PERSONALITY_FIELDS = {
-    "agent_id",
-    "name",
-    "tone",
-    "style",
-    "verbosity",
-    "warmth",
-    "examples",
-    "pacing",
-    "notes",
+    "agent_id", "name", "tone", "style", "verbosity", "warmth", "examples", "pacing", "notes",
+    "humor", "formality", "initiative", "proactiveness", "empathy", "energy", "creativity", 
+    "technical_depth", "emotional_expression", "conversational_style"
 }
 FORBIDDEN_PERSONALITY_FIELDS = {
     "routing",
@@ -55,10 +50,12 @@ class PersonalizationTool(BaseTool):
         self,
         *,
         memory_tool: LocalMemoryTool,
+        config_manager: ConfigurationManager,
         logger: Optional[StructuredLogger] = None,
         now: Optional[Callable[[], datetime]] = None,
     ) -> None:
         self.memory_tool = memory_tool
+        self.config = config_manager
         self.logger = logger or StructuredLogger()
         self._now = now or (lambda: datetime.now(timezone.utc))
 
@@ -92,13 +89,14 @@ class PersonalizationTool(BaseTool):
             data={"mode": self._mode_payload(normalized), "memory": result.data},
         )
 
-    def get_mode(self) -> ToolResult:
+    def get_mode(self, **kwargs: Any) -> ToolResult:
         """Returns the current active operating mode."""
         state = self._load_state()
         return ToolResult(
-            success=True, 
+            success=True,
+            message="Success",
             data={
-                "mode": state.mode,
+                "mode": self._mode_payload(state.mode),
                 "autonomy_level": state.autonomy_level
             }
         )
@@ -180,7 +178,14 @@ class PersonalizationTool(BaseTool):
     def get_personality(self, agent_id: str, *, trace_id: Optional[str] = None) -> ToolResult:
         normalized_agent_id = _normalize_agent_id(agent_id)
         state = self._load_state(trace_id=trace_id)
-        profile = state.personalities.get(
+        
+        # Merge state personalities with config personalities
+        config_personalities = self.config.get("personalities", {})
+        merged = deepcopy(config_personalities)
+        for k, v in state.personalities.items():
+            merged[k] = v
+
+        profile = merged.get(
             normalized_agent_id,
             _fallback_personality(normalized_agent_id),
         )
@@ -200,10 +205,15 @@ class PersonalizationTool(BaseTool):
 
     def list_personalities(self, *, trace_id: Optional[str] = None) -> ToolResult:
         state = self._load_state(trace_id=trace_id)
+        config_personalities = self.config.get("personalities", {})
+        merged = deepcopy(config_personalities)
+        for k, v in state.personalities.items():
+            merged[k] = v
+            
         return ToolResult(
             success=True,
-            message=f"Found {len(state.personalities)} personality profile(s).",
-            data={"personalities": deepcopy(state.personalities)},
+            message=f"Found {len(merged)} personality profile(s).",
+            data={"personalities": merged},
         )
 
     def get_response_config(
@@ -213,7 +223,12 @@ class PersonalizationTool(BaseTool):
         trace_id: Optional[str] = None,
     ) -> ToolResult:
         state = self._load_state(trace_id=trace_id)
-        personality = state.personalities.get(
+        config_personalities = self.config.get("personalities", {})
+        merged = deepcopy(config_personalities)
+        for k, v in state.personalities.items():
+            merged[k] = v
+            
+        personality = merged.get(
             _normalize_agent_id(agent_id),
             _fallback_personality(agent_id),
         )
@@ -246,7 +261,7 @@ class PersonalizationTool(BaseTool):
         return self.memory_tool.health()
 
     def _load_state(self, *, trace_id: Optional[str] = None) -> PersonalizationState:
-        personalities = deepcopy(DEFAULT_PERSONALITIES)
+        personalities = {}
         mode = DEFAULT_MODE
         autonomy_level = 0
         memories = self.memory_tool.list_memories("preference", trace_id=trace_id)

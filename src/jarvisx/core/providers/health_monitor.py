@@ -54,13 +54,20 @@ class ContinuousHealthMonitor:
         Check active providers. If one fails, handle it.
         Also check failed providers to see if they recovered.
         """
-        # Check active ones
+        # Check active ones and benchmark latency
         for category, provider in list(self.fallback.active_providers.items()):
+            import time
+            start_time = time.time()
             is_healthy = await provider.check_health()
+            latency = time.time() - start_time
+            
+            # Record latency for intelligence tracking
+            self.stats[f"{category}_{provider.capability.name}_latency"] = latency
+            
             if not is_healthy:
                 await self.fallback.handle_failure(category, provider.capability.name)
                 
-        # Check failed ones for recovery
+        # Check failed ones for recovery and automate failover chain based on priorities
         # Iterate over a copy since dictionary might change
         for category in self.fallback.registry.get_all_categories():
             all_providers = self.fallback.registry.get_providers(category)

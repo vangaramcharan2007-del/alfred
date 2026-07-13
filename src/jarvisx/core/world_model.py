@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, Any, List, Optional
 import json
+from contextlib import closing
 
 from jarvisx.tools.operational_db import OperationalDatabase
 
@@ -20,7 +21,7 @@ class WorldModel:
         self._init_db()
 
     def _init_db(self) -> None:
-        with self.op_db._get_connection() as conn:
+        with closing(self.op_db._get_connection()) as conn:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS world_model (
@@ -36,7 +37,7 @@ class WorldModel:
     def save_entity(self, entity_id: str, entity_type: str, data: Dict[str, Any]) -> bool:
         """Saves an entity (project, goal, deadline, etc.) to the world model."""
         try:
-            with self.op_db._get_connection() as conn:
+            with closing(self.op_db._get_connection()) as conn:
                 conn.execute(
                     """
                     INSERT INTO world_model (entity_id, entity_type, data, updated_at)
@@ -53,7 +54,7 @@ class WorldModel:
             return False
 
     def get_entity(self, entity_id: str) -> Optional[Dict[str, Any]]:
-        with self.op_db._get_connection() as conn:
+        with closing(self.op_db._get_connection()) as conn:
             cursor = conn.execute("SELECT data FROM world_model WHERE entity_id = ?", (entity_id,))
             row = cursor.fetchone()
             if row:
@@ -62,7 +63,7 @@ class WorldModel:
 
     def get_entities_by_type(self, entity_type: str) -> List[Dict[str, Any]]:
         entities = []
-        with self.op_db._get_connection() as conn:
+        with closing(self.op_db._get_connection()) as conn:
             cursor = conn.execute("SELECT data FROM world_model WHERE entity_type = ?", (entity_type,))
             for row in cursor.fetchall():
                 entities.append(json.loads(row[0]))
@@ -70,7 +71,7 @@ class WorldModel:
 
     def delete_entity(self, entity_id: str) -> bool:
         try:
-            with self.op_db._get_connection() as conn:
+            with closing(self.op_db._get_connection()) as conn:
                 conn.execute("DELETE FROM world_model WHERE entity_id = ?", (entity_id,))
                 conn.commit()
             return True

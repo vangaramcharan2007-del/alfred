@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis X - Initial Setup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #050505; color: #e5e7eb; font-family: 'Inter', sans-serif; }
+        .glass-panel { background: rgba(20, 20, 20, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .btn { background: #3b82f6; hover:bg-blue-600; transition: all 0.2s; }
+        .input-dark { background: #1a1a1a; border: 1px solid #333; color: white; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="glass-panel p-8 rounded-xl w-full max-w-2xl shadow-2xl">
+        <h1 class="text-3xl font-bold mb-2 text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+            Jarvis X Genesis
+        </h1>
+        <p class="text-gray-400 text-center mb-8">System Initialization & Configuration</p>
+
+        <form id="setupForm" class="space-y-6">
+            
+            <div class="space-y-4">
+                <h2 class="text-xl font-semibold border-b border-gray-700 pb-2">LLM Providers</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">OpenAI API Key</label>
+                        <input type="password" id="openai_key" class="input-dark w-full p-2 rounded" placeholder="sk-...">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Gemini API Key</label>
+                        <input type="password" id="gemini_key" class="input-dark w-full p-2 rounded" placeholder="AIza...">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Ollama Endpoint</label>
+                        <input type="text" id="ollama_url" class="input-dark w-full p-2 rounded" placeholder="http://localhost:11434" value="http://localhost:11434">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Ollama Model</label>
+                        <input type="text" id="ollama_model" class="input-dark w-full p-2 rounded" placeholder="qwen2.5:7b" value="qwen2.5:7b">
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <h2 class="text-xl font-semibold border-b border-gray-700 pb-2">TTS Providers</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">ElevenLabs API Key</label>
+                        <input type="password" id="elevenlabs_key" class="input-dark w-full p-2 rounded" placeholder="...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <h2 class="text-xl font-semibold border-b border-gray-700 pb-2">Memory Providers</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Supabase URL</label>
+                        <input type="text" id="supabase_url" class="input-dark w-full p-2 rounded" placeholder="https://....supabase.co">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Supabase Key</label>
+                        <input type="password" id="supabase_key" class="input-dark w-full p-2 rounded" placeholder="eyJ...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <h2 class="text-xl font-semibold border-b border-gray-700 pb-2">Preferences</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Primary Personality</label>
+                        <select id="primary_personality" class="input-dark w-full p-2 rounded">
+                            <option value="alfred">Alfred (Executive)</option>
+                            <option value="friday">Friday (Conversational)</option>
+                            <option value="edith">Edith (Brief Companion)</option>
+                            <option value="hermes">Hermes (Event Courier)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Primary Voice</label>
+                        <select id="primary_voice" class="input-dark w-full p-2 rounded">
+                            <option value="elevenlabs">ElevenLabs (Premium)</option>
+                            <option value="piper">Local Piper (Offline)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-6 border-t border-gray-700 flex justify-between items-center">
+                <div id="statusText" class="text-sm text-gray-400">Waiting for configuration...</div>
+                <button type="submit" id="submitBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded transition">
+                    Verify & Boot
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('setupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const status = document.getElementById('statusText');
+            
+            btn.disabled = true;
+            btn.textContent = "Verifying...";
+            status.textContent = "Saving configuration...";
+            status.className = "text-sm text-yellow-400";
+
+            const payload = {
+                providers: {
+                    llm: {
+                        openai_api_key: document.getElementById('openai_key').value,
+                        gemini_api_key: document.getElementById('gemini_key').value,
+                        ollama_url: document.getElementById('ollama_url').value,
+                        ollama_model: document.getElementById('ollama_model').value
+                    },
+                    tts: {
+                        elevenlabs_api_key: document.getElementById('elevenlabs_key').value,
+                        preferred_provider: document.getElementById('primary_voice').value
+                    },
+                    memory: {
+                        supabase_url: document.getElementById('supabase_url').value,
+                        supabase_key: document.getElementById('supabase_key').value
+                    }
+                },
+                preferences: {
+                    primary_personality: document.getElementById('primary_personality').value
+                }
+            };
+
+            try {
+                const res = await fetch('/api/setup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    status.textContent = "Success! Booting Jarvis X...";
+                    status.className = "text-sm text-green-400";
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 2000);
+                } else {
+                    throw new Error(data.message || "Failed to complete setup.");
+                }
+            } catch (err) {
+                status.textContent = "Error: " + err.message;
+                status.className = "text-sm text-red-400";
+                btn.disabled = false;
+                btn.textContent = "Retry";
+            }
+        });
+    </script>
+</body>
+</html>

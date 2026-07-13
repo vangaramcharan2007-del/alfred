@@ -40,8 +40,12 @@ def serve(
 ) -> None:
     runtime = runtime or create_default_runtime()
     
-    # 1. Run boot sequence (blocks until complete)
-    asyncio.run(runtime.startup_manager.boot())
+    # 1. Run boot sequence in a background thread to prevent blocking server
+    boot_thread = threading.Thread(
+        target=lambda: asyncio.run(runtime.startup_manager.boot()),
+        daemon=True
+    )
+    boot_thread.start()
     
     # 2. Start continuous health monitor in a background thread
     runtime.continuous_health.stop() # Ensure clean state
@@ -54,18 +58,18 @@ def serve(
     
     # 3. Start proactive intelligence monitor in a background thread
     runtime.proactive_monitor.stop()
-    proactive_thread = threading.Thread(
-        target=lambda: asyncio.run(runtime.proactive_monitor.start()),
+    # Start proactive monitor in background thread
+    runtime.proactive_monitor._running = True
+    threading.Thread(
+        target=lambda: asyncio.run(runtime.proactive_monitor._monitor_loop()),
         daemon=True
-    )
-    proactive_thread.start()
+    ).start()
     
     server = create_alfred_api_server(runtime, host=host, port=port)
     try:
         server.serve_forever()
     finally:
-        runtime.continuous_health.stop()
-        runtime.proactive_monitor.stop()
+        runtime.shutdown()
         server.server_close()
 
 
@@ -77,13 +81,25 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
 
         def do_GET(self) -> None:
             route = urlparse(self.path).path
+            if runtime.startup_manager.setup_mode and route not in {"/setup", "/api/setup"}:
+                self._serve_setup_redirect()
+                return
+            if route == "/setup":
+                self._serve_setup()
+                return
+            if route == "/spatial":
+                self._serve_spatial()
+                return
             if route == "/dashboard":
                 self._serve_dashboard()
                 return
-            if route == "/api/state":
-                self._handle_api_state()
+            if route == "/api/status":
+                self._handle_status_get()
                 return
-            if route == "/api/agents":
+            if route == "/api/diagnostics":
+                self._handle_diagnostics_get()
+                return
+            if route == "/api/history":
                 self._handle_api_agents()
                 return
             if route == "/api/logs":
@@ -122,6 +138,9 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
                 )
                 return
 
+            if route == "/api/setup":
+                self._handle_api_setup(payload, trace_id)
+                return
             if route == "/chat":
                 self._handle_chat(payload, trace_id)
                 return
@@ -140,8 +159,14 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
             if route == "/api/autonomy":
                 self._handle_api_autonomy(payload, trace_id)
                 return
+            if route == "/api/settings":
+                self._handle_api_settings(payload, trace_id)
+                return
             if route == "/api/personality":
                 self._handle_api_personality(payload, trace_id)
+                return
+            if route == "/api/test/stress":
+                self._handle_api_stress_test(payload, trace_id)
                 return
 
             self._write_json(
@@ -267,6 +292,41 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
 
         # ── Dashboard & API Endpoints ──
 
+        def _serve_setup_redirect(self) -> None:
+            self.send_response(HTTPStatus.TEMPORARY_REDIRECT.value)
+            self.send_header("Location", "/setup")
+            self.end_headers()
+
+        def _serve_setup(self) -> None:
+            html_path = Path(__file__).resolve().parent / "dashboard" / "setup.html"
+            if not html_path.exists():
+                self._write_json(
+                    HTTPStatus.NOT_FOUND,
+                    {"handled": False, "message": "Setup HTML not found."},
+                )
+                return
+            body = html_path.read_bytes()
+            self.send_response(HTTPStatus.OK.value)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _serve_spatial(self) -> None:
+            html_path = Path(__file__).resolve().parent / "dashboard" / "spatial.html"
+            if not html_path.exists():
+                self._write_json(
+                    HTTPStatus.NOT_FOUND,
+                    {"handled": False, "message": "Spatial HTML not found."},
+                )
+                return
+            body = html_path.read_bytes()
+            self.send_response(HTTPStatus.OK.value)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
         def _serve_dashboard(self) -> None:
             html_path = Path(__file__).resolve().parent / "dashboard" / "index.html"
             if not html_path.exists():
@@ -299,11 +359,83 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
                 "health": health_checks,
                 "recent_logs": recent_logs,
                 "world_model": world_summary,
+                "config": runtime.config_manager.get_config(),
             })
+
+        def _handle_api_setup(self, payload: dict[str, Any], trace_id: str) -> None:
+            # Save API keys to config
+            providers = payload.get("providers", {})
+            runtime.config_manager.set("providers", providers)
+            
+            # Save preferences if provided
+            preferences = payload.get("preferences", {})
+            if "primary_personality" in preferences:
+                runtime.config_manager.set("personalities.primary", preferences["primary_personality"])
+            
+            # TODO: We should verify them before completing setup
+            # For now, mark setup completed
+            runtime.config_manager.complete_setup()
+            runtime.startup_manager.setup_mode = False
+            runtime.startup_manager._setup_event.set()
+            
+            self._write_json(HTTPStatus.OK, {"success": True, "message": "Setup completed."})
+
+        def _handle_api_settings(self, payload: dict[str, Any], trace_id: str) -> None:
+            # Save API keys and provider endpoints
+            providers = payload.get("providers", {})
+            if providers:
+                # Merge into existing so we don't wipe out other providers
+                current_providers = runtime.config_manager.get("providers", {})
+                for cat, props in providers.items():
+                    if cat not in current_providers:
+                        current_providers[cat] = {}
+                    current_providers[cat].update(props)
+                runtime.config_manager.set("providers", current_providers)
+            
+            # Save preferences
+            preferences = payload.get("preferences", {})
+            if "primary_personality" in preferences:
+                runtime.config_manager.set("personalities.primary", preferences["primary_personality"])
+            if "primary_voice" in preferences:
+                runtime.config_manager.set("providers.tts.preferred_provider", preferences["primary_voice"])
+                
+            self._write_json(HTTPStatus.OK, {"success": True, "message": "Settings updated successfully."})
 
         def _handle_api_agents(self) -> None:
             agents = runtime.registry.describe()
             self._write_json(HTTPStatus.OK, {"agents": agents})
+            
+        def _handle_status_get(self) -> None:
+            status = {
+                "alfred_status": "online",
+                "health_summary": runtime.health.run_all(),
+            }
+            # Convert HealthStatus to dict for JSON serialization
+            serializable_status = {
+                "alfred_status": status["alfred_status"],
+                "health_summary": {k: {"healthy": v.healthy, "message": v.message} for k, v in status["health_summary"].items()}
+            }
+            self._write_json(HTTPStatus.OK, serializable_status)
+            
+        def _handle_diagnostics_get(self) -> None:
+            stats = runtime.continuous_health.stats
+            active_threads = __import__('threading').active_count()
+            
+            # Get workflow stats
+            try:
+                db_conn = runtime.workflow_tool.engine.db._get_connection()
+                cursor = db_conn.execute("SELECT COUNT(*) FROM workflows WHERE state = 'RUNNING'")
+                running_workflows = cursor.fetchone()[0]
+                db_conn.close()
+            except Exception:
+                running_workflows = 0
+                
+            payload = {
+                "threads": active_threads,
+                "running_workflows": running_workflows,
+                "system_stats": stats
+            }
+            self._write_json(HTTPStatus.OK, payload)
 
         def _handle_api_logs(self) -> None:
             logs = runtime.alfred.logger.recent(50)
@@ -356,6 +488,28 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
             self._write_json(
                 HTTPStatus.OK if result.success else HTTPStatus.BAD_REQUEST,
                 {"success": result.success, "message": result.message, "data": result.data},
+            )
+
+        def _handle_api_stress_test(self, payload: dict[str, Any], trace_id: str) -> None:
+            """Simulates heavy load by launching parallel dummy workflows."""
+            import time
+            from jarvisx.core.workflows import Workflow, WorkflowStep
+            
+            count = payload.get("count", 10)
+            
+            def dummy_task(ctx):
+                time.sleep(0.5)
+                return {}
+
+            started = 0
+            for i in range(count):
+                wf = Workflow(name=f"StressTest_{i}", steps=[WorkflowStep(name="Dummy", action=dummy_task)])
+                runtime.workflow_tool.engine.start(wf)
+                started += 1
+                
+            self._write_json(
+                HTTPStatus.OK,
+                {"success": True, "message": f"Started {started} stress test workflows."},
             )
 
     return AlfredRequestHandler

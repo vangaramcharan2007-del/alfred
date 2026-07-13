@@ -19,9 +19,9 @@ class FallbackManager:
         self.failed_providers: Dict[str, float] = {}
 
     async def initialize(self) -> None:
-        """Find the best available provider for each category on startup."""
-        for category in self.registry.get_all_categories():
-            await self.failover(category)
+        """Find the best available provider for each category on startup in parallel."""
+        categories = self.registry.get_all_categories()
+        await asyncio.gather(*(self.failover(cat) for cat in categories))
 
     async def failover(self, category: str) -> Optional[BaseProvider]:
         """
@@ -29,6 +29,25 @@ class FallbackManager:
         Sets it as the active provider and returns it.
         """
         providers = self.registry.get_providers(category)
+        
+        # Strict priority order as per zero-friction requirements
+        priorities = {
+            "LLM": ["ollama", "openai", "gemini", "openrouter", "stub"],
+            "TTS": ["elevenlabs", "piper", "pyttsx3"],
+            "STT": ["whisper_local", "whisper_api"],
+            "VISION": ["tesseract", "openai_vision"]
+        }
+        
+        category_priority = priorities.get(category, [])
+        
+        def get_priority(provider: BaseProvider) -> int:
+            name = provider.capability.name.lower()
+            if name in category_priority:
+                return category_priority.index(name)
+            return 999  # Lowest priority if not listed
+            
+        # Sort providers by priority (lowest index = highest priority)
+        providers.sort(key=get_priority)
         
         for provider in providers:
             # Check if it's healthy

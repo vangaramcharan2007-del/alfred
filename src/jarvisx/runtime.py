@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+import threading
+import datetime
 
 from jarvisx.agents.alfred import AlfredOrchestrator, IntentClassifier
 from jarvisx.agents.edith import EdithAgent
@@ -46,6 +48,9 @@ from jarvisx.core.providers.startup_manager import StartupManager
 from jarvisx.core.providers.health_monitor import ContinuousHealthMonitor
 from jarvisx.core.proactive_monitor import ProactiveIntelligenceMonitor
 from jarvisx.core.world_model import WorldModel
+from jarvisx.core.shutdown_manager import ShutdownManager
+from jarvisx.core.configuration import ConfigurationManager
+from jarvisx.core.backup_manager import BackupManager
 
 from jarvisx.core.providers.llm import OpenAIProvider, GeminiProvider, ClaudeProvider, GroqProvider, OpenRouterProvider, OllamaProvider, LlamaCppProvider, LocalGGUFProvider
 from jarvisx.core.providers.tts import ElevenLabsProvider, PiperProvider, Pyttsx3Provider
@@ -68,6 +73,47 @@ class JarvisRuntime:
     continuous_health: ContinuousHealthMonitor
     proactive_monitor: ProactiveIntelligenceMonitor
     world_model: WorldModel
+    workflow_tool: WorkflowTool
+    config_manager: ConfigurationManager
+    backup_manager: BackupManager
+    data_dir: Path
+    shutdown_manager: ShutdownManager = field(init=False)
+    _cron_stop_event: threading.Event = field(init=False)
+    _cron_thread: threading.Thread = field(init=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "shutdown_manager", ShutdownManager(self))
+        object.__setattr__(self, "_cron_stop_event", threading.Event())
+        object.__setattr__(self, "_cron_thread", threading.Thread(target=self._cron_loop, daemon=True, name="JarvisCron"))
+        self._cron_thread.start()
+        
+    def _cron_loop(self) -> None:
+        """Background thread for daily maintenance tasks."""
+        last_backup_date = None
+        while not self._cron_stop_event.is_set():
+            now = datetime.datetime.now()
+            today = now.date()
+            
+            # Run daily tasks at 3:00 AM
+            if now.hour == 3 and today != last_backup_date:
+                try:
+                    self.backup_manager.run_scheduled_backup()
+                    # Assuming access to tools via registry or direct injection if needed
+                    last_backup_date = today
+                except Exception as e:
+                    # Log error via alfred/logger if available
+                    pass
+            
+            # Check every minute
+            self._cron_stop_event.wait(60)
+
+    def shutdown(self) -> None:
+        self.shutdown_manager.shutdown()
+        self.continuous_health.stop()
+        self.proactive_monitor.stop()
+        self._cron_stop_event.set()
+        if hasattr(self, '_cron_thread') and self._cron_thread.is_alive():
+            self._cron_thread.join(timeout=2.0)
 
 
 def create_default_runtime(
@@ -82,10 +128,11 @@ def create_default_runtime(
 
     memory_tool = LocalMemoryTool(vault_path=obsidian_vault, logger=logger)
     op_db = OperationalDatabase(db_path=op_db_path or Path("var/jarvisx_op.db"), logger=logger)
+    config_manager = ConfigurationManager(op_db=op_db)
     device_tool = DeviceTool()
     notification_tool = NotificationTool()
     research_tool = ResearchTool()
-    personalization_tool = PersonalizationTool(memory_tool=memory_tool, logger=logger)
+    personalization_tool = PersonalizationTool(memory_tool=memory_tool, config_manager=config_manager, logger=logger)
     xp_tool = XPTool(op_db=op_db, logger=logger)
     termux_tool = TermuxTool(logger=logger)
     cad_tool = CADTool(logger=logger)
@@ -99,6 +146,7 @@ def create_default_runtime(
     workflow_engine = WorkflowEngine(db=op_db)
     workflow_tool = WorkflowTool(engine=workflow_engine)
     computer_tool = ComputerControlTool(personalization=personalization_tool)
+    backup_manager = BackupManager(data_dir=Path("data"), backup_dir=Path("backups"))
 
     registry.register(MemoryAgent(tools={"memory": memory_tool}, logger=logger))
     registry.register(DeviceAgent(tools={"device": device_tool, "computer": computer_tool}, logger=logger))
@@ -187,7 +235,7 @@ def create_default_runtime(
     
     fallback_manager = FallbackManager(provider_registry)
     provider_router = ProviderRouter(fallback_manager)
-    startup_manager = StartupManager(fallback_manager, health)
+    startup_manager = StartupManager(fallback_manager, health, config_manager)
     continuous_health = ContinuousHealthMonitor(health, fallback_manager)
     proactive_monitor = ProactiveIntelligenceMonitor(hermes, personalization_tool, op_db)
 
@@ -204,4 +252,8 @@ def create_default_runtime(
         continuous_health=continuous_health,
         proactive_monitor=proactive_monitor,
         world_model=world_model,
+        workflow_tool=workflow_tool,
+        config_manager=config_manager,
+        backup_manager=backup_manager,
+        data_dir=Path("data"),
     )

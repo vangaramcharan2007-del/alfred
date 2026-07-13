@@ -140,3 +140,9 @@ class WorkflowEngine:
         workflow.state = WorkflowState.COMPLETED
         self.persist_workflow(workflow)
         logger.info(f"Workflow {workflow.id} completed successfully.")
+
+    def shutdown(self, wait: bool = True) -> None:
+        """Shuts down the workflow engine and its thread pool."""
+        logger.info("Shutting down WorkflowEngine...")
+        self.executor.shutdown(wait=wait)
+        logger.info("WorkflowEngine shutdown complete.")

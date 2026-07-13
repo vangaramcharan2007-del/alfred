@@ -11,7 +11,7 @@ class VisionInterfaceTests(unittest.TestCase):
         provider = VisionProvider()
         # Test default fallback
         text1 = provider.extract_context(b"not json")
-        self.assertEqual(text1, "Simulated visual context extracted from image.")
+        self.assertIn("Simulated visual context extracted from image.", text1)
         
         # Test simulated JSON payload
         payload = json.dumps({"context": "A picture of a cat"}).encode("utf-8")

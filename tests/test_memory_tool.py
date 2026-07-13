@@ -109,6 +109,7 @@ class MemoryToolTests(unittest.TestCase):
                     if record["message"].startswith("memory.")
                 )
             )
+            logger.close()
 
 
 if __name__ == "__main__":

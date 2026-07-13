@@ -14,10 +14,10 @@ class SupabaseProvider(BaseProvider):
         return ProviderCapability("MEMORY", "Supabase", 10, False)
         
     async def check_health(self) -> bool:
-        return self.client.is_configured()
+        return self.client.is_configured
         
     async def benchmark(self) -> float:
-        return 100.0 if self.client.is_configured() else float('inf')
+        return 100.0 if self.client.is_configured else float('inf')
 
 
 class SQLiteProvider(BaseProvider):

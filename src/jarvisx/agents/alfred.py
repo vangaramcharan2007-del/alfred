@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -98,6 +99,7 @@ class AlfredOrchestrator:
         self.model_router = model_router
         self.personalization_tool = personalization_tool
         self.logger = logger or StructuredLogger()
+        self.context_buffer: deque[dict[str, str]] = deque(maxlen=20)
 
     async def process(
         self,
@@ -130,17 +132,53 @@ class AlfredOrchestrator:
             target=intent.agent_id,
             payload={
                 "message": message,
+                "context_buffer": list(self.context_buffer),
                 "intent": intent.to_dict(),
                 "model": model.to_dict(),
                 "response_config": response_config,
             },
         )
-        return await self._delegate(
+        
+        self.context_buffer.append({"role": "user", "content": message})
+        
+        response = await self._delegate(
             task_event,
             intent=intent,
             model=model.to_dict(),
             response_config=response_config,
         )
+        
+        if response.handled and response.message:
+            self.context_buffer.append({"role": "assistant", "content": response.message})
+            
+            # Phase 14: Calculate confidence heuristics based on availability of context
+            confidence = self._calculate_confidence(intent.task_class, message)
+            
+            if confidence < 50:
+                response.message = "I don't have enough verified context to answer that confidently. Could you clarify or provide more details?"
+            elif confidence < 70:
+                response.message = f"I'm not entirely certain, but {response.message}"
+            elif confidence < 90:
+                # Add a subtle confidence indicator, e.g., using "Based on my memory," 
+                if not response.message.startswith("I") and not response.message.startswith("Based"):
+                    response.message = f"Based on available information, {response.message}"
+            
+        return response
+
+    def _calculate_confidence(self, intent: str, message: str) -> int:
+        """
+        Calculates a heuristic confidence score based on retrieval priority.
+        1. Context 2. Memory 3. Op DB 4. Supabase 5. Provider Knowledge
+        """
+        # A real implementation would parse retrieved contexts from the agent memory tool
+        # Since we are using an LLM directly via provider for some tasks, we simulate heuristics:
+        if intent in ["memory", "planning"]:
+            return 95  # Explicit retrieval implies high confidence
+        if "what" in message.lower() or "how" in message.lower():
+            return 80  # General QA relies on provider knowledge
+        if len(message.split()) < 3:
+            return 60  # Vague queries have lower confidence
+        return 90
 
     async def notify(
         self,

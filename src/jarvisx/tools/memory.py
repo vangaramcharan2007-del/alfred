@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 from typing import Iterable, Optional
 from uuid import uuid4
+import functools
 
 from jarvisx.core.health import HealthStatus
 from jarvisx.core.logging import StructuredLogger
@@ -139,41 +140,45 @@ class LocalMemoryTool(BaseTool):
 
         try:
             self._recover_vault()
-            matches: list[dict[str, object]] = []
-            for file_path in self._markdown_files():
-                text = file_path.read_text(encoding="utf-8")
-                haystack = text.lower()
-                matched_tokens = [token for token in tokens if token in haystack]
-                if len(matched_tokens) == len(tokens):
-                    matches.append(
-                        {
-                            "path": _relative_vault_path(file_path, self.vault_path),
-                            "category": self._category_from_path(file_path),
-                            "matches": matched_tokens,
-                            "score": len(matched_tokens),
-                            "content": text,
-                        }
-                    )
-            matches.sort(key=lambda item: (-int(item["score"]), str(item["path"])))
-            limited = matches[:limit]
-            if not limited:
-                self._log_failed_lookup("no_matches", trace_id=trace_id, query=query)
-            self.logger.write(
-                "info",
-                "memory.read",
-                trace_id=trace_id,
-                operation="search_memory",
-                query=query,
-                result_count=len(limited),
-            )
-            return ToolResult(
-                success=True,
-                message=f"Found {len(limited)} memory record(s).",
-                data={"records": limited},
-            )
+            return self._cached_search(query, limit)
         except Exception as exc:
             self._log_failed_lookup("read_error", trace_id=trace_id, query=query, reason=str(exc))
             return ToolResult(success=False, message=f"Memory search failed: {exc}")
+
+    @functools.lru_cache(maxsize=128)
+    def _cached_search(self, query: str, limit: int) -> ToolResult:
+        tokens = _keywords(query)
+        matches: list[dict[str, object]] = []
+        for file_path in self._markdown_files():
+            text = file_path.read_text(encoding="utf-8")
+            haystack = text.lower()
+            matched_tokens = [token for token in tokens if token in haystack]
+            if len(matched_tokens) == len(tokens):
+                matches.append(
+                    {
+                        "path": _relative_vault_path(file_path, self.vault_path),
+                        "category": self._category_from_path(file_path),
+                        "matches": matched_tokens,
+                        "score": len(matched_tokens),
+                        "content": text,
+                    }
+                )
+        matches.sort(key=lambda item: (-int(item["score"]), str(item["path"])))
+        limited = matches[:limit]
+        if not limited:
+            self._log_failed_lookup("no_matches", query=query)
+        self.logger.write(
+            "info",
+            "memory.read",
+            operation="search_memory",
+            query=query,
+            result_count=len(limited),
+        )
+        return ToolResult(
+            success=True,
+            message=f"Found {len(limited)} memory record(s).",
+            data={"records": limited},
+        )
 
     def append_daily_note(self, text: str, *, trace_id: Optional[str] = None) -> ToolResult:
         clean_text = text.strip()
@@ -238,6 +243,59 @@ class LocalMemoryTool(BaseTool):
         except Exception as exc:
             self._log_failed_lookup("daily_note_read_error", trace_id=trace_id, reason=str(exc))
             return ToolResult(success=False, message=f"Daily note read failed: {exc}")
+            
+    def deduplicate_memories(self) -> ToolResult:
+        """Finds and consolidates duplicate memories."""
+        try:
+            self._recover_vault()
+            # Simple content hash based deduplication
+            seen_content = set()
+            duplicates = 0
+            
+            for file_path in self._markdown_files():
+                if file_path.name.startswith("archive_") or file_path.parent.name == "Daily":
+                    continue
+                    
+                content = file_path.read_text(encoding="utf-8")
+                # extract core content (ignoring headers)
+                core_content = "\n".join(content.split("\n\n")[1:]).strip()
+                
+                if core_content in seen_content:
+                    file_path.unlink()
+                    duplicates += 1
+                else:
+                    seen_content.add(core_content)
+                    
+            self.logger.write("info", "memory.deduplicate", removed=duplicates)
+            return ToolResult(success=True, message=f"Removed {duplicates} duplicate memories.")
+        except Exception as exc:
+            return ToolResult(success=False, message=f"Memory deduplication failed: {exc}")
+            
+    def archive_stale_memories(self, max_age_days: int = 90) -> ToolResult:
+        """Archives memories older than max_age_days."""
+        try:
+            self._recover_vault()
+            import time
+            current_time = time.time()
+            archived = 0
+            
+            archive_dir = self.vault_path / "Archive"
+            archive_dir.mkdir(exist_ok=True)
+            
+            for file_path in self._markdown_files():
+                if file_path.parent.name in ["Archive", "Daily"]:
+                    continue
+                    
+                mtime = file_path.stat().st_mtime
+                if (current_time - mtime) > (max_age_days * 86400):
+                    new_path = archive_dir / f"archive_{file_path.name}"
+                    file_path.rename(new_path)
+                    archived += 1
+                    
+            self.logger.write("info", "memory.archive", archived=archived)
+            return ToolResult(success=True, message=f"Archived {archived} stale memories.")
+        except Exception as exc:
+            return ToolResult(success=False, message=f"Memory archival failed: {exc}")
 
     def list_memories(
         self,

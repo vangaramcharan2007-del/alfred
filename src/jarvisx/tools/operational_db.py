@@ -8,6 +8,8 @@ from typing import Any, Optional
 from jarvisx.clients.supabase_client import SupabaseClient
 from jarvisx.core.health import HealthStatus
 from jarvisx.core.logging import StructuredLogger
+import queue
+import time
 
 
 class OperationalDatabase:
@@ -18,6 +20,12 @@ class OperationalDatabase:
         self.supabase = supabase or SupabaseClient()
         self.logger = logger or StructuredLogger()
         self._init_db()
+        
+        # Sync worker state
+        self._sync_queue = queue.Queue()
+        self._stop_event = threading.Event()
+        self._sync_thread = threading.Thread(target=self._sync_worker_loop, daemon=True, name="OpDBSyncWorker")
+        self._sync_thread.start()
         
     def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
@@ -62,23 +70,44 @@ class OperationalDatabase:
     def _trigger_sync(self, key: str, data: dict[str, Any]) -> None:
         if not self.supabase.is_configured:
             return
+        # We put tasks into the queue
+        self._sync_queue.put((key, data))
             
-        def _sync_worker() -> None:
+    def _sync_worker_loop(self) -> None:
+        while not self._stop_event.is_set():
             try:
-                # Upsert into supabase
+                key, data = self._sync_queue.get(timeout=1.0)
+            except queue.Empty:
+                continue
+                
+            self._process_sync(key, data)
+            self._sync_queue.task_done()
+            
+    def _process_sync(self, key: str, data: dict[str, Any]) -> None:
+        backoff = 1
+        max_backoff = 1800
+        while not self._stop_event.is_set():
+            try:
                 record = {"id": key, "data": data}
                 success, _ = self.supabase.insert("operational_data", record)
                 if success:
                     with closing(self._get_connection()) as conn:
                         conn.execute("UPDATE operational_data SET synced = 1 WHERE key = ?", (key,))
                         conn.commit()
+                    return # Success, exit retry loop
             except Exception as e:
-                self.logger.write("warning", "op_db.sync.failed", key=key, error=str(e))
-
-        # Run sync in background
-        thread = threading.Thread(target=_sync_worker)
-        thread.daemon = True
-        thread.start()
+                self.logger.write("warning", "op_db.sync.failed", key=key, error=str(e), backoff=backoff)
+            
+            # Wait with exponential backoff before retrying
+            if self._stop_event.wait(backoff):
+                break # Interrupted by stop event
+            backoff = min(backoff * 2, max_backoff)
+            
+    def close(self) -> None:
+        """Flushes the sync queue and shuts down the worker thread."""
+        self._stop_event.set()
+        if self._sync_thread.is_alive():
+            self._sync_thread.join(timeout=5.0)
         
     def sync_unsynced(self) -> None:
         if not self.supabase.is_configured:

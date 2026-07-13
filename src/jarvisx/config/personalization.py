@@ -10,6 +10,22 @@ MODE_CONFIGS: dict[str, dict[str, object]] = {
         "mission_bias": {"daily_mission": 15, "recovery_mission": 20},
         "style_notes": "Keep responses tight and keep attention on the active mission.",
     },
+    "command": {
+        "mode": "command",
+        "response_length": "very_short",
+        "detail_level": "none",
+        "distraction_policy": "none",
+        "mission_bias": {},
+        "style_notes": "Acknowledge commands and execute them silently. No conversation.",
+    },
+    "conversation": {
+        "mode": "conversation",
+        "response_length": "medium",
+        "detail_level": "high",
+        "distraction_policy": "conversational",
+        "mission_bias": {},
+        "style_notes": "Engage in open-ended discussions, brainstorming, and deep thought.",
+    },
     "study": {
         "mode": "study",
         "response_length": "long",
