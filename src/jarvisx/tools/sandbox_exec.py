@@ -12,7 +12,6 @@ class RuntimeSandbox:
             with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
                 f.write(python_code)
                 
-            # Isolate environment slightly by copying current and ensuring clean PATHs
             env = os.environ.copy()
             
             result = subprocess.run(
