@@ -33,6 +33,7 @@ from jarvisx.tools.personalization import PersonalizationTool
 from jarvisx.tools.research import ResearchTool
 from jarvisx.tools.termux import TermuxTool
 from jarvisx.tools.xp import XPTool
+from jarvisx.tools.cad import CADTool
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,8 @@ def create_default_runtime(
     research_tool = ResearchTool()
     personalization_tool = PersonalizationTool(memory_tool=memory_tool, logger=logger)
     xp_tool = XPTool(op_db=op_db, logger=logger)
+    termux_tool = TermuxTool(logger=logger)
+    cad_tool = CADTool(logger=logger)
     mission_tool = MissionTool(
         memory_tool=memory_tool,
         personalization_tool=personalization_tool,
@@ -77,7 +80,7 @@ def create_default_runtime(
         )
     )
     registry.register(EditingAgent(tools={"file": FileSystem(root_dir=".")}, logger=logger))
-    registry.register(CADAgent(tools={}, logger=logger))
+    registry.register(CADAgent(tools={"cad": cad_tool}, logger=logger))
     registry.register(ShadowBrokerAgent(tools={"research": research_tool}, logger=logger))
     registry.register(DebugAgent(tools={"termux": termux_tool}, logger=logger))
     registry.register(

@@ -200,11 +200,33 @@ class CADAgent(BaseAgent):
     capabilities = ("cad.inspect", "cad.manufacturing_notes")
 
     async def handle(self, event: Event) -> AgentResponse:
+        cad = self.tools.get("cad")
+        if not cad:
+            return self._response(
+                event,
+                handled=False,
+                message="CAD Agent requires the 'cad' tool to operate.",
+                data={"error": "Missing CADTool"}
+            )
+            
+        text = _message(event).lower()
+        if "box" in text or "cube" in text:
+            # Example simple parametric generation
+            scad_code = "cube([10, 10, 10], center=true);"
+            result = cad.generate_scad("generated_cube.scad", scad_code)
+            
+            return self._response(
+                event,
+                handled=result.success,
+                message=result.message,
+                data={"tool": "cad", "result": result.to_dict()},
+            )
+            
         return self._response(
             event,
             handled=True,
-            message="CAD Agent prepared a design-analysis handoff.",
-            data={"cad_request": _message(event), "tools_needed": ["cad", "vision"]},
+            message="CAD Agent needs more specific dimensions or shapes to generate a model.",
+            data={"cad_request": _message(event), "tools_needed": ["cad"]},
         )
 
 
