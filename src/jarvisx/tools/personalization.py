@@ -44,6 +44,7 @@ FORBIDDEN_PERSONALITY_FIELDS = {
 @dataclass(frozen=True)
 class PersonalizationState:
     mode: str
+    autonomy_level: int
     personalities: dict[str, dict[str, object]]
 
 
@@ -91,13 +92,39 @@ class PersonalizationTool(BaseTool):
             data={"mode": self._mode_payload(normalized), "memory": result.data},
         )
 
-    def get_mode(self, *, trace_id: Optional[str] = None) -> ToolResult:
-        state = self._load_state(trace_id=trace_id)
+    def get_mode(self) -> ToolResult:
+        """Returns the current active operating mode."""
+        state = self._load_state()
         return ToolResult(
-            success=True,
-            message=f"Active mode is {state.mode}.",
-            data={"mode": self._mode_payload(state.mode)},
+            success=True, 
+            data={
+                "mode": state.mode,
+                "autonomy_level": state.autonomy_level
+            }
         )
+
+    def set_autonomy_level(self, level: int, trace_id: Optional[str] = None) -> ToolResult:
+        """Sets the computer control autonomy level (0-3)."""
+        if not isinstance(level, int) or level < 0 or level > 3:
+            return ToolResult(success=False, message="Autonomy level must be an integer between 0 and 3.")
+        
+        event = self._event("autonomy_set", {"level": level})
+        result = self._persist_event(event, trace_id=trace_id)
+        if not result.success:
+            return result
+        
+        self.logger.write(
+            "info",
+            "personalization.autonomy_level.switch",
+            trace_id=trace_id,
+            new_level=level,
+        )
+        return ToolResult(success=True, message=f"Autonomy level set to {level}.")
+
+    def get_autonomy_level(self) -> ToolResult:
+        """Returns the current autonomy level."""
+        state = self._load_state()
+        return ToolResult(success=True, data={"autonomy_level": state.autonomy_level})
 
     def set_personality(
         self,
@@ -195,6 +222,7 @@ class PersonalizationTool(BaseTool):
             message=f"Response configuration loaded for {agent_id}.",
             data={
                 "mode": self._mode_payload(state.mode),
+                "autonomy_level": state.autonomy_level,
                 "personality": deepcopy(personality),
                 "style_only": True,
                 "logic_boundaries": {
@@ -220,9 +248,10 @@ class PersonalizationTool(BaseTool):
     def _load_state(self, *, trace_id: Optional[str] = None) -> PersonalizationState:
         personalities = deepcopy(DEFAULT_PERSONALITIES)
         mode = DEFAULT_MODE
+        autonomy_level = 0
         memories = self.memory_tool.list_memories("preference", trace_id=trace_id)
         if not memories.success:
-            return PersonalizationState(mode=mode, personalities=personalities)
+            return PersonalizationState(mode=mode, autonomy_level=autonomy_level, personalities=personalities)
         events = []
         for record in memories.data.get("records", []):
             events.extend(_extract_events(str(record.get("content", ""))))
@@ -236,6 +265,10 @@ class PersonalizationTool(BaseTool):
                 candidate = str(payload.get("mode", "")).strip().lower()
                 if candidate in MODE_CONFIGS:
                     mode = candidate
+            elif event_type == "autonomy_set":
+                level = payload.get("level")
+                if isinstance(level, int):
+                    autonomy_level = level
             elif event_type == "personality_set":
                 agent_id = _normalize_agent_id(str(payload.get("agent_id", "")))
                 profile = payload.get("profile")
@@ -246,7 +279,7 @@ class PersonalizationTool(BaseTool):
                         if key in SAFE_PERSONALITY_FIELDS
                     }
                     personalities[agent_id]["agent_id"] = agent_id
-        return PersonalizationState(mode=mode, personalities=personalities)
+        return PersonalizationState(mode=mode, autonomy_level=autonomy_level, personalities=personalities)
 
     def _mode_payload(self, mode: str) -> dict[str, object]:
         return deepcopy(MODE_CONFIGS[mode])

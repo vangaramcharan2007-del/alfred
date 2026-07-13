@@ -52,11 +52,20 @@ def serve(
     )
     monitor_thread.start()
     
+    # 3. Start proactive intelligence monitor in a background thread
+    runtime.proactive_monitor.stop()
+    proactive_thread = threading.Thread(
+        target=lambda: asyncio.run(runtime.proactive_monitor.start()),
+        daemon=True
+    )
+    proactive_thread.start()
+    
     server = create_alfred_api_server(runtime, host=host, port=port)
     try:
         server.serve_forever()
     finally:
         runtime.continuous_health.stop()
+        runtime.proactive_monitor.stop()
         server.server_close()
 
 
@@ -127,6 +136,9 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
                 return
             if route == "/api/mode":
                 self._handle_api_mode(payload, trace_id)
+                return
+            if route == "/api/autonomy":
+                self._handle_api_autonomy(payload, trace_id)
                 return
             if route == "/api/personality":
                 self._handle_api_personality(payload, trace_id)
@@ -278,11 +290,15 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
                 for name, status in runtime.health.run_all().items()
             }
             recent_logs = runtime.alfred.logger.recent(20)
+            world_summary = runtime.world_model.get_world_summary()
+            
             self._write_json(HTTPStatus.OK, {
                 "mode": mode_result.data.get("mode", {}),
+                "autonomy_level": mode_result.data.get("autonomy_level", 1),
                 "personalities": personalities_result.data.get("personalities", {}),
                 "health": health_checks,
                 "recent_logs": recent_logs,
+                "world_model": world_summary,
             })
 
         def _handle_api_agents(self) -> None:
@@ -302,6 +318,20 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
                 )
                 return
             result = runtime.personalization.set_mode(mode, trace_id=trace_id)
+            self._write_json(
+                HTTPStatus.OK if result.success else HTTPStatus.BAD_REQUEST,
+                {"success": result.success, "message": result.message, "data": result.data},
+            )
+
+        def _handle_api_autonomy(self, payload: dict[str, Any], trace_id: str) -> None:
+            level = payload.get("level")
+            if not isinstance(level, int):
+                self._write_json(
+                    HTTPStatus.BAD_REQUEST,
+                    {"success": False, "message": "Autonomy level must be an integer."},
+                )
+                return
+            result = runtime.personalization.set_autonomy_level(level, trace_id=trace_id)
             self._write_json(
                 HTTPStatus.OK if result.success else HTTPStatus.BAD_REQUEST,
                 {"success": result.success, "message": result.message, "data": result.data},

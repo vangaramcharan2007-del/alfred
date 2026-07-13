@@ -59,10 +59,11 @@ class DeviceAgent(BaseAgent):
     expertise = ("app launching", "notifications", "device actions")
     tone = "direct"
     personality = "efficient operator"
-    capabilities = ("device.open_app", "device.notification", "device.speak_text")
+    capabilities = ("device.open_app", "device.notification", "device.speak_text", "computer.open_url", "computer.type_text", "computer.press_key", "computer.click", "computer.run_command")
 
     async def handle(self, event: Event) -> AgentResponse:
-        device = self.tools["device"]
+        device = self.tools.get("device")
+        computer = self.tools.get("computer")
         device_action = event.payload.get("device_action")
         if isinstance(device_action, dict):
             action = str(device_action.get("action", ""))
@@ -76,6 +77,32 @@ class DeviceAgent(BaseAgent):
                 message=result.message,
                 data={"tool": "device", "result": result.to_dict()},
             )
+        computer_action = event.payload.get("computer_action")
+        if isinstance(computer_action, dict) and computer:
+            action = str(computer_action.get("action", ""))
+            parameters = computer_action.get("parameters", {})
+            if not isinstance(parameters, dict):
+                parameters = {}
+            
+            result = None
+            if action == "open_url":
+                result = computer.open_url(parameters.get("url", ""))
+            elif action == "type_text":
+                result = computer.type_text(parameters.get("text", ""))
+            elif action == "press_key":
+                result = computer.press_key(parameters.get("keys", []))
+            elif action == "click":
+                result = computer.click(x=parameters.get("x"), y=parameters.get("y"), clicks=parameters.get("clicks", 1), button=parameters.get("button", "left"))
+            elif action == "run_command":
+                result = computer.run_command(parameters.get("command", ""))
+            
+            if result:
+                return self._response(
+                    event,
+                    handled=result.success,
+                    message=result.message,
+                    data={"tool": "computer", "result": result.to_dict()},
+                )
 
         text = _message(event)
         app_name = _extract_app_name(text)

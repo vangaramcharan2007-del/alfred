@@ -37,12 +37,15 @@ from jarvisx.tools.termux import TermuxTool
 from jarvisx.tools.xp import XPTool
 from jarvisx.tools.cad import CADTool
 from jarvisx.tools.workflow import WorkflowTool
+from jarvisx.tools.computer_control import ComputerControlTool
 
 from jarvisx.core.providers.provider_registry import ProviderRegistry
 from jarvisx.core.providers.fallback_manager import FallbackManager
 from jarvisx.core.providers.provider_router import ProviderRouter
 from jarvisx.core.providers.startup_manager import StartupManager
 from jarvisx.core.providers.health_monitor import ContinuousHealthMonitor
+from jarvisx.core.proactive_monitor import ProactiveIntelligenceMonitor
+from jarvisx.core.world_model import WorldModel
 
 from jarvisx.core.providers.llm import OpenAIProvider, GeminiProvider, ClaudeProvider, GroqProvider, OpenRouterProvider, OllamaProvider, LlamaCppProvider, LocalGGUFProvider
 from jarvisx.core.providers.tts import ElevenLabsProvider, PiperProvider, Pyttsx3Provider
@@ -63,6 +66,8 @@ class JarvisRuntime:
     provider_router: ProviderRouter
     startup_manager: StartupManager
     continuous_health: ContinuousHealthMonitor
+    proactive_monitor: ProactiveIntelligenceMonitor
+    world_model: WorldModel
 
 
 def create_default_runtime(
@@ -84,6 +89,8 @@ def create_default_runtime(
     xp_tool = XPTool(op_db=op_db, logger=logger)
     termux_tool = TermuxTool(logger=logger)
     cad_tool = CADTool(logger=logger)
+    world_model = WorldModel(op_db=op_db)
+    
     mission_tool = MissionTool(
         memory_tool=memory_tool,
         personalization_tool=personalization_tool,
@@ -91,9 +98,10 @@ def create_default_runtime(
     )
     workflow_engine = WorkflowEngine(db=op_db)
     workflow_tool = WorkflowTool(engine=workflow_engine)
+    computer_tool = ComputerControlTool(personalization=personalization_tool)
 
     registry.register(MemoryAgent(tools={"memory": memory_tool}, logger=logger))
-    registry.register(DeviceAgent(tools={"device": device_tool}, logger=logger))
+    registry.register(DeviceAgent(tools={"device": device_tool, "computer": computer_tool}, logger=logger))
     registry.register(ResearchAgent(tools={"research": research_tool}, logger=logger))
     registry.register(
         PlannerAgent(
@@ -181,6 +189,7 @@ def create_default_runtime(
     provider_router = ProviderRouter(fallback_manager)
     startup_manager = StartupManager(fallback_manager, health)
     continuous_health = ContinuousHealthMonitor(health, fallback_manager)
+    proactive_monitor = ProactiveIntelligenceMonitor(hermes, personalization_tool, op_db)
 
     return JarvisRuntime(
         hermes=hermes,
@@ -193,4 +202,6 @@ def create_default_runtime(
         provider_router=provider_router,
         startup_manager=startup_manager,
         continuous_health=continuous_health,
+        proactive_monitor=proactive_monitor,
+        world_model=world_model,
     )
