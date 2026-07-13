@@ -19,9 +19,11 @@ from jarvisx.agents.specialists import (
     ResearchAgent,
     ShadowBrokerAgent,
 )
+from jarvisx.agents.workflow import WorkflowAgent
 from jarvisx.core.health import HealthMonitor, HealthStatus
 from jarvisx.core.hermes import HermesBus
 from jarvisx.core.logging import StructuredLogger
+from jarvisx.core.workflows import WorkflowEngine
 from jarvisx.models.router import ModelRouter
 from jarvisx.tools.device import DeviceTool
 from jarvisx.tools.file_system import FileSystem
@@ -34,6 +36,7 @@ from jarvisx.tools.research import ResearchTool
 from jarvisx.tools.termux import TermuxTool
 from jarvisx.tools.xp import XPTool
 from jarvisx.tools.cad import CADTool
+from jarvisx.tools.workflow import WorkflowTool
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,8 @@ def create_default_runtime(
         personalization_tool=personalization_tool,
         logger=logger,
     )
+    workflow_engine = WorkflowEngine(db=op_db)
+    workflow_tool = WorkflowTool(engine=workflow_engine)
 
     registry.register(MemoryAgent(tools={"memory": memory_tool}, logger=logger))
     registry.register(DeviceAgent(tools={"device": device_tool}, logger=logger))
@@ -94,6 +99,7 @@ def create_default_runtime(
         )
     )
     registry.register(XPAgent(tools={"xp": xp_tool}, logger=logger))
+    registry.register(WorkflowAgent(engine=workflow_engine))
     
     # Load dynamic agents
     plugins_dir = Path(__file__).resolve().parent / "plugins"

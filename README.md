@@ -4,6 +4,21 @@ Project Jarvis X is a modular, extensible, debuggable, offline-first personal AI
 
 It is not a chatbot. The core is an event-driven multi-agent runtime where Alfred routes work, Hermes carries events, Edith represents the mobile execution layer, and specialist agents remain idle until a task requires them.
 
+## Installation
+
+### Option 1: Docker (Recommended)
+The easiest way to run Jarvis X is via Docker Compose. This ensures all dependencies (like Tesseract OCR) are isolated and configured correctly.
+
+```bash
+git clone https://github.com/vangaramcharan2007-del/alfred.git
+cd alfred
+docker-compose up -d
+```
+This will start the Jarvis API and Dashboard on port `8765`.
+
+### Option 2: Local Python Installation
+Clone the repository and install the dependencies. You must have Python 3.11+ installed.
+
 ## What is included
 
 - Alfred orchestrator with intent, agent, and model routing.

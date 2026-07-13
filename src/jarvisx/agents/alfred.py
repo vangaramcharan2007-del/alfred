@@ -55,6 +55,7 @@ class IntentClassifier:
         ("shadowbroker", "shadowbroker", "shadowbroker", ("osint", "threat", "security", "trend monitoring")),
         ("debug", "debug", "debug", ("debug", "error", "failure", "logs", "test", "patch", "fix")),
         ("edith_mobile", "edith", "device", ("voice", "notification", "mobile companion")),
+        ("workflow", "workflow", "workflow", ("workflow", "deploy", "email workflow", "cad workflow")),
     )
 
     def classify(self, message: str) -> Intent:

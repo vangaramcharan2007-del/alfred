@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  jarvis-api:
+    build: .
+    container_name: jarvis-api
+    ports:
+      - "8765:8765"
+    volumes:
+      - jarvis-var:/app/var
+      - jarvis-workspace:/app/jarvis_workspace
+      - cad-workspace:/app/cad_workspace
+      - obsidian-vault:/app/obsidian_vault
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/status')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  jarvis-var:
+  jarvis-workspace:
+  cad-workspace:
+  obsidian-vault:

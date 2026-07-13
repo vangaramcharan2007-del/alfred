@@ -4,19 +4,29 @@ import json
 from typing import Optional
 
 from jarvisx.runtime import JarvisRuntime
+from jarvisx.clients.tesseract_client import TesseractClient
 
 
 class VisionProvider:
-    """Stub Vision/OCR provider."""
+    """Vision/OCR provider using Tesseract."""
+    
+    def __init__(self, tesseract_cmd: Optional[str] = None):
+        self.client = TesseractClient(tesseract_cmd=tesseract_cmd)
     
     def extract_context(self, image_data: bytes) -> str:
-        # In a real implementation, this would call GPT-4o Vision or Claude 3.5 Sonnet
-        # For this stub, we'll try to extract text if it's JSON, otherwise return a default description.
+        # First try parsing as JSON (legacy stub compatibility)
         try:
             payload = json.loads(image_data.decode("utf-8"))
             return str(payload.get("context", "Simulated visual context extracted from image."))
         except (ValueError, UnicodeDecodeError):
+            pass
+            
+        # Fall back to Tesseract OCR
+        extracted = self.client.extract_text(image_data)
+        if not extracted or extracted.startswith("Failed to extract"):
             return "Simulated visual context extracted from image."
+        
+        return f"Extracted Text from Image:\n{extracted}"
 
 
 class VisionManager:

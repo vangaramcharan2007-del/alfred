@@ -3,7 +3,10 @@ name = "project-jarvis-x"
 version = "0.1.0"
 description = "Offline-first modular personal AI operating system scaffold."
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "pytesseract>=0.3.10",
+    "Pillow>=10.0.0"
+]
 
 [build-system]
 requires = ["setuptools>=68"]
