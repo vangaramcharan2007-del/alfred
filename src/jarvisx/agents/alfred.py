@@ -39,10 +39,16 @@ class IntentClassifier:
         ("memory", "memory", "memory", ("remember", "recall", "memory", "obsidian", "note")),
         ("research", "research", "research", ("research", "summarize", "documentation", "docs", "find info")),
         (
+            "xp",
+            "xp",
+            "xp",
+            ("xp", "level", "streak", "credit", "reward", "score", "mission", "quest", "boss"),
+        ),
+        (
             "planning",
             "planner",
             "planning",
-            ("schedule", "remind", "todo", "task", "goal", "mission", "quest", "boss", "xp", "streak"),
+            ("schedule", "remind", "todo", "task", "goal"),
         ),
         ("editing", "editing", "editing", ("create a file", "write a script", "edit code", "write code", "edit file")),
         ("cad", "cad", "cad", ("cad", "stl", "3d model", "manufacturing", "dimension")),
