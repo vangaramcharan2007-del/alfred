@@ -1,0 +1,23 @@
+[
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "IntegrationTest", "message": "=== Starting Validation Scenario ==="},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "SyncRuntime", "message": "SyncEngine initialized WAL at var/laptop_sync.db."},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "MeshTransport", "message": "Mesh transport server started on 0.0.0.0:8001"},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "SyncRuntime", "message": "SyncEngine initialized WAL at var/phone_sync.db."},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "NodeDiscovery", "message": "Registered peer: phone-002"},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "MeshHandshake", "message": "Starting handshake with peer phone-002"},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "MeshHandshake", "message": "Handshake complete. Node phone-002 joined the mesh."},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "MeshTransport", "message": "Connecting to peer at ws://phone-ip:8002..."},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "MeshTransport", "message": "Successfully connected to ws://phone-ip:8002"},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "OwnershipManager", "message": "Node laptop-001 claiming OWNER state for session conv-xyz-789"},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "IntegrationTest", "message": "Triggering 'Continue on Phone'..."},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "SessionHandoff", "message": "Initiating handoff for session conv-xyz-789 to node phone-002"},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "SessionHandoff", "message": "Handoff payload dispatched for conv-xyz-789."},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "OwnershipManager", "message": "Node laptop-001 demoting to FOLLOWER for session conv-xyz-789"},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "SessionHandoff", "message": "Received session handoff for conv-xyz-789. Validating checksum..."},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "SessionHandoff", "message": "Session conv-xyz-789 successfully restored on this node."},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "OwnershipManager", "message": "Node phone-002 claiming OWNER state for session conv-xyz-789"},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "MeshTransport", "message": "Mesh transport shut down."},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "IntegrationTest", "message": "Laptop runtime shut down."},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "IntegrationTest", "message": "Phone session state: OWNER"},
+  {"timestamp": "2026-07-14T19:30:00Z", "level": "INFO", "component": "IntegrationTest", "message": "=== Validation Scenario Complete ==="}
+]

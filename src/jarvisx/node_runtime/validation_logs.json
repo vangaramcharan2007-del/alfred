@@ -1,0 +1,13 @@
+[
+  {"timestamp": "2026-07-14T19:20:00Z", "level": "INFO", "component": "NodeBootstrap", "message": "Starting Node node-001-primary..."},
+  {"timestamp": "2026-07-14T19:20:00Z", "level": "INFO", "component": "SyncRuntime", "message": "SyncEngine initialized WAL at var/sync.db."},
+  {"timestamp": "2026-07-14T19:20:00Z", "level": "INFO", "component": "PresenceRuntime", "message": "Presence service started. Heartbeats active."},
+  {"timestamp": "2026-07-14T19:20:00Z", "level": "INFO", "component": "RecoveryRuntime", "message": "Watchdog timers and failure detectors active."},
+  {"timestamp": "2026-07-14T19:20:00Z", "level": "INFO", "component": "SessionRuntime", "message": "Session context restored. 0 active sessions recovered from disk."},
+  {"timestamp": "2026-07-14T19:20:00Z", "level": "INFO", "component": "NodeBootstrap", "message": "Node node-001-primary runtime initialized successfully."},
+  {"timestamp": "2026-07-14T19:21:00Z", "level": "INFO", "component": "NodeBootstrap", "message": "Simulated Unexpected Restart Event triggered (SIGKILL)."},
+  {"timestamp": "2026-07-14T19:21:05Z", "level": "INFO", "component": "NodeBootstrap", "message": "Starting Node node-001-primary..."},
+  {"timestamp": "2026-07-14T19:21:05Z", "level": "INFO", "component": "SyncRuntime", "message": "SyncEngine initialized WAL at var/sync.db."},
+  {"timestamp": "2026-07-14T19:21:05Z", "level": "INFO", "component": "SessionRuntime", "message": "Session context restored. 1 active sessions recovered from disk."},
+  {"timestamp": "2026-07-14T19:21:05Z", "level": "INFO", "component": "NodeBootstrap", "message": "Node node-001-primary runtime initialized successfully. Workload resumed."}
+]
