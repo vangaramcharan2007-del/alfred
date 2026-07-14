@@ -2,7 +2,7 @@ import os
 import uuid
 import asyncio
 import logging
-from src.jarvisx.tools.sandbox_exec import RuntimeSandbox
+from jarvisx.tools.sandbox_exec import RuntimeSandbox
 
 class AgentForge:
     def __init__(self, agents_dir: str = "src/jarvisx/agents/"):
