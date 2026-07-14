@@ -93,9 +93,9 @@ def print_grid(grid, path, width, height):
             if (x, y) in path_set:
                 line += "* "
             elif not grid[y][x].walkable:
-                line += "█ "
+                line += "# "
             else:
-                line += "· "
+                line += ". "
         print(line)
 
 async def telemetry_log():
