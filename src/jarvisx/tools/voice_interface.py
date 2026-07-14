@@ -22,6 +22,7 @@ class VoiceInterface:
         self.supervisor = SwarmSupervisor()
         self.db = DatabaseManager()
         
+        global STT_AVAILABLE, TTS_AVAILABLE
         if STT_AVAILABLE:
             try:
                 self.model = WhisperModel("tiny", device="cpu", compute_type="int8")
