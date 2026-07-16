@@ -18,14 +18,15 @@ class WorkforceAggregator:
         logger.info(f"Aggregating results from task {task_id} (branch: {branch})")
         
         try:
-            # Rebase feature branch on top of main
+            # Rebase feature branch on top of main from inside its worktree
             logger.debug(f"Rebasing {branch} onto main...")
-            self.worktree_manager._run_git(["checkout", branch])
-            self.worktree_manager._run_git(["rebase", "main"])
+            worktree_path = self.worktree_manager.active_worktrees.get(branch)
+            if worktree_path:
+                self.worktree_manager._run_git(["rebase", "main"], cwd=worktree_path)
             
-            # Checkout main and merge
+            # Checkout main and merge in the main repo
             self.worktree_manager._run_git(["checkout", "main"])
-            self.worktree_manager._run_git(["merge", "--ff-only", branch])
+            self.worktree_manager._run_git(["merge", branch])
             
             logger.info(f"Successfully merged {branch} into main.")
             
