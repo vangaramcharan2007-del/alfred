@@ -1,0 +1,21 @@
+{
+  "execution_logs": "Successfully routed, executed in parallel, and merged.",
+  "agent_allocation": {
+    "goal-health-9f51ab-backend": "backend_agent",
+    "goal-health-9f51ab-frontend": "frontend_agent",
+    "goal-health-9f51ab-tests": "testing_agent"
+  },
+  "worktree_allocation": {
+    "goal-health-9f51ab-backend": "\\tmp\\jarvisx_e2e_worktrees\\wt-34c4b1a6",
+    "goal-health-9f51ab-frontend": "\\tmp\\jarvisx_e2e_worktrees\\wt-43632eac",
+    "goal-health-9f51ab-tests": "\\tmp\\jarvisx_e2e_worktrees\\wt-f595ada2"
+  },
+  "test_output": "",
+  "timing_statistics": {
+    "planning_duration": 0.0,
+    "coding_duration": 7.517375946044922,
+    "testing_duration": 11.46207571029663,
+    "merge_duration": 2.265552043914795,
+    "total_task_duration": 21.24603533744812
+  }
+}
