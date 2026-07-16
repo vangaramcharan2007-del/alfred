@@ -1,10 +1,11 @@
 import asyncio
-import uuid
 import logging
 from jarvisx.core.planning.planning_engine import PlanningEngine
 from jarvisx.core.reflection.reflection_engine import ReflectionEngine
 from jarvisx.core.initiative.initiative_engine import InitiativeEngine
 from jarvisx.core.memory import ConversationStore, TaskMemory, ContextRebuilder, ContinuityEngine
+from jarvisx.core.voice.intent_router import IntentRouter
+from jarvisx.core.voice.command_dispatcher import CommandDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -17,28 +18,47 @@ class VoiceRouter:
         self.task_memory = TaskMemory()
         self.context_rebuilder = ContextRebuilder(self.conv_store, self.task_memory)
         self.continuity_engine = ContinuityEngine(self.context_rebuilder)
+        
+        self.intent_router = IntentRouter()
+        self.command_dispatcher = CommandDispatcher()
 
     async def process_voice_command(self, text: str) -> str:
         """
-        Receives text from STT, routes to PlanningEngine, ReflectionEngine, InitiativeEngine, or ContinuityEngine.
+        Receives transcribed text, delegates to the low-latency IntentRouter, 
+        and routes execution to the appropriate subsystem or OS bridge.
         """
         logger.info(f"Voice Router processing: {text}")
         
-        # Check Continuity Intents first
-        if self.continuity_engine.is_resume_intent(text):
-            return self.continuity_engine.process_resume()
-            
-        intent_lower = text.lower()
+        intent_category = self.intent_router.route_intent(text)
+        logger.debug(f"Resolved intent category: {intent_category}")
         
-        # Check Initiative Intents
-        initiative_triggers = ["focus on", "attention", "risks", "recommendations", "pending initiatives"]
-        if any(trigger in intent_lower for trigger in initiative_triggers):
+        # New Voice-First OS/Control Intents
+        if intent_category == "os_control":
+            return await self.command_dispatcher.execute_os_command(text)
+            
+        elif intent_category == "development":
+            return await self.command_dispatcher.execute_dev_command(text)
+            
+        elif intent_category == "browser":
+            return await self.command_dispatcher.execute_browser_command(text)
+            
+        elif intent_category == "interruption":
+            return "Command interrupted."
+            
+        elif intent_category == "handoff":
+            return "Handing off to secondary device."
+
+        # Legacy Context / Intelligence Routing
+        if intent_category == "continuity":
+            if self.continuity_engine.is_resume_intent(text):
+                return self.continuity_engine.process_resume()
+            return "Resuming context."
+            
+        elif intent_category == "initiative":
             return self.initiative.process_voice_intent(text)
             
-        # Check Reflection Intents
-        reflection_triggers = ["learn", "fail", "optimization", "improve", "performs best"]
-        if any(trigger in intent_lower for trigger in reflection_triggers):
+        elif intent_category == "reflection":
             return self.reflection.process_voice_intent(text)
         
-        # Route to Planning Engine for all other intents
+        # Default to heavy DAG Planner
         return self.planner.process_voice_intent(text)

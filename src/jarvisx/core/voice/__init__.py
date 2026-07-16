@@ -1,13 +1,21 @@
-from .voice_registry import VoiceRegistry
-from .wake_engine import WakeEngine
-from .stt_engine import STTEngine
-from .tts_engine import TTSEngine
-from .interaction_loop import InteractionLoop
+from .wakeword_engine import WakewordEngine
+from .speech_pipeline import SpeechPipeline
+from .intent_router import IntentRouter
+from .command_dispatcher import CommandDispatcher
+from .tts_manager import TTSManager
+from .voice_context_manager import VoiceContextManager
+from .conversation_controller import ConversationController
+from .interruption_manager import InterruptionManager
+from .confirmation_manager import ConfirmationManager
 
 __all__ = [
-    "VoiceRegistry",
-    "WakeEngine",
-    "STTEngine",
-    "TTSEngine",
-    "InteractionLoop"
+    "WakewordEngine",
+    "SpeechPipeline",
+    "IntentRouter",
+    "CommandDispatcher",
+    "TTSManager",
+    "VoiceContextManager",
+    "ConversationController",
+    "InterruptionManager",
+    "ConfirmationManager"
 ]
