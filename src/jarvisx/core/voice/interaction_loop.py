@@ -6,6 +6,7 @@ from .wake_engine import WakeEngine
 from .stt_engine import STTEngine
 from .tts_engine import TTSEngine
 from .voice_registry import VoiceRegistry
+from jarvisx.core.memory import SessionManager, ConversationStore
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,9 @@ class InteractionLoop:
         self.stt = STTEngine(confidence_threshold=0.50)
         self.tts = TTSEngine(self.registry)
         self.voice_router = voice_router
+        
+        self.session_manager = SessionManager()
+        self.conv_store = ConversationStore()
         
         self.state_callback = state_callback
         self.transcript_callback = transcript_callback
@@ -40,6 +44,7 @@ class InteractionLoop:
         self.wake.cleanup()
         self.stt.cleanup()
         self.tts.stop()
+        self.session_manager.mark_clean_shutdown()
 
     def _set_state(self, state: str):
         logger.info(f"UI State -> {state}")
@@ -47,6 +52,10 @@ class InteractionLoop:
             self.state_callback(state)
 
     def _add_transcript(self, text: str, is_user: bool = False):
+        speaker = "user" if is_user else "alfred"
+        session_id = self.session_manager.get_session_id()
+        self.conv_store.log_transcript(session_id, speaker, text)
+        
         if self.transcript_callback:
             self.transcript_callback(text, is_user)
 
