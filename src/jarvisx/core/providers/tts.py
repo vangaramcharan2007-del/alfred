@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import os
 from jarvisx.core.providers.provider_registry import BaseProvider, ProviderCapability
 from jarvisx.clients.elevenlabs_client import ElevenLabsClient
@@ -11,6 +9,7 @@ class ElevenLabsProvider(BaseProvider):
         
     @property
     def capability(self) -> ProviderCapability:
+        # Priority 1: ElevenLabs
         return ProviderCapability("TTS", "ElevenLabs", 10, False)
         
     async def check_health(self) -> bool:
@@ -23,28 +22,13 @@ class ElevenLabsProvider(BaseProvider):
         return self.client.synthesize(text, voice_id) or b""
 
 
-class PiperProvider(BaseProvider):
-    @property
-    def capability(self) -> ProviderCapability:
-        return ProviderCapability("TTS", "Piper", 20, True)
-        
-    async def check_health(self) -> bool:
-        return os.path.exists("/usr/bin/piper") or os.environ.get("PIPER_PATH") is not None
-        
-    async def benchmark(self) -> float:
-        return 300.0 if await self.check_health() else float('inf')
-        
-    def synthesize(self, text: str, voice_id: str = "") -> bytes:
-        return f"[Piper TTS] {text}".encode("utf-8")
-
-
 class Pyttsx3Provider(BaseProvider):
     @property
     def capability(self) -> ProviderCapability:
-        return ProviderCapability("TTS", "pyttsx3", 30, True)
+        # Priority 2: pyttsx3
+        return ProviderCapability("TTS", "pyttsx3", 20, True)
         
     async def check_health(self) -> bool:
-        # Final fallback, always considered "available"
         return True
         
     async def benchmark(self) -> float:
@@ -52,3 +36,35 @@ class Pyttsx3Provider(BaseProvider):
         
     def synthesize(self, text: str, voice_id: str = "") -> bytes:
         return f"[pyttsx3 TTS] {text}".encode("utf-8")
+
+
+class EdgeTTSProvider(BaseProvider):
+    @property
+    def capability(self) -> ProviderCapability:
+        # Priority 3: Edge TTS
+        return ProviderCapability("TTS", "Edge TTS", 30, False)
+        
+    async def check_health(self) -> bool:
+        return True
+        
+    async def benchmark(self) -> float:
+        return 150.0
+        
+    def synthesize(self, text: str, voice_id: str = "") -> bytes:
+        return f"[Edge TTS] {text}".encode("utf-8")
+
+
+class SystemTTSProvider(BaseProvider):
+    @property
+    def capability(self) -> ProviderCapability:
+        # Priority 4: System TTS
+        return ProviderCapability("TTS", "System TTS", 40, True)
+        
+    async def check_health(self) -> bool:
+        return True
+        
+    async def benchmark(self) -> float:
+        return 40.0
+        
+    def synthesize(self, text: str, voice_id: str = "") -> bytes:
+        return f"[System TTS] {text}".encode("utf-8")
