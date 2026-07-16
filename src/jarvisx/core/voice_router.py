@@ -1,14 +1,14 @@
 import asyncio
 import uuid
 import logging
-from .planner_engine import PlannerEngine
+from jarvisx.core.planning.planning_engine import PlanningEngine
 from jarvisx.core.memory import ConversationStore, TaskMemory, ContextRebuilder, ContinuityEngine
 
 logger = logging.getLogger(__name__)
 
 class VoiceRouter:
     def __init__(self):
-        self.planner = PlannerEngine()
+        self.planner = PlanningEngine()
         self.conv_store = ConversationStore()
         self.task_memory = TaskMemory()
         self.context_rebuilder = ContextRebuilder(self.conv_store, self.task_memory)
@@ -16,7 +16,7 @@ class VoiceRouter:
 
     async def process_voice_command(self, text: str) -> str:
         """
-        Receives text from STT, routes to Alfred (Planner) or Memory (Continuity), 
+        Receives text from STT, routes to PlanningEngine or ContinuityEngine, 
         and returns the synthesized TTS response string.
         """
         logger.info(f"Voice Router processing: {text}")
@@ -25,17 +25,5 @@ class VoiceRouter:
         if self.continuity_engine.is_resume_intent(text):
             return self.continuity_engine.process_resume()
         
-        # Default Planner Execution
-        goal_id = str(uuid.uuid4())[:8]
-        plan = self.planner.generate_plan(goal_id, text)
-        
-        if any(task.get("type") == "sw_engineering" for task in plan):
-            # Write a dummy task to simulate workforce backend insertion
-            self.task_memory.db.upsert_task({
-                "task_id": f"{goal_id}-backend",
-                "assigned_agent": "backend_agent",
-                "status": "PENDING"
-            })
-            return "I have planned the implementation and routed it to the workforce. The backend and testing agents are now running."
-        else:
-            return "I will handle that immediately."
+        # Route to Planning Engine for all other intents
+        return self.planner.process_voice_intent(text)
