@@ -1,0 +1,17 @@
+alfred:
+  provider: piper
+  voice: butler_en_gb
+  speed: 0.95
+  personality: calm
+
+edith:
+  provider: piper
+  voice: warm_en_us
+  speed: 1.05
+  personality: conversational
+
+hermes:
+  provider: piper
+  voice: concise_en_us
+  speed: 1.15
+  personality: operational

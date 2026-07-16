@@ -292,66 +292,40 @@ def check_health():
             }
         }
 
-        // --- Backend Sync (Placeholder for real implementation) ---
-        async function fetchSystemState() {
-            try {
-                const res = await fetch('/api/state');
-                const data = await res.json();
-                
-                if (data.mode && data.mode.state) setSystemState(data.mode.state);
-                if (data.personality) {
-                    activePersonality = data.personality;
-                    document.getElementById('personality-name').textContent = activePersonality;
+        // --- WebSocket Backend Sync ---
+        function connectWebSocket() {
+            const ws = new WebSocket(`ws://${window.location.hostname || '127.0.0.1'}:8766`);
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'state') {
+                    setSystemState(data.state);
+                    if (data.personality) {
+                        activePersonality = data.personality;
+                        document.getElementById('personality-name').textContent = activePersonality;
+                    }
+                } else if (data.type === 'transcript') {
+                    setTranscript(data.text, data.is_user);
                 }
-                
-                // Map backend flags directly to Progressive Disclosure panels
-                if (data.ui_flags) {
-                    togglePanel('panel-agents', data.ui_flags.show_agents);
-                    togglePanel('panel-diagnostics', data.ui_flags.show_diagnostics);
-                    togglePanel('panel-workspace', data.ui_flags.show_workspace);
-                }
-            } catch (err) {
-                // Silently ignore network errors in ambient mode
-            }
+            };
+            
+            ws.onclose = () => {
+                setTimeout(connectWebSocket, 3000); // Reconnect on drop
+            };
         }
-        setInterval(fetchSystemState, 2000);
+        connectWebSocket();
 
-        // --- Local Demo Simulation (To demonstrate the invisible UI philosophy) ---
-        // Open the console in the browser and type: `demo()`
-        window.demo = async () => {
-            setTranscript("Show me the active workforce.", true);
-            setSystemState('thinking');
-            
-            await new Promise(r => setTimeout(r, 1500));
-            
-            setSystemState('speaking');
-            setTranscript("I've expanded the active agents panel for you.");
-            togglePanel('panel-agents', true);
-            document.getElementById('agents-list').innerHTML = `
-                <div class="flex justify-between items-center bg-white/5 p-2 rounded">
-                    <span>backend_agent</span><span class="text-orange-400 text-xs">Compiling</span>
-                </div>
-                <div class="flex justify-between items-center bg-white/5 p-2 rounded">
-                    <span>testing_agent</span><span class="text-blue-400 text-xs">Waiting</span>
-                </div>
-            `;
-            
-            await new Promise(r => setTimeout(r, 3000));
-            setSystemState('listening');
-            
-            await new Promise(r => setTimeout(r, 2000));
-            setTranscript("Hide everything.", true);
-            setSystemState('thinking');
-            
-            await new Promise(r => setTimeout(r, 1000));
-            setSystemState('speaking');
-            setTranscript("Panels dismissed.");
-            togglePanel('panel-agents', false);
-            
-            await new Promise(r => setTimeout(r, 1500));
-            setSystemState('sleeping');
-            setTranscript(""); 
-        };
+        // --- Developer Mode ---
+        let devModeActive = false;
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+                devModeActive = !devModeActive;
+                togglePanel('panel-agents', devModeActive);
+                togglePanel('panel-diagnostics', devModeActive);
+                togglePanel('panel-workspace', devModeActive);
+            }
+        });
+
     </script>
 </body>
 </html>

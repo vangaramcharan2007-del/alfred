@@ -65,6 +65,46 @@ def serve(
         daemon=True
     ).start()
     
+    # 4. Start the Complete Voice Interaction Stack
+    from jarvisx.core.voice.interaction_loop import InteractionLoop
+    from jarvisx.core.voice.websocket_server import VoiceWebsocketServer
+    from jarvisx.core.voice_router import VoiceRouter
+    
+    voice_router = VoiceRouter()
+    ws_server = VoiceWebsocketServer(host=host, port=8766)
+    
+    def on_state(state: str):
+        # Fire-and-forget broadcast
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(ws_server.broadcast_state(state))
+        finally:
+            loop.close()
+
+    def on_transcript(text: str, is_user: bool):
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(ws_server.broadcast_transcript(text, is_user))
+        finally:
+            loop.close()
+            
+    interaction_loop = InteractionLoop(voice_router=voice_router, state_callback=on_state, transcript_callback=on_transcript)
+    
+    def run_voice_stack():
+        async def voice_main():
+            await ws_server.start()
+            interaction_loop.initialize()
+            await interaction_loop.start()
+            # Keep loop alive
+            while True:
+                await asyncio.sleep(3600)
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(voice_main())
+        
+    threading.Thread(target=run_voice_stack, daemon=True).start()
+    
     server = create_alfred_api_server(runtime, host=host, port=port)
     try:
         server.serve_forever()
