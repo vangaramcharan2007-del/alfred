@@ -23,6 +23,10 @@ from jarvisx.core.vision.ocr_engine import OCREngine
 from jarvisx.core.vision.vision_analyzer import VisionAnalyzer
 from jarvisx.core.vision.window_detector import WindowDetector
 
+from jarvisx.core.desktop.desktop_controller import DesktopController
+from jarvisx.core.desktop.window_manager import WindowManager
+from jarvisx.core.desktop.action_verifier import ActionVerifier
+
 
 class AlfredCommander:
     """Thin dispatch layer — voice command -> existing subsystem."""
@@ -45,24 +49,38 @@ class AlfredCommander:
         
         self.screen_capture = ScreenCapture()
         self.ocr_engine = OCREngine()
+        
+        self.desktop_controller = DesktopController()
+        self.window_manager = WindowManager()
+        self.action_verifier = ActionVerifier(self.window_manager)
 
         # Intent definitions with keyword sets for fuzzy matching
         self.intents = {
-            "GREETING": ["hello", "hi", "hey", "greetings", "good morning", "good evening", "good afternoon", "alfred"],
-            "TIME_QUERY": ["what time", "current time", "tell me the time", "time please", "the time"],
-            "STATUS_QUERY": ["what are you doing", "what r u doing", "status", "current status", "what are you working on", "what's going on"],
-            "DIAGNOSTICS": ["diagnostics", "show diagnostics", "show diag", "show di", "system report"],
-            "CONTINUITY": ["continue my work", "resume work", "continue objective", "resume previous task", "continue", "resume"],
-            "STOP": ["stop", "exit", "quit", "goodbye", "shut down", "shutdown", "bye"],
             "OPEN_APPLICATION": ["open vscode", "open visual studio code", "open chrome", "open browser", "open notepad", "open calculator", "open file explorer", "launch vscode", "start vscode"],
             "OPEN_WEBSITE": ["open youtube", "open github", "open chatgpt", "open the openai github page"],
             "SEARCH_GOOGLE": ["search google for", "search google"],
             "SEARCH_YOUTUBE": ["search youtube for", "search youtube"],
             "SEARCH_GITHUB": ["search github for", "search github"],
+            "TYPE_TEXT": ["type", "write", "enter text"],
+            "SWITCH_WINDOW": ["switch to", "focus"],
+            "CLOSE_WINDOW": ["close this window", "close"],
+            "SCROLL": ["scroll down", "scroll up"],
+            "PRESS_SHORTCUT": ["press"],
             "SCREEN_SUMMARY": ["what is on my screen", "what can you see", "describe my screen"],
             "ERROR_ANALYSIS": ["read this error", "what is this error", "explain this error"],
-            "PAGE_SUMMARY": ["summarize this page", "what am i reading", "what is this page"]
+            "PAGE_SUMMARY": ["summarize this page", "what am i reading", "what is this page"],
+            "GREETING": ["hello", "hi", "hey", "greetings", "good morning", "good evening", "good afternoon", "alfred"],
+            "TIME_QUERY": ["what time", "current time", "tell me the time", "time please", "the time"],
+            "STATUS_QUERY": ["what are you doing", "what r u doing", "status", "current status", "what are you working on", "what's going on"],
+            "DIAGNOSTICS": ["diagnostics", "show diagnostics", "show diag", "show di", "system report"],
+            "CONTINUITY": ["continue my work", "resume work", "continue objective", "resume previous task", "continue", "resume"],
+            "STOP": ["stop", "exit", "quit", "goodbye", "shut down", "shutdown", "bye"]
         }
+
+    def _is_dangerous(self, text: str) -> bool:
+        """Check for dangerous commands that should not execute automatically."""
+        dangerous_keywords = ["delete file", "shutdown computer", "restart computer", "format drive", "rm -rf"]
+        return any(k in text.lower() for k in dangerous_keywords)
 
     def _normalize_transcript(self, text: str) -> str:
         """Normalize common speech-to-text abbreviations and quirks."""
@@ -112,7 +130,7 @@ class AlfredCommander:
                 max_score = score
                 best_intent = intent
                 
-                # Extract target for OPEN intents
+                # Extract target for actions
                 if best_intent in ("OPEN_APPLICATION", "OPEN_WEBSITE"):
                     if "open " in matched_keyword:
                         target = matched_keyword.replace("open ", "").strip()
@@ -127,6 +145,28 @@ class AlfredCommander:
                         target = normalized_text.split("for ", 1)[1].strip()
                     else:
                         target = ""
+                elif best_intent == "TYPE_TEXT":
+                    for prefix in ("type ", "write ", "enter text "):
+                        if normalized_text.startswith(prefix):
+                            target = normalized_text[len(prefix):].strip()
+                            break
+                    if not target:
+                        target = normalized_text.replace(matched_keyword, "").strip()
+                elif best_intent == "SWITCH_WINDOW":
+                    for prefix in ("switch to ", "focus "):
+                        if normalized_text.startswith(prefix):
+                            target = normalized_text[len(prefix):].strip()
+                            break
+                    if not target:
+                        target = normalized_text.replace(matched_keyword, "").strip()
+                elif best_intent == "CLOSE_WINDOW":
+                    target = normalized_text.replace("close ", "").strip()
+                    if target == "this window":
+                        target = ""
+                elif best_intent == "SCROLL":
+                    target = "up" if "up" in normalized_text else "down"
+                elif best_intent == "PRESS_SHORTCUT":
+                    target = normalized_text.replace("press ", "").strip()
                 else:
                     target = ""
 
@@ -189,6 +229,60 @@ class AlfredCommander:
         if intent in ("SCREEN_SUMMARY", "ERROR_ANALYSIS", "PAGE_SUMMARY"):
             reply, display = self._perform_vision_analysis(intent)
             return reply, display
+
+        if self._is_dangerous(normalized):
+            return "That action requires manual confirmation. I will not execute it automatically.", None
+
+        if intent == "TYPE_TEXT":
+            success = self.desktop_controller.type_text(target)
+            if success:
+                print("Action:\nSUCCESS\n")
+                return f"Typing: {target}", None
+            else:
+                print("Action:\nFAILURE\n")
+                return "I was unable to type the text.", None
+
+        elif intent == "SWITCH_WINDOW":
+            success = self.window_manager.activate_window(target)
+            if success:
+                print("Action:\nSUCCESS\n")
+                return f"Switched to {target}.", None
+            else:
+                print("Action:\nFAILURE\n")
+                return f"I could not find a window matching {target}.", None
+
+        elif intent == "CLOSE_WINDOW":
+            if not target:
+                success = self.window_manager.close_active_window()
+                msg = "Closed the active window."
+            else:
+                success = self.window_manager.close_window(target)
+                msg = f"Closed {target}."
+            
+            if success:
+                print("Action:\nSUCCESS\n")
+                return msg, None
+            else:
+                print("Action:\nFAILURE\n")
+                return "I could not close the window.", None
+
+        elif intent == "SCROLL":
+            success = self.desktop_controller.scroll(target)
+            if success:
+                print("Action:\nSUCCESS\n")
+                return f"Scrolled {target}.", None
+            else:
+                print("Action:\nFAILURE\n")
+                return "I was unable to scroll.", None
+
+        elif intent == "PRESS_SHORTCUT":
+            success = self.desktop_controller.press_shortcut(target)
+            if success:
+                print("Action:\nSUCCESS\n")
+                return f"Pressed {target}.", None
+            else:
+                print("Action:\nFAILURE\n")
+                return "I was unable to execute that shortcut.", None
 
         if intent == "OPEN_APPLICATION":
             success = AppLauncher.launch(target)
