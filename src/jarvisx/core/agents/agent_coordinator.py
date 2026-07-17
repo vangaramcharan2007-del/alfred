@@ -69,10 +69,11 @@ class AgentCoordinator:
         self,
         objective: str,
         sub_tasks: List[Dict[str, Any]],
+        objective_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Execute an objective by delegating sub-tasks to specialist agents."""
 
-        parent_id = f"obj_{uuid.uuid4().hex[:8]}"
+        parent_id = objective_id or f"obj_{uuid.uuid4().hex[:8]}"
         logger.info(f"Multi-agent objective [{parent_id}]: {objective}")
 
         # Build SubObjective list

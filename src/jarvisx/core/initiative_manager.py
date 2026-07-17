@@ -98,6 +98,12 @@ class InitiativeManager:
                     
         self.proposals.append(proposal)
 
+    def add_recovery_proposals(self, proposals: List[ObjectiveProposal]):
+        """Inject recovery proposals directly."""
+        for p in proposals:
+            p.status = ProposalStatus.WAITING_APPROVAL
+            self.proposals.append(p)
+
     def get_pending_proposals(self) -> List[ObjectiveProposal]:
         return [p for p in self.proposals if p.status == ProposalStatus.WAITING_APPROVAL]
 
