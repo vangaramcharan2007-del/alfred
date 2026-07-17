@@ -14,6 +14,8 @@ from jarvisx.core.objective_store import ObjectiveStore
 from jarvisx.core.mission_continuity import MissionContinuityManager
 from jarvisx.core.alfred_summarizer import AlfredSummarizer
 from jarvisx.core.notification_policy import NotificationPolicy, NotificationLevel
+from jarvisx.core.os_control.app_launcher import AppLauncher
+from jarvisx.core.os_control.browser_launcher import BrowserLauncher
 
 
 class AlfredCommander:
@@ -41,7 +43,9 @@ class AlfredCommander:
             "STATUS_QUERY": ["what are you doing", "what r u doing", "status", "current status", "what are you working on", "what's going on"],
             "DIAGNOSTICS": ["diagnostics", "show diagnostics", "show diag", "show di", "system report"],
             "CONTINUITY": ["continue my work", "resume work", "continue objective", "resume previous task", "continue", "resume"],
-            "STOP": ["stop", "exit", "quit", "goodbye", "shut down", "shutdown", "bye"]
+            "STOP": ["stop", "exit", "quit", "goodbye", "shut down", "shutdown", "bye"],
+            "OPEN_APPLICATION": ["open vscode", "open visual studio code", "open chrome", "open browser", "open notepad", "open calculator", "open file explorer", "launch vscode", "start vscode"],
+            "OPEN_WEBSITE": ["open youtube", "open github", "open chatgpt"]
         }
 
     def _normalize_transcript(self, text: str) -> str:
@@ -60,32 +64,52 @@ class AlfredCommander:
             normalized = re.sub(pattern, replacement, normalized)
         return normalized
 
-    def _classify_intent(self, normalized_text: str) -> Tuple[str, float]:
-        """Classify the intent using fuzzy keyword matching."""
+    def _classify_intent(self, normalized_text: str) -> Tuple[str, float, str]:
+        """Classify the intent using fuzzy keyword matching.
+        Returns (intent, confidence, target)
+        """
         best_intent = "UNKNOWN"
         max_score = 0.0
+        target = ""
 
         words = set(normalized_text.split())
 
         for intent, keywords in self.intents.items():
             score = 0.0
+            matched_keyword = ""
             for keyword in keywords:
                 # Exact phrase match gives highest confidence
                 if keyword in normalized_text:
                     score = max(score, 0.95)
+                    matched_keyword = keyword
                 else:
                     # Partial word match
                     keyword_words = set(keyword.split())
                     match_count = len(words.intersection(keyword_words))
                     if match_count > 0:
                         current_score = 0.5 + (0.4 * (match_count / len(keyword_words)))
-                        score = max(score, current_score)
+                        if current_score > score:
+                            score = current_score
+                            matched_keyword = keyword
 
             if score > max_score:
                 max_score = score
                 best_intent = intent
+                
+                # Extract target for OPEN intents
+                if best_intent in ("OPEN_APPLICATION", "OPEN_WEBSITE"):
+                    if "open " in matched_keyword:
+                        target = matched_keyword.replace("open ", "").strip()
+                    elif "launch " in matched_keyword:
+                        target = matched_keyword.replace("launch ", "").strip()
+                    elif "start " in matched_keyword:
+                        target = matched_keyword.replace("start ", "").strip()
+                    else:
+                        target = matched_keyword
+                else:
+                    target = ""
 
-        return best_intent, max_score
+        return best_intent, max_score, target
 
     def handle(self, text: str) -> Tuple[Optional[str], Optional[str]]:
         """Process spoken text.
@@ -98,15 +122,38 @@ class AlfredCommander:
         normalized = self._normalize_transcript(text)
         print(f"\nNormalized transcript:\n{normalized}")
 
-        intent, confidence = self._classify_intent(normalized)
-        print(f"\nIntent detected: {intent}")
-        print(f"Confidence: {confidence:.2f}\n")
+        intent, confidence, target = self._classify_intent(normalized)
+        print(f"\nIntent: \n{intent}")
+        if target:
+            print(f"Target:\n{target}")
+        print(f"Confidence: {confidence:.2f}")
 
         # Threshold for acting on intent
         if confidence < 0.6:
             intent = "UNKNOWN"
 
-        if intent == "GREETING":
+        if intent == "OPEN_APPLICATION":
+            success = AppLauncher.launch(target)
+            if success:
+                print("Action:\nSUCCESS\n")
+                if "vscode" in target or "visual studio code" in target:
+                    return "Opening Visual Studio Code.", None
+                else:
+                    return f"Opening {target.title()}.", None
+            else:
+                print("Action:\nFAILURE\n")
+                return "I could not locate that application on this system.", None
+
+        elif intent == "OPEN_WEBSITE":
+            success = BrowserLauncher.launch(target)
+            if success:
+                print("Action:\nSUCCESS\n")
+                return f"Opening {target.title()}.", None
+            else:
+                print("Action:\nFAILURE\n")
+                return "I don't currently know how to open that website.", None
+
+        elif intent == "GREETING":
             hour = datetime.datetime.now().hour
             if hour < 12:
                 greeting = "Good morning."
@@ -153,8 +200,10 @@ class AlfredCommander:
                 "- what time is it\n"
                 "- what are you doing\n"
                 "- continue my work\n"
-                "- show diagnostics"
+                "- show diagnostics\n"
+                "- open vscode"
             )
             # Spoken fallback is shorter, display is full
-            return "I didn't understand that request. Please try asking about the time, my status, or diagnostics.", fallback_msg
+            return "I didn't understand that request. Please try asking about the time, my status, or opening an application.", fallback_msg
+
 
