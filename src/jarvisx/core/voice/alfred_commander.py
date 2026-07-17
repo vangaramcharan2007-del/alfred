@@ -18,6 +18,11 @@ from jarvisx.core.os_control.app_launcher import AppLauncher
 from jarvisx.core.os_control.browser_launcher import BrowserLauncher
 from jarvisx.core.browser.browser_controller import BrowserController
 
+from jarvisx.core.vision.screen_capture import ScreenCapture
+from jarvisx.core.vision.ocr_engine import OCREngine
+from jarvisx.core.vision.vision_analyzer import VisionAnalyzer
+from jarvisx.core.vision.window_detector import WindowDetector
+
 
 class AlfredCommander:
     """Thin dispatch layer — voice command -> existing subsystem."""
@@ -37,6 +42,9 @@ class AlfredCommander:
         self.policy = notification_policy
         self.summarizer = AlfredSummarizer()
         self.browser_controller = BrowserController.get_instance()
+        
+        self.screen_capture = ScreenCapture()
+        self.ocr_engine = OCREngine()
 
         # Intent definitions with keyword sets for fuzzy matching
         self.intents = {
@@ -50,7 +58,10 @@ class AlfredCommander:
             "OPEN_WEBSITE": ["open youtube", "open github", "open chatgpt", "open the openai github page"],
             "SEARCH_GOOGLE": ["search google for", "search google"],
             "SEARCH_YOUTUBE": ["search youtube for", "search youtube"],
-            "SEARCH_GITHUB": ["search github for", "search github"]
+            "SEARCH_GITHUB": ["search github for", "search github"],
+            "SCREEN_SUMMARY": ["what is on my screen", "what can you see", "describe my screen"],
+            "ERROR_ANALYSIS": ["read this error", "what is this error", "explain this error"],
+            "PAGE_SUMMARY": ["summarize this page", "what am i reading", "what is this page"]
         }
 
     def _normalize_transcript(self, text: str) -> str:
@@ -84,7 +95,7 @@ class AlfredCommander:
             matched_keyword = ""
             for keyword in keywords:
                 # Exact phrase match gives highest confidence
-                if keyword in normalized_text:
+                if re.search(r'\b' + re.escape(keyword) + r'\b', normalized_text):
                     score = max(score, 0.95)
                     matched_keyword = keyword
                 else:
@@ -121,6 +132,36 @@ class AlfredCommander:
 
         return best_intent, max_score, target
 
+    def _perform_vision_analysis(self, intent: str) -> Tuple[str, str]:
+        """Helper to run screen capture, OCR, and analysis."""
+        title, exe = WindowDetector.get_active_window()
+        filepath = self.screen_capture.capture_full_screen()
+        text, conf = self.ocr_engine.extract_text(filepath)
+        
+        display = f"Screenshot saved:\n{filepath}\n\n"
+        display += f"Detected window:\n{title if title else 'Unknown'}\n\n"
+        display += f"OCR characters:\n{len(text)}\n\n"
+        
+        summary = ""
+        if intent == "ERROR_ANALYSIS":
+            if not text:
+                summary = "I was unable to extract text from the current screen."
+            else:
+                summary = VisionAnalyzer.analyze_error(text)
+        elif intent in ("SCREEN_SUMMARY", "PAGE_SUMMARY"):
+            if not title and not text:
+                summary = "I can see the desktop but could not identify the active application."
+            else:
+                summary = VisionAnalyzer.summarize_page(text, title)
+                if "Traceback" in text or "ModuleNotFoundError" in text:
+                    # Append error info if present
+                    err = VisionAnalyzer.analyze_error(text)
+                    if err:
+                        summary += f"\n\n{err}"
+        
+        display += f"Summary:\n{summary}"
+        return summary, display
+
     def handle(self, text: str) -> Tuple[Optional[str], Optional[str]]:
         """Process spoken text.
 
@@ -144,6 +185,10 @@ class AlfredCommander:
         # Threshold for acting on intent
         if confidence < 0.6:
             intent = "UNKNOWN"
+
+        if intent in ("SCREEN_SUMMARY", "ERROR_ANALYSIS", "PAGE_SUMMARY"):
+            reply, display = self._perform_vision_analysis(intent)
+            return reply, display
 
         if intent == "OPEN_APPLICATION":
             success = AppLauncher.launch(target)
@@ -237,7 +282,8 @@ class AlfredCommander:
                 "- continue my work\n"
                 "- show diagnostics\n"
                 "- open vscode\n"
-                "- search youtube for python tutorials"
+                "- search youtube for python tutorials\n"
+                "- what is on my screen"
             )
             # Spoken fallback is shorter, display is full
             return "I didn't understand that request. Please try asking about the time, my status, or searching for something.", fallback_msg
