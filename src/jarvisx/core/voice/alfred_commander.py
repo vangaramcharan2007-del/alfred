@@ -5,7 +5,8 @@ natural-language voice commands into calls to the systems that already exist.
 """
 import time
 import datetime
-from typing import Optional, Tuple
+import re
+from typing import Optional, Tuple, Dict, Any
 
 from jarvisx.core.presence_manager import PresenceManager
 from jarvisx.core.diagnostics_console import DiagnosticsConsole
@@ -33,6 +34,59 @@ class AlfredCommander:
         self.policy = notification_policy
         self.summarizer = AlfredSummarizer()
 
+        # Intent definitions with keyword sets for fuzzy matching
+        self.intents = {
+            "GREETING": ["hello", "hi", "hey", "greetings", "good morning", "good evening", "good afternoon", "alfred"],
+            "TIME_QUERY": ["what time", "current time", "tell me the time", "time please", "the time"],
+            "STATUS_QUERY": ["what are you doing", "what r u doing", "status", "current status", "what are you working on", "what's going on"],
+            "DIAGNOSTICS": ["diagnostics", "show diagnostics", "show diag", "show di", "system report"],
+            "CONTINUITY": ["continue my work", "resume work", "continue objective", "resume previous task", "continue", "resume"],
+            "STOP": ["stop", "exit", "quit", "goodbye", "shut down", "shutdown", "bye"]
+        }
+
+    def _normalize_transcript(self, text: str) -> str:
+        """Normalize common speech-to-text abbreviations and quirks."""
+        lower = text.lower().strip()
+        # Expand common abbreviations
+        replacements = {
+            r"\bu\b": "you",
+            r"\br\b": "are",
+            r"\bdi\b": "diagnostics",
+            r"\bdiag\b": "diagnostics",
+            r"\bal\b": "alfred"
+        }
+        normalized = lower
+        for pattern, replacement in replacements.items():
+            normalized = re.sub(pattern, replacement, normalized)
+        return normalized
+
+    def _classify_intent(self, normalized_text: str) -> Tuple[str, float]:
+        """Classify the intent using fuzzy keyword matching."""
+        best_intent = "UNKNOWN"
+        max_score = 0.0
+
+        words = set(normalized_text.split())
+
+        for intent, keywords in self.intents.items():
+            score = 0.0
+            for keyword in keywords:
+                # Exact phrase match gives highest confidence
+                if keyword in normalized_text:
+                    score = max(score, 0.95)
+                else:
+                    # Partial word match
+                    keyword_words = set(keyword.split())
+                    match_count = len(words.intersection(keyword_words))
+                    if match_count > 0:
+                        current_score = 0.5 + (0.4 * (match_count / len(keyword_words)))
+                        score = max(score, current_score)
+
+            if score > max_score:
+                max_score = score
+                best_intent = intent
+
+        return best_intent, max_score
+
     def handle(self, text: str) -> Tuple[Optional[str], Optional[str]]:
         """Process spoken text.
 
@@ -40,10 +94,19 @@ class AlfredCommander:
         spoken_reply is what Alfred says aloud.
         display_text is optional extra output for the terminal (e.g. diagnostics).
         """
-        lower = text.lower().strip()
+        print(f"\nRaw transcript:\n{text}")
+        normalized = self._normalize_transcript(text)
+        print(f"\nNormalized transcript:\n{normalized}")
 
-        # --- Greeting ---
-        if any(w in lower for w in ["hello", "hi alfred", "hey alfred", "good evening", "good morning"]):
+        intent, confidence = self._classify_intent(normalized)
+        print(f"\nIntent detected: {intent}")
+        print(f"Confidence: {confidence:.2f}\n")
+
+        # Threshold for acting on intent
+        if confidence < 0.6:
+            intent = "UNKNOWN"
+
+        if intent == "GREETING":
             hour = datetime.datetime.now().hour
             if hour < 12:
                 greeting = "Good morning."
@@ -53,25 +116,21 @@ class AlfredCommander:
                 greeting = "Good evening."
             return f"{greeting} How may I assist you?", None
 
-        # --- Time ---
-        if "what time" in lower or "tell me the time" in lower:
+        elif intent == "TIME_QUERY":
             now = datetime.datetime.now().strftime("%I:%M %p")
             return f"It is currently {now}.", None
 
-        # --- Diagnostics ---
-        if "diagnostic" in lower or "show diagnostic" in lower:
+        elif intent == "DIAGNOSTICS":
             display = self.diagnostics.render()
             return "Here are the current diagnostics.", display
 
-        # --- What are you doing ---
-        if "what are you doing" in lower or "what's going on" in lower or "status" in lower:
+        elif intent == "STATUS_QUERY":
             summary = self.presence.get_active_summary()
             agents = self.presence.get_running_agent_names()
             agent_note = self.summarizer.summarize_agents_hidden(agents)
             return f"{summary} {agent_note}", None
 
-        # --- Continue my work / resume ---
-        if "continue" in lower or "resume" in lower:
+        elif intent == "CONTINUITY":
             interrupted = self.continuity.detect_interrupted_work()
             if interrupted:
                 count = len(interrupted)
@@ -84,9 +143,18 @@ class AlfredCommander:
             else:
                 return "There is no interrupted work. Standing by.", None
 
-        # --- Stop / Exit ---
-        if lower in ("stop", "exit", "quit", "goodbye", "shut down", "shutdown"):
+        elif intent == "STOP":
             return "Understood. Shutting down. Good night.", "__EXIT__"
 
-        # --- Fallback ---
-        return "I'm here. Could you clarify what you'd like me to do?", None
+        else:
+            fallback_msg = (
+                "I didn't understand that request.\n\n"
+                "You can ask me things such as:\n"
+                "- what time is it\n"
+                "- what are you doing\n"
+                "- continue my work\n"
+                "- show diagnostics"
+            )
+            # Spoken fallback is shorter, display is full
+            return "I didn't understand that request. Please try asking about the time, my status, or diagnostics.", fallback_msg
+

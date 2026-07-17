@@ -1,60 +1,99 @@
-"""TTS Engine — real pyttsx3-based text-to-speech for Alfred voice output."""
+"""TTS Engine — pyttsx3-based text-to-speech for Alfred voice output.
+
+Root-cause fix: pyttsx3's internal COM event loop gets stuck after repeated
+runAndWait() calls on Windows SAPI5.  The stable fix is to re-create the
+engine for every utterance so COM state is always clean.
+"""
 import pyttsx3
 import logging
 
 logger = logging.getLogger(__name__)
 
+# Detect preferred voice once at module load so we don't scan every call.
+_PREFERRED_VOICE_ID = None
+
+
+def _find_preferred_voice():
+    """Scan voices once and cache the preferred voice ID."""
+    global _PREFERRED_VOICE_ID
+    if _PREFERRED_VOICE_ID is not None:
+        return
+    try:
+        engine = pyttsx3.init()
+        voices = engine.getProperty("voices")
+        for v in voices:
+            if "david" in v.name.lower():
+                _PREFERRED_VOICE_ID = v.id
+                logger.info(f"TTS preferred voice: {v.name}")
+                engine.stop()
+                return
+        for v in voices:
+            if "english" in v.name.lower():
+                _PREFERRED_VOICE_ID = v.id
+                logger.info(f"TTS fallback voice: {v.name}")
+                engine.stop()
+                return
+        if voices:
+            _PREFERRED_VOICE_ID = voices[0].id
+        engine.stop()
+    except Exception as e:
+        logger.error(f"Voice scan failed: {e}")
+
+
+_find_preferred_voice()
+
 
 class TTSEngine:
-    """Synchronous offline TTS using pyttsx3 (SAPI5 on Windows)."""
+    """Reliable offline TTS — recreates pyttsx3 engine per utterance to avoid
+    the SAPI5 runAndWait() stall bug."""
 
     def __init__(self):
-        self._engine = pyttsx3.init()
-        self._configure_voice()
-
-    def _configure_voice(self):
-        """Attempt to select the most natural male voice available."""
-        voices = self._engine.getProperty("voices")
-        selected = None
-
-        # Prefer a male English voice (David on Windows)
-        for v in voices:
-            name_lower = v.name.lower()
-            if "david" in name_lower:
-                selected = v
-                break
-
-        # Fallback: first English voice
-        if selected is None:
-            for v in voices:
-                if "english" in v.name.lower() or "en" in (v.id or "").lower():
-                    selected = v
-                    break
-
-        if selected:
-            self._engine.setProperty("voice", selected.id)
-            logger.info(f"TTS voice selected: {selected.name}")
-
-        # Slightly slower rate for clarity
-        self._engine.setProperty("rate", 165)
-        self._engine.setProperty("volume", 1.0)
+        # Verify voice availability at init time
+        self._voice_id = _PREFERRED_VOICE_ID
 
     def speak(self, text: str):
-        """Speak the given text through system speakers (blocking)."""
-        logger.info(f"Alfred speaks: {text}")
-        self._engine.say(text)
-        self._engine.runAndWait()
+        """Speak the given text through system speakers (blocking).
+
+        A fresh engine is created each time to guarantee audio output.
+        """
+        engine = None
+        try:
+            engine = pyttsx3.init()
+            if self._voice_id:
+                engine.setProperty("voice", self._voice_id)
+            engine.setProperty("rate", 165)
+            engine.setProperty("volume", 1.0)
+            engine.say(text)
+            engine.runAndWait()
+        except Exception as e:
+            logger.error(f"TTS speak failed: {e}")
+        finally:
+            if engine:
+                try:
+                    engine.stop()
+                except Exception:
+                    pass
 
     def list_voices(self):
         """Return a list of available system voice names."""
-        voices = self._engine.getProperty("voices")
-        return [v.name for v in voices]
+        try:
+            engine = pyttsx3.init()
+            voices = engine.getProperty("voices")
+            names = [v.name for v in voices]
+            engine.stop()
+            return names
+        except Exception:
+            return []
 
     def get_current_voice(self) -> str:
         """Return the name of the currently selected voice."""
-        current_id = self._engine.getProperty("voice")
-        voices = self._engine.getProperty("voices")
-        for v in voices:
-            if v.id == current_id:
-                return v.name
+        try:
+            engine = pyttsx3.init()
+            voices = engine.getProperty("voices")
+            engine.stop()
+            for v in voices:
+                if v.id == self._voice_id:
+                    return v.name
+        except Exception:
+            pass
         return "Unknown"
