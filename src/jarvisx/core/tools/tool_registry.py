@@ -16,6 +16,27 @@ class ToolRegistry:
     def __init__(self):
         self._tools: Dict[str, Any] = {}  # name -> instance
         self._schemas: Dict[str, Dict[str, Any]] = {}  # name -> schema cache
+        self._auto_register_defaults()
+
+    def _auto_register_defaults(self):
+        """Automatically registers standard capability tools."""
+        try:
+            from jarvisx.core.tools.execution.file_ops import FileOps
+            self.register(FileOps(), "file_ops")
+        except ImportError:
+            pass
+            
+        try:
+            from jarvisx.core.tools.execution.command_executor import CommandExecutor
+            self.register(CommandExecutor(), "command_executor")
+        except ImportError:
+            pass
+
+        try:
+            from jarvisx.core.tools.desktop_ops import DesktopOps
+            self.register(DesktopOps(), "desktop_ops")
+        except ImportError:
+            pass
 
     @classmethod
     def get_instance(cls) -> 'ToolRegistry':

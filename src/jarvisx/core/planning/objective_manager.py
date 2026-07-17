@@ -113,6 +113,7 @@ class ObjectiveManager:
                 if res.get("success"):
                     tracker.mark_completed(task_id)
                     self.evidence_cache[task_id] = res.get("evidence", {})
+                    self._persist_state(objective, tracker)
                 else:
                     tracker.mark_failed(task_id)
                     self.evidence_cache[task_id] = res.get("evidence", {"error": res.get("error")})

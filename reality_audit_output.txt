@@ -1,0 +1,91 @@
+=== TEST 1: DYNAMIC PLANNING ===
+Objective: Create a file named test_phase10_runtime.txt
+Success: True
+Execution Evidence: {
+  "t1": {
+    "tool": "file_ops",
+    "method": "create_file",
+    "args": {
+      "filepath": "test_phase10_runtime.txt",
+      "content": "Jarvis runtime validation successful"
+    },
+    "duration_ms": 8,
+    "timestamp": 1784288842.4984028,
+    "output": {
+      "result": true
+    }
+  }
+}
+Resulting file content: Jarvis runtime validation successful
+File created successfully.
+File checksum: 899801d49d06473474f255a6ec8089d8
+
+=== TEST 2: FAILURE RECOVERY ===
+Final Success State: True
+Tracker State: COMPLETED
+Retries: 1
+Failed Tasks: []
+Evidence (Error Capture): {
+  "bad_cmd": {
+    "tool": "command_executor",
+    "method": "execute",
+    "args": {
+      "command": "nonexistent_command_xyz"
+    },
+    "duration_ms": 157,
+    "timestamp": 1784288842.6670196,
+    "output": {
+      "success": false,
+      "stdout": "",
+      "stderr": "'nonexistent_command_xyz' is not recognized as an internal or external command,\noperable program or batch file.",
+      "return_code": 1,
+      "duration_ms": 157
+    }
+  }
+}
+
+=== TEST 3: STATE PRESERVING REPLANNING ===
+Final Success State: True
+File A timestamp: 1784288842.677652
+File B timestamp: 1784288842.8525457
+File A existed? True
+File B existed? True
+Completed Tasks in Tracker: ['step3', 'step1', 'step2_fixed']
+
+=== TEST 4: PERSISTENCE ===
+Found 4 state files.
+Restored Objective: Create a file named test_phase10_runtime.txt
+Restored Completed: ['t1']
+Restored Evidence keys: ['t1']
+
+=== TEST 5: HALLUCINATION DEFENSE ===
+Validation passed: False
+Rejection Message: Task 't1' uses unregistered tool: 'VisionTool'
+
+=== TEST 6: REGISTRY VALIDATION ===
+Registered Tools: ['file_ops', 'command_executor']
+FileOps Schema methods: ['check_permissions', 'copy_file', 'create_directory', 'create_file', 'delete_file', 'move_file', 'read_file', 'search_files', 'write_file']
+
+=== TEST 7: EXECUTION EVIDENCE ===
+Checking fields:
+  tool exists: True
+  method exists: True
+  timestamp exists: True
+  duration_ms exists: True
+Full payload: {
+  "tool": "file_ops",
+  "method": "create_file",
+  "args": {
+    "filepath": "ev.txt",
+    "content": "E"
+  },
+  "duration_ms": 1,
+  "timestamp": 1784288842.8649135,
+  "output": {
+    "result": true
+  }
+}
+
+=== TEST 8: RUNTIME TRACE ===
+Trace captured by logging objective execution in previous tests (specifically the transitions).
+ObjectiveManager -> Planner -> TaskDecomposer -> PlanValidator -> DependencyGraph -> ExecutionMonitor -> ToolRegistry -> Evidence Cache -> Persistence Layer
