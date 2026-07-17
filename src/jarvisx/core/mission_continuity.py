@@ -5,8 +5,9 @@ from jarvisx.core.initiative_manager import ObjectiveProposal, ApprovalMode
 class MissionContinuityManager:
     """Detects interrupted objectives and generates recovery proposals."""
 
-    def __init__(self, objective_store: ObjectiveStore):
+    def __init__(self, objective_store: ObjectiveStore, presence_manager=None):
         self.store = objective_store
+        self.presence = presence_manager
 
     def detect_interrupted_work(self) -> List[Dict[str, Any]]:
         """Find objectives that were active but are now interrupted (e.g., from process restart)."""

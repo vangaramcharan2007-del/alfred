@@ -12,6 +12,7 @@ from .shared_context import SharedContext
 from .resource_manager import ResourceManager
 from .agent_metrics import AgentMetrics
 from jarvisx.core.tools.tool_registry import ToolRegistry
+from jarvisx.core.runtime_visibility import RuntimeVisibility, VisibilityMode
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,21 @@ class AgentCoordinator:
         self.shared_context = shared_context or SharedContext.get_instance()
         self.resource_manager = resource_manager or ResourceManager.get_instance()
         self._agent_metrics: Dict[str, AgentMetrics] = {}
+        self._visibility = RuntimeVisibility.get_instance()
+
+    @staticmethod
+    def get_process_creation_flags() -> int:
+        """Return OS process creation flags based on visibility mode."""
+        import os
+        if os.name != 'nt':
+            return 0
+        if RuntimeVisibility.should_show_agent_terminals():
+            import subprocess
+            return subprocess.CREATE_NEW_CONSOLE
+        else:
+            # Hidden: no window at all
+            import subprocess
+            return subprocess.CREATE_NO_WINDOW
 
     def get_agent_metrics(self, agent_id: str) -> AgentMetrics:
         if agent_id not in self._agent_metrics:

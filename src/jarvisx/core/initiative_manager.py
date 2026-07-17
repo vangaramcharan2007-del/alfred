@@ -140,3 +140,9 @@ class InitiativeManager:
                 p.status = ProposalStatus.VERIFIED
                 return True
         return False
+
+    def add_presence_proposals(self, proposals: List[ObjectiveProposal]):
+        """Inject presence-layer (Alfred) proposals directly."""
+        for p in proposals:
+            p.status = ProposalStatus.WAITING_APPROVAL
+            self.proposals.append(p)
