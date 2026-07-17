@@ -27,6 +27,10 @@ from jarvisx.core.desktop.desktop_controller import DesktopController
 from jarvisx.core.desktop.window_manager import WindowManager
 from jarvisx.core.desktop.action_verifier import ActionVerifier
 
+from jarvisx.core.execution.task_planner import TaskPlanner
+from jarvisx.core.execution.recovery_engine import RecoveryEngine
+from jarvisx.core.execution.task_executor import TaskExecutor
+
 
 class AlfredCommander:
     """Thin dispatch layer — voice command -> existing subsystem."""
@@ -53,9 +57,23 @@ class AlfredCommander:
         self.desktop_controller = DesktopController()
         self.window_manager = WindowManager()
         self.action_verifier = ActionVerifier(self.window_manager)
+        
+        # Autonomous Execution Engine
+        self.task_planner = TaskPlanner()
+        self.recovery_engine = RecoveryEngine(self.continuity)
+        self.task_executor = TaskExecutor(
+            planner=self.task_planner,
+            recovery_engine=self.recovery_engine,
+            objective_store=self.store,
+            desktop_controller=self.desktop_controller,
+            window_manager=self.window_manager,
+            action_verifier=self.action_verifier,
+            browser_controller=self.browser_controller
+        )
 
         # Intent definitions with keyword sets for fuzzy matching
         self.intents = {
+            "EXECUTE_OBJECTIVE": ["create a file", "create a folder", "search google for", "open vscode and create", "create a text file"],
             "OPEN_APPLICATION": ["open vscode", "open visual studio code", "open chrome", "open browser", "open notepad", "open calculator", "open file explorer", "launch vscode", "start vscode"],
             "OPEN_WEBSITE": ["open youtube", "open github", "open chatgpt", "open the openai github page"],
             "SEARCH_GOOGLE": ["search google for", "search google"],
@@ -232,6 +250,10 @@ class AlfredCommander:
 
         if self._is_dangerous(normalized):
             return "That action requires manual confirmation. I will not execute it automatically.", None
+
+        if intent == "EXECUTE_OBJECTIVE":
+            self.task_executor.execute_objective(text)
+            return None, None # Handled entirely by executor's TTS and logging
 
         if intent == "TYPE_TEXT":
             success = self.desktop_controller.type_text(target)
