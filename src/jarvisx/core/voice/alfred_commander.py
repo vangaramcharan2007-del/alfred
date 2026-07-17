@@ -16,6 +16,7 @@ from jarvisx.core.alfred_summarizer import AlfredSummarizer
 from jarvisx.core.notification_policy import NotificationPolicy, NotificationLevel
 from jarvisx.core.os_control.app_launcher import AppLauncher
 from jarvisx.core.os_control.browser_launcher import BrowserLauncher
+from jarvisx.core.browser.browser_controller import BrowserController
 
 
 class AlfredCommander:
@@ -35,6 +36,7 @@ class AlfredCommander:
         self.continuity = continuity
         self.policy = notification_policy
         self.summarizer = AlfredSummarizer()
+        self.browser_controller = BrowserController.get_instance()
 
         # Intent definitions with keyword sets for fuzzy matching
         self.intents = {
@@ -45,7 +47,10 @@ class AlfredCommander:
             "CONTINUITY": ["continue my work", "resume work", "continue objective", "resume previous task", "continue", "resume"],
             "STOP": ["stop", "exit", "quit", "goodbye", "shut down", "shutdown", "bye"],
             "OPEN_APPLICATION": ["open vscode", "open visual studio code", "open chrome", "open browser", "open notepad", "open calculator", "open file explorer", "launch vscode", "start vscode"],
-            "OPEN_WEBSITE": ["open youtube", "open github", "open chatgpt"]
+            "OPEN_WEBSITE": ["open youtube", "open github", "open chatgpt", "open the openai github page"],
+            "SEARCH_GOOGLE": ["search google for", "search google"],
+            "SEARCH_YOUTUBE": ["search youtube for", "search youtube"],
+            "SEARCH_GITHUB": ["search github for", "search github"]
         }
 
     def _normalize_transcript(self, text: str) -> str:
@@ -106,6 +111,11 @@ class AlfredCommander:
                         target = matched_keyword.replace("start ", "").strip()
                     else:
                         target = matched_keyword
+                elif best_intent in ("SEARCH_GOOGLE", "SEARCH_YOUTUBE", "SEARCH_GITHUB"):
+                    if "for " in normalized_text:
+                        target = normalized_text.split("for ", 1)[1].strip()
+                    else:
+                        target = ""
                 else:
                     target = ""
 
@@ -125,7 +135,10 @@ class AlfredCommander:
         intent, confidence, target = self._classify_intent(normalized)
         print(f"\nIntent: \n{intent}")
         if target:
-            print(f"Target:\n{target}")
+            if intent in ("SEARCH_GOOGLE", "SEARCH_YOUTUBE", "SEARCH_GITHUB"):
+                print(f"Query:\n{target}")
+            else:
+                print(f"Target:\n{target}")
         print(f"Confidence: {confidence:.2f}")
 
         # Threshold for acting on intent
@@ -145,13 +158,35 @@ class AlfredCommander:
                 return "I could not locate that application on this system.", None
 
         elif intent == "OPEN_WEBSITE":
-            success = BrowserLauncher.launch(target)
+            success = False
+            if "github" in target:
+                success = self.browser_controller.open_github()
+            elif "chatgpt" in target:
+                success = self.browser_controller.open_chatgpt()
+            else:
+                success = BrowserLauncher.launch(target)
+                
             if success:
                 print("Action:\nSUCCESS\n")
                 return f"Opening {target.title()}.", None
             else:
                 print("Action:\nFAILURE\n")
                 return "I don't currently know how to open that website.", None
+
+        elif intent == "SEARCH_GOOGLE":
+            print(f"Action:\nSUCCESS\n")
+            self.browser_controller.search_google(target)
+            return f"Searching Google for {target}. Search completed.", None
+
+        elif intent == "SEARCH_YOUTUBE":
+            print(f"Action:\nSUCCESS\n")
+            self.browser_controller.search_youtube(target)
+            return f"Searching YouTube for {target}. Search completed.", None
+
+        elif intent == "SEARCH_GITHUB":
+            print(f"Action:\nSUCCESS\n")
+            self.browser_controller.search_github(target)
+            return f"Searching GitHub for {target}. Search completed.", None
 
         elif intent == "GREETING":
             hour = datetime.datetime.now().hour
@@ -201,9 +236,10 @@ class AlfredCommander:
                 "- what are you doing\n"
                 "- continue my work\n"
                 "- show diagnostics\n"
-                "- open vscode"
+                "- open vscode\n"
+                "- search youtube for python tutorials"
             )
             # Spoken fallback is shorter, display is full
-            return "I didn't understand that request. Please try asking about the time, my status, or opening an application.", fallback_msg
+            return "I didn't understand that request. Please try asking about the time, my status, or searching for something.", fallback_msg
 
 
