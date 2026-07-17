@@ -4,6 +4,7 @@ import asyncio
 import time
 import hashlib
 from typing import Dict, Any, List, Optional
+from jarvisx.config.settings import DeveloperSettings
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,42 @@ class ToolRegistry:
             self.register(FileOps(), "file_ops")
         except ImportError:
             pass
+
+    def load_generated_skills(self):
+        """Automatically discover and register generated skills."""
+        import os
+        import importlib.util
+        import sys
+        
+        skills_dir = "src/jarvisx/skills"
+        if not os.path.exists(skills_dir):
+            return
+            
+        for filename in os.listdir(skills_dir):
+            if filename.endswith(".py") and not filename.startswith("__"):
+                module_name = filename[:-3]
+                file_path = os.path.join(skills_dir, filename)
+                
+                try:
+                    spec = importlib.util.spec_from_file_location(f"jarvisx.skills.{module_name}", file_path)
+                    if spec and spec.loader:
+                        module = importlib.util.module_from_spec(spec)
+                        sys.modules[f"jarvisx.skills.{module_name}"] = module
+                        spec.loader.exec_module(module)
+                        
+                        # Find the skill class and register it
+                        for attr_name in dir(module):
+                            if attr_name.endswith("Skill"):
+                                skill_class = getattr(module, attr_name)
+                                if isinstance(skill_class, type):
+                                    # Instantiate and register
+                                    self.register(skill_class(), module_name)
+                except Exception as e:
+                    logger.error(f"Failed to load generated skill {module_name}: {e}")
+
+    def get_capability_count(self) -> int:
+        """Expose the number of registered capabilities."""
+        return len(self._tools)
             
         try:
             from jarvisx.core.tools.execution.command_executor import CommandExecutor
@@ -122,10 +159,16 @@ class ToolRegistry:
         start_time = time.time()
 
         try:
+            if DeveloperSettings.TRACE_TOOL_EXECUTION:
+                logger.info(f"[TRACE] Executing {tool_name}.{method_name} with {arguments}")
+                
             if asyncio.iscoroutinefunction(method):
                 result = await method(**arguments)
             else:
                 result = await asyncio.to_thread(method, **arguments)
+                
+            if DeveloperSettings.TRACE_TOOL_EXECUTION:
+                logger.info(f"[TRACE] Completed {tool_name}.{method_name} -> {result}")
 
             duration_ms = int((time.time() - start_time) * 1000)
 

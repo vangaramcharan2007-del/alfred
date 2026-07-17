@@ -1,4 +1,0 @@
-2026-07-17 18:01:06,350 - agent.reviewer_agent - INFO - reviewer_agent starting message loop (PID: 496)
-2026-07-17 18:01:19,104 - agent.reviewer_agent - INFO - Received TASK_REQUEST from coord_task_4 for objective: task_4
-2026-07-17 18:01:19,104 - agent.reviewer_agent - INFO - Executing tool reviewer_tool.do_work
-2026-07-17 18:01:20,108 - agent.reviewer_agent - INFO - Sending TASK_RESULT to coord_task_4

@@ -1,4 +1,1 @@
-2026-07-17 18:01:06,381 - agent.planner_agent - INFO - planner_agent starting message loop (PID: 26396)
-2026-07-17 18:01:06,824 - agent.planner_agent - INFO - Received TASK_REQUEST from coord_task_1 for objective: task_1
-2026-07-17 18:01:06,824 - agent.planner_agent - INFO - Executing tool planner_tool.do_work
-2026-07-17 18:01:07,826 - agent.planner_agent - INFO - Sending TASK_RESULT to coord_task_1
+2026-07-17 19:00:26,996 - agent.planner_agent - INFO - planner_agent starting message loop (PID: 17624)

@@ -21,6 +21,7 @@ class MessageType(str, Enum):
     RESOURCE_RELEASE = "RESOURCE_RELEASE"
     STATUS_UPDATE = "STATUS_UPDATE"
     ERROR_REPORT = "ERROR_REPORT"
+    SHUTDOWN = "SHUTDOWN"
 
 
 class Message:
