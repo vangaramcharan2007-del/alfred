@@ -126,19 +126,6 @@ class AgentCoordinator:
                 agent.assign_objective(sub.objective_id)
                 metrics = self.get_agent_metrics(agent.agent_id)
                 metrics.record_delegation()
-
-                # Send task request via message bus
-                await self.message_bus.send(Message(
-                    sender_id="coordinator",
-                    recipient_id=agent.agent_id,
-                    msg_type=MessageType.TASK_REQUEST,
-                    payload={
-                        "objective_id": sub.objective_id,
-                        "tool": sub.tool_name,
-                        "method": sub.method_name,
-                        "args": sub.args,
-                    },
-                ))
             else:
                 sub.state = "UNASSIGNED"
                 sub.error = f"No available agent for capability '{sub.required_capability}'"
@@ -179,13 +166,14 @@ class AgentCoordinator:
         metrics = self.get_agent_metrics(agent_id)
         metrics.start_task(sub.objective_id)
 
+        coordinator_inbox = f"coord_{sub.objective_id}"
+
         # Acquire resource lock
-        resource_key = sub.tool_name
+        resource_key = sub.args.get("resource", sub.tool_name)
         lock_acquired = await self.resource_manager.acquire(resource_key, agent_id, timeout=15.0)
 
         try:
             if not lock_acquired:
-                # Cannot proceed — resource contention
                 metrics.fail_task(sub.objective_id)
                 return {
                     "objective_id": sub.objective_id,
@@ -195,55 +183,69 @@ class AgentCoordinator:
                     "evidence": {},
                 }
 
-            # Execute via ToolRegistry
-            result = await self.tool_registry.execute(sub.tool_name, sub.method_name, sub.args)
+            # Send task request via message bus
+            await self.message_bus.send(Message(
+                sender_id=coordinator_inbox,
+                recipient_id=agent_id,
+                msg_type=MessageType.TASK_REQUEST,
+                payload={
+                    "objective_id": sub.objective_id,
+                    "tool": sub.tool_name,
+                    "method": sub.method_name,
+                    "args": sub.args,
+                },
+            ))
 
-            if result.get("success"):
+            # Wait for result
+            result_msg = await self.message_bus.receive(coordinator_inbox, timeout=10.0)
+            
+            if result_msg and result_msg.payload.get("success"):
                 sub.state = "COMPLETED"
-                sub.evidence = result.get("evidence", {})
+                sub.evidence = result_msg.payload.get("evidence", {})
                 metrics.complete_task(sub.objective_id)
-
-                # Store evidence in shared context
                 self.shared_context.store_evidence(sub.objective_id, sub.evidence)
-
-                # Send result via bus
-                await self.message_bus.send(Message(
-                    sender_id=agent_id,
-                    recipient_id="coordinator",
-                    msg_type=MessageType.TASK_RESULT,
-                    payload={"objective_id": sub.objective_id, "success": True, "evidence": sub.evidence},
-                ))
+                
+                agent = self.agent_registry.get_agent(agent_id)
+                if agent:
+                    agent.release_objective(sub.objective_id)
+                    
+                return {
+                    "objective_id": sub.objective_id,
+                    "success": True,
+                    "error": None,
+                    "agent_id": agent_id,
+                    "evidence": sub.evidence,
+                }
             else:
                 sub.state = "FAILED"
-                sub.error = result.get("error", "Unknown")
+                if result_msg:
+                    sub.error = result_msg.payload.get("error", "Unknown")
+                else:
+                    sub.error = f"Timeout waiting for agent {agent_id}"
+                    
                 metrics.fail_task(sub.objective_id)
-
-                # Attempt failure recovery: find replacement agent
-                recovered = await self._attempt_recovery(sub, result)
+                
+                # Release lock early so backup can get it
+                if lock_acquired:
+                    self.resource_manager.release(resource_key, agent_id)
+                    lock_acquired = False
+                
+                # Attempt recovery
+                recovered = await self._attempt_recovery(sub, {})
                 if recovered:
                     return recovered
-
-                # Send error report
-                await self.message_bus.send(Message(
-                    sender_id=agent_id,
-                    recipient_id="coordinator",
-                    msg_type=MessageType.ERROR_REPORT,
-                    payload={"objective_id": sub.objective_id, "error": sub.error},
-                ))
-
-            # Release agent's objective
-            agent = self.agent_registry.get_agent(agent_id)
-            if agent:
-                agent.release_objective(sub.objective_id)
-
-            return {
-                "objective_id": sub.objective_id,
-                "success": result.get("success", False),
-                "error": result.get("error"),
-                "agent_id": agent_id,
-                "evidence": sub.evidence,
-            }
-
+                    
+                agent = self.agent_registry.get_agent(agent_id)
+                if agent:
+                    agent.release_objective(sub.objective_id)
+                    
+                return {
+                    "objective_id": sub.objective_id,
+                    "success": False,
+                    "error": sub.error,
+                    "agent_id": agent_id,
+                    "evidence": sub.evidence,
+                }
         finally:
             if lock_acquired:
                 self.resource_manager.release(resource_key, agent_id)
@@ -276,27 +278,56 @@ class AgentCoordinator:
         metrics = self.get_agent_metrics(replacement.agent_id)
         metrics.start_task(sub.objective_id)
 
-        result = await self.tool_registry.execute(sub.tool_name, sub.method_name, sub.args)
+        coordinator_inbox = f"coord_rec_{sub.objective_id}"
+        
+        resource_key = sub.args.get("resource", sub.tool_name)
+        lock_acquired = await self.resource_manager.acquire(resource_key, replacement.agent_id, timeout=25.0)
+        
+        try:
+            if not lock_acquired:
+                metrics.fail_task(sub.objective_id)
+                return None
+                
+            await self.message_bus.send(Message(
+                sender_id=coordinator_inbox,
+                recipient_id=replacement.agent_id,
+                msg_type=MessageType.TASK_REQUEST,
+                payload={
+                    "objective_id": sub.objective_id,
+                    "tool": sub.tool_name,
+                    "method": sub.method_name,
+                    "args": sub.args,
+                },
+            ))
 
-        if result.get("success"):
-            sub.state = "COMPLETED"
-            sub.evidence = result.get("evidence", {})
-            metrics.complete_task(sub.objective_id)
-            self.shared_context.store_evidence(sub.objective_id, sub.evidence)
-        else:
-            sub.state = "FAILED"
-            metrics.fail_task(sub.objective_id)
+            result_msg = await self.message_bus.receive(coordinator_inbox, timeout=20.0)
 
-        replacement.release_objective(sub.objective_id)
+            if result_msg and result_msg.payload.get("success"):
+                sub.state = "COMPLETED"
+                sub.evidence = result_msg.payload.get("evidence", {})
+                metrics.complete_task(sub.objective_id)
+                self.shared_context.store_evidence(sub.objective_id, sub.evidence)
+            else:
+                sub.state = "FAILED"
+                if result_msg:
+                    sub.error = result_msg.payload.get("error", "Unknown")
+                else:
+                    sub.error = f"Timeout waiting for recovery agent {replacement.agent_id}"
+                metrics.fail_task(sub.objective_id)
 
-        return {
-            "objective_id": sub.objective_id,
-            "success": result.get("success", False),
-            "error": result.get("error"),
-            "agent_id": replacement.agent_id,
-            "evidence": sub.evidence,
-            "recovered": True,
-        }
+            replacement.release_objective(sub.objective_id)
+            
+            return {
+                "objective_id": sub.objective_id,
+                "success": sub.state == "COMPLETED",
+                "error": sub.error,
+                "agent_id": replacement.agent_id,
+                "evidence": sub.evidence,
+                "recovered": True,
+            }
+        finally:
+            if lock_acquired:
+                self.resource_manager.release(resource_key, replacement.agent_id)
 
     def _find_agent(self, capability: str) -> Optional[AgentIdentity]:
         """Find the best available agent for a capability."""

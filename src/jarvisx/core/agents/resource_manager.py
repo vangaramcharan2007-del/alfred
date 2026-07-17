@@ -1,22 +1,22 @@
-"""Resource Lock Manager — prevents concurrent access conflicts across agents."""
+"""Resource Lock Manager — prevents concurrent access conflicts across agents using file-based IPC locks."""
+import os
+import time
+import json
 import asyncio
 import logging
-import time
 from typing import Dict, Optional
-from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
+LOCKS_DIR = "var/locks"
 
 class ResourceManager:
-    """Manages exclusive locks on tools/resources to prevent agent conflicts."""
+    """Manages exclusive locks on tools/resources across multiple OS processes."""
 
     _instance: Optional["ResourceManager"] = None
 
     def __init__(self):
-        self._locks: Dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
-        self._owners: Dict[str, str] = {}  # resource_name -> agent_id
-        self._acquire_times: Dict[str, float] = {}
+        os.makedirs(LOCKS_DIR, exist_ok=True)
 
     @classmethod
     def get_instance(cls) -> "ResourceManager":
@@ -28,55 +28,98 @@ class ResourceManager:
     def reset(cls):
         cls._instance = None
 
+    def _get_lock_path(self, resource_name: str) -> str:
+        # Sanitize resource name for filesystem
+        safe_name = "".join(c if c.isalnum() else "_" for c in resource_name)
+        return os.path.join(LOCKS_DIR, f"{safe_name}.lock")
+
     async def acquire(self, resource_name: str, agent_id: str, timeout: float = 10.0) -> bool:
-        """Acquire an exclusive lock on a resource."""
-        try:
-            acquired = await asyncio.wait_for(
-                self._locks[resource_name].acquire(), timeout=timeout
-            )
-            if acquired:
-                self._owners[resource_name] = agent_id
-                self._acquire_times[resource_name] = time.time()
+        """Acquire an exclusive file-based lock on a resource."""
+        lock_path = self._get_lock_path(resource_name)
+        start_time = time.time()
+        
+        while time.time() - start_time < timeout:
+            try:
+                # O_EXCL ensures this operation is atomic
+                fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                try:
+                    data = json.dumps({
+                        "agent_id": agent_id,
+                        "resource": resource_name,
+                        "timestamp": time.time()
+                    })
+                    os.write(fd, data.encode("utf-8"))
+                finally:
+                    os.close(fd)
                 logger.info(f"Resource '{resource_name}' locked by agent '{agent_id}'")
                 return True
-        except asyncio.TimeoutError:
-            logger.warning(
-                f"Agent '{agent_id}' timed out acquiring resource '{resource_name}' "
-                f"(held by '{self._owners.get(resource_name, 'unknown')}')"
-            )
+            except (FileExistsError, PermissionError):
+                await asyncio.sleep(0.1)
+                
+        logger.warning(f"Agent '{agent_id}' timed out acquiring resource '{resource_name}'")
         return False
 
     def release(self, resource_name: str, agent_id: str) -> bool:
         """Release a lock. Only the owning agent can release."""
-        if self._owners.get(resource_name) != agent_id:
-            logger.warning(f"Agent '{agent_id}' cannot release '{resource_name}' — not the owner")
-            return False
-        self._locks[resource_name].release()
-        del self._owners[resource_name]
-        if resource_name in self._acquire_times:
-            del self._acquire_times[resource_name]
-        logger.info(f"Resource '{resource_name}' released by agent '{agent_id}'")
-        return True
+        lock_path = self._get_lock_path(resource_name)
+        if not os.path.exists(lock_path):
+            return True
+            
+        try:
+            with open(lock_path, "r") as f:
+                data = json.load(f)
+            if data.get("agent_id") == agent_id:
+                os.remove(lock_path)
+                logger.info(f"Resource '{resource_name}' released by agent '{agent_id}'")
+                return True
+            else:
+                logger.warning(f"Agent '{agent_id}' cannot release '{resource_name}' — not the owner")
+                return False
+        except (json.JSONDecodeError, FileNotFoundError):
+            # If the file is corrupted or gone, assume it's released or we can delete it
+            try:
+                os.remove(lock_path)
+            except FileNotFoundError:
+                pass
+            return True
 
     def is_locked(self, resource_name: str) -> bool:
-        return resource_name in self._owners
+        return os.path.exists(self._get_lock_path(resource_name))
 
     def get_owner(self, resource_name: str) -> Optional[str]:
-        return self._owners.get(resource_name)
+        lock_path = self._get_lock_path(resource_name)
+        try:
+            with open(lock_path, "r") as f:
+                data = json.load(f)
+                return data.get("agent_id")
+        except Exception:
+            return None
 
     def get_locked_resources(self) -> Dict[str, str]:
-        return dict(self._owners)
+        if not os.path.exists(LOCKS_DIR):
+            return {}
+        resources = {}
+        for filename in os.listdir(LOCKS_DIR):
+            if filename.endswith(".lock"):
+                try:
+                    with open(os.path.join(LOCKS_DIR, filename), "r") as f:
+                        data = json.load(f)
+                        if "resource" in data and "agent_id" in data:
+                            resources[data["resource"]] = data["agent_id"]
+                except Exception:
+                    pass
+        return resources
 
     def force_release_all(self, agent_id: str):
         """Release all resources held by an agent (used during failure recovery)."""
-        resources_to_release = [r for r, owner in self._owners.items() if owner == agent_id]
-        for resource in resources_to_release:
-            try:
-                self._locks[resource].release()
-            except RuntimeError:
-                pass  # Lock already released
-            del self._owners[resource]
-            if resource in self._acquire_times:
-                del self._acquire_times[resource]
-        if resources_to_release:
-            logger.info(f"Force-released {len(resources_to_release)} resources from agent '{agent_id}'")
+        resources = self.get_locked_resources()
+        count = 0
+        for resource, owner in resources.items():
+            if owner == agent_id:
+                try:
+                    os.remove(self._get_lock_path(resource))
+                    count += 1
+                except FileNotFoundError:
+                    pass
+        if count > 0:
+            logger.info(f"Force-released {count} resources from agent '{agent_id}'")
