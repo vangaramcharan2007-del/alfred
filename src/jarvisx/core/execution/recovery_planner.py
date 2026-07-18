@@ -58,12 +58,19 @@ class AlternativeToolStrategy(RecoveryStrategy):
             logger.info(f"Trying alternative tool: {alt} instead of {target}")
             # Mutate the step for the alternative
             original_target = step["target"]
+            original_verif = step.get("verification_target")
+            
             step["target"] = alt
+            if original_verif is not None:
+                step["verification_target"] = alt
+                
             success = executor_fn(step)
             if success:
                 return True
             # Revert if failed
             step["target"] = original_target
+            if original_verif is not None:
+                step["verification_target"] = original_verif
             
         return False
 
@@ -86,16 +93,19 @@ class PermissionRecoveryStrategy(RecoveryStrategy):
         
         logger.info(f"Permission denied on {target}. Falling back to {fallback_path}")
         original_target = step["target"]
-        step["target"] = fallback_path
+        original_verif = step.get("verification_target")
         
+        step["target"] = fallback_path
+        if original_verif is not None:
+            step["verification_target"] = fallback_path
+            
         success = executor_fn(step)
         if success:
-            # We also need to update verification target if it exists
-            if "verification_target" in step:
-                step["verification_target"] = step["target"]
             return True
             
         step["target"] = original_target
+        if original_verif is not None:
+            step["verification_target"] = original_verif
         return False
 
 

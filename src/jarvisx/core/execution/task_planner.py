@@ -34,6 +34,21 @@ class TaskPlanner:
             filename = match.group(1).strip()
             return self._plan_vscode_create(filename)
             
+        # Pattern 5: Open Google in Browser (for fallback testing)
+        if match := re.search(r"open google in\s+(.+)", text, re.IGNORECASE):
+            browser = match.group(1).strip()
+            return self._plan_open_google_in(browser)
+            
+        # Pattern 6: Create file at absolute path (for permission testing)
+        if match := re.search(r"create file at\s+(.+)", text, re.IGNORECASE):
+            target = match.group(1).strip()
+            return self._plan_create_file_direct(target)
+            
+        # Pattern 7: Launch app (for capability fallback testing)
+        if match := re.search(r"launch\s+(.+)", text, re.IGNORECASE):
+            app = match.group(1).strip()
+            return self._plan_launch_app(app)
+            
         return None
 
     def _plan_create_file(self, filename: str, content: str) -> Dict[str, Any]:
@@ -160,6 +175,61 @@ class TaskPlanner:
                     "target": "enter",
                     "verification": "FILE_EXISTS",
                     "verification_target": filename
+                }
+            ]
+        }
+
+    def _plan_open_google_in(self, browser: str) -> Dict[str, Any]:
+        return {
+            "objective_id": str(uuid.uuid4()),
+            "objective_type": "OPEN_GOOGLE",
+            "steps": [
+                {
+                    "step_id": 1,
+                    "description": f"Opening {browser}.",
+                    "action_type": "OPEN_APPLICATION",
+                    "target": browser.lower(),
+                    "verification": "WINDOW_EXISTS",
+                    "verification_target": browser
+                },
+                {
+                    "step_id": 2,
+                    "description": "Searching Google.",
+                    "action_type": "SEARCH_GOOGLE",
+                    "target": "hello", # Dummy search to trigger browser loading google
+                    "verification": "NONE"
+                }
+            ]
+        }
+        
+    def _plan_create_file_direct(self, target: str) -> Dict[str, Any]:
+        return {
+            "objective_id": str(uuid.uuid4()),
+            "objective_type": "CREATE_FILE_DIRECT",
+            "steps": [
+                {
+                    "step_id": 1,
+                    "description": "Creating file.",
+                    "action_type": "CREATE_FILE_DIRECT",
+                    "target": target,
+                    "verification": "FILE_EXISTS",
+                    "verification_target": target
+                }
+            ]
+        }
+
+    def _plan_launch_app(self, app: str) -> Dict[str, Any]:
+        return {
+            "objective_id": str(uuid.uuid4()),
+            "objective_type": "LAUNCH_APP",
+            "steps": [
+                {
+                    "step_id": 1,
+                    "description": f"Launching {app}.",
+                    "action_type": "OPEN_APPLICATION",
+                    "target": app.lower(),
+                    "verification": "WINDOW_EXISTS",
+                    "verification_target": app
                 }
             ]
         }

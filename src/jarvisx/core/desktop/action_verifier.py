@@ -18,9 +18,15 @@ class ActionVerifier:
             active = self.wm.get_active_window()
             if active and expected_partial_title.lower() in active.lower():
                 return True
+            
+            # Also check if it exists at all, in case it didn't grab focus
+            titles = self.wm.get_windows()
+            if any(expected_partial_title.lower() in t.lower() for t in titles):
+                return True
+                
             time.sleep(0.5)
         
-        logger.warning(f"Verification failed: expected '{expected_partial_title}' active, got '{self.wm.get_active_window()}'")
+        logger.warning(f"Verification failed: expected '{expected_partial_title}' window to exist")
         return False
 
     def verify_window_closed(self, expected_partial_title: str, timeout: float = 2.0) -> bool:

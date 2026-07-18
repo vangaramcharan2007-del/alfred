@@ -21,6 +21,7 @@ from jarvisx.core.execution.failure_classifier import FailureClassifier
 from jarvisx.core.execution.reflection_engine import ReflectionEngine
 from jarvisx.core.execution.recovery_planner import RecoveryPlanner
 from jarvisx.core.execution.execution_coordinator import ExecutionCoordinator
+from jarvisx.core.execution.fault_injector import FaultInjector
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ class TaskExecutor:
         self.classifier = FailureClassifier()
         self.reflection = ReflectionEngine(self.classifier)
         self.recovery = RecoveryPlanner(self.registry)
+        self.injector = FaultInjector()
         
         self.coordinator = ExecutionCoordinator(
             event_bus=self.event_bus,
@@ -142,6 +144,11 @@ class TaskExecutor:
         target = self.context.resolve_path(step.get("target", ""))
         step["target"] = target # update it so verification knows
         
+        # Check for injected execution faults
+        injected_fault = self.injector.check_execution_fault(action, target)
+        if injected_fault:
+            return False, injected_fault
+        
         try:
             if action == "OPEN_APPLICATION":
                 if target.startswith("explorer"):
@@ -173,6 +180,14 @@ class TaskExecutor:
                 os.makedirs(target, exist_ok=True)
                 return True, None
                 
+            elif action == "CREATE_FILE_DIRECT":
+                try:
+                    with open(target, "w") as f:
+                        f.write("jarvis_test")
+                    return True, None
+                except Exception as e:
+                    return False, e
+                
             elif action == "SWITCH_WINDOW":
                 success = self.window.activate_window(target)
                 return success, None
@@ -190,6 +205,10 @@ class TaskExecutor:
             return True
             
         target = self.context.resolve_path(step.get("verification_target", ""))
+        
+        # Check for injected verification faults
+        if self.injector.check_verification_fault(target):
+            return False
         
         if verif_type == "WINDOW_EXISTS":
             return self.verifier.verify_window_active(target, timeout=5.0)

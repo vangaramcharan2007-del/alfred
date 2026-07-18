@@ -6,123 +6,125 @@ import time
 sys.path.insert(0, os.path.abspath("src"))
 
 from jarvisx.core.execution.event_bus import EventBus, ExecutionEvent
-from jarvisx.core.execution.execution_context import ExecutionContext
-from jarvisx.core.execution.capability_registry import CapabilityRegistry
-from jarvisx.core.execution.failure_classifier import FailureClassifier
-from jarvisx.core.execution.reflection_engine import ReflectionEngine
-from jarvisx.core.execution.recovery_planner import RecoveryPlanner
-from jarvisx.core.execution.execution_coordinator import ExecutionCoordinator
+from jarvisx.core.execution.fault_injector import FaultInjector
+from jarvisx.core.execution.task_executor import TaskExecutor
+from jarvisx.core.execution.task_planner import TaskPlanner
+from jarvisx.core.execution.capability_registry import Capability
+from jarvisx.core.objective_store import ObjectiveStore
+from jarvisx.core.desktop.desktop_controller import DesktopController
+from jarvisx.core.desktop.window_manager import WindowManager
+from jarvisx.core.desktop.action_verifier import ActionVerifier
+from jarvisx.core.browser.browser_controller import BrowserController
 
 
 def main():
     print("==================================================")
-    print("  PHASE 22: REFLECTION & RECOVERY ENGINE DEMO")
+    print("  PHASE 22.1: REAL-WORLD VALIDATION DEMO")
     print("==================================================\n")
 
-    event_bus = EventBus()
-    context = ExecutionContext()
-    registry = CapabilityRegistry()
-    classifier = FailureClassifier()
-    reflection = ReflectionEngine(classifier)
-    recovery = RecoveryPlanner(registry)
+    # Initialize real components
+    planner = TaskPlanner()
+    store = ObjectiveStore()
+    desktop = DesktopController()
+    window = WindowManager()
+    verifier = ActionVerifier(window_manager=window)
+    browser = BrowserController()
 
-    # 1. Live Event Stream Logger
-    def log_event(event, payload):
-        if event == ExecutionEvent.STEP_STARTED:
-            print(f"\n[EventBus] -> STEP_STARTED: {payload['step']['action_type']} targeting {payload['step']['target']}")
-        elif event == ExecutionEvent.VERIFICATION_FAILED:
-            print(f"[EventBus] -> VERIFICATION_FAILED for {payload['step']['target']}")
-        elif event == ExecutionEvent.REFLECTION_COMPLETED:
-            r = payload['reflection']
-            print(f"[EventBus] -> REFLECTION_COMPLETED:")
-            print(f"            Success: {r.success}")
-            if not r.success:
-                print(f"            Failure: {r.failure_category.name if r.failure_category else 'UNKNOWN'}")
-                print(f"            Recoverable: {r.recoverable}")
-                print(f"            Recommendation: {r.recommendation}")
-        elif event == ExecutionEvent.RECOVERY_STARTED:
-            print(f"[EventBus] -> RECOVERY_STARTED (Strategy: {payload['strategy']})")
-        elif event == ExecutionEvent.RECOVERY_SUCCEEDED:
-            print(f"[EventBus] -> RECOVERY_SUCCEEDED!")
-        elif event == ExecutionEvent.RECOVERY_FAILED:
-            print(f"[EventBus] -> RECOVERY_FAILED!")
-
-    for e in ExecutionEvent:
-        event_bus.subscribe(e, log_event)
-
-    # Variables to mock behaviors
-    mock_state = {
-        "fake_browser_opened": False,
-        "verification_attempts": 0
-    }
-
-    # Dummy executor
-    def executor_fn(step):
-        action = step["action_type"]
-        target = step["target"]
-        target_resolved = context.resolve_path(target)
-        
-        if action == "OPEN_APPLICATION":
-            # Simulate missing chrome
-            if target == "chrome":
-                return False, FileNotFoundError("chrome.exe not found")
-            elif target == "edge":
-                print(f"    [Executor] Opening {target} (Alternative fallback successful)")
-                mock_state["fake_browser_opened"] = True
-                return True, None
-                
-        elif action == "CREATE_FILE":
-            # Simulate permission denied for system32
-            if "system32" in target_resolved.lower():
-                return False, PermissionError("Access is denied")
-            else:
-                print(f"    [Executor] Creating file at {target_resolved}")
-                return True, None
-                
-        elif action == "VERIFY_ME":
-            # Just succeed execution, fail verification first time
-            return True, None
-
-        return False, ValueError("Unknown action")
-
-    # Dummy verifier
-    def verifier_fn(step):
-        if step["action_type"] == "VERIFY_ME":
-            mock_state["verification_attempts"] += 1
-            if mock_state["verification_attempts"] < 2:
-                print("    [Verifier] Returning False (simulating verification fail)")
-                return False
-            print("    [Verifier] Returning True (simulating successful retry)")
-            return True
-        return True
-
-    coordinator = ExecutionCoordinator(
-        event_bus=event_bus,
-        reflection_engine=reflection,
-        recovery_planner=recovery,
-        executor_fn=executor_fn,
-        verifier_fn=verifier_fn
+    executor = TaskExecutor(
+        planner=planner,
+        objective_store=store,
+        desktop_controller=desktop,
+        window_manager=window,
+        action_verifier=verifier,
+        browser_controller=browser
     )
 
+    # Disable TTS for the demo to prevent hanging in headless environments
+    executor.tts.speak = lambda text: None
+
+    injector = FaultInjector()
+    
+    # Register capabilities so recovery knows alternatives
+    executor.registry.register(Capability("chrome", description="browser", alternatives=["edge", "firefox"]))
+    executor.registry.register(Capability("notepad++", description="editor", alternatives=["notepad"]))
+    
+    # Store scenario results
+    results = {}
+
     print("--- SCENARIO 1: Missing Application (Fallback to Alternative) ---")
-    step1 = {"action_type": "OPEN_APPLICATION", "target": "chrome"}
-    res1 = coordinator.coordinate_step(step1)
-    print(f"\nScenario 1 Result: {'SUCCESS' if res1 else 'FAILED'}\n")
+    # We want to open Chrome. We inject a fault so "chrome" fails.
+    # The Recovery Planner should see missing app -> alternative tool -> use Edge.
+    # The physical result should be Edge opening.
+    
+    injector.inject_execution_fault("OPEN_APPLICATION", "chrome", FileNotFoundError("chrome.exe not found"))
+    executor.execute_objective("launch chrome")
+    
+    # Verify: did it succeed? The executor handles logging.
+    # In a real validation, we can check if the Edge window exists.
+    time.sleep(3)
+    opened = verifier.verify_window_active("edge", timeout=10.0)
+    results["Scenario 1 (Missing Browser -> Edge Fallback)"] = "PASS" if opened else "FAIL"
+    
+    
+    print("\n--- SCENARIO 2: Permission Denied (Switch Directory) ---")
+    # We try to create a file in System32. Windows will naturally throw PermissionError 
+    # when we use python's `open(..., 'w')` on that directory. 
+    # Reflection should catch it -> PermissionRecoveryStrategy -> rewrite path to TEMP.
+    
+    target_path = "C:/Windows/System32/jarvis_test.txt"
+    executor.execute_objective(f"create file at {target_path}")
+    
+    # Verify it was created in TEMP instead of System32
+    import tempfile
+    fallback_path = os.path.join(tempfile.gettempdir(), "jarvis_test.txt")
+    if os.path.exists(fallback_path):
+        results["Scenario 2 (Permission Denied -> Temp Directory Fallback)"] = "PASS"
+        os.remove(fallback_path) # Clean up
+    else:
+        results["Scenario 2 (Permission Denied -> Temp Directory Fallback)"] = "FAIL"
 
-    print("--- SCENARIO 2: Permission Denied (Switch Directory) ---")
-    # Using C:/Windows/System32 to trigger permission error
-    step2 = {"action_type": "CREATE_FILE", "target": "C:/Windows/System32/config.sys"}
-    res2 = coordinator.coordinate_step(step2)
-    print(f"\nScenario 2 Result: {'SUCCESS' if res2 else 'FAILED'}\n")
 
-    print("--- SCENARIO 3: Verification Failure (Retry Strategy) ---")
-    step3 = {"action_type": "VERIFY_ME", "target": "something"}
-    res3 = coordinator.coordinate_step(step3)
-    print(f"\nScenario 3 Result: {'SUCCESS' if res3 else 'FAILED'}\n")
+    print("\n--- SCENARIO 3: Verification Failure (Retry Strategy) ---")
+    # We create a file on the Desktop, but inject a verification fault on the first attempt.
+    # Reflection should retry. The second verification attempt will not have the fault and will pass.
+    
+    desktop_file = os.path.join(os.path.expanduser("~"), "Desktop", "retry_test.txt")
+    # Clean up before start
+    if os.path.exists(desktop_file):
+        os.remove(desktop_file)
+        
+    injector.inject_verification_fault(desktop_file)
+    executor.execute_objective("create file at ${DESKTOP}/retry_test.txt")
+    
+    if os.path.exists(desktop_file):
+        results["Scenario 3 (Verification Failure -> Retry)"] = "PASS"
+        os.remove(desktop_file) # Clean up
+    else:
+        results["Scenario 3 (Verification Failure -> Retry)"] = "FAIL"
 
+
+    print("\n--- SCENARIO 4: Capability Fallback Validation ---")
+    # Notepad++ is registered with alternative "notepad". We inject a failure for notepad++.
+    injector.inject_execution_fault("OPEN_APPLICATION", "notepad++", FileNotFoundError("Notepad++ missing"))
+    executor.execute_objective("launch notepad++")
+    
+    time.sleep(3)
+    # Check if Notepad (the alternative) actually opened
+    opened_notepad = verifier.verify_window_active("Notepad", timeout=10.0)
+    results["Scenario 4 (Capability Fallback -> Notepad)"] = "PASS" if opened_notepad else "FAIL"
+
+
+    print("\n==================================================")
+    print("  VISUAL VALIDATION SUMMARY")
     print("==================================================")
-    print("  DEMO COMPLETE")
-    print("==================================================")
+    
+    all_passed = True
+    for scenario, result in results.items():
+        print(f"{scenario}\n{result}\n")
+        if result == "FAIL":
+            all_passed = False
+            
+    print(f"Overall\n{'PASS' if all_passed else 'FAIL'}")
 
 if __name__ == "__main__":
     main()

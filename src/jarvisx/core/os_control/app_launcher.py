@@ -13,7 +13,10 @@ _APP_MAP = {
     "browser": "chrome",  # fallback
     "notepad": "notepad",
     "calculator": "calc",
-    "file explorer": "explorer"
+    "file explorer": "explorer",
+    "edge": "msedge",
+    "firefox": "firefox",
+    "notepad++": "notepad++"
 }
 
 class AppLauncher:
@@ -30,20 +33,20 @@ class AppLauncher:
             return False
 
         try:
-            # We want to launch the app as a background process completely detached,
-            # with no console window. CREATE_NO_WINDOW suppresses the cmd prompt.
-            # Using shell=True for 'code', 'explorer', 'chrome' helps Windows find them via PATH.
-            flags = subprocess.CREATE_NO_WINDOW
-            
-            subprocess.Popen(
-                cmd, 
-                shell=True, 
-                creationflags=flags,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                stdin=subprocess.DEVNULL
-            )
-            return True
+            # os.startfile is the most robust way to launch GUI apps on Windows
+            # without tying them to the console or suppressing their windows.
+            if hasattr(os, 'startfile'):
+                os.startfile(cmd)
+                return True
+            else:
+                subprocess.Popen(
+                    cmd, 
+                    shell=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL
+                )
+                return True
         except Exception as e:
             logger.error(f"Failed to launch {target}: {e}")
             return False
