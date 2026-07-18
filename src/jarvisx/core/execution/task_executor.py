@@ -2,18 +2,25 @@
 import os
 import time
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 from jarvisx.core.voice.tts_engine import TTSEngine
 from jarvisx.core.execution.task_planner import TaskPlanner
 from jarvisx.core.execution.progress_tracker import ProgressTracker
-from jarvisx.core.execution.recovery_engine import RecoveryEngine
 from jarvisx.core.desktop.desktop_controller import DesktopController
 from jarvisx.core.desktop.window_manager import WindowManager
 from jarvisx.core.desktop.action_verifier import ActionVerifier
 from jarvisx.core.browser.browser_controller import BrowserController
 from jarvisx.core.os_control.app_launcher import AppLauncher
 from jarvisx.core.objective_store import ObjectiveStore
+
+from jarvisx.core.execution.event_bus import EventBus, ExecutionEvent
+from jarvisx.core.execution.execution_context import ExecutionContext
+from jarvisx.core.execution.capability_registry import CapabilityRegistry
+from jarvisx.core.execution.failure_classifier import FailureClassifier
+from jarvisx.core.execution.reflection_engine import ReflectionEngine
+from jarvisx.core.execution.recovery_planner import RecoveryPlanner
+from jarvisx.core.execution.execution_coordinator import ExecutionCoordinator
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +30,6 @@ class TaskExecutor:
     def __init__(
         self,
         planner: TaskPlanner,
-        recovery_engine: RecoveryEngine,
         objective_store: ObjectiveStore,
         desktop_controller: DesktopController,
         window_manager: WindowManager,
@@ -31,21 +37,64 @@ class TaskExecutor:
         browser_controller: BrowserController
     ):
         self.planner = planner
-        self.recovery = recovery_engine
         self.store = objective_store
         self.desktop = desktop_controller
         self.window = window_manager
         self.verifier = action_verifier
         self.browser = browser_controller
         self.tts = TTSEngine()
+        
+        # Phase 22 Components
+        self.event_bus = EventBus()
+        self.context = ExecutionContext()
+        self.registry = CapabilityRegistry()
+        self.classifier = FailureClassifier()
+        self.reflection = ReflectionEngine(self.classifier)
+        self.recovery = RecoveryPlanner(self.registry)
+        
+        self.coordinator = ExecutionCoordinator(
+            event_bus=self.event_bus,
+            reflection_engine=self.reflection,
+            recovery_planner=self.recovery,
+            executor_fn=self._execute_step,
+            verifier_fn=self._verify_step
+        )
+        
+        self._setup_event_logging()
+
+    def _setup_event_logging(self):
+        """Subscribe to events for structured console logging."""
+        def log_event(event, payload):
+            if event == ExecutionEvent.STEP_STARTED:
+                print(f"\n[Execution]\nAction: {payload['step']['action_type']}\nTarget: {payload['step']['target']}")
+            elif event == ExecutionEvent.VERIFICATION_PASSED:
+                print("[Verification]\nPassed: True")
+            elif event == ExecutionEvent.VERIFICATION_FAILED:
+                print("[Verification]\nPassed: False")
+            elif event == ExecutionEvent.REFLECTION_COMPLETED:
+                r = payload['reflection']
+                if not r.success:
+                    print(f"\n[Reflection]\nFailure: {r.failure_category.name if r.failure_category else 'UNKNOWN'}")
+                    print(f"Recoverable: {r.recoverable}\nConfidence: {r.confidence}\nRecommendation: {r.recommendation}")
+            elif event == ExecutionEvent.RECOVERY_STARTED:
+                print(f"\n[Recovery]\nStrategy: {payload['strategy']}")
+            elif event == ExecutionEvent.RECOVERY_SUCCEEDED:
+                print("Result: SUCCESS")
+            elif event == ExecutionEvent.RECOVERY_FAILED:
+                print("Result: FAILED")
+                
+        for e in ExecutionEvent:
+            self.event_bus.subscribe(e, log_event)
 
     def execute_objective(self, raw_text: str) -> None:
         """Main entry point. Plans and runs an objective."""
+        self.event_bus.publish(ExecutionEvent.OBJECTIVE_STARTED, {"raw_text": raw_text})
         self.tts.speak("Planning objective.")
         
         plan = self.planner.plan(raw_text)
         if not plan:
             self.tts.speak("I am currently unable to autonomously plan that objective.")
+            self.event_bus.publish(ExecutionEvent.OBJECTIVE_FAILED, {"reason": "planning_failed"})
             return
 
         tracker = ProgressTracker(plan)
@@ -63,23 +112,17 @@ class TaskExecutor:
             
             print(f"\nObjective:\n{plan['objective_type']}\n\nPlan:\n{len(plan['steps'])} steps\n\nCurrent Step:\n{tracker.current_step_index + 1}/{len(plan['steps'])}")
             
-            success = self._execute_step(step)
+            # Coordinate step execution (Execute -> Verify -> Reflect -> Recover)
+            success = self.coordinator.coordinate_step(step)
             
-            if success:
-                success = self._verify_step(step)
-                
             if not success:
-                # Attempt recovery
-                recovered = self.recovery.attempt_recovery(step, lambda s: self._execute_step(s) and self._verify_step(s))
-                if not recovered:
-                    tracker.mark_failed()
-                    print("\nResult:\nFAILURE\n")
-                    self.tts.speak("I was unable to complete the objective.")
-                    self.store.fail_objective(plan["objective_id"])
-                    self.recovery.escalate_failure(plan["objective_id"], plan["objective_type"], plan)
-                    return
+                tracker.mark_failed()
+                print("\nResult:\nFAILURE\n")
+                self.tts.speak("I was unable to complete the objective.")
+                self.store.fail_objective(plan["objective_id"])
+                self.event_bus.publish(ExecutionEvent.OBJECTIVE_FAILED, {"objective_id": plan["objective_id"]})
+                return
             
-            print("\nVerification:\nPASSED\n")
             tracker.mark_completed()
             # Update store
             self.store.update_objective(plan["objective_id"], {"status": "in_progress", "step_index": tracker.current_step_index})
@@ -90,38 +133,55 @@ class TaskExecutor:
         print("\nResult:\nSUCCESS\n")
         self.tts.speak("Objective completed successfully.")
         self.store.complete_objective(plan["objective_id"])
+        self.event_bus.publish(ExecutionEvent.OBJECTIVE_COMPLETED, {"objective_id": plan["objective_id"]})
 
-    def _execute_step(self, step: Dict[str, Any]) -> bool:
+    def _execute_step(self, step: Dict[str, Any]) -> Tuple[bool, Exception]:
         """Dispatches action to the correct subsystem."""
         action = step["action_type"]
-        target = step["target"]
+        # Resolve any context placeholders (e.g. ${DESKTOP})
+        target = self.context.resolve_path(step.get("target", ""))
+        step["target"] = target # update it so verification knows
         
         try:
             if action == "OPEN_APPLICATION":
                 if target.startswith("explorer"):
                     os.system(target) # special shell launch
-                    return True
-                return AppLauncher.launch(target)
+                    return True, None
+                
+                # Check capability registry first
+                cap = self.registry.get(target)
+                cmd = cap.name if cap else target
+                
+                success = AppLauncher.launch(cmd)
+                if not success:
+                    return False, FileNotFoundError(f"Application {target} not found")
+                return True, None
+                
             elif action == "TYPE_TEXT":
-                return self.desktop.type_text(target)
+                success = self.desktop.type_text(target)
+                return success, None
+                
             elif action == "PRESS_SHORTCUT":
-                return self.desktop.press_shortcut(target)
+                success = self.desktop.press_shortcut(target)
+                return success, None
+                
             elif action == "SEARCH_GOOGLE":
                 self.browser.search_google(target)
-                return True
+                return True, None
+                
             elif action == "CREATE_FOLDER_DIRECT":
-                # Special physical fallback for reliability
-                desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-                target_path = os.path.join(desktop_path, target)
-                os.makedirs(target_path, exist_ok=True)
-                return True
+                os.makedirs(target, exist_ok=True)
+                return True, None
+                
             elif action == "SWITCH_WINDOW":
-                return self.window.activate_window(target)
+                success = self.window.activate_window(target)
+                return success, None
+                
         except Exception as e:
             logger.error(f"Step execution failed: {e}")
-            return False
+            return False, e
             
-        return False
+        return False, ValueError(f"Unknown action {action}")
 
     def _verify_step(self, step: Dict[str, Any]) -> bool:
         """Verifies the physical side effects of a step."""
@@ -129,37 +189,24 @@ class TaskExecutor:
         if verif_type == "NONE":
             return True
             
-        target = step.get("verification_target", "")
+        target = self.context.resolve_path(step.get("verification_target", ""))
         
         if verif_type == "WINDOW_EXISTS":
             return self.verifier.verify_window_active(target, timeout=5.0)
             
         elif verif_type == "FILE_EXISTS":
-            # For this demo, assume local execution path or standard save paths
-            # In a real scenario we'd do a broader system search or ask OS
-            # Since Notepad/VSCode saves to active dir (or Documents/Desktop)
-            # Let's check the current directory (which is project root during demo)
-            # and the Desktop
-            paths_to_check = [
-                target,
-                os.path.join(os.path.expanduser("~"), "Desktop", target),
-                os.path.join(os.path.expanduser("~"), "Documents", target)
-            ]
+            # Just check the absolute path since we resolved placeholders
             for _ in range(5):
-                for p in paths_to_check:
-                    if os.path.exists(p):
-                        return True
+                if os.path.exists(target):
+                    return True
                 time.sleep(1.0)
             return False
             
         elif verif_type == "FOLDER_EXISTS":
-            target_path = os.path.join(os.path.expanduser("~"), "Desktop", target)
-            return os.path.exists(target_path)
+            return os.path.exists(target)
             
         elif verif_type == "BROWSER_URL_MATCHES":
-            # Just wait a moment for browser to load
             time.sleep(3.0)
-            # In a real system, we'd query the Playwright controller URL
             return True
             
         return True

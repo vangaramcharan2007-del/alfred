@@ -1,5 +1,4 @@
 """Task Planner — converts natural language objectives into structured deterministic plans."""
-import os
 import re
 import uuid
 import logging
@@ -67,7 +66,7 @@ class TaskPlanner:
                     "step_id": 4,
                     "description": "Entering filename.",
                     "action_type": "TYPE_TEXT",
-                    "target": os.path.join(os.path.expanduser("~"), "Desktop", filename),
+                    "target": f"${{DESKTOP}}/{filename}",
                     "verification": "NONE"
                 },
                 {
@@ -151,7 +150,7 @@ class TaskPlanner:
                     "step_id": 4,
                     "description": "Typing filename.",
                     "action_type": "TYPE_TEXT",
-                    "target": os.path.join(os.path.expanduser("~"), "Desktop", filename),
+                    "target": f"${{DESKTOP}}/{filename}",
                     "verification": "NONE"
                 },
                 {
