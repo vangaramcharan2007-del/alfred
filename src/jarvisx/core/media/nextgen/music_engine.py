@@ -15,13 +15,16 @@ class MusicEngine:
         self.default_track = self.audio_dir / "cinematic_travel.mp3"
         
     def _ensure_track(self):
-        # A lightweight royalty-free cinematic track for demonstration (Pixabay or similar free host)
-        # Using a reliable fallback URL for demonstration purposes.
-        url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-        if not self.default_track.exists():
-            logging.info("Downloading royalty-free cinematic track...")
-            urllib.request.urlretrieve(url, str(self.default_track))
-        return str(self.default_track)
+        import glob
+        import random
+        # Ensure we only use local assets as requested by user
+        local_tracks = glob.glob(str(self.audio_dir / "*.mp3"))
+        if not local_tracks:
+            raise FileNotFoundError(f"No royalty-free local MP3 assets found in {self.audio_dir}. Please place music tracks here.")
+        
+        selected_track = random.choice(local_tracks)
+        logging.info(f"Selected local music track: {selected_track}")
+        return selected_track
 
     def analyze_beats(self, filepath=None) -> tuple[str, list[BeatMarker]]:
         """

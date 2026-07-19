@@ -1,8 +1,13 @@
+import os
+import random
+import numpy as np
+import logging
 from typing import List, Dict, Any
 from .timeline_builder import TimelineBuilder
+from .timeline_builder import TimelineBuilder
 from .timeline import Timeline, KenBurnsEffect
-import logging
-import random
+from .title_engine import TitleEngine
+from .color_grading import CinematicPresets
 
 logging.basicConfig(level=logging.INFO, format='[Alfred Story] %(message)s')
 
@@ -30,6 +35,16 @@ class StoryEngine:
         """
         logging.info("Constructing narrative arc...")
         builder = TimelineBuilder(fps=self.fps, resolution=self.resolution)
+        
+        # 1. Generate Intro Card
+        title_eng = TitleEngine(os.path.join(os.path.dirname(music_path), "..", "Assets"))
+        intro_path = title_eng.generate_intro(
+            title="The Tirupati Journey",
+            subtitle="A Cinematic Pilgrimage",
+            date_str="Memories of 2026"
+        )
+        builder.add_clip(intro_path, "photo", duration=4.0)
+        
         builder.add_audio_track(music_path, volume=1.0, fade_in=2.0, fade_out=3.0)
         
         cats = self._categorize_clips(analysis_results)
@@ -60,9 +75,7 @@ class StoryEngine:
         # Filter strong beats
         strong_beats = [b for b in beat_markers if b.strength > np.percentile([m.strength for m in beat_markers], 70)] if beat_markers else []
         
-        current_time = 0.0
-        
-        builder.add_title("TIRUPATI", start_time=0.5, duration=3.0, style="cinematic")
+        current_time = 4.0
         
         for i, clip in enumerate(story_sequence):
             # Calculate duration based on the next strong beat, or fallback to 3 seconds
@@ -77,11 +90,15 @@ class StoryEngine:
             kb = None
             if clip['type'] == 'photo':
                 kb = KenBurnsEffect(
-                    start_scale=1.1, end_scale=1.3,
+                    start_scale=1.1, end_scale=1.3, duration=duration,
                     start_x=0.5, start_y=0.5,
                     end_x=0.5 + random.uniform(-0.1, 0.1), 
                     end_y=0.5 + random.uniform(-0.1, 0.1)
                 )
+                
+            # Apply Color Grading
+            preset_name = "Golden Hour" if clip.get('scene_type') == 'temple' else "Travel Documentary"
+            cg = CinematicPresets.get_preset(preset_name)
                 
             # Add to builder
             builder.add_clip(
@@ -90,7 +107,7 @@ class StoryEngine:
                 duration=duration,
                 start_time=0.0,
                 ken_burns=kb,
-                color_grading={'brightness': 1.05, 'contrast': 1.1} # Slight cinematic punch
+                color_grading=cg
             )
             
             # Add transitions (except for the last clip)
@@ -100,8 +117,11 @@ class StoryEngine:
                 builder.add_transition(trans_type, duration=0.5)
                 
             current_time += duration
-            
-        logging.info(f"Story built successfully with {len(story_sequence)} clips synced to music.")
+        # 3. Generate Outro Card
+        outro_path = title_eng.generate_outro(signature="Directed by Jarvis X")
+        builder.add_clip(outro_path, "photo", duration=4.0)
+
+        logging.info(f"Story built successfully with {len(story_sequence) + 2} clips synced to music.")
         return builder.build()
 
 import numpy as np # required for percentile
