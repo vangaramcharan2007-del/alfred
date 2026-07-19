@@ -30,6 +30,8 @@ from jarvisx.core.desktop.action_verifier import ActionVerifier
 from jarvisx.core.execution.task_planner import TaskPlanner
 from jarvisx.core.execution.recovery_engine import RecoveryEngine
 from jarvisx.core.execution.task_executor import TaskExecutor
+from jarvisx.core.whatsapp.manager import WhatsAppAutomationManager
+from jarvisx.core.whatsapp.voice_bridge import WhatsAppVoiceBridge
 
 
 class AlfredCommander:
@@ -42,6 +44,7 @@ class AlfredCommander:
         objective_store: ObjectiveStore,
         continuity: MissionContinuityManager,
         notification_policy: NotificationPolicy,
+        whatsapp_manager: WhatsAppAutomationManager = None,
     ):
         self.presence = presence
         self.diagnostics = diagnostics
@@ -51,6 +54,8 @@ class AlfredCommander:
         self.summarizer = AlfredSummarizer()
         self.browser_controller = BrowserController.get_instance()
         
+        self.whatsapp_bridge = WhatsAppVoiceBridge(whatsapp_manager) if whatsapp_manager else None
+
         self.screen_capture = ScreenCapture()
         self.ocr_engine = OCREngine()
         
@@ -63,7 +68,6 @@ class AlfredCommander:
         self.recovery_engine = RecoveryEngine(self.continuity)
         self.task_executor = TaskExecutor(
             planner=self.task_planner,
-            recovery_engine=self.recovery_engine,
             objective_store=self.store,
             desktop_controller=self.desktop_controller,
             window_manager=self.window_manager,
@@ -92,6 +96,11 @@ class AlfredCommander:
             "STATUS_QUERY": ["what are you doing", "what r u doing", "status", "current status", "what are you working on", "what's going on"],
             "DIAGNOSTICS": ["diagnostics", "show diagnostics", "show diag", "show di", "system report"],
             "CONTINUITY": ["continue my work", "resume work", "continue objective", "resume previous task", "continue", "resume"],
+            "WHATSAPP_START_MONITOR": ["monitor whatsapp", "check whatsapp for new reports", "when dad sends a word file"],
+            "WHATSAPP_PAUSE_MONITOR": ["pause document automation"],
+            "WHATSAPP_RESUME_MONITOR": ["resume document automation"],
+            "WHATSAPP_STATS": ["how many files have i converted today", "show today's conversion log", "what did dad send yesterday"],
+            "WHATSAPP_CONVERT_LATEST": ["convert the latest word document", "convert every word document received today"],
             "STOP": ["stop", "exit", "quit", "goodbye", "shut down", "shutdown", "bye"]
         }
 
@@ -254,6 +263,13 @@ class AlfredCommander:
         if intent == "EXECUTE_OBJECTIVE":
             self.task_executor.execute_objective(text)
             return None, None # Handled entirely by executor's TTS and logging
+
+        if intent.startswith("WHATSAPP_"):
+            if self.whatsapp_bridge:
+                reply = self.whatsapp_bridge.handle_intent(intent, text)
+                return reply, None
+            else:
+                return "WhatsApp automation is not configured on this system.", None
 
         if intent == "TYPE_TEXT":
             success = self.desktop_controller.type_text(target)

@@ -27,6 +27,7 @@ from jarvisx.core.mission_continuity import MissionContinuityManager
 from jarvisx.core.notification_policy import NotificationPolicy, NotificationLevel
 from jarvisx.core.alfred_summarizer import AlfredSummarizer
 from jarvisx.core.agents.agent_coordinator import AgentCoordinator
+from jarvisx.core.whatsapp.manager import WhatsAppAutomationManager
 
 # Silence internal module logging — only Alfred speaks
 logging.basicConfig(level=logging.WARNING)
@@ -54,12 +55,15 @@ class VoiceRuntime:
         self.bus = VoiceBus(tts_engine=self.tts)
 
         # ── command dispatch ────────────────────────────────────────────
+        self.whatsapp_manager = WhatsAppAutomationManager(tts_engine=self.tts)
+        
         self.commander = AlfredCommander(
             presence=self.presence,
             diagnostics=self.diagnostics,
             objective_store=self.store,
             continuity=self.continuity,
             notification_policy=self.policy,
+            whatsapp_manager=self.whatsapp_manager,
         )
 
         # ── hidden background agents ────────────────────────────────────
@@ -121,6 +125,9 @@ class VoiceRuntime:
 
     def shutdown(self):
         """Tear down background processes."""
+        if self.whatsapp_manager:
+            self.whatsapp_manager.stop()
+            
         for name, proc in self._bg_procs:
             try:
                 proc.terminate()
