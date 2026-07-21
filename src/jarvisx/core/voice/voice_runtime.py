@@ -1,171 +1,137 @@
 """Alfred Voice Runtime — the single visible entry point for Jarvis X.
 
-Initialises STT, TTS, and every existing subsystem, then runs a continuous
-conversation loop.  Internal agents execute silently in HEADLESS mode.
-The user interacts exclusively through voice with Alfred.
+Integrates STT, TTS, WakeWord, Mission Engine, and the Dashboard.
 """
 import os
 import sys
 import time
 import logging
-import subprocess
-from typing import List
 
-# ── path setup ──────────────────────────────────────────────────────────
 sys.path.insert(0, os.path.abspath("src"))
 
-# ── subsystem imports ───────────────────────────────────────────────────
 from jarvisx.core.voice.tts_engine import TTSEngine
 from jarvisx.core.voice.stt_listener import STTListener
-from jarvisx.core.voice.voice_bus import VoiceBus
-from jarvisx.core.voice.alfred_commander import AlfredCommander
-from jarvisx.core.presence_manager import PresenceManager, HealthStatus
-from jarvisx.core.runtime_visibility import RuntimeVisibility, VisibilityMode
-from jarvisx.core.diagnostics_console import DiagnosticsConsole
-from jarvisx.core.objective_store import ObjectiveStore
-from jarvisx.core.mission_continuity import MissionContinuityManager
-from jarvisx.core.notification_policy import NotificationPolicy, NotificationLevel
-from jarvisx.core.alfred_summarizer import AlfredSummarizer
-from jarvisx.core.agents.agent_coordinator import AgentCoordinator
-from jarvisx.core.whatsapp.manager import WhatsAppAutomationManager
+from jarvisx.core.voice.wakeword_engine import WakewordEngine
+from jarvisx.core.voice.dashboard import MissionDashboard
+from jarvisx.core.execution.mission_engine import MissionEngine
+from jarvisx.core.capabilities.runtime import CapabilityRuntime
+from jarvisx.core.capabilities.registry import SystemCapabilityRegistry
+from jarvisx.core.capabilities.base import Capability
 
-# Silence internal module logging — only Alfred speaks
 logging.basicConfig(level=logging.WARNING)
-logger = logging.getLogger("alfred.runtime")
-logger.setLevel(logging.INFO)
-
 
 class VoiceRuntime:
-    """Alfred's main runtime — owns the conversation loop and all subsystem wiring."""
-
-    def __init__(self):
-        # ── visibility ──────────────────────────────────────────────────
-        RuntimeVisibility.set_mode(VisibilityMode.HEADLESS)
-
-        # ── core singletons ─────────────────────────────────────────────
-        self.presence = PresenceManager.get_instance()
-        self.store = ObjectiveStore()
-        self.continuity = MissionContinuityManager(self.store, presence_manager=self.presence)
-        self.policy = NotificationPolicy(minimum_level=NotificationLevel.INFORMATIONAL)
-        self.diagnostics = DiagnosticsConsole(self.presence)
-
-        # ── voice ───────────────────────────────────────────────────────
-        self.tts = TTSEngine()
-        self.stt = STTListener()
-        self.bus = VoiceBus(tts_engine=self.tts)
-
-        # ── command dispatch ────────────────────────────────────────────
-        self.whatsapp_manager = WhatsAppAutomationManager(tts_engine=self.tts)
+    def __init__(self, use_microphone=True):
+        self.dashboard = MissionDashboard()
+        self.wakeword = WakewordEngine()
         
-        self.commander = AlfredCommander(
-            presence=self.presence,
-            diagnostics=self.diagnostics,
-            objective_store=self.store,
-            continuity=self.continuity,
-            notification_policy=self.policy,
-            whatsapp_manager=self.whatsapp_manager,
-        )
-
-        # ── hidden background agents ────────────────────────────────────
-        self._bg_procs: list = []
-
-    # ── lifecycle ───────────────────────────────────────────────────────
-
-    def startup(self):
-        """Boot all hidden subsystems and greet the user."""
-
-        # Register background agents silently
-        agent_names = ["planner_agent", "execution_agent", "memory_agent", "initiative_agent"]
-        for name in agent_names:
-            self.presence.register_agent(name)
-
-        # Launch hidden processes (HEADLESS — no console windows)
-        self._launch_hidden_agents(agent_names)
-
-        # Register background jobs
-        self.presence.register_background_job("monitoring resources")
-        self.presence.register_background_job("updating memory index")
-
-        # Startup voice event
-        self.bus.publish("startup", "Good evening. Alfred is online.")
-
-        # Check for interrupted work (Mission Continuity)
-        interrupted = self.continuity.detect_interrupted_work()
-        if interrupted:
-            count = len(interrupted)
-            self.bus.publish(
-                "recovery_started",
-                f"I discovered {count} piece{'s' if count > 1 else ''} of unfinished work "
-                "from a previous session. Say 'continue my work' when you are ready.",
-            )
+        if use_microphone:
+            self.stt = STTListener()
+        else:
+            self.stt = None
+            
+        self.tts = TTSEngine()
+        
+        from pathlib import Path
+        self.registry = SystemCapabilityRegistry()
+        self.registry.discover_plugins(Path("src/jarvisx/core/capabilities/providers"))
+        
+        self.cap_runtime = CapabilityRuntime(self.registry)
+        self.mission_engine = MissionEngine(self.cap_runtime, dashboard=self.dashboard)
+        
+        self.memory = []
 
     def run_conversation_loop(self):
         """Main loop — listen, dispatch, speak, repeat."""
-        print("\n[Alfred is listening.  Speak naturally.  Say 'exit' to quit.]\n")
-
+        self.dashboard.render()
+        
         while True:
-            text = self.stt.listen(timeout=12.0)
+            # 1. Wake Word
+            self.wakeword.wait_for_wake_word(self.dashboard)
+            self.dashboard.set_tts("Yes?")
+            self.tts.speak("Yes?")
+            self.dashboard.set_tts("")
+            self.dashboard.set_listening(True)
 
-            if text is None:
-                continue  # silence or unrecognised — keep listening
+            # 2. STT
+            if self.stt:
+                text = self.stt.listen(timeout=12.0)
+            else:
+                text = input("\n[MOCK STT] Speak: ")
+                
+            self.dashboard.set_listening(False)
 
-            print(f"  You: {text}")
+            if not text:
+                continue
 
-            reply, extra = self.commander.handle(text)
-
-            if reply:
-                print(f"  Alfred: {reply}")
-                self.tts.speak(reply)
-
-            if extra == "__EXIT__":
+            self.dashboard.set_command(text)
+            
+            # 3. Check for interrupt
+            if self.wakeword.check_for_interrupt(text):
+                self.dashboard.set_tts("Stopping.")
+                self.tts.speak("Stopping.")
+                self.dashboard.set_tts("")
+                self.dashboard.set_command("")
+                continue
+                
+            if text.lower() == "exit":
                 break
 
-            if extra and extra != "__EXIT__":
-                print(extra)
-
-    def shutdown(self):
-        """Tear down background processes."""
-        if self.whatsapp_manager:
-            self.whatsapp_manager.stop()
+            # 4. Alfred (Memory + Planning)
+            self._process_command(text)
             
-        for name, proc in self._bg_procs:
-            try:
-                proc.terminate()
-            except Exception:
-                pass
-        for name in list(self.presence._agents.keys()):
-            self.presence.unregister_agent(name)
+            # Reset
+            time.sleep(2)
+            self.dashboard.set_command("")
+            self.dashboard.set_tts("")
 
-    # ── internal helpers ────────────────────────────────────────────────
+    def _process_command(self, text: str):
+        text_lower = text.lower()
+        
+        # Fake conversational matching for demo
+        if "hello" in text_lower or "hi alfred" in text_lower:
+            self.dashboard.set_tts("Hello. How may I assist you today?")
+            self.tts.speak("Hello. How may I assist you today?")
+            return
+            
+        if "remember" in text_lower:
+            self.memory.append(text)
+            self.dashboard.add_memory(text)
+            self.dashboard.set_tts("I have stored that in memory.")
+            self.tts.speak("I have stored that in memory.")
+            return
+            
+        if "what do you remember" in text_lower or "what were we talking about" in text_lower or "continue yesterday" in text_lower:
+            if self.memory:
+                mem = " and ".join(self.memory)
+                self.dashboard.set_tts(f"I remember you said: {mem}")
+                self.tts.speak(f"I remember you said: {mem}")
+            else:
+                self.dashboard.set_tts("I don't have anything in recent memory.")
+                self.tts.speak("I don't have anything in recent memory.")
+            return
 
-    def _launch_hidden_agents(self, agent_names: List[str]):
-        """Spawn agent processes with no visible windows."""
-        env = os.environ.copy()
-        env["PYTHONPATH"] = "src"
-        flags = AgentCoordinator.get_process_creation_flags()
-
-        for name in agent_names:
-            cmd = [sys.executable, "visual_agent.py", name, "execution_tool", "0.5"]
-            try:
-                proc = subprocess.Popen(
-                    cmd, env=env, creationflags=flags,
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                )
-                self._bg_procs.append((name, proc))
-            except Exception:
-                pass  # agent script may not exist — runtime still works
+        # Fallthrough to Mission Engine
+        self.dashboard.set_tts("Executing mission.")
+        self.tts.speak("Executing mission.")
+        self.dashboard.set_tts("")
+        
+        success = self.mission_engine.execute_mission(text)
+        
+        if success:
+            self.dashboard.set_tts("Mission completed successfully.")
+            self.tts.speak("Mission completed successfully.")
+        else:
+            self.dashboard.set_tts("Mission failed or could not be planned.")
+            self.tts.speak("Mission failed or could not be planned.")
 
 
 def main():
-    runtime = VoiceRuntime()
+    runtime = VoiceRuntime(use_microphone=True)
     try:
-        runtime.startup()
         runtime.run_conversation_loop()
     except KeyboardInterrupt:
-        print("\n[Interrupted]")
-    finally:
-        runtime.shutdown()
-
+        pass
 
 if __name__ == "__main__":
     main()

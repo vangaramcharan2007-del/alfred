@@ -26,6 +26,24 @@ class WakewordEngine:
         # Simulated return
         return False
         
+    def wait_for_wake_word(self, dashboard=None):
+        """Blocks until the wake word is detected (Simulated for harnessing)."""
+        import time
+        if dashboard:
+            dashboard.set_wake_word(False)
+            dashboard.set_listening(True)
+            
+        time.sleep(0.5)
+        
+        if dashboard:
+            dashboard.set_wake_word(True)
+            dashboard.set_listening(False)
+            
+    def check_for_interrupt(self, text: str) -> bool:
+        """Checks if the user said 'stop' to interrupt TTS/execution."""
+        normalized = text.lower().strip()
+        return normalized in ["stop", "stop alfred", "cancel", "shut up"]
+        
     def switch_wakeword(self, new_word: str):
         if new_word in self.supported_words:
             self.active_word = new_word
