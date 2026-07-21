@@ -5,9 +5,11 @@ import inspect
 import os
 import pkgutil
 from pathlib import Path
-from typing import Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from jarvisx.core.capabilities.base import Capability, CapabilityProvider
+from jarvisx.core.capabilities.evaluation import ProviderEvaluation
+from jarvisx.core.capabilities.negotiation import NegotiationStrategy, HighestScoreStrategy
 from jarvisx.core.logging import StructuredLogger
 
 
@@ -63,9 +65,51 @@ class SystemCapabilityRegistry:
         self.logger.write("info", "capability.registered", capability=provider.capability.name, provider=provider.name)
 
     def resolve(self, capability: Capability) -> Optional[CapabilityProvider]:
-        """Returns the first available provider for a capability."""
+        """Returns the first available provider for a capability (Legacy fallback)."""
         providers = self._providers.get(capability, [])
         return providers[0] if providers else None
+        
+    def negotiate(
+        self, 
+        capability: Capability, 
+        task: dict[str, Any], 
+        strategy: Optional[NegotiationStrategy] = None
+    ) -> Optional[CapabilityProvider]:
+        """
+        Dynamically asks all providers to bid on a task, applies learning metrics, 
+        and uses a strategy to pick the absolute best one.
+        """
+        providers = self._providers.get(capability, [])
+        if not providers:
+            return None
+            
+        strategy = strategy or HighestScoreStrategy()
+        evaluations: List[ProviderEvaluation] = []
+        
+        for provider in providers:
+            # Phase 1: Fast synchronous evaluation
+            try:
+                eval_obj = provider.evaluate(task)
+                
+                # Inject runtime health/learning metrics into the evaluation
+                eval_obj.health_status = provider.health.status
+                eval_obj.success_rate = provider.health.success_rate
+                
+                evaluations.append(eval_obj)
+            except Exception as e:
+                self.logger.write("warning", "capability.evaluation_failed", provider=provider.name, error=str(e))
+                
+        best_eval = strategy.select(evaluations)
+        if not best_eval:
+            return None
+            
+        self.logger.write("info", "capability.negotiation_winner", capability=capability.name, winner=best_eval.provider_name, score=best_eval.score, reason=best_eval.reason)
+        
+        # Match the evaluation back to the provider instance
+        for p in providers:
+            if p.name == best_eval.provider_name:
+                return p
+        return None
 
     def get_all(self, capability: Capability) -> List[CapabilityProvider]:
         """Returns all registered providers for a capability."""

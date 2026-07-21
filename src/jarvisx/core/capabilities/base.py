@@ -3,6 +3,8 @@ from __future__ import annotations
 from enum import Enum, auto
 from typing import Any, Optional
 
+from jarvisx.core.capabilities.evaluation import ProviderEvaluation, ProviderHealth
+
 
 class Capability(Enum):
     """
@@ -33,9 +35,31 @@ class CapabilityProvider:
     name: str = "BaseProvider"
     capability: Capability = Capability.BROWSER
 
+    def __init__(self):
+        self._health = ProviderHealth()
+        
+    @property
+    def health(self) -> ProviderHealth:
+        return self._health
+
     def is_available(self) -> bool:
         """Check if this provider is installed and ready to be used."""
         return True
+
+    def evaluate(self, task: dict[str, Any]) -> ProviderEvaluation:
+        """
+        Phase 1 Scoring: Fast synchronous check of provider capability.
+        Must return < 5ms.
+        """
+        # Default implementation (should be overridden)
+        return ProviderEvaluation(
+            provider_name=self.name,
+            capability=self.capability.name,
+            score=50.0 if self.is_available() else 0.0,
+            available=self.is_available(),
+            confidence=0.5,
+            reason="Default base evaluation"
+        )
 
     def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         """

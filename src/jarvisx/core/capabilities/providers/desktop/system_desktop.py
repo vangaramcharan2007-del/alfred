@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from jarvisx.core.capabilities.base import Capability, CapabilityProvider, ProviderError
+from jarvisx.core.capabilities.evaluation import ProviderEvaluation
 from jarvisx.core.os_control.app_launcher import AppLauncher
 
 
@@ -11,6 +12,17 @@ class DesktopProvider(CapabilityProvider):
 
     def is_available(self) -> bool:
         return True
+
+    def evaluate(self, task: dict[str, Any]) -> ProviderEvaluation:
+        return ProviderEvaluation(
+            provider_name=self.name,
+            capability=self.capability.name,
+            score=90.0,
+            available=True,
+            confidence=0.9,
+            latency_ms=10.0,
+            reason="Native OS execution layer."
+        )
 
     def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         """

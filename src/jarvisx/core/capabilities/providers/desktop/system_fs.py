@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from jarvisx.core.capabilities.base import Capability, CapabilityProvider, ProviderError
+from jarvisx.core.capabilities.evaluation import ProviderEvaluation
 
 
 class SystemFileSystemProvider(CapabilityProvider):
@@ -14,6 +15,17 @@ class SystemFileSystemProvider(CapabilityProvider):
 
     def is_available(self) -> bool:
         return True
+
+    def evaluate(self, task: dict[str, Any]) -> ProviderEvaluation:
+        return ProviderEvaluation(
+            provider_name=self.name,
+            capability=self.capability.name,
+            score=100.0,
+            available=True,
+            confidence=1.0,
+            latency_ms=5.0,
+            reason="Native Python pathlib implementation."
+        )
 
     def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         """

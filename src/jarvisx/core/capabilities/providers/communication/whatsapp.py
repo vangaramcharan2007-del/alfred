@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from jarvisx.core.capabilities.base import Capability, CapabilityProvider, ProviderError
+from jarvisx.core.capabilities.evaluation import ProviderEvaluation
 # Re-use the existing logic under the hood without Alfred importing it directly
 from jarvisx.core.whatsapp.manager import WhatsAppAutomationManager
 
@@ -21,6 +22,18 @@ class WhatsAppProvider(CapabilityProvider):
             return True
         except ImportError:
             return False
+
+    def evaluate(self, task: dict[str, Any]) -> ProviderEvaluation:
+        available = self.is_available()
+        return ProviderEvaluation(
+            provider_name=self.name,
+            capability=self.capability.name,
+            score=95.0 if available else 0.0,
+            available=available,
+            confidence=0.9 if available else 0.0,
+            latency_ms=100.0,
+            reason="GUI automation is active." if available else "pywinauto not found."
+        )
 
     def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         """
