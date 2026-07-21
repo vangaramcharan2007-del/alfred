@@ -8,7 +8,7 @@ class ConsoleState:
     """Thread-safe store for all console dashboard metrics and states."""
     
     def __init__(self):
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         
         # General Status
         self.objective_name = ""
@@ -16,6 +16,7 @@ class ConsoleState:
         self.objective_status = "IDLE"
         self.worker_status = "STOPPED"
         self.queue_size = 0
+        self.scheduler_queue = 0
         
         # Progress
         self.current_step = 0

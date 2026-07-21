@@ -19,9 +19,10 @@ except ImportError:
 class ConsoleMetrics:
     """Periodically updates performance and resource metrics in ConsoleState."""
     
-    def __init__(self, state: ConsoleState, queue: PersistentQueue):
+    def __init__(self, state: ConsoleState, queue: PersistentQueue, scheduler=None):
         self.state = state
         self.queue = queue
+        self.scheduler = scheduler
         self._running = False
         self._thread: Optional[threading.Thread] = None
         
@@ -42,8 +43,14 @@ class ConsoleMetrics:
             self._update_system_metrics()
             self._update_queue_metrics()
             self._update_timing_metrics()
+            self._update_scheduler_metrics()
             time.sleep(1.0)
             
+    def _update_scheduler_metrics(self):
+        if self.scheduler and hasattr(self.scheduler, "_scheduled"):
+            with self.state.lock:
+                self.state.scheduler_queue = len(self.scheduler._scheduled)
+                
     def _update_system_metrics(self):
         if not PSUTIL_AVAILABLE:
             return

@@ -12,7 +12,7 @@ class Showcase:
         
     def display_stats(self, timeline: Timeline, total_files: int, render_time: float):
         print("\n" + "="*50)
-        print("🎥 AI CREATIVE DIRECTOR: PROJECT TIRUPATI 🎥")
+        print(" AI CREATIVE DIRECTOR: PROJECT TIRUPATI ")
         print("="*50)
         print(f"• Total Raw Media Analyzed: {total_files}")
         print(f"• Clips Selected for Edit:  {len(timeline.clips)}")

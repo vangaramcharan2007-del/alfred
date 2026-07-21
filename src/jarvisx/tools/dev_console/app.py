@@ -57,6 +57,7 @@ class ConsoleApp:
             wm, ActionVerifier(wm), BrowserController()
         )
         self.executor.set_checkpoint_manager(self.checkpoint_manager)
+        self.executor.set_persistent_queue(self.queue)
         self.executor.event_bus = self.event_bus
         self.executor.coordinator.event_bus = self.event_bus
         
@@ -69,7 +70,7 @@ class ConsoleApp:
         self.executor.coordinator.fault_injector = self.fault_injector
         
         self.event_listener = ConsoleEventListener(self.event_bus, self.state)
-        self.metrics = ConsoleMetrics(self.state, self.queue)
+        self.metrics = ConsoleMetrics(self.state, self.queue, self.scheduler)
         self.router = CommandRouter(
             self.worker, self.queue, self.resume_engine,
             on_exit=self.quit,
@@ -82,7 +83,7 @@ class ConsoleApp:
         print("=====================================================")
         print(" JARVIS X DEVELOPER CONSOLE (Phase 23.3)")
         print("=====================================================\n")
-        print("Select Failure Injection:")
+        print("Select Failure Injection for Step 20:")
         print("1) Missing Browser")
         print("2) Permission Error")
         print("3) Timeout")
@@ -94,33 +95,51 @@ class ConsoleApp:
         choice = input("\nEnter choice [1-7]: ").strip()
         
         faults = {
-            '1': 'MISSING_BROWSER',
-            '2': 'PERMISSION_DENIED',
-            '3': 'TIMEOUT',
-            '4': 'VERIFICATION_FAILED',
-            '5': 'NETWORK_ERROR',
-            '6': 'RANDOM',
-            '7': 'NONE'
+            '1': Exception('Missing Browser'),
+            '2': PermissionError('Access Denied'),
+            '3': TimeoutError('Operation timed out'),
+            '4': Exception('Verification Failed'),
+            '5': ConnectionError('Network unreachable'),
+            '6': RuntimeError('Random unexpected failure'),
+            '7': None
         }
         
-        selected = faults.get(choice, 'NONE')
-        if selected != 'NONE':
-            self.fault_injector.set_fault(selected)
-            print(f"Injected Fault: {selected}")
+        self.selected_fault = faults.get(choice, None)
+        if self.selected_fault:
+            print(f"Injected Fault: {type(self.selected_fault).__name__}")
             
     def check_resume(self):
         if os.path.exists(self.db_path):
             with closing(sqlite3.connect(self.db_path)) as conn, conn:
                 cursor = conn.cursor()
                 try:
-                    cursor.execute("SELECT objective_id, status, current_step, total_steps FROM objectives WHERE status != 'COMPLETED' AND status != 'FAILED' LIMIT 1")
+                    cursor.execute("SELECT objective_id, status, current_step, total_steps FROM objectives WHERE status != 'COMPLETED' AND status != 'FAILED' AND status != 'CANCELLED' LIMIT 1")
                     row = cursor.fetchone()
                     if row:
-                        obj_id, status, current_step, total_steps = row
-                        print(f"\nCheckpoint Found!")
-                        print(f"Objective ID: {obj_id}")
-                        print(f"Recovered Step: {current_step}")
-                        print(f"Remaining Steps: {total_steps - current_step if total_steps else '?'}")
+                        import sys
+                        obj_id, status, queue_step, total_steps = row
+                        
+                        snapshot = self.checkpoint_manager.load_checkpoint(obj_id)
+                        checkpoint_step = snapshot.current_step if snapshot else 0
+                        executor_start = checkpoint_step
+                        
+                        print("\nResume Validation")
+                        print(f"Queue Progress:        {queue_step}")
+                        print(f"Checkpoint Progress:   {checkpoint_step}")
+                        print(f"Snapshot Progress:     {checkpoint_step}")
+                        print("")
+                        
+                        if checkpoint_step != queue_step:
+                            print("Status:\n✗ INVALID")
+                            print("\nRESUME SYNCHRONIZATION FAILURE: Progress mismatch detected.")
+                            print("Aborting resume. Consistency failure.")
+                            sys.exit(1)
+                            
+                        print("Status:\n✓ VALID")
+                        
+                        print(f"\nObjective ID: {obj_id}")
+                        print(f"Recovered Step: {checkpoint_step}")
+                        print(f"Remaining Steps: {total_steps - checkpoint_step if total_steps else '?'}")
                         ans = input("\nResume? [Y/N]: ").strip().lower()
                         if ans == 'y':
                             self.resume_engine.resume_unfinished_objectives()
@@ -154,6 +173,8 @@ class ConsoleApp:
                 } for i in range(1, n+1)
             ]
         }
+        if hasattr(self, 'selected_fault') and self.selected_fault:
+            self.fault_injector.inject_step_fault(obj_id_1, "CREATE_FILE_DIRECT", 20, self.selected_fault)
         self.queue.enqueue(obj_id_1, "Create 50 files on Desktop", obj_data_1, Priority.NORMAL)
         
         # 2. Application launch objective
@@ -189,8 +210,8 @@ class ConsoleApp:
                 }
             ]
         }
-        # In reality, this goes to the scheduler, but for demo we just put it in queue with low priority
-        self.queue.enqueue(obj_id_3, "Scheduled Notification", obj_data_3, Priority.LOW)
+        self.scheduler.start()
+        self.scheduler.schedule_delay(15.0, obj_id_3, "Scheduled Notification", obj_data_3, Priority.LOW)
         
         self.worker.start()
 
@@ -246,8 +267,69 @@ class ConsoleApp:
         self.metrics.stop()
         self.router.stop()
         
-        self.session_logger.write_session(self.state)
+        # We will write the session logger AFTER validation
+        print("POST-EXECUTION VALIDATION")
+        print("==================================================")
         
+        with closing(sqlite3.connect(self.db_path)) as conn, conn:
+            cursor = conn.cursor()
+            
+            # Check objective status
+            cursor.execute("SELECT status, current_step FROM objectives WHERE objective_id = ?", (self.state.objective_id,))
+            row = cursor.fetchone()
+            obj_status = row[0] if row else "UNKNOWN"
+            queue_step = row[1] if row else -1
+            
+            # Check for any RUNNING objectives
+            cursor.execute("SELECT COUNT(*) FROM objectives WHERE status = 'RUNNING'")
+            running_count = cursor.fetchone()[0]
+            
+            # SQLite Integrity
+            cursor.execute("PRAGMA integrity_check;")
+            integrity = cursor.fetchone()[0]
+            
+        worker_terminated = self.worker._thread is None or not self.worker._thread.is_alive()
+        scheduler_empty = not hasattr(self.scheduler, "_scheduled") or len(self.scheduler._scheduled) == 0
+        
+        snapshot = self.checkpoint_manager.load_checkpoint(self.state.objective_id) if self.state.objective_id else None
+        checkpoint_exists = snapshot is not None
+        checkpoint_step = snapshot.current_step if snapshot else -1
+        
+        queue_sync = (checkpoint_step == queue_step) if snapshot else True
+        if obj_status == "COMPLETED" and snapshot:
+            queue_sync = False # Checkpoint should be removed on completion
+            
+        v_obj = obj_status == "COMPLETED"
+        v_run = running_count == 0
+        v_work = worker_terminated
+        v_sched = scheduler_empty
+        v_chk = not checkpoint_exists if obj_status == "COMPLETED" else True
+        v_sync = queue_sync
+        v_sqlite = integrity.lower() == "ok"
+        
+        print(f"{'✓ PASS' if v_obj else '✗ FAIL'} Objective status == COMPLETED (Current: {obj_status})")
+        print(f"{'✓ PASS' if v_run else '✗ FAIL'} No RUNNING objectives remain (Found: {running_count})")
+        print(f"{'✓ PASS' if v_work else '✗ FAIL'} Worker thread terminated")
+        print(f"{'✓ PASS' if v_sched else '✗ FAIL'} Scheduler queue empty")
+        print(f"{'✓ PASS' if v_chk else '✗ FAIL'} No orphaned checkpoints remain (Found: {checkpoint_exists})")
+        print(f"{'✓ PASS' if v_sync else '✗ FAIL'} Queue and checkpoint state synchronized")
+        print(f"{'✓ PASS' if v_sqlite else '✗ FAIL'} SQLite integrity (Result: {integrity})")
+        
+        all_passed = all([v_obj, v_run, v_work, v_sched, v_chk, v_sync, v_sqlite])
+        
+        print("\nSession Status: ", "✓ SUCCESS" if all_passed else "✗ FAILED")
+        if not all_passed:
+            print("Diagnostics:")
+            print("- Please review failures above.")
+        print("==================================================")
+
+        # Write Session
+        summary = {
+            "overall_status": "SUCCESS" if all_passed else "FAILED",
+            "sqlite_integrity": integrity.lower()
+        }
+        self.session_logger.write_session(self.state, summary)
+
         print("\n=====================================================")
         print(" VALIDATION SUMMARY")
         print("=====================================================")

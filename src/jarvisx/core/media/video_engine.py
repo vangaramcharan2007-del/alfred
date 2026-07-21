@@ -24,8 +24,8 @@ class VideoEngine:
         clips = []
         
         # 1. Professional Intro
-        title = TextClip(text="THE TIRUPATI YATRA\nA Jarvis X Production", font="Arial", font_size=70, color='white', size=(1920, 1080), bg_color='black')
-        title = title.with_duration(3).crossfadeout(1)
+        title = TextClip(text="THE TIRUPATI YATRA\nA Jarvis X Production", font="C:\\Windows\\Fonts\\arial.ttf", font_size=70, color='white', size=(1920, 1080), bg_color='black')
+        title = title.with_duration(3)
         clips.append(title)
         
         # 2. Cinematic Story Progression
@@ -37,9 +37,8 @@ class VideoEngine:
             try:
                 # MoviePy v2.x API
                 img_clip = ImageClip(p).resized(width=1920, height=1080).with_duration(3)
-                img_clip = img_clip.crossfadein(1).crossfadeout(1)
                 
-                txt_clip = TextClip(text=tags[i % len(tags)], font="Arial", font_size=50, color='white')
+                txt_clip = TextClip(text=tags[i % len(tags)], font="C:\\Windows\\Fonts\\arial.ttf", font_size=50, color='white')
                 # Center text at bottom
                 txt_clip = txt_clip.with_position(('center', 800)).with_duration(3)
                 
@@ -52,14 +51,13 @@ class VideoEngine:
         for v in videos[:2]:
             try:
                 vid_clip = VideoFileClip(v).resized(width=1920, height=1080).subclip(0, min(5, VideoFileClip(v).duration))
-                vid_clip = vid_clip.crossfadein(1).crossfadeout(1)
                 clips.append(vid_clip)
             except:
                 pass
                 
         # 3. Outro
-        outro = TextClip(text="Edited by Alfred\nAutonomous Cinematic Engine", font="Arial", font_size=60, color='white', size=(1920,1080), bg_color='black')
-        outro = outro.with_duration(3).crossfadein(1)
+        outro = TextClip(text="Edited by Alfred\nAutonomous Cinematic Engine", font="C:\\Windows\\Fonts\\arial.ttf", font_size=60, color='white', size=(1920,1080), bg_color='black')
+        outro = outro.with_duration(3)
         clips.append(outro)
         
         self.speak("Timeline constructed. Initiating rendering engine. This requires significant computational power.")

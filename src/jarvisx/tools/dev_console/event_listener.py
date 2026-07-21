@@ -92,7 +92,7 @@ class ConsoleEventListener:
                 self.state.set_active_stage("Completed")
                 
             elif event == ExecutionEvent.OBJECTIVE_CHECKPOINT_SAVED:
-                self.state.checkpoint_index = payload.get("checkpoint_step", 0)
+                self.state.checkpoint_index = payload.get("step", 0)
                 self.state.db_status = "CONNECTED"
                 
             elif event == ExecutionEvent.REFLECTION_COMPLETED:

@@ -68,6 +68,8 @@ def _populate_dashboard(layout: Layout, state: ConsoleState):
     table.add_row("Status:", state.objective_status)
     table.add_row("Worker:", state.worker_status)
     table.add_row("Queue Size:", str(state.queue_size))
+    table.add_row("Scheduler Q:", str(state.scheduler_queue))
+    table.add_row("DB Status:", state.db_status)
     
     # Progress Bar
     progress = Progress(

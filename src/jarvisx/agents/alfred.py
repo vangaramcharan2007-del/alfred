@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+import dataclasses
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -36,26 +37,15 @@ class IntentClassifier:
     """Rule-based offline classifier. Replace with a local small model later."""
 
     _rules: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
-        ("device_control", "device", "device", ("open ", "launch ", "start app", "youtube", "android")),
+        ("browser", "capability_engine", "browser", ("search", "browse", "website", "chrome", "firefox", "edge")),
+        ("communication", "capability_engine", "communication", ("message", "whatsapp", "signal", "send", "chat")),
+        ("desktop", "capability_engine", "desktop", ("open ", "launch ", "start app", "close app")),
+        ("file_system", "capability_engine", "file_system", ("create folder", "delete file", "move file")),
         ("memory", "memory", "memory", ("remember", "recall", "memory", "obsidian", "note")),
         ("research", "research", "research", ("research", "summarize", "documentation", "docs", "find info")),
-        (
-            "xp",
-            "xp",
-            "xp",
-            ("xp", "level", "streak", "credit", "reward", "score", "mission", "quest", "boss"),
-        ),
-        (
-            "planning",
-            "planner",
-            "planning",
-            ("schedule", "remind", "todo", "task", "goal"),
-        ),
+        ("planning", "planner", "planning", ("schedule", "remind", "todo", "task", "goal")),
         ("editing", "editing", "editing", ("create a file", "write a script", "edit code", "write code", "edit file")),
-        ("cad", "cad", "cad", ("cad", "stl", "3d model", "manufacturing", "dimension")),
-        ("shadowbroker", "shadowbroker", "shadowbroker", ("osint", "threat", "security", "trend monitoring")),
         ("debug", "debug", "debug", ("debug", "error", "failure", "logs", "test", "patch", "fix")),
-        ("edith_mobile", "edith", "device", ("voice", "notification", "mobile companion")),
         ("workflow", "workflow", "workflow", ("workflow", "deploy", "email workflow", "cad workflow")),
     )
 
@@ -155,13 +145,13 @@ class AlfredOrchestrator:
             confidence = self._calculate_confidence(intent.task_class, message)
             
             if confidence < 50:
-                response.message = "I don't have enough verified context to answer that confidently. Could you clarify or provide more details?"
+                response = dataclasses.replace(response, message="I don't have enough verified context to answer that confidently. Could you clarify or provide more details?")
             elif confidence < 70:
-                response.message = f"I'm not entirely certain, but {response.message}"
+                response = dataclasses.replace(response, message=f"I'm not entirely certain, but {response.message}")
             elif confidence < 90:
                 # Add a subtle confidence indicator, e.g., using "Based on my memory," 
                 if not response.message.startswith("I") and not response.message.startswith("Based"):
-                    response.message = f"Based on available information, {response.message}"
+                    response = dataclasses.replace(response, message=f"Based on available information, {response.message}")
             
         return response
 

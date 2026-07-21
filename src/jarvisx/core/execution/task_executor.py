@@ -54,6 +54,9 @@ class TaskExecutor:
         self.recovery = RecoveryPlanner(self.registry)
         self.injector = FaultInjector()
         
+        # Phase 23 Components
+        self.checkpoint_manager = None # Optional injection
+        
         self.coordinator = ExecutionCoordinator(
             event_bus=self.event_bus,
             reflection_engine=self.reflection,
@@ -63,6 +66,13 @@ class TaskExecutor:
         )
         
         self._setup_event_logging()
+
+    def set_checkpoint_manager(self, checkpoint_manager):
+        self.checkpoint_manager = checkpoint_manager
+
+    def set_persistent_queue(self, queue):
+        """Set the persistent queue for progress synchronization."""
+        self.queue = queue
 
     def _setup_event_logging(self):
         """Subscribe to events for structured console logging."""
@@ -88,23 +98,34 @@ class TaskExecutor:
         for e in ExecutionEvent:
             self.event_bus.subscribe(e, log_event)
 
-    def execute_objective(self, raw_text: str) -> None:
-        """Main entry point. Plans and runs an objective."""
-        self.event_bus.publish(ExecutionEvent.OBJECTIVE_STARTED, {"raw_text": raw_text})
-        self.tts.speak("Planning objective.")
+    def execute_objective(self, plan: Dict[str, Any], snapshot=None, pause_check_fn=None) -> Dict[str, Any]:
+        """Main entry point. Runs an objective plan."""
+        objective_id = plan.get("objective_id", "unknown")
         
-        plan = self.planner.plan(raw_text)
-        if not plan:
-            self.tts.speak("I am currently unable to autonomously plan that objective.")
-            self.event_bus.publish(ExecutionEvent.OBJECTIVE_FAILED, {"reason": "planning_failed"})
-            return
+        # Populate ExecutionContext
+        self.context.objective_id = objective_id
+        
+        self.event_bus.publish(ExecutionEvent.OBJECTIVE_STARTED, {"objective_id": objective_id})
+        self.tts.speak("Executing objective.")
 
         tracker = ProgressTracker(plan)
         
-        # Save initial state
-        self.store.save_objective(plan)
+        if snapshot:
+            # Fast-forward progress
+            for _ in range(snapshot.current_step):
+                if not tracker.is_finished():
+                    tracker.mark_completed()
+            
+            # Apply snapshot state to context
+            vars = getattr(self.context, 'variables', {})
+            vars.update(snapshot.variables)
+            self.context.variables = vars
 
         while not tracker.is_finished():
+            if pause_check_fn and pause_check_fn():
+                return {"success": False, "status": "PAUSED"}
+                
+            self.context.current_step = tracker.current_step_index
             step = tracker.get_current_step()
             
             # Announce step
@@ -121,21 +142,37 @@ class TaskExecutor:
                 tracker.mark_failed()
                 print("\nResult:\nFAILURE\n")
                 self.tts.speak("I was unable to complete the objective.")
-                self.store.fail_objective(plan["objective_id"])
-                self.event_bus.publish(ExecutionEvent.OBJECTIVE_FAILED, {"objective_id": plan["objective_id"]})
-                return
+                self.event_bus.publish(ExecutionEvent.OBJECTIVE_FAILED, {"objective_id": objective_id})
+                return {"success": False, "error": "Step failed"}
             
             tracker.mark_completed()
-            # Update store
-            self.store.update_objective(plan["objective_id"], {"status": "in_progress", "step_index": tracker.current_step_index})
+            
+            if self.checkpoint_manager:
+                from jarvisx.core.execution.execution_snapshot import ExecutionSnapshot
+                completed = list(range(tracker.current_step_index))
+                new_snapshot = ExecutionSnapshot(
+                    objective_id=objective_id,
+                    current_step=tracker.current_step_index,
+                    completed_steps=completed,
+                    variables=getattr(self.context, 'variables', {}),
+                    context={},
+                    reflection_state={},
+                    recovery_state={}
+                )
+                self.checkpoint_manager.save_checkpoint(new_snapshot)
+                
+                if hasattr(self, 'queue') and self.queue:
+                    self.queue.update_progress(objective_id, tracker.current_step_index)
+                
+                self.event_bus.publish(ExecutionEvent.OBJECTIVE_CHECKPOINT_SAVED, {"objective_id": objective_id, "step": tracker.current_step_index})
             
             # Give UI time to breathe
             time.sleep(1.0)
             
         print("\nResult:\nSUCCESS\n")
         self.tts.speak("Objective completed successfully.")
-        self.store.complete_objective(plan["objective_id"])
-        self.event_bus.publish(ExecutionEvent.OBJECTIVE_COMPLETED, {"objective_id": plan["objective_id"]})
+        self.event_bus.publish(ExecutionEvent.OBJECTIVE_COMPLETED, {"objective_id": objective_id})
+        return {"success": True}
 
     def _execute_step(self, step: Dict[str, Any]) -> Tuple[bool, Exception]:
         """Dispatches action to the correct subsystem."""
@@ -144,8 +181,12 @@ class TaskExecutor:
         target = self.context.resolve_path(step.get("target", ""))
         step["target"] = target # update it so verification knows
         
-        # Check for injected execution faults
-        injected_fault = self.injector.check_execution_fault(action, target)
+        # Check for step-based injected faults FIRST
+        injected_fault = self.injector.check_step_fault(self.context, action)
+        if not injected_fault:
+            # Check for generic target-based injected execution faults
+            injected_fault = self.injector.check_execution_fault(action, target)
+            
         if injected_fault:
             return False, injected_fault
         

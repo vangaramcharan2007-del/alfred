@@ -22,6 +22,7 @@ from jarvisx.agents.specialists import (
     ShadowBrokerAgent,
 )
 from jarvisx.agents.workflow import WorkflowAgent
+from jarvisx.agents.capability_agent import CapabilityAgent
 from jarvisx.core.health import HealthMonitor, HealthStatus
 from jarvisx.core.hermes import HermesBus
 from jarvisx.core.logging import StructuredLogger
@@ -41,6 +42,9 @@ from jarvisx.tools.cad import CADTool
 from jarvisx.tools.workflow import WorkflowTool
 from jarvisx.tools.computer_control import ComputerControlTool
 
+from jarvisx.core.capabilities.registry import SystemCapabilityRegistry
+from jarvisx.core.capabilities.runtime import CapabilityRuntime
+
 from jarvisx.core.providers.provider_registry import ProviderRegistry
 from jarvisx.core.providers.fallback_manager import FallbackManager
 from jarvisx.core.providers.provider_router import ProviderRouter
@@ -53,7 +57,7 @@ from jarvisx.core.configuration import ConfigurationManager
 from jarvisx.core.backup_manager import BackupManager
 
 from jarvisx.core.providers.llm import OpenAIProvider, GeminiProvider, ClaudeProvider, GroqProvider, OpenRouterProvider, OllamaProvider, LlamaCppProvider, LocalGGUFProvider
-from jarvisx.core.providers.tts import ElevenLabsProvider, PiperProvider, Pyttsx3Provider
+from jarvisx.core.providers.tts import ElevenLabsProvider, Pyttsx3Provider
 from jarvisx.core.providers.stt import WhisperAPIProvider, FasterWhisperProvider, WhisperCppProvider
 from jarvisx.core.providers.memory import SupabaseProvider, SQLiteProvider, LocalFilesProvider
 from jarvisx.core.providers.vision import TesseractProvider, FutureOCRProvider
@@ -76,6 +80,8 @@ class JarvisRuntime:
     workflow_tool: WorkflowTool
     config_manager: ConfigurationManager
     backup_manager: BackupManager
+    capability_registry: SystemCapabilityRegistry
+    capability_runtime: CapabilityRuntime
     data_dir: Path
     shutdown_manager: ShutdownManager = field(init=False)
     _cron_stop_event: threading.Event = field(init=False)
@@ -174,6 +180,15 @@ def create_default_runtime(
     registry.register(XPAgent(tools={"xp": xp_tool}, logger=logger))
     registry.register(WorkflowAgent(engine=workflow_engine))
     
+    # Bootstrap Capability Runtime
+    capability_registry = SystemCapabilityRegistry(logger=logger)
+    capabilities_plugins_dir = Path(__file__).resolve().parent / "core" / "capabilities" / "providers"
+    capability_registry.discover_plugins(capabilities_plugins_dir)
+    capability_runtime = CapabilityRuntime(registry=capability_registry, logger=logger)
+    
+    # Register Capability Agent
+    registry.register(CapabilityAgent(runtime=capability_runtime, logger=logger))
+    
     # Load dynamic agents
     plugins_dir = Path(__file__).resolve().parent / "plugins"
     plugins_dir.mkdir(parents=True, exist_ok=True)
@@ -216,7 +231,6 @@ def create_default_runtime(
     
     # Register TTS
     provider_registry.register(ElevenLabsProvider())
-    provider_registry.register(PiperProvider())
     provider_registry.register(Pyttsx3Provider())
     
     # Register STT
@@ -255,5 +269,7 @@ def create_default_runtime(
         workflow_tool=workflow_tool,
         config_manager=config_manager,
         backup_manager=backup_manager,
+        capability_registry=capability_registry,
+        capability_runtime=capability_runtime,
         data_dir=Path("data"),
     )

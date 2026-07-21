@@ -2,7 +2,7 @@
 import os
 import platform
 import logging
-from typing import Dict, Callable
+from typing import Dict, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +11,8 @@ class ExecutionContext:
     
     def __init__(self):
         self._resolvers: Dict[str, Callable[[], str]] = {}
+        self.objective_id: Optional[str] = None
+        self.current_step: int = 0
         self._register_default_resolvers()
 
     def _register_default_resolvers(self):

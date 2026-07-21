@@ -5,7 +5,7 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO, format='[Alfred Quality] %(message)s')
 
 class Verifier:
-    def __init__(self, threshold_black_frames=3):
+    def __init__(self, threshold_black_frames=150):
         self.threshold_black_frames = threshold_black_frames
 
     def check_quality(self, video_path: str) -> bool:

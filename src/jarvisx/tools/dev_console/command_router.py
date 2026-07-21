@@ -126,17 +126,25 @@ class CommandRouter:
         elif cmd == 'resume':
             self.worker.resume()
         elif cmd == 'cancel':
+            obj_id = self.worker.active_objective()
+            if obj_id:
+                self.queue.cancel(obj_id)
             self.worker.stop()
-            # To strictly cancel, we would dequeue or mark FAILED
         elif cmd == 'crash':
             self.on_simulate_crash()
         elif cmd == 'restart':
             self.resume_engine.resume_unfinished_objectives()
-            if not self.worker.is_running():
+            if self.worker.status() != "RUNNING":
                 self.worker.start()
         elif cmd == 'export':
             self.on_export()
         elif cmd == 'replay':
             self.on_replay()
+        elif cmd in ['stats', 'status']:
+            # The dashboard already displays live stats and status
+            pass
+        elif cmd == 'help':
+            # Dashboard shows commands via shortcuts
+            pass
         elif cmd in ['quit', 'q', 'exit']:
             self.on_exit()

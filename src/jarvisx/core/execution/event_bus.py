@@ -22,6 +22,16 @@ class ExecutionEvent(Enum):
     RECOVERY_STARTED = auto()
     RECOVERY_SUCCEEDED = auto()
     RECOVERY_FAILED = auto()
+    
+    # Phase 23: Background & Persistence Events
+    OBJECTIVE_QUEUED = auto()
+    OBJECTIVE_PAUSED = auto()
+    OBJECTIVE_RESUMED = auto()
+    OBJECTIVE_CHECKPOINT_SAVED = auto()
+    OBJECTIVE_CANCELLED = auto()
+    OBJECTIVE_RESTARTED = auto()
+    BACKGROUND_WORKER_STARTED = auto()
+    BACKGROUND_WORKER_STOPPED = auto()
 
 
 class EventBus:

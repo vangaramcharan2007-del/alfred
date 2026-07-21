@@ -139,8 +139,11 @@ def _make_handler(runtime: JarvisRuntime) -> type[BaseHTTPRequestHandler]:
             if route == "/api/diagnostics":
                 self._handle_diagnostics_get()
                 return
-            if route == "/api/history":
+            if route == "/api/agents":
                 self._handle_api_agents()
+                return
+            if route == "/api/state":
+                self._handle_api_state()
                 return
             if route == "/api/logs":
                 self._handle_api_logs()

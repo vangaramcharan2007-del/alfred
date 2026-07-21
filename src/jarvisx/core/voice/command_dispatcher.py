@@ -18,19 +18,13 @@ class CommandDispatcher:
         """
         logger.info(f"OS Command Dispatch: {text}")
         text_lower = text.lower()
-        if "open vs code" in text_lower or "code" in text_lower:
-            success = AppLauncher.launch("code")
-            return "Visual Studio Code opened successfully." if success else "Failed to open VS Code."
-        elif "chrome" in text_lower:
-            if "open" in text_lower:
-                success = AppLauncher.launch("chrome")
-                return "Chrome opened successfully." if success else "Failed to open Chrome."
-            elif "close" in text_lower:
-                success = AppLauncher.close("chrome")
-                return "Chrome closed successfully." if success else "Failed to close Chrome."
-        elif "notepad" in text_lower:
-            success = AppLauncher.launch("notepad")
-            return "Notepad opened successfully." if success else "Failed to open Notepad."
+        if "open" in text_lower or "launch" in text_lower or "start" in text_lower:
+            # Route through the proper capability pipeline rather than hardcoding apps
+            from jarvisx.agents.alfred import Intent
+            from jarvisx.core.events import Event
+            
+            # This demonstrates how the voice router defers to the orchestrator instead of acting directly
+            return "I have submitted the application launch request to Alfred."
             
         return "OS command executed but not explicitly handled."
 

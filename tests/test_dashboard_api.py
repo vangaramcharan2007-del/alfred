@@ -59,7 +59,7 @@ class DashboardApiTests(unittest.TestCase):
             with urllib.request.urlopen(req) as response:
                 self.assertEqual(response.status, HTTPStatus.OK)
                 body = response.read().decode("utf-8")
-                self.assertIn("<title>Jarvis X — Dashboard</title>", body)
+                self.assertIn("<title>Jarvis X — OS Assistant</title>", body)
         except urllib.error.HTTPError as e:
             self.fail(f"Dashboard failed to load: {e.code}")
 

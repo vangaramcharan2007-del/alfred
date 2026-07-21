@@ -5,6 +5,13 @@ from typing import List, Optional, Dict, Any
 class KenBurnsEffect:
     start_scale: float
     end_scale: float
+    duration: float
+
+@dataclass
+class KenBurnsEffect:
+    start_scale: float
+    end_scale: float
+    duration: float
     start_x: float = 0.5
     start_y: float = 0.5
     end_x: float = 0.5
@@ -12,8 +19,8 @@ class KenBurnsEffect:
 
 @dataclass
 class Transition:
-    type: str # 'crossfade', 'luma', 'wipe', 'cut'
-    duration: float
+    type: str = "crossfade"
+    duration: float = 0.5
     properties: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
@@ -52,6 +59,7 @@ class BeatMarker:
 class Timeline:
     clips: List[Clip] = field(default_factory=list)
     audio_tracks: List[AudioTrack] = field(default_factory=list)
+    transitions: List[Transition] = field(default_factory=list)
     titles: List[TitleOverlay] = field(default_factory=list)
     beat_markers: List[BeatMarker] = field(default_factory=list)
     resolution: tuple = (1920, 1080)
