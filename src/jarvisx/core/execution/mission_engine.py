@@ -5,6 +5,10 @@ from jarvisx.core.capabilities.base import Capability
 from jarvisx.core.capabilities.runtime import CapabilityRuntime
 from jarvisx.core.execution.task_planner import TaskPlanner
 from jarvisx.core.logging import StructuredLogger
+from jarvisx.core.permissions.manager import PermissionManager
+from jarvisx.core.memory.preferences import PreferenceStore
+from jarvisx.core.workflows.workflow_manager import WorkflowManager
+
 
 
 class MissionEngine:
@@ -18,16 +22,42 @@ class MissionEngine:
         self.runtime = capability_runtime
         self.dashboard = dashboard
         self.logger = StructuredLogger()
+        self.permission_manager = PermissionManager(dashboard=dashboard)
+        self.preference_store = PreferenceStore()
+        self.workflow_manager = WorkflowManager()
 
-    def execute_mission(self, text_goal: str) -> bool:
+
+    def execute_mission(self, text_goal: str, voice_prompt_callback: Any = None) -> bool:
         """Plans and executes a mission, returning True on success."""
         
+        # Phase 12.3: Resolve memory references
+        resolved_goal, requires_confirmation = self.preference_store.resolve(text_goal)
+        
+        if resolved_goal != text_goal:
+            if self.dashboard:
+                self.dashboard.set_tts(f"I remember you mean {resolved_goal}. Using that.")
+                
+            if requires_confirmation:
+                print(f"\n[MEMORY CONFIRMATION]")
+                print(f"I remember your preference is: {resolved_goal}. Is this correct?")
+                try:
+                    response = input("(y/n): ").strip().lower()
+                    if response in ('y', 'yes'):
+                        # Learn from confirmation
+                        for key in self.preference_store.data.get("references", {}):
+                            if key in text_goal.lower():
+                                self.preference_store.increment_confidence(key)
+                    else:
+                        resolved_goal = text_goal # Fallback to original
+                except (EOFError, KeyboardInterrupt):
+                    pass
+        
         # 1. Ask Planner for a plan
-        plan = self.planner.plan(text_goal)
+        plan = self.planner.plan(resolved_goal)
         if not plan:
             # Fallback for dynamic demo scenarios where regex doesn't match
             # Create a dynamic plan based on text
-            plan = self._create_dynamic_plan(text_goal)
+            plan = self._create_dynamic_plan(resolved_goal)
             
         steps = plan.get("steps", [])
         total_steps = len(steps)
@@ -86,14 +116,48 @@ class MissionEngine:
 
             try:
                 if self.dashboard:
+                    self.dashboard.update_mission(status="Requesting Permission...")
+
+                # Permission Layer
+                action_name = task_dict.get("action", capability.name.lower())
+                action_target = task_dict.get("target") or task_dict.get("query") or task_dict.get("app") or task_dict.get("path") or ""
+                
+                approved = self.permission_manager.request(action_name, action_target, voice_prompt_callback=voice_prompt_callback)
+                if not approved:
+                    self.logger.write("warning", "mission_engine.permission_denied", step=step)
+                    if self.dashboard:
+                        self.dashboard.update_mission(status="FAILED: Permission Denied")
+                    return False
+
+                if self.dashboard:
                     self.dashboard.update_mission(status="Executing...")
                 
                 # EXECUTE
-                self.runtime.execute(capability, task_dict)
+                start_time = time.time()
+                result = self.runtime.execute(capability, task_dict)
+                execution_time = time.time() - start_time
+                
+                if self.dashboard:
+                    self.dashboard.update_mission(status="Verifying...")
+                
+                # VERIFICATION (Now handled within CapabilityRuntime, but we reflect state here)
+                # If we are here, execution and verification succeeded (runtime raises ProviderError otherwise)
                 
                 if self.dashboard:
                     self.dashboard.update_mission(status="Success")
                     time.sleep(0.8) # pause for visual effect in demo
+                    
+                # B.9 Structured Logging
+                self.logger.write("info", "mission.step.completed", 
+                    mission_id=plan.get("objective_id", "unknown"),
+                    intent=plan.get("objective_type", "unknown"),
+                    provider=capability.name,
+                    permission_granted=approved,
+                    execution_time_sec=round(execution_time, 2),
+                    verification_result=True,
+                    fallback_used=False,
+                    final_status="Success"
+                )
                     
             except Exception as e:
                 self.logger.write("error", "mission_engine.step_failed", error=str(e), step=step)
@@ -102,6 +166,21 @@ class MissionEngine:
                 return False
 
         # Complete
+        # B.10 Workflow Extraction (Skill Intelligence Layer)
+        if total_steps > 1:
+            try:
+                workflow_name = plan.get("objective_type", f"Workflow_{text_goal[:15]}").replace(" ", "_")
+                step_descriptions = [s.get("description", "step") for s in steps]
+                self.workflow_manager.save_workflow(
+                    name=workflow_name,
+                    steps=step_descriptions,
+                    metadata={"original_goal": text_goal}
+                )
+                self.logger.write("info", "mission.workflow_extracted", workflow=workflow_name)
+            except Exception as e:
+                self.logger.write("warning", "mission.workflow_extraction_failed", error=str(e))
+
+
         if self.dashboard:
             self.dashboard.update_mission(
                 progress=100,

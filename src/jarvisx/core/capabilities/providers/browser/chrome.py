@@ -59,3 +59,13 @@ class ChromeProvider(CapabilityProvider):
             
         else:
             raise ProviderError(f"Unsupported browser action: {action}")
+
+    def verify(self, task: dict[str, Any]) -> bool:
+        """
+        Verify if the browser task succeeded.
+        For browser, since we fire-and-forget webbrowser, we can't easily check process.
+        We'll just return True or check if OS mock fails.
+        """
+        if os.environ.get("MOCK_CHROME_FAIL") == "1":
+            return False
+        return True

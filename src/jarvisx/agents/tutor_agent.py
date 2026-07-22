@@ -3,11 +3,8 @@ import logging
 import json
 import time
 
-try:
-    import ollama
-except ImportError:
-    ollama = None
-
+from jarvisx.core.llm_router import OmniRouterClient
+from jarvisx.core.model_policy import ModelPolicy
 from jarvisx.tools.db_manager import DatabaseManager
 from jarvisx.core.message_bus import EventBus
 
@@ -40,13 +37,20 @@ class SwarmTutorAgent:
         content = ""
         success = False
         
-        if ollama:
-            try:
-                # Mocked due to local environment restrictions
-                content = f"Mocked Ollama Response for: {topic}\nMath: O(log N)\nComplexity: Time O(log N), Space O(1)\nCode: class Node {{}};"
-                success = True
-            except Exception as e:
-                logging.error(f"Ollama connection dropped: {e}")
+        try:
+            router = OmniRouterClient()
+            policy = ModelPolicy()
+            ctx = policy.evaluate(agent_name="SwarmTutorAgent", task_description=topic)
+            
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Topic: {topic}"}
+            ]
+            
+            content = await router.chat(messages=messages, model=ctx.model, context=ctx.metadata)
+            success = True
+        except Exception as e:
+            logging.error(f"OmniRoute Gateway error: {e}")
                 
         if not success:
             logging.info("Falling back to offline cached documentation matrix.")

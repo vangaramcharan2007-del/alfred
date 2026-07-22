@@ -11,6 +11,13 @@ from jarvisx.core.capabilities.base import Capability, CapabilityProvider
 from jarvisx.core.capabilities.evaluation import ProviderEvaluation
 from jarvisx.core.capabilities.negotiation import NegotiationStrategy, HighestScoreStrategy
 from jarvisx.core.logging import StructuredLogger
+from dataclasses import dataclass
+
+@dataclass
+class ProviderCandidate:
+    provider: CapabilityProvider
+    score: float
+    reason: str
 
 
 class SystemCapabilityRegistry:
@@ -45,7 +52,7 @@ class SystemCapabilityRegistry:
         """Dynamically imports a module and registers any Provider classes found."""
         # Convert path to module string: src/jarvisx/core/capabilities/providers/chrome.py -> jarvisx.core.capabilities.providers.chrome
         try:
-            rel_path = path.relative_to(Path.cwd() / "src")
+            rel_path = path.absolute().relative_to((Path.cwd() / "src").absolute())
         except ValueError:
             # Fallback if not in standard src structure
             rel_path = path
@@ -74,14 +81,14 @@ class SystemCapabilityRegistry:
         capability: Capability, 
         task: dict[str, Any], 
         strategy: Optional[NegotiationStrategy] = None
-    ) -> Optional[CapabilityProvider]:
+    ) -> List[ProviderCandidate]:
         """
         Dynamically asks all providers to bid on a task, applies learning metrics, 
-        and uses a strategy to pick the absolute best one.
+        and uses a strategy to rank them for fallback execution.
         """
         providers = self._providers.get(capability, [])
         if not providers:
-            return None
+            return []
             
         strategy = strategy or HighestScoreStrategy()
         evaluations: List[ProviderEvaluation] = []
@@ -99,17 +106,21 @@ class SystemCapabilityRegistry:
             except Exception as e:
                 self.logger.write("warning", "capability.evaluation_failed", provider=provider.name, error=str(e))
                 
-        best_eval = strategy.select(evaluations)
-        if not best_eval:
-            return None
-            
-        self.logger.write("info", "capability.negotiation_winner", capability=capability.name, winner=best_eval.provider_name, score=best_eval.score, reason=best_eval.reason)
+        ranked_evals = strategy.rank(evaluations)
+        candidates = []
         
-        # Match the evaluation back to the provider instance
-        for p in providers:
-            if p.name == best_eval.provider_name:
-                return p
-        return None
+        for eval_obj in ranked_evals:
+            # Match the evaluation back to the provider instance
+            for p in providers:
+                if p.name == eval_obj.provider_name:
+                    candidates.append(ProviderCandidate(
+                        provider=p,
+                        score=eval_obj.score,
+                        reason=eval_obj.reason
+                    ))
+                    break
+                    
+        return candidates
 
     def get_all(self, capability: Capability) -> List[CapabilityProvider]:
         """Returns all registered providers for a capability."""

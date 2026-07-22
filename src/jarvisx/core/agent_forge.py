@@ -18,9 +18,10 @@ import psutil
 import time
 
 try:
-    import ollama
+    from jarvisx.core.llm_router import OmniRouterClient
+    from jarvisx.core.model_policy import ModelPolicy
 except ImportError:
-    ollama = None
+    OmniRouterClient = None
 
 async def main():
     if "{role}" == "Diagnostic Agent":
@@ -28,14 +29,21 @@ async def main():
         boot_time = datetime.datetime.fromtimestamp(psutil.boot_time()).strftime("%Y-%m-%d %H:%M:%S")
         result = "OS Boot Time: " + boot_time
     else:
-        if ollama:
-            response = ollama.chat(model='llama3', messages=[
-                {{'role': 'system', 'content': 'You are a {role}.'}},
-                {{'role': 'user', 'content': '{task}'}}
-            ])
-            result = response['message']['content']
+        if OmniRouterClient:
+            try:
+                router = OmniRouterClient()
+                policy = ModelPolicy()
+                ctx = policy.evaluate(agent_name="{role}", task_description="{task}")
+                
+                messages = [
+                    {{"role": "system", "content": "You are a {role}."}},
+                    {{"role": "user", "content": "{task}"}}
+                ]
+                result = await router.chat(messages=messages, model=ctx.model, context=ctx.metadata)
+            except Exception as e:
+                result = f"OmniRoute Error: {{e}}"
         else:
-            result = "Ollama not available."
+            result = "OmniRouterClient not available in sandbox."
 
     print(f"AGENT_RESULT: {{result}}")
 

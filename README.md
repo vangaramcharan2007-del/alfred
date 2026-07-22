@@ -1,8 +1,17 @@
 # Project Jarvis X
 
-Project Jarvis X is a modular, extensible, debuggable, offline-first personal AI operating system scaffold.
+Project Jarvis X: Intelligent Offline OS
+An autonomous, offline-first operating system powered by embodied AI, featuring persistent memory, dynamic capability negotiation, and native Skill Intelligence.
 
-It is not a chatbot. The core is an event-driven multi-agent runtime where Alfred routes work, Hermes carries events, Edith represents the mobile execution layer, and specialist agents remain idle until a task requires them.
+## Native Jarvis X Skill Intelligence Layer
+
+The Skill Intelligence Layer introduces Hermes-inspired concepts directly into Jarvis X:
+- **Skill Architecture:** Encapsulates complex logic and tool selection (e.g. `ResearchSkill`).
+- **Dynamic Discovery:** Agents can query the `SkillRegistry` for currently available capabilities.
+- **Workflow Reuse:** The `WorkflowManager` extracts successful execution chains and stores them in the `workspace/workflows/` directory for later reuse.
+- **Strict OmniRoute Coupling:** All skill logic interacts strictly with the OmniRoute Gateway via `OmniRouterClient`, ensuring offline-fallback resilience.
+
+*(Note: The Hermes Agent was evaluated as an architectural reference. Direct source integration pending successful repository inspection due to network constraints).* The core is an event-driven multi-agent runtime where Alfred routes work, Hermes carries events, Edith represents the mobile execution layer, and specialist agents remain idle until a task requires them.
 
 ## Installation
 

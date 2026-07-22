@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from enum import Enum, auto
 from typing import Any, Optional
+from abc import abstractmethod
 
 from jarvisx.core.capabilities.evaluation import ProviderEvaluation, ProviderHealth
 
@@ -46,10 +47,10 @@ class CapabilityProvider:
         """Check if this provider is installed and ready to be used."""
         return True
 
+    @abstractmethod
     def evaluate(self, task: dict[str, Any]) -> ProviderEvaluation:
         """
-        Phase 1 Scoring: Fast synchronous check of provider capability.
-        Must return < 5ms.
+        Evaluates how well this provider can handle the given task.
         """
         # Default implementation (should be overridden)
         return ProviderEvaluation(
@@ -67,3 +68,10 @@ class CapabilityProvider:
         Returns a dictionary containing the result or raises ProviderError.
         """
         raise NotImplementedError("Providers must implement execute()")
+
+    def verify(self, task: dict[str, Any]) -> bool:
+        """
+        Verifies if the execution was successful (e.g. process is running, file created).
+        Returns True if successful or un-verifiable, False if verification fails.
+        """
+        return True

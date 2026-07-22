@@ -53,3 +53,20 @@ class SystemFileSystemProvider(CapabilityProvider):
             
         else:
             raise ProviderError(f"Unsupported file system action: {action}")
+
+    def verify(self, task: dict[str, Any]) -> bool:
+        """
+        Verify if the file system task succeeded.
+        """
+        action = task.get("action")
+        target = task.get("target")
+        if not target:
+            return False
+            
+        target_path = Path(target)
+        if action == "create_folder":
+            return target_path.exists() and target_path.is_dir()
+        elif action == "delete":
+            return not target_path.exists()
+            
+        return True
