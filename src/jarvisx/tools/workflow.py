@@ -1,11 +1,11 @@
 from jarvisx.tools.base import BaseTool, ToolResult
-from jarvisx.core.workflows import WorkflowEngine
+from jarvisx.core.workflows.workflow_manager import WorkflowManager
 
 class WorkflowTool(BaseTool):
     """Tool for querying workflow status."""
     
-    def __init__(self, engine: WorkflowEngine):
-        self.engine = engine
+    def __init__(self, engine: WorkflowManager):
+        self.engine = WorkflowManager()
 
     def get_status(self, workflow_id: str) -> ToolResult:
         """Check the status of a running workflow."""
