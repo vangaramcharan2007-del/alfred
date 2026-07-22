@@ -13,7 +13,17 @@ The Skill Intelligence Layer introduces Hermes-inspired concepts directly into J
 
 *(Note: The Hermes Agent was evaluated as an architectural reference. Direct source integration pending successful repository inspection due to network constraints).* The core is an event-driven multi-agent runtime where Alfred routes work, Hermes carries events, Edith represents the mobile execution layer, and specialist agents remain idle until a task requires them.
 
+## External Capability Integrations
+
+### ShadowBroker OSINT Integration
+Jarvis X integrates the ShadowBroker decentralized OSINT platform as a modular skill capability:
+- **Adapter**: `ShadowBrokerAdapter` wraps the official client, standardizing HMAC signing and enforcing timeout/failure degradation.
+- **Skill**: `ShadowBrokerOSINT` exposes fast-path capabilities (`ask`, `run_playbook`, `channel_status`) to the Agent Runtime.
+- **Permissions**: Full boundary enforcement. The adapter requires `network_access` and uses the Jarvis X `PermissionManager` to block unapproved external calls.
+- **Data Boundary**: ShadowBroker operates without access to Jarvis X memory or user profiles. All LLM reasoning remains internally gated through `OmniRoute`.
+
 ## Installation
+
 
 ### Option 1: Docker (Recommended)
 The easiest way to run Jarvis X is via Docker Compose. This ensures all dependencies (like Tesseract OCR) are isolated and configured correctly.
