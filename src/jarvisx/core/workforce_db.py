@@ -31,6 +31,16 @@ class WorkforceDatabase:
                 artifacts TEXT
             )
         ''')
+        self.conn.execute('''
+            CREATE TABLE IF NOT EXISTS skill_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                skill_name TEXT NOT NULL,
+                task_type TEXT,
+                success BOOLEAN NOT NULL,
+                execution_duration_ms INTEGER,
+                executed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
         self.conn.commit()
         logger.info(f"Workforce database initialized at {self.db_path}")
 
@@ -60,3 +70,34 @@ class WorkforceDatabase:
             "artifacts": task_data.get("artifacts", "{}")
         })
         self.conn.commit()
+
+    def record_skill_execution(self, skill_name: str, task_type: str, success: bool, duration_ms: int):
+        self.conn.execute('''
+            INSERT INTO skill_history (skill_name, task_type, success, execution_duration_ms)
+            VALUES (?, ?, ?, ?)
+        ''', (skill_name, task_type, success, duration_ms))
+        self.conn.commit()
+        
+    def get_skill_stats(self, skill_name: str) -> dict:
+        cursor = self.conn.execute('''
+            SELECT 
+                COUNT(*) as total_runs,
+                SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful_runs,
+                AVG(execution_duration_ms) as avg_duration_ms,
+                MAX(executed_at) as last_used
+            FROM skill_history
+            WHERE skill_name = ?
+        ''', (skill_name,))
+        row = cursor.fetchone()
+        
+        total = row[0] or 0
+        successes = row[1] or 0
+        avg_dur = row[2] or 0
+        last_used = row[3]
+        
+        return {
+            "total_runs": total,
+            "success_rate": successes / total if total > 0 else 1.0,
+            "avg_duration_ms": avg_dur,
+            "last_used": last_used
+        }

@@ -11,6 +11,14 @@ The Skill Intelligence Layer introduces Hermes-inspired concepts directly into J
 - **Workflow Reuse:** The `WorkflowManager` extracts successful execution chains and stores them in the `workspace/workflows/` directory for later reuse.
 - **Strict OmniRoute Coupling:** All skill logic interacts strictly with the OmniRoute Gateway via `OmniRouterClient`, ensuring offline-fallback resilience.
 
+### Alfred Capability Intelligence Layer (Phase E.5)
+Alfred features a hybrid capability decision layer, shifting from manual skill selection to an intelligent autonomous matching system:
+- **Before:** `User → Manual Skill`
+- **After:** `User → Alfred → Capability Matcher → Skill Ranker → Skill Executor → Workflow Update`
+- **Capability Matcher:** Evaluates mission steps against available skills using a hybrid approach: Rules -> Tags -> Workflow History -> LLM Classification (OmniRoute fallback).
+- **Skill Ranker:** Ranks candidates based on relevance (40%), historical success rate (30%), available permissions (20%), and execution cost (10%). Includes cooldown penalties to prevent infinite loops.
+- **Persistence:** Skill execution results and duration are logged in the SQLite Database to dynamically adjust success rates over time.
+
 *(Note: The Hermes Agent was evaluated as an architectural reference. Direct source integration pending successful repository inspection due to network constraints).* The core is an event-driven multi-agent runtime where Alfred routes work, Hermes carries events, Edith represents the mobile execution layer, and specialist agents remain idle until a task requires them.
 
 ## External Capability Integrations

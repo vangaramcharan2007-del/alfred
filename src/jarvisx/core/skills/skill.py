@@ -25,6 +25,31 @@ class BaseSkill(ABC):
         """A list of tool names from the ToolRegistry required by this skill."""
         pass
         
+    @property
+    def category(self) -> str:
+        """Category of the skill (e.g., 'intelligence', 'coding', 'research')."""
+        return "general"
+        
+    @property
+    def cost(self) -> str:
+        """Execution cost estimate ('low', 'medium', 'high')."""
+        return "medium"
+        
+    @property
+    def success_rate(self) -> float:
+        """Default success rate of the skill (0.0 to 1.0)."""
+        return 1.0
+        
+    @property
+    def tags(self) -> List[str]:
+        """Tags for semantic matching."""
+        return []
+        
+    @property
+    def required_permissions(self) -> List[str]:
+        """Permissions required by this skill."""
+        return []
+        
     @abstractmethod
     async def execute(self, task: str, context: Dict[str, Any] = None) -> str:
         """

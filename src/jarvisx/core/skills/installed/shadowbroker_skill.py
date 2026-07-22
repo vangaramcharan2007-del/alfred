@@ -34,6 +34,18 @@ class ShadowBrokerOSINT(BaseSkill):
         ]
         
     @property
+    def tags(self) -> List[str]:
+        return ["osint", "research", "intelligence", "geospatial"]
+        
+    @property
+    def cost(self) -> str:
+        return "medium"
+        
+    @property
+    def success_rate(self) -> float:
+        return 0.85
+        
+    @property
     def required_permissions(self) -> List[str]:
         return ["network_access"]
 

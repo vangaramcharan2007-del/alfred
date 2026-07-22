@@ -22,6 +22,18 @@ class ResearchSkill(BaseSkill):
         # For now, it just requests the LLM to hallucinate or summarize based on its knowledge.
         return []
         
+    @property
+    def category(self) -> str:
+        return "research"
+        
+    @property
+    def tags(self) -> List[str]:
+        return ["search", "summarize", "information", "research"]
+        
+    @property
+    def cost(self) -> str:
+        return "low"
+        
     async def execute(self, task: str, context: Dict[str, Any] = None) -> str:
         router = OmniRouterClient()
         policy = ModelPolicy()

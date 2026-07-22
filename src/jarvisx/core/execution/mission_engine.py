@@ -9,6 +9,14 @@ from jarvisx.core.permissions.manager import PermissionManager
 from jarvisx.core.memory.preferences import PreferenceStore
 from jarvisx.core.workflows.workflow_manager import WorkflowManager
 
+from jarvisx.core.skills.skill_registry import SkillRegistry
+from jarvisx.core.workforce_db import WorkforceDatabase
+from jarvisx.core.skills.capability_context import CapabilityContext
+from jarvisx.core.skills.capability_matcher import CapabilityMatcher
+from jarvisx.core.skills.skill_ranker import SkillRanker
+import asyncio
+
+
 
 
 class MissionEngine:
@@ -24,7 +32,14 @@ class MissionEngine:
         self.logger = StructuredLogger()
         self.permission_manager = PermissionManager(dashboard=dashboard)
         self.preference_store = PreferenceStore()
+        
         self.workflow_manager = WorkflowManager()
+        self.skill_registry = SkillRegistry()
+        self.db = WorkforceDatabase()
+        self.capability_context = CapabilityContext(self.skill_registry, self.db)
+        self.matcher = CapabilityMatcher(self.capability_context)
+        self.ranker = SkillRanker()
+
 
 
     def execute_mission(self, text_goal: str, voice_prompt_callback: Any = None) -> bool:
@@ -94,6 +109,27 @@ class MissionEngine:
             # Map the legacy Action Type to a Capability
             capability, task_dict = self._map_action_to_capability(step)
             
+            # PHASE E.5: CAPABILITY INTELLIGENCE LAYER
+            step_desc = step.get("description", "")
+            task_type = step.get("action_type", "")
+            selected_skill = None
+            
+            try:
+                candidates = asyncio.run(self.matcher.match(step_desc, task_type))
+                ranked_candidates = self.ranker.rank(candidates, []) # assume no pre-granted permissions for now
+                if ranked_candidates:
+                    top_candidate = ranked_candidates[0]
+                    skill_name = top_candidate["metadata"]["name"]
+                    selected_skill = self.skill_registry.get_skill(skill_name)
+                    
+                    self.logger.write("info", "mission.skill_selected", 
+                                      step=step_desc, 
+                                      selected_skill=skill_name, 
+                                      score=top_candidate["score"], 
+                                      reason=top_candidate["reason"])
+            except Exception as e:
+                self.logger.write("warning", "mission.skill_selection_failed", error=str(e))
+            
             if self.dashboard:
                 self.dashboard.update_mission(capability=capability.name)
                 
@@ -134,8 +170,23 @@ class MissionEngine:
                 
                 # EXECUTE
                 start_time = time.time()
-                result = self.runtime.execute(capability, task_dict)
-                execution_time = time.time() - start_time
+                success = False
+                try:
+                    if selected_skill:
+                        # Execute the new Skill
+                        result = asyncio.run(selected_skill.execute(step_desc, task_dict))
+                        success = True
+                    else:
+                        # Fallback to legacy capability runtime
+                        result = self.runtime.execute(capability, task_dict)
+                        success = True
+                except Exception as ex:
+                    success = False
+                    raise ex
+                finally:
+                    execution_time = time.time() - start_time
+                    if selected_skill:
+                        self.db.record_skill_execution(selected_skill.name, task_type, success, int(execution_time * 1000))
                 
                 if self.dashboard:
                     self.dashboard.update_mission(status="Verifying...")
