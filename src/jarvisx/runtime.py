@@ -248,7 +248,7 @@ def create_default_runtime(
     # Initialize VoiceManager
     voice_manager = VoiceManager(provider_registry=provider_registry)
     voice_manager.register("Alfred", provider="pyttsx3", voice_id="default")
-    voice_manager.register("Friday", provider="f5_tts", reference=str(Path("assets/voices/friday_reference.wav").absolute()))
+    voice_manager.register("Friday", provider="pyttsx3", voice_id=r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_EN-US_ZIRA_11.0")
     voice_manager.register("Edith", provider="elevenlabs", voice_id="female_voice")
     
     # Register STT
