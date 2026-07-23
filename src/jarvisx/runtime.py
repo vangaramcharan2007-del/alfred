@@ -25,6 +25,7 @@ from jarvisx.agents.specialists import (
 from jarvisx.agents.workflow import WorkflowAgent
 from jarvisx.agents.capability_agent import CapabilityAgent
 from jarvisx.agents.video_skill import VideoSkillAgent
+from jarvisx.agents.friday import FridayAgent
 from jarvisx.core.context import DeviceContext
 from jarvisx.core.health import HealthMonitor, HealthStatus
 from jarvisx.core.hermes import HermesBus
@@ -60,7 +61,8 @@ from jarvisx.core.configuration import ConfigurationManager
 from jarvisx.core.backup_manager import BackupManager
 
 from jarvisx.core.providers.llm import OpenAIProvider, GeminiProvider, ClaudeProvider, GroqProvider, OpenRouterProvider, OllamaProvider, LlamaCppProvider, LocalGGUFProvider
-from jarvisx.core.providers.tts import ElevenLabsProvider, Pyttsx3Provider
+from jarvisx.core.providers.tts import ElevenLabsProvider, Pyttsx3Provider, XTTSv2Provider, F5TTSProvider
+from jarvisx.core.providers.voice_manager import VoiceManager
 from jarvisx.core.providers.stt import WhisperAPIProvider, FasterWhisperProvider, WhisperCppProvider
 from jarvisx.core.providers.memory import SupabaseProvider, SQLiteProvider, LocalFilesProvider
 from jarvisx.core.providers.vision import TesseractProvider, FutureOCRProvider
@@ -85,6 +87,7 @@ class JarvisRuntime:
     backup_manager: BackupManager
     capability_registry: SystemCapabilityRegistry
     capability_runtime: CapabilityRuntime
+    voice_manager: VoiceManager
     data_dir: Path
     shutdown_manager: ShutdownManager = field(init=False)
     _cron_stop_event: threading.Event = field(init=False)
@@ -168,6 +171,7 @@ def create_default_runtime(
             logger=logger,
         )
     )
+    registry.register(FridayAgent(tools={"file": FileSystem(root_dir="."), "computer": computer_tool}, logger=logger))
     registry.register(EditingAgent(tools={"file": FileSystem(root_dir=".")}, logger=logger))
     registry.register(CADAgent(tools={"cad": cad_tool}, logger=logger))
     registry.register(ShadowBrokerAgent(tools={"research": research_tool}, logger=logger))
@@ -238,6 +242,14 @@ def create_default_runtime(
     # Register TTS
     provider_registry.register(ElevenLabsProvider())
     provider_registry.register(Pyttsx3Provider())
+    provider_registry.register(XTTSv2Provider())
+    provider_registry.register(F5TTSProvider())
+    
+    # Initialize VoiceManager
+    voice_manager = VoiceManager(provider_registry=provider_registry)
+    voice_manager.register("Alfred", provider="pyttsx3", voice_id="default")
+    voice_manager.register("Friday", provider="f5_tts", reference=str(Path("assets/voices/friday_reference.wav").absolute()))
+    voice_manager.register("Edith", provider="elevenlabs", voice_id="female_voice")
     
     # Register STT
     provider_registry.register(WhisperAPIProvider())
@@ -277,5 +289,6 @@ def create_default_runtime(
         backup_manager=backup_manager,
         capability_registry=capability_registry,
         capability_runtime=capability_runtime,
+        voice_manager=voice_manager,
         data_dir=Path("data"),
     )

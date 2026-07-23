@@ -37,6 +37,7 @@ class IntentClassifier:
     """Rule-based offline classifier. Replace with a local small model later."""
 
     _rules: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
+        ("coding", "friday", "coding", ("friday", "create a file", "write a script", "edit code", "write code", "edit file", "python code")),
         ("greeting", "chat", "greeting", ("hello", "hi", "hey", "yo", "sup", "morning", "evening")),
         ("farewell", "chat", "greeting", ("bye", "goodbye", "exit", "quit")),
         ("video_processing", "video_skill", "video", ("upscale", "4k", "video", "lowquality")),
@@ -46,7 +47,6 @@ class IntentClassifier:
         ("memory", "memory", "memory", ("remember", "recall", "memory", "obsidian", "note")),
         ("research", "research", "research", ("research", "summarize", "documentation", "docs", "find info")),
         ("planning", "planner", "planning", ("schedule", "remind", "todo", "task", "goal", "mission")),
-        ("coding", "editing", "editing", ("create a file", "write a script", "edit code", "write code", "edit file")),
         ("automation", "workflow", "workflow", ("workflow", "deploy", "automate")),
         ("system_control", "device", "system", ("shutdown", "restart", "volume", "brightness")),
         ("debug", "debug", "debug", ("debug", "error", "failure", "logs", "test", "patch", "fix")),
