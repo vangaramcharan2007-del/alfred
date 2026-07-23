@@ -66,8 +66,9 @@ async def run_acceptance_test():
         try:
             # Running asynchronously since we are in async context, but Alfred process is sync/async.
             if asyncio.iscoroutinefunction(alfred.process):
-                response = await alfred.process(cmd)
+                response = asyncio.run(alfred.process(cmd))
             else:
+                # Fallback if alfred.process is not async for some reason
                 response = alfred.process(cmd)
             print(f"  <- Alfred: {getattr(response, 'message', str(response))}")
         except Exception as e:

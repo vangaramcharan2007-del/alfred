@@ -54,7 +54,7 @@ class DeviceTool(BaseTool):
         )
         return ToolResult(
             success=True,
-            message=f"Prepared Android launch action for {normalized}.",
+            message=f"Prepared launch action for {normalized}.",
             data={
                 "action": "open_app",
                 "trace_id": trace_id,

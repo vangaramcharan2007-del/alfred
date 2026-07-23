@@ -122,7 +122,7 @@ class PersonalizationTool(BaseTool):
     def get_autonomy_level(self) -> ToolResult:
         """Returns the current autonomy level."""
         state = self._load_state()
-        return ToolResult(success=True, data={"autonomy_level": state.autonomy_level})
+        return ToolResult(success=True, message="Success", data={"autonomy_level": state.autonomy_level})
 
     def set_personality(
         self,

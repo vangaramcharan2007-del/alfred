@@ -16,6 +16,7 @@ from jarvisx.agents.specialists import (
     DebugAgent,
     DeviceAgent,
     EditingAgent,
+    GreetingAgent,
     MemoryAgent,
     PlannerAgent,
     ResearchAgent,
@@ -23,6 +24,7 @@ from jarvisx.agents.specialists import (
 )
 from jarvisx.agents.workflow import WorkflowAgent
 from jarvisx.agents.capability_agent import CapabilityAgent
+from jarvisx.core.context import DeviceContext
 from jarvisx.core.health import HealthMonitor, HealthStatus
 from jarvisx.core.hermes import HermesBus
 from jarvisx.core.logging import StructuredLogger
@@ -153,9 +155,11 @@ def create_default_runtime(
     workflow_tool = WorkflowTool(engine=workflow_engine)
     computer_tool = ComputerControlTool(personalization=personalization_tool)
     backup_manager = BackupManager(data_dir=Path("data"), backup_dir=Path("backups"))
+    device_context = DeviceContext()
 
+    registry.register(GreetingAgent(logger=logger))
     registry.register(MemoryAgent(tools={"memory": memory_tool}, logger=logger))
-    registry.register(DeviceAgent(tools={"device": device_tool, "computer": computer_tool}, logger=logger))
+    registry.register(DeviceAgent(tools={"device": device_tool, "computer": computer_tool, "context": device_context}, logger=logger))
     registry.register(ResearchAgent(tools={"research": research_tool}, logger=logger))
     registry.register(
         PlannerAgent(

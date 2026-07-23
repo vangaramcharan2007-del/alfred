@@ -12,6 +12,31 @@ def _message(event: Event) -> str:
     return str(event.payload.get("message", "")).strip()
 
 
+class GreetingAgent(BaseAgent):
+    agent_id = "chat"
+    role = "Conversational interactions"
+    expertise = ("greetings", "farewells", "small talk")
+    tone = "polite"
+    personality = "helpful assistant"
+    capabilities = ()
+
+    async def handle(self, event: Event) -> AgentResponse:
+        text = _message(event).lower()
+        if any(w in text for w in ("bye", "goodbye", "exit", "quit")):
+            message = "Goodbye. Systems shutting down."
+        elif any(w in text for w in ("morning", "evening", "afternoon")):
+            message = "Good day. Systems online."
+        else:
+            message = "Hello. Jarvis X is ready."
+            
+        return self._response(
+            event,
+            handled=True,
+            message=message,
+            data={"tool": "none"}
+        )
+
+
 class MemoryAgent(BaseAgent):
     agent_id = "memory"
     role = "Long-term and project memory manager"
@@ -55,64 +80,65 @@ class MemoryAgent(BaseAgent):
 
 class DeviceAgent(BaseAgent):
     agent_id = "device"
-    role = "Android automation and device control"
-    expertise = ("app launching", "notifications", "device actions")
+    role = "Platform-aware automation and device control"
+    expertise = ("app launching", "notifications", "device actions", "browser")
     tone = "direct"
     personality = "efficient operator"
-    capabilities = ("device.open_app", "device.notification", "device.speak_text", "computer.open_url", "computer.type_text", "computer.press_key", "computer.click", "computer.run_command")
+    capabilities = ("device.open_app", "computer.open_url", "computer.run_command")
 
     async def handle(self, event: Event) -> AgentResponse:
         device = self.tools.get("device")
         computer = self.tools.get("computer")
-        device_action = event.payload.get("device_action")
-        if isinstance(device_action, dict):
-            action = str(device_action.get("action", ""))
-            parameters = device_action.get("parameters", {})
-            if not isinstance(parameters, dict):
-                parameters = {}
-            result = device.prepare_device_action(action, parameters, trace_id=event.trace_id)
+        context = self.tools.get("context")
+        
+        text = _message(event)
+        lowered = text.lower()
+        app_name = _extract_app_name(text)
+
+        # Context-aware Routing
+        is_desktop = not context or context.active_device == "desktop"
+
+        if is_desktop and computer:
+            # Browser Intelligence (Phase 7)
+            web_services = {
+                "youtube": "https://youtube.com",
+                "google": "https://google.com",
+                "gmail": "https://mail.google.com",
+                "github": "https://github.com",
+                "chatgpt": "https://chatgpt.com",
+                "stackoverflow": "https://stackoverflow.com",
+                "reddit": "https://reddit.com"
+            }
+            
+            for service, url in web_services.items():
+                if service in lowered:
+                    result = computer.open_url(url)
+                    return self._response(
+                        event,
+                        handled=result.success,
+                        message=f"Opening {service.capitalize()}...",
+                        data={"tool": "computer", "result": result.to_dict()}
+                    )
+            
+            # Desktop App Launching
+            return self._response(
+                event,
+                handled=True,
+                message=f"Opening {app_name}...",
+                data={"tool": "computer", "action": "run_command", "target": app_name}
+            )
+
+        # Fallback to mobile routing if Android
+        if device:
+            result = device.prepare_open_app(app_name, trace_id=event.trace_id)
             return self._response(
                 event,
                 handled=result.success,
-                message=result.message,
-                data={"tool": "device", "result": result.to_dict()},
+                message=f"Launching {app_name} app...",
+                data={"tool": "device", "result": result.to_dict()}
             )
-        computer_action = event.payload.get("computer_action")
-        if isinstance(computer_action, dict) and computer:
-            action = str(computer_action.get("action", ""))
-            parameters = computer_action.get("parameters", {})
-            if not isinstance(parameters, dict):
-                parameters = {}
             
-            result = None
-            if action == "open_url":
-                result = computer.open_url(parameters.get("url", ""))
-            elif action == "type_text":
-                result = computer.type_text(parameters.get("text", ""))
-            elif action == "press_key":
-                result = computer.press_key(parameters.get("keys", []))
-            elif action == "click":
-                result = computer.click(x=parameters.get("x"), y=parameters.get("y"), clicks=parameters.get("clicks", 1), button=parameters.get("button", "left"))
-            elif action == "run_command":
-                result = computer.run_command(parameters.get("command", ""))
-            
-            if result:
-                return self._response(
-                    event,
-                    handled=result.success,
-                    message=result.message,
-                    data={"tool": "computer", "result": result.to_dict()},
-                )
-
-        text = _message(event)
-        app_name = _extract_app_name(text)
-        result = device.prepare_open_app(app_name, trace_id=event.trace_id)
-        return self._response(
-            event,
-            handled=result.success,
-            message=result.message,
-            data={"tool": "device", "result": result.to_dict()},
-        )
+        return self._response(event, handled=False, message="No suitable device control tools found.")
 
 
 class ResearchAgent(BaseAgent):
@@ -169,7 +195,7 @@ class PlannerAgent(BaseAgent):
         return self._response(
             event,
             handled=True,
-            message="Planner Agent captured the task for scheduling.",
+            message=f"Task noted: '{text}'",
             data=data,
         )
 

@@ -24,6 +24,11 @@ def run_checks():
 
 if __name__ == "__main__":
     import os
+    # Ensure src is in the python path
+    src_path = str(Path(__file__).parent / "src")
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
+
     run_checks()
     
     try:
@@ -54,6 +59,17 @@ if __name__ == "__main__":
     try:
         runtime = create_default_runtime()
         alfred = runtime.alfred
+        
+        # Capability Discovery at Startup
+        print("Loading Skills...\n")
+        
+        skills_loaded = 0
+        for agent_id, agent in runtime.registry.agents.items():
+            skill_name = f"{agent.__class__.__name__}"
+            print(f"✓ {skill_name}")
+            skills_loaded += 1
+            
+        print(f"\n{skills_loaded} Skills Loaded\n")
         print("Jarvis X is ready. Type 'exit' to quit.\n")
         
         while True:
@@ -64,8 +80,13 @@ if __name__ == "__main__":
             # Simple fallback response if command is passed
             if cmd.strip():
                 try:
-                    response = alfred.process(cmd)
-                    print(f"Alfred: {response}")
+                    import asyncio
+                    response = asyncio.run(alfred.process(cmd))
+                    # Check if the response is a complex object (like OmniRouteResponse) or string
+                    if hasattr(response, 'message'):
+                        print(f"Alfred: {response.message}")
+                    else:
+                        print(f"Alfred: {response}")
                 except Exception as ex:
                     print(f"ERROR: {ex}")
                     logger.error(f"Execution failed: {ex}", exc_info=True)

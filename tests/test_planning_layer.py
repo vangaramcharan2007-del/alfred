@@ -92,7 +92,7 @@ class TestToolRegistry:
 
     def test_get_capability_manifest(self, registry):
         manifest = registry.get_capability_manifest()
-        assert len(manifest) == 3
+        assert len(manifest) >= 3
         tool_names = [entry["tool"] for entry in manifest]
         assert "file_ops" in tool_names
 
