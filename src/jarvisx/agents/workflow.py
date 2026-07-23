@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 from jarvisx.agents.base import BaseAgent, AgentResponse
 from jarvisx.core.events import Event
 from jarvisx.tools.workflow import WorkflowTool
-from jarvisx.core.workflows.workflow_manager import WorkflowManager, Workflow, WorkflowStep
+from jarvisx.core.workflows import WorkflowEngine, Workflow, WorkflowStep
 
 
 class WorkflowAgent(BaseAgent):

@@ -1,0 +1,80 @@
+import asyncio
+import sys
+from pathlib import Path
+from rich.console import Console
+from rich.panel import Panel
+from rich.markdown import Markdown
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[0] / "src"))
+
+from jarvisx.runtime import create_default_runtime
+
+console = Console()
+
+async def run_demo():
+    console.print(Panel.fit("[bold green]Jarvis X - Alpha 0.1 Demonstration[/bold green]", border_style="green"))
+    
+    # Initialize the runtime
+    console.print("\n[dim]Initializing Jarvis X Runtime...[/dim]")
+    runtime = create_default_runtime()
+    
+    # Pre-populate some dummy data to make the demos look good if they are reading from DB
+    console.print("[dim]Seeding mock data for demo...[/dim]\n")
+    # Add a mock mission to the memory/DB
+    from jarvisx.tools.missions import MissionTool
+    from jarvisx.tools.memory import LocalMemoryTool
+    memory_tool = LocalMemoryTool(vault_path=Path("vault"))
+    mission_tool = MissionTool(memory_tool=memory_tool)
+    mission_tool.create_mission("Complete DSA practice", "dsa_practice")
+    mission_tool.create_mission("Revise calculus", "calc_revision")
+    mission_tool.create_mission("Continue Jarvis X development", "jarvis_dev")
+    
+    # Add some mock XP
+    from jarvisx.tools.operational_db import OperationalDatabase
+    op_db = OperationalDatabase(db_path=Path("op.db"))
+    op_db.set("xp_stats", {"current_xp": 700, "next_level": 1000, "streak": 5})
+
+    scenarios = [
+        {
+            "name": "Demo 1 — Assistant Core",
+            "command": "give me today's mission",
+            "expected": "Expected: Retrieve missions, show XP and streak."
+        },
+        {
+            "name": "Demo 2 — Multi-capability execution",
+            "command": "research AI agents and create notes for me",
+            "expected": "Expected: Route to Research, use Memory to save notes, log workflow."
+        },
+        {
+            "name": "Demo 3 — OS embodiment",
+            "command": "open my development environment",
+            "expected": "Expected: Route to Capability Engine (Desktop), open VS Code/Terminal."
+        }
+    ]
+
+    for scenario in scenarios:
+        console.print(f"\n[bold cyan]{scenario['name']}[/bold cyan]")
+        console.print(f"[bold yellow]User:[/bold yellow] Alfred, {scenario['command']}")
+        console.print(f"[dim]{scenario['expected']}[/dim]\n")
+        
+        console.print("[dim]Processing...[/dim]")
+        
+        try:
+            response = await runtime.alfred.process(scenario['command'])
+            
+            console.print(f"[bold green]Alfred ({response.agent_id}):[/bold green]")
+            if response.message:
+                console.print(Markdown(response.message))
+            else:
+                console.print("[italic]No direct text response.[/italic]")
+                
+            console.print("\n[dim]Internal Trace Data:[/dim]")
+            console.print(f"[dim]- Target Agent: {response.agent_id}[/dim]")
+            console.print(f"[dim]- Intent: {response.data.get('intent', {}).get('task_class', 'N/A')}[/dim]")
+            console.print(f"[dim]- Model Tier: {response.model.get('tier', 'N/A')}[/dim]")
+            
+        except Exception as e:
+            console.print(f"[bold red]Error during processing:[/bold red] {e}")
+
+if __name__ == "__main__":
+    asyncio.run(run_demo())

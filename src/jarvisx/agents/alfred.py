@@ -37,23 +37,26 @@ class IntentClassifier:
     """Rule-based offline classifier. Replace with a local small model later."""
 
     _rules: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
-        ("browser", "capability_engine", "browser", ("search", "browse", "website", "chrome", "firefox", "edge")),
-        ("communication", "capability_engine", "communication", ("message", "whatsapp", "signal", "send", "chat")),
-        ("desktop", "capability_engine", "desktop", ("open ", "launch ", "start app", "close app")),
-        ("file_system", "capability_engine", "file_system", ("create folder", "delete file", "move file")),
+        ("browser", "device", "browser", ("search", "browse", "website", "chrome", "firefox", "edge")),
+        ("communication", "device", "communication", ("message", "whatsapp", "signal", "send", "chat")),
+        ("desktop", "device", "desktop", ("open ", "launch ", "start app", "close app")),
+        ("file_system", "device", "file_system", ("create folder", "delete file", "move file")),
         ("memory", "memory", "memory", ("remember", "recall", "memory", "obsidian", "note")),
         ("research", "research", "research", ("research", "summarize", "documentation", "docs", "find info")),
         ("planning", "planner", "planning", ("schedule", "remind", "todo", "task", "goal")),
         ("editing", "editing", "editing", ("create a file", "write a script", "edit code", "write code", "edit file")),
         ("debug", "debug", "debug", ("debug", "error", "failure", "logs", "test", "patch", "fix")),
-        ("workflow", "workflow", "workflow", ("workflow", "deploy", "email workflow", "cad workflow")),
+        ("edith_mobile", "edith", "device", ("voice", "notification", "mobile companion")),
+        ("workflow", "workflow", "workflow", ("workflow", "deploy", "email workflow", "cad workflow", "cad")),
+        ("xp", "xp", "gamification", ("xp", "stats", "award", "level", "reward")),
     )
 
     def classify(self, message: str) -> Intent:
-        normalized = f" {message.strip().lower()} "
+        import re
+        normalized = message.strip().lower()
         for label, agent_id, task_class, keywords in self._rules:
             for keyword in keywords:
-                if keyword in normalized:
+                if re.search(r'\b' + re.escape(keyword) + r'\b', normalized):
                     return Intent(
                         label=label,
                         agent_id=agent_id,

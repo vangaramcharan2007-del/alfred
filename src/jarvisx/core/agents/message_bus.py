@@ -136,3 +136,18 @@ class MessageBus:
         if not os.path.exists(recipient_dir):
             return 0
         return len([f for f in os.listdir(recipient_dir) if f.endswith(".json") and not f.endswith(".tmp")])
+
+    def get_history(self, agent_id: Optional[str] = None) -> List[Message]:
+        history = []
+        if not os.path.exists(HISTORY_DIR):
+            return history
+        for fname in os.listdir(HISTORY_DIR):
+            if fname.endswith(".json"):
+                try:
+                    with open(os.path.join(HISTORY_DIR, fname), "r") as f:
+                        data = json.load(f)
+                        if agent_id is None or data.get("sender_id") == agent_id or data.get("recipient_id") == agent_id:
+                            history.append(Message.from_dict(data))
+                except Exception:
+                    pass
+        return sorted(history, key=lambda m: m.timestamp)

@@ -132,7 +132,7 @@ class TestAdversarialAudit:
         evidence = result["evidence"]
         assert "step1" in evidence
         assert "duration_ms" in evidence["step1"]
-        assert evidence["step1"]["tool"] == "fake"
+        assert evidence["step1"]["tool"] == "fake_tool"
 
     @pytest.mark.asyncio
     async def test_persistence_validation(self, registry, mock_router):

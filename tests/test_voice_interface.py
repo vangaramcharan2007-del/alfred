@@ -41,7 +41,31 @@ def test_tts_payload_generation():
 
 @pytest.mark.asyncio
 async def test_voice_orchestration_flow():
+    from unittest.mock import AsyncMock
     runtime = create_default_runtime()
+    
+    # Populate voice configurations so VoiceManager can resolve voice_id
+    runtime.config_manager.set("voices.device", {"voice_id": "device"})
+    runtime.config_manager.set("voices.planner", {"voice_id": "planner"})
+    
+    # Mock ProviderRouter to simulate STT and TTS without real providers
+    async def mock_route(category, action, *args, **kwargs):
+        if category == "STT" and action == "transcribe":
+            audio_data = args[0]
+            payload = json.loads(audio_data.decode("utf-8"))
+            return payload.get("text", "Simulated voice input text")
+        if category == "TTS" and action == "synthesize":
+            text = args[0]
+            agent_id = kwargs.get("voice_id", "default")
+            return json.dumps({
+                "text": text,
+                "voice_profile": agent_id,
+                "status": "synthesized"
+            }).encode("utf-8")
+        return None
+        
+    runtime.provider_router.route_with_failover = AsyncMock(side_effect=mock_route)
+    
     voice_manager = VoiceManager(runtime)
     
     # Simulate an incoming voice command to open youtube (handled by device agent)

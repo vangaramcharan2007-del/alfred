@@ -140,7 +140,22 @@ class LocalMemoryTool(BaseTool):
 
         try:
             self._recover_vault()
-            return self._cached_search(query, limit)
+            limited = self._cached_search(query, limit)
+            if not limited:
+                self._log_failed_lookup("no_matches", trace_id=trace_id, query=query)
+            self.logger.write(
+                "info",
+                "memory.read",
+                trace_id=trace_id,
+                operation="search_memory",
+                query=query,
+                result_count=len(limited),
+            )
+            return ToolResult(
+                success=True,
+                message=f"Found {len(limited)} memory record(s).",
+                data={"records": limited},
+            )
         except Exception as exc:
             self._log_failed_lookup("read_error", trace_id=trace_id, query=query, reason=str(exc))
             return ToolResult(success=False, message=f"Memory search failed: {exc}")
@@ -164,21 +179,7 @@ class LocalMemoryTool(BaseTool):
                     }
                 )
         matches.sort(key=lambda item: (-int(item["score"]), str(item["path"])))
-        limited = matches[:limit]
-        if not limited:
-            self._log_failed_lookup("no_matches", query=query)
-        self.logger.write(
-            "info",
-            "memory.read",
-            operation="search_memory",
-            query=query,
-            result_count=len(limited),
-        )
-        return ToolResult(
-            success=True,
-            message=f"Found {len(limited)} memory record(s).",
-            data={"records": limited},
-        )
+        return matches[:limit]
 
     def append_daily_note(self, text: str, *, trace_id: Optional[str] = None) -> ToolResult:
         clean_text = text.strip()

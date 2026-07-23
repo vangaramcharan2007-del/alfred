@@ -65,7 +65,7 @@ class TestJarvisE2E(unittest.TestCase):
         """
         response = asyncio.run(self.runtime.alfred.process("Generate a CAD model of a box", source="edith"))
         self.assertTrue(response.handled)
-        self.assertEqual(response.agent_id, "cad")
+        self.assertEqual(response.agent_id, "workflow")
 
     def test_e2e_memory_update_and_offline(self):
         """

@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from jarvisx.runtime import create_default_runtime
 from jarvisx.tools.memory import LocalMemoryTool
 from jarvisx.tools.missions import MissionTool
+from jarvisx.tools.operational_db import OperationalDatabase
 from jarvisx.tools.personalization import PersonalizationTool
 
 
@@ -40,14 +41,20 @@ class PersonalizationToolTests(unittest.TestCase):
     def test_personality_persistence(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             vault = Path(temp_dir) / "vault"
-            first = PersonalizationTool(memory_tool=LocalMemoryTool(vault_path=vault))
+            first = PersonalizationTool(
+                memory_tool=LocalMemoryTool(vault_path=vault),
+                config_manager=ConfigurationManager(OperationalDatabase(db_path=vault / "op.db"))
+            )
             first.set_personality(
                 "research",
                 {"tone": "curious teacher", "style": "methodical with citations"},
                 trace_id="trace-personality",
             )
 
-            second = PersonalizationTool(memory_tool=LocalMemoryTool(vault_path=vault))
+            second = PersonalizationTool(
+                memory_tool=LocalMemoryTool(vault_path=vault),
+                config_manager=ConfigurationManager(OperationalDatabase(db_path=vault / "op.db"))
+            )
             loaded = second.get_personality("research")
 
             self.assertTrue(loaded.success)
@@ -57,10 +64,16 @@ class PersonalizationToolTests(unittest.TestCase):
     def test_startup_restoration(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             vault = Path(temp_dir) / "vault"
-            first = PersonalizationTool(memory_tool=LocalMemoryTool(vault_path=vault))
+            first = PersonalizationTool(
+                memory_tool=LocalMemoryTool(vault_path=vault),
+                config_manager=ConfigurationManager(OperationalDatabase(db_path=vault / "op.db"))
+            )
             first.set_mode("builder")
 
-            restored = PersonalizationTool(memory_tool=LocalMemoryTool(vault_path=vault))
+            restored = PersonalizationTool(
+                memory_tool=LocalMemoryTool(vault_path=vault),
+                config_manager=ConfigurationManager(OperationalDatabase(db_path=vault / "op.db"))
+            )
 
             self.assertEqual(restored.get_mode().data["mode"]["mode"], "builder")
 
@@ -147,7 +160,10 @@ class PersonalizationToolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             memory = LocalMemoryTool(vault_path=root / "vault")
-            personalization = PersonalizationTool(memory_tool=memory)
+            personalization = PersonalizationTool(
+                memory_tool=memory,
+                config_manager=ConfigurationManager(OperationalDatabase(db_path=root / "vault" / "op.db"))
+            )
             missions = MissionTool(memory_tool=memory, personalization_tool=personalization)
             daily = missions.create_mission("Daily review", "daily_mission")
             boss = missions.create_mission("Refactor core runtime", "boss_fight")
@@ -161,8 +177,13 @@ class PersonalizationToolTests(unittest.TestCase):
             self.assertEqual(builder_next.data["mission"]["mode_priority_boost"], 15)
 
 
+from jarvisx.core.configuration import ConfigurationManager
+
 def _personalization_tool(root: Path) -> PersonalizationTool:
-    return PersonalizationTool(memory_tool=LocalMemoryTool(vault_path=root / "vault"))
+    return PersonalizationTool(
+        memory_tool=LocalMemoryTool(vault_path=root / "vault"),
+        config_manager=ConfigurationManager(OperationalDatabase(db_path=root / "vault" / "op.db"))
+    )
 
 
 if __name__ == "__main__":

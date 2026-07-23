@@ -20,12 +20,41 @@ class ToolRegistry:
         self._auto_register_defaults()
 
     def _auto_register_defaults(self):
-        """Automatically registers standard capability tools."""
-        try:
-            from jarvisx.core.tools.execution.file_ops import FileOps
-            self.register(FileOps(), "file_ops")
-        except ImportError:
-            pass
+        """Automatically registers standard capability tools via dynamic discovery."""
+        self.discover("src/jarvisx/tools")
+        self.discover("src/jarvisx/core/tools")
+
+    def discover(self, package_path: str) -> None:
+        """Dynamically load and register all tool classes from a given directory."""
+        import os, importlib.util, inspect
+        from pathlib import Path
+        
+        path = Path(package_path)
+        if not path.exists():
+            return
+            
+        for file in path.rglob("*.py"):
+            if file.name.startswith("__") or file.name in ("tool_registry.py",):
+                continue
+                
+            module_name = file.stem
+            try:
+                spec = importlib.util.spec_from_file_location(module_name, str(file))
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    
+                    for name, obj in inspect.getmembers(module, inspect.isclass):
+                        # Simple heuristic: classes in tool modules that aren't imported standard library objects
+                        # and don't start with Base.
+                        if obj.__module__ == module_name and not name.startswith("Base"):
+                            try:
+                                instance = obj()
+                                self.register(instance)
+                            except Exception:
+                                pass
+            except Exception as e:
+                logger.warning(f"Failed to load tool module {file}: {e}")
 
     def load_generated_skills(self):
         """Automatically discover and register generated skills."""
@@ -62,18 +91,6 @@ class ToolRegistry:
     def get_capability_count(self) -> int:
         """Expose the number of registered capabilities."""
         return len(self._tools)
-            
-        try:
-            from jarvisx.core.tools.execution.command_executor import CommandExecutor
-            self.register(CommandExecutor(), "command_executor")
-        except ImportError:
-            pass
-
-        try:
-            from jarvisx.core.tools.desktop_ops import DesktopOps
-            self.register(DesktopOps(), "desktop_ops")
-        except ImportError:
-            pass
 
     @classmethod
     def get_instance(cls) -> 'ToolRegistry':
