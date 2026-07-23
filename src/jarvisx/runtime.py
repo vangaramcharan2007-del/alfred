@@ -24,6 +24,7 @@ from jarvisx.agents.specialists import (
 )
 from jarvisx.agents.workflow import WorkflowAgent
 from jarvisx.agents.capability_agent import CapabilityAgent
+from jarvisx.agents.video_skill import VideoSkillAgent
 from jarvisx.core.context import DeviceContext
 from jarvisx.core.health import HealthMonitor, HealthStatus
 from jarvisx.core.hermes import HermesBus
@@ -171,6 +172,7 @@ def create_default_runtime(
     registry.register(CADAgent(tools={"cad": cad_tool}, logger=logger))
     registry.register(ShadowBrokerAgent(tools={"research": research_tool}, logger=logger))
     registry.register(DebugAgent(tools={"termux": termux_tool}, logger=logger))
+    registry.register(VideoSkillAgent(logger=logger))
     registry.register(
         EdithAgent(
             tools={

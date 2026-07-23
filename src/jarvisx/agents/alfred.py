@@ -39,6 +39,7 @@ class IntentClassifier:
     _rules: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         ("greeting", "chat", "greeting", ("hello", "hi", "hey", "yo", "sup", "morning", "evening")),
         ("farewell", "chat", "greeting", ("bye", "goodbye", "exit", "quit")),
+        ("video_processing", "video_skill", "video", ("upscale", "4k", "video", "lowquality")),
         ("browser", "device", "browser", ("youtube", "google", "gmail", "github", "chatgpt", "stackoverflow", "reddit", "search", "browse", "website")),
         ("desktop_action", "device", "desktop", ("open ", "launch ", "start app", "close app", "desktop")),
         ("mobile_action", "device", "mobile", ("mobile", "phone", "sms")),
