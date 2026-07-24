@@ -14,6 +14,29 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from jarvisx.runtime import create_default_runtime
 from jarvisx.core.state import update_agent_state
 
+async def play_tts(voice_manager, text):
+    print(f"[Jarvis X] Synthesizing TTS narration...")
+    import pyttsx3
+    import threading
+    
+    def speak():
+        engine = pyttsx3.init()
+        # Set to Zira (female voice) if available
+        voices = engine.getProperty('voices')
+        for voice in voices:
+            if "Zira" in voice.name or "female" in voice.name.lower():
+                engine.setProperty('voice', voice.id)
+                break
+        engine.setProperty('rate', 170)
+        engine.say(text)
+        engine.runAndWait()
+        
+    t = threading.Thread(target=speak)
+    t.start()
+    
+    # Optional small delay so voice starts
+    await asyncio.sleep(0.5)
+
 async def main():
     print("[Jarvis X] Booting live demonstration...")
     
@@ -44,19 +67,7 @@ async def main():
     print(f"\nResponse (Text Output):\n{response.message}\n")
     
     # Voice Over using TTS for the dynamic text
-    print("[Jarvis X] Synthesizing TTS narration...")
-    # Because Alfred injected text before Friday's, we can just render the whole response via Friday's voice,
-    # or separate them. To match the spec exactly, we render the entire string here via VoiceManager (Zira).
-    audio_bytes = voice_manager.synthesize_for_agent("Friday", response.message)
-    if audio_bytes and len(audio_bytes) > 100:
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-            tmp.write(audio_bytes)
-            tmp_path = tmp.name
-        
-        print(f"[Jarvis X] Playing TTS audio...")
-        if os.name == 'nt':
-            os.startfile(tmp_path)
-            await asyncio.sleep(5)
+    await play_tts(voice_manager, response.message)
             
     # Verify files
     print("\n[Jarvis X] Verifying created files...")
@@ -72,16 +83,7 @@ async def main():
     response_2 = await runtime.alfred.process(user_input_2, trace_id="live-demo-explanation")
     print(f"\nFriday (Text Output):\n{response_2.message}\n")
     
-    print("[Jarvis X] Synthesizing explanation TTS narration...")
-    audio_bytes_2 = voice_manager.synthesize_for_agent("Friday", response_2.message)
-    if audio_bytes_2 and len(audio_bytes_2) > 100:
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-            tmp.write(audio_bytes_2)
-            tmp_path_2 = tmp.name
-        
-        print(f"[Jarvis X] Playing TTS audio...")
-        if os.name == 'nt':
-            os.startfile(tmp_path_2)
+    await play_tts(voice_manager, response_2.message)
 
 if __name__ == "__main__":
     asyncio.run(main())

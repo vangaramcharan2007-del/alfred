@@ -27,16 +27,29 @@ def ensure_demo_config():
 async def play_tts(voice_manager, text):
     print(f"\n[Friday]: {text}")
     print("[Jarvis X] Synthesizing TTS narration...")
-    audio_bytes = voice_manager.synthesize_for_agent("Friday", text)
-    if audio_bytes and len(audio_bytes) > 50:
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-            tmp.write(audio_bytes)
-            tmp_path = tmp.name
+    # Use native pyttsx3 engine instead of saving wav files to avoid popping up media players
+    import pyttsx3
+    import threading
+    
+    def speak():
+        engine = pyttsx3.init()
+        # Set to Zira (female voice) if available
+        voices = engine.getProperty('voices')
+        for voice in voices:
+            if "Zira" in voice.name or "female" in voice.name.lower():
+                engine.setProperty('voice', voice.id)
+                break
+        # Speed it up slightly
+        engine.setProperty('rate', 170)
+        engine.say(text)
+        engine.runAndWait()
         
-        if os.name == 'nt':
-            os.startfile(tmp_path)
-            # Give it some time to speak before continuing
-            await asyncio.sleep(len(text) * 0.06)
+    # Run in thread so it speaks while automation continues in background
+    t = threading.Thread(target=speak)
+    t.start()
+    
+    # Optional small delay so voice starts before typing
+    await asyncio.sleep(0.5)
 
 async def main():
     print("[Jarvis X] Booting Visible Coding Demonstration...")

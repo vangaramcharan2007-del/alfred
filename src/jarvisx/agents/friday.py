@@ -157,8 +157,8 @@ class FridayAgent(BaseAgent):
                 action_taken = "I need VSCodeController to execute programs, Alfred."
 
         elif text.strip() == "yes" and current_stage == "explaining":
-            # Explanation Mode
-            action_taken = (
+            # Explanation Mode in Notepad
+            explanation_text = (
                 "Here is your revision summary.\n\n"
                 "NumPy Indexing:\n"
                 "- Accessing elements\n"
@@ -182,6 +182,24 @@ class FridayAgent(BaseAgent):
                 "2. Use `.shape`, `.ndim`, `.size`, `.dtype` for array properties.\n"
                 "3. Use `np.random` module for generating random data arrays."
             )
+            
+            action_taken = explanation_text
+            
+            if computer:
+                try:
+                    # Open notepad to visibly type the explanation
+                    computer.run_command("notepad", _user_approved=True)
+                    
+                    # Wait for notepad to open
+                    import time
+                    time.sleep(1.5)
+                    
+                    # Assuming vscode tool has our type_code helper which just types what we want slowly
+                    if vscode:
+                        vscode.vscode_type_code(explanation_text)
+                except Exception as e:
+                    action_taken += f"\n(Failed to type in Notepad: {e})"
+            
             update_agent_state("friday", "mission_stage", "idle")
 
         elif "write a script" in text or "create a file" in text or "write code" in text:
