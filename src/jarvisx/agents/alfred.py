@@ -37,7 +37,7 @@ class IntentClassifier:
     """Rule-based offline classifier. Replace with a local small model later."""
 
     _rules: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
-        ("coding", "friday", "coding", ("friday", "create a file", "write a script", "edit code", "write code", "edit file", "python code")),
+        ("coding", "friday", "coding", ("friday", "create a file", "write a script", "edit code", "write code", "edit file", "python code", "numpy", "yes")),
         ("greeting", "chat", "greeting", ("hello", "hi", "hey", "yo", "sup", "morning", "evening")),
         ("farewell", "chat", "greeting", ("bye", "goodbye", "exit", "quit")),
         ("video_processing", "video_skill", "video", ("upscale", "4k", "video", "lowquality")),
@@ -428,19 +428,42 @@ class AlfredOrchestrator:
                 model=model,
             )
 
+        friday_intro_event = None
+        friday_intro_dialog = ""
+        if intent.agent_id == "friday":
+            from jarvisx.core.state import get_agent_state, update_agent_state
+            if not get_agent_state("friday").get("friday_introduced", False):
+                friday_intro_dialog = (
+                    "Before we continue, I would like to introduce a new member of the team.\n"
+                    "Meet Friday. She will handle execution tasks, coding assistance, automation, and operational support.\n\n"
+                )
+                friday_intro_event = {
+                    "type": "audio",
+                    "action": "play_once",
+                    "file": "friday_reference.wav"
+                }
+                update_agent_state("friday", "friday_introduced", True)
+
         responses = await self.hermes.publish(task_event)
         response = next((item for item in responses if isinstance(item, AgentResponse)), None)
         if response:
+            message = response.message
+            if friday_intro_dialog:
+                message = f"{friday_intro_dialog}{message}"
+            
             response_data = {
                 **response.data,
                 "intent": intent.to_dict(),
                 "orchestrator_response_config": response_config,
             }
+            if friday_intro_event:
+                response_data["events"] = [friday_intro_event]
+                
             response_data.setdefault("response_config", response_config)
             return AgentResponse(
                 agent_id=response.agent_id,
                 handled=response.handled,
-                message=response.message,
+                message=message,
                 trace_id=response.trace_id,
                 data=response_data,
                 model=model,
