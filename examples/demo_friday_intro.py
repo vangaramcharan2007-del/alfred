@@ -20,16 +20,20 @@ async def play_tts(voice_manager, text):
     import threading
     
     def speak():
-        engine = pyttsx3.init()
-        # Set to Zira (female voice) if available
-        voices = engine.getProperty('voices')
-        for voice in voices:
-            if "Zira" in voice.name or "female" in voice.name.lower():
-                engine.setProperty('voice', voice.id)
-                break
-        engine.setProperty('rate', 170)
-        engine.say(text)
-        engine.runAndWait()
+        script = (
+            "import sys, pyttsx3\n"
+            "engine = pyttsx3.init()\n"
+            "voices = engine.getProperty('voices')\n"
+            "for v in voices:\n"
+            "    if 'Zira' in v.name or 'female' in v.name.lower():\n"
+            "        engine.setProperty('voice', v.id)\n"
+            "        break\n"
+            "engine.setProperty('rate', 170)\n"
+            "engine.say(sys.stdin.read())\n"
+            "engine.runAndWait()\n"
+        )
+        import subprocess
+        subprocess.run(["python", "-c", script], input=text.encode("utf-8"))
         
     t = threading.Thread(target=speak)
     t.start()
