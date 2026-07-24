@@ -45,6 +45,7 @@ from jarvisx.tools.xp import XPTool
 from jarvisx.tools.cad import CADTool
 from jarvisx.tools.workflow import WorkflowTool
 from jarvisx.tools.computer_control import ComputerControlTool
+from jarvisx.tools.vscode_controller import VSCodeController
 
 from jarvisx.core.capabilities.registry import SystemCapabilityRegistry
 from jarvisx.core.capabilities.runtime import CapabilityRuntime
@@ -158,6 +159,7 @@ def create_default_runtime(
     workflow_engine = WorkflowEngine(db=op_db)
     workflow_tool = WorkflowTool(engine=workflow_engine)
     computer_tool = ComputerControlTool(personalization=personalization_tool)
+    vscode_tool = VSCodeController()
     backup_manager = BackupManager(data_dir=Path("data"), backup_dir=Path("backups"))
     device_context = DeviceContext()
 
@@ -171,7 +173,7 @@ def create_default_runtime(
             logger=logger,
         )
     )
-    registry.register(FridayAgent(tools={"file": FileSystem(root_dir="."), "computer": computer_tool}, logger=logger))
+    registry.register(FridayAgent(tools={"file": FileSystem(root_dir="."), "computer": computer_tool, "vscode": vscode_tool}, logger=logger))
     registry.register(EditingAgent(tools={"file": FileSystem(root_dir=".")}, logger=logger))
     registry.register(CADAgent(tools={"cad": cad_tool}, logger=logger))
     registry.register(ShadowBrokerAgent(tools={"research": research_tool}, logger=logger))
