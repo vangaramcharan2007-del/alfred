@@ -13,3 +13,6 @@ __pycache__/
 *.zip
 ffmpeg-shared/
 jarvis_workspace/
+
+# Local Config
+config/local.yaml

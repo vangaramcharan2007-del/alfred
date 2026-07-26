@@ -1,0 +1,12 @@
+env: development
+node:
+  name: alfred-dev
+  role: orchestrator
+agents:
+  friday: enabled
+  edith: enabled
+  editing_agent: local
+security:
+  require_confirmation:
+    delete_files: false
+    payments: true

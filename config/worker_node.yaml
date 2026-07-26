@@ -1,0 +1,7 @@
+env: worker
+node:
+  name: worker-node-1
+  role: worker
+bus:
+  type: zmq
+  address: tcp://127.0.0.1:5555

@@ -1,0 +1,12 @@
+env: production
+node:
+  name: alfred-main
+  role: orchestrator
+agents:
+  friday: enabled
+  edith: enabled
+  editing_agent: remote
+security:
+  require_confirmation:
+    delete_files: true
+    payments: true
