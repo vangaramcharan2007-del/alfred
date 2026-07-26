@@ -1,0 +1,6 @@
+pyaudio>=0.2.14
+SpeechRecognition>=3.10.1
+faster-whisper>=1.0.0
+openwakeword>=0.6.0
+piper-tts>=1.2.0
+elevenlabs>=1.0.0

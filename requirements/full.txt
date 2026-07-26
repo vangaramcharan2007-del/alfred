@@ -1,0 +1,5 @@
+-r core.txt
+-r voice.txt
+-r vision.txt
+-r desktop.txt
+-r dev.txt
