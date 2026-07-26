@@ -1,0 +1,48 @@
+{
+    "editing_agent": {
+        "location": "remote",
+        "endpoint": "tcp://127.0.0.1:5555",
+        "capabilities": [
+            "video_render",
+            "photo_edit"
+        ]
+    },
+    "cad": {
+        "location": "remote",
+        "endpoint": "tcp://127.0.0.1:5556",
+        "capabilities": [
+            "generate a cad",
+            "cad model",
+            "cad generation"
+        ]
+    },
+    "friday": {
+        "location": "local",
+        "class": "jarvisx.agents.friday.FridayAgent",
+        "capabilities": [
+            "coding",
+            "vision"
+        ]
+    },
+    "edith": {
+        "location": "local",
+        "class": "jarvisx.agents.edith.EdithAgent",
+        "capabilities": [
+            "mobile",
+            "phone",
+            "sms"
+        ]
+    },
+    "progression_engine": {
+        "location": "local",
+        "class": "jarvisx.agents.xp.XPAgent",
+        "capabilities": [
+            "xp",
+            "stats",
+            "award",
+            "level",
+            "reward",
+            "mission"
+        ]
+    }
+}

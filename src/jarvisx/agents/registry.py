@@ -11,6 +11,7 @@ from jarvisx.core.logging import StructuredLogger
 class AgentRegistry:
     def __init__(self, *, logger: Optional[StructuredLogger] = None) -> None:
         self._agents: dict[str, BaseAgent] = {}
+        self._capabilities: dict[str, list[str]] = {}
         self._logger = logger or StructuredLogger()
 
     def discover(self, package_path: str = "src/jarvisx/agents") -> None:
@@ -19,11 +20,19 @@ class AgentRegistry:
         from pathlib import Path
         
         path = Path(package_path)
+        
+        # Load from manifest if it exists
+        from jarvisx.agents.discovery import AgentDiscovery
+        discovery = AgentDiscovery()
+        manifest_caps = discovery.get_capabilities()
+        if manifest_caps:
+            self._capabilities.update(manifest_caps)
+
         if not path.exists():
             return
             
         for file in path.rglob("*.py"):
-            if file.name.startswith("__") or file.name in ("base.py", "registry.py", "alfred.py"):
+            if file.name.startswith("__") or file.name in ("base.py", "registry.py", "alfred.py", "discovery.py"):
                 continue
                 
             module_name = f"jarvisx.agents.{file.stem}"
@@ -59,6 +68,29 @@ class AgentRegistry:
 
     def maybe_get(self, agent_id: str) -> Optional[BaseAgent]:
         return self._agents.get(agent_id)
+
+    def find_agent_for(self, task_description: str) -> Optional[str]:
+        """Capability broker: finds the best agent ID for a given task/intent."""
+        task_lower = task_description.lower()
+        
+        # Check manifest capabilities first
+        for agent_id, caps in self._capabilities.items():
+            for cap in caps:
+                if cap.lower() in task_lower:
+                    return agent_id
+                    
+        # Fallback to checking loaded local agents
+        for agent_id, agent in self._agents.items():
+            if hasattr(agent, "capabilities"):
+                for cap in agent.capabilities:
+                    if cap.lower() in task_lower:
+                        return agent_id
+            if hasattr(agent, "expertise"):
+                for exp in agent.expertise:
+                    if exp.lower() in task_lower:
+                        return agent_id
+                        
+        return None
 
     def describe(self) -> list[dict[str, object]]:
         return [agent.describe() for agent in self._agents.values()]
