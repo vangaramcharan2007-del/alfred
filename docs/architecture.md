@@ -195,3 +195,12 @@ Failures are normalized into `FailureReport` so operators can answer:
 - Which agent failed?
 - Which tool failed?
 - What is the proposed fix?
+
+## Personalities and Modes
+
+Personality and Modes v1 allows Jarvis X to adapt its communication style and operating behavior without affecting core routing, permissions, or business logic.
+
+- **Modes**: Support for ocus, study, uilder, esearch, companion, and emergency. Modes dictate things like verbosity, proactiveness, and mission prioritization.
+- **Personalities**: Built-in profiles for lfred, edith, and hermes. Custom personalities can be added for future agents.
+- **Storage**: Modes and Personalities are persisted securely using LocalMemoryTool and restored automatically on startup.
+- **Strict Boundary**: Personalities ONLY affect communication style (tone, verbosity, warmth, pacing) and never override AgentRegistry routing or task execution logic. Alfred uses the current mode to adjust orchestration, and Edith adapts its companion responses accordingly.

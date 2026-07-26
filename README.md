@@ -7,6 +7,13 @@ Jarvis X (Alpha 0.1) provides a robust "One Alfred" architecture designed to rou
 > **Phase Ω (Production Ready)**
 > Jarvis X is designed to be a "clone, install, run" repository. No extensive configuration required.
 
+## 🎭 Personalities and Modes
+
+Jarvis X (v1.0) includes built-in Personalities and Modes that adapt the system's communication style and orchestration priority without overriding security rules or business logic.
+
+- **Modes**: `focus`, `study`, `builder`, `research`, `companion`, `emergency`
+- **Personalities**: `alfred`, `edith`, `hermes` (extensible via `PersonalizationTool`)
+
 ## 🚀 Quick Start
 
 ### 1. Clone the repository
