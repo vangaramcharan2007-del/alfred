@@ -4,7 +4,33 @@ import webbrowser
 import platform
 from typing import Optional, Dict, Any, List
 
-import pyautogui
+try:
+    import pyautogui
+    HAVE_PYAUTOGUI = True
+except ImportError:  # pragma: no cover - depends on local GUI packages
+    HAVE_PYAUTOGUI = False
+
+    class _MissingPyAutoGUI:
+        FAILSAFE = True
+        PAUSE = 0.5
+
+        @staticmethod
+        def write(*args, **kwargs):
+            raise ImportError("pyautogui is not installed.")
+
+        @staticmethod
+        def press(*args, **kwargs):
+            raise ImportError("pyautogui is not installed.")
+
+        @staticmethod
+        def hotkey(*args, **kwargs):
+            raise ImportError("pyautogui is not installed.")
+
+        @staticmethod
+        def click(*args, **kwargs):
+            raise ImportError("pyautogui is not installed.")
+
+    pyautogui = _MissingPyAutoGUI()
 
 from jarvisx.tools.base import BaseTool, ToolResult
 from jarvisx.tools.personalization import PersonalizationTool
@@ -86,6 +112,8 @@ class ComputerControlTool(BaseTool):
             return ToolResult(success=False, message=f"Action blocked by safety policy (Autonomy Level {level}).")
             
         try:
+            if not HAVE_PYAUTOGUI:
+                return ToolResult(success=False, message="Desktop typing unavailable: pyautogui is not installed.")
             pyautogui.write(text, interval=0.05)
             return ToolResult(success=True, message="Text typed successfully.")
         except Exception as e:
@@ -98,6 +126,8 @@ class ComputerControlTool(BaseTool):
             return ToolResult(success=False, message=f"Action blocked by safety policy (Autonomy Level {level}).")
             
         try:
+            if not HAVE_PYAUTOGUI:
+                return ToolResult(success=False, message="Keyboard control unavailable: pyautogui is not installed.")
             if len(keys) == 1:
                 pyautogui.press(keys[0])
             else:
@@ -113,6 +143,8 @@ class ComputerControlTool(BaseTool):
             return ToolResult(success=False, message=f"Action blocked by safety policy (Autonomy Level {level}).")
             
         try:
+            if not HAVE_PYAUTOGUI:
+                return ToolResult(success=False, message="Mouse control unavailable: pyautogui is not installed.")
             if x is not None and y is not None:
                 pyautogui.click(x=x, y=y, clicks=clicks, button=button)
             else:

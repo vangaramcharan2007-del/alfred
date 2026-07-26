@@ -67,7 +67,11 @@ class VisionProvider:
             
         # Fall back to Tesseract OCR
         extracted = self.client.extract_text(image_data)
-        if not extracted or extracted.startswith("Failed to extract"):
+        if (
+            not extracted
+            or extracted.startswith("Failed to extract")
+            or extracted.startswith("OCR is currently disabled")
+        ):
             return f"{gui_str}Simulated visual context extracted from image."
         
         return f"{gui_str}Extracted Text from Image:\n{extracted}"

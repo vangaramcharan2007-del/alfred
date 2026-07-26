@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from copy import deepcopy
 from typing import Any, Optional
-import keyring
 import json
+
+try:
+    import keyring
+except ImportError:  # pragma: no cover - depends on local OS/runtime packages
+    keyring = None
 
 from jarvisx.tools.operational_db import OperationalDatabase
 
@@ -100,25 +104,33 @@ class ConfigurationManager:
         # LLM
         llm = config.get("providers", {}).get("llm", {})
         if "openai_api_key" in llm and llm["openai_api_key"]:
-            self.set_secure_key("openai_api_key", llm.pop("openai_api_key"))
+            if self.set_secure_key("openai_api_key", llm["openai_api_key"]):
+                llm.pop("openai_api_key")
         if "gemini_api_key" in llm and llm["gemini_api_key"]:
-            self.set_secure_key("gemini_api_key", llm.pop("gemini_api_key"))
+            if self.set_secure_key("gemini_api_key", llm["gemini_api_key"]):
+                llm.pop("gemini_api_key")
             
         # TTS
         tts = config.get("providers", {}).get("tts", {})
         if "elevenlabs_api_key" in tts and tts["elevenlabs_api_key"]:
-            self.set_secure_key("elevenlabs_api_key", tts.pop("elevenlabs_api_key"))
+            if self.set_secure_key("elevenlabs_api_key", tts["elevenlabs_api_key"]):
+                tts.pop("elevenlabs_api_key")
             
         # MEMORY
         memory = config.get("providers", {}).get("memory", {})
         if "supabase_key" in memory and memory["supabase_key"]:
-            self.set_secure_key("supabase_key", memory.pop("supabase_key"))
+            if self.set_secure_key("supabase_key", memory["supabase_key"]):
+                memory.pop("supabase_key")
 
-    def set_secure_key(self, key_name: str, value: str) -> None:
-        if value:
-            keyring.set_password("JarvisX", key_name, value)
+    def set_secure_key(self, key_name: str, value: str) -> bool:
+        if not value or not keyring:
+            return False
+        keyring.set_password("JarvisX", key_name, value)
+        return True
             
     def get_secure_key(self, key_name: str) -> Optional[str]:
+        if not keyring:
+            return None
         return keyring.get_password("JarvisX", key_name)
 
     def _deep_merge(self, base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:

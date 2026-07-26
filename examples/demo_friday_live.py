@@ -19,7 +19,7 @@ async def main():
     voice_manager = runtime.voice_manager
     
     # 1. Orchestrate Request
-    user_input = "friday open vscode explaining me array basics in python code"
+    user_input = "friday open vscode and explain arraybasics now infront of my eyes"
     print(f"\nUser: {user_input}")
     
     response = await runtime.alfred.process(user_input, trace_id="live-demo")

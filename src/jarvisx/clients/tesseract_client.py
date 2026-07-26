@@ -1,5 +1,6 @@
 import io
 import logging
+from types import SimpleNamespace
 from typing import Optional
 
 try:
@@ -7,6 +8,20 @@ try:
     import pytesseract
     HAVE_TESSERACT = True
 except ImportError:
+    class _MissingImage:
+        @staticmethod
+        def open(*args, **kwargs):
+            raise ImportError("Pillow is not installed.")
+
+    class _MissingPytesseract:
+        pytesseract = SimpleNamespace(tesseract_cmd=None)
+
+        @staticmethod
+        def image_to_string(*args, **kwargs):
+            raise ImportError("pytesseract is not installed.")
+
+    Image = _MissingImage
+    pytesseract = _MissingPytesseract
     HAVE_TESSERACT = False
 
 logger = logging.getLogger(__name__)

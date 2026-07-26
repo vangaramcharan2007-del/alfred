@@ -1,5 +1,15 @@
 var/
+data/
+backups/
+logs/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 *.log
+*.db
+*.sqlite
+*.sqlite3
+*.mp4
+*.zip
+ffmpeg-shared/
+jarvis_workspace/

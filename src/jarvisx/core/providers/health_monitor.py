@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import time
-import psutil
 from typing import Dict, Any
+
+try:
+    import psutil
+except ImportError:  # pragma: no cover - depends on optional runtime package
+    psutil = None
 
 from jarvisx.core.providers.fallback_manager import FallbackManager
 from jarvisx.core.health import HealthMonitor as BaseHealthMonitor, HealthStatus
@@ -38,6 +42,14 @@ class ContinuousHealthMonitor:
             await asyncio.sleep(5)  # Check every 5 seconds
             
     async def _collect_system_stats(self) -> None:
+        if not psutil:
+            self.stats["system_metrics_available"] = False
+            self.stats["system_metrics_error"] = "psutil is not installed."
+            base_results = self.base_monitor.run_all()
+            for name, status in base_results.items():
+                self.stats[f"check_{name}"] = status.healthy
+            return
+        self.stats["system_metrics_available"] = True
         self.stats["cpu_percent"] = psutil.cpu_percent(interval=None)
         memory = psutil.virtual_memory()
         self.stats["ram_percent"] = memory.percent

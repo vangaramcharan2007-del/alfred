@@ -1,1 +1,6 @@
-{"demo_mode": true, "typing_speed": 0.02, "action_delay": 2, "verbose_narration": true}
+{
+  "demo_mode": true,
+  "typing_speed": 0.005,
+  "action_delay": 0.5,
+  "verbose_narration": true
+}

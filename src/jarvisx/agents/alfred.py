@@ -3,6 +3,13 @@ from __future__ import annotations
 from collections import deque
 import dataclasses
 from dataclasses import dataclass
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import threading
 from typing import Any, Optional
 
 from jarvisx.agents.base import AgentResponse
@@ -13,6 +20,40 @@ from jarvisx.core.hermes import HermesBus
 from jarvisx.core.logging import StructuredLogger
 from jarvisx.models.router import ModelRouter
 from jarvisx.tools.device import SUPPORTED_DEVICE_ACTIONS
+
+
+def _speak_offline(text: str, *, voice_hint: str = "male") -> None:
+    """Best-effort local TTS hook used for demos; silently disabled without pyttsx3."""
+    if os.environ.get("JARVIS_SPEAK_OFFLINE", "").lower() not in {"1", "true", "yes"}:
+        return
+    if importlib.util.find_spec("pyttsx3") is None:
+        return
+
+    preferred_voice = "David" if voice_hint == "male" else "Zira"
+    script = (
+        "import sys, pyttsx3\n"
+        "engine = pyttsx3.init()\n"
+        "voices = engine.getProperty('voices')\n"
+        f"preferred_voice = {preferred_voice!r}\n"
+        "for v in voices:\n"
+        "    if preferred_voice in v.name or preferred_voice.lower() in v.name.lower():\n"
+        "        engine.setProperty('voice', v.id)\n"
+        "        break\n"
+        "engine.setProperty('rate', 170)\n"
+        "engine.say(sys.stdin.read())\n"
+        "engine.runAndWait()\n"
+    )
+
+    def run() -> None:
+        subprocess.run(
+            [sys.executable, "-c", script],
+            input=text.encode("utf-8"),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+
+    threading.Thread(target=run, daemon=True, name="JarvisAlfredSpeech").start()
 
 
 @dataclass(frozen=True)
@@ -37,7 +78,9 @@ class IntentClassifier:
     """Rule-based offline classifier. Replace with a local small model later."""
 
     _rules: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
-        ("coding", "friday", "coding", ("friday", "create a file", "write a script", "edit code", "write code", "edit file", "python code", "numpy", "yes")),
+        ("coding", "friday", "coding", ("friday", "numpy")),
+        ("editing", "editing", "editing", ("create a file", "write a script", "edit code", "write code", "edit file", "python code")),
+        ("edith_mobile", "edith", "device", ("voice", "notification", "mobile companion")),
         ("greeting", "chat", "greeting", ("hello", "hi", "hey", "yo", "sup", "morning", "evening")),
         ("farewell", "chat", "greeting", ("bye", "goodbye", "exit", "quit")),
         ("video_processing", "video_skill", "video", ("upscale", "4k", "video", "lowquality")),
@@ -46,11 +89,12 @@ class IntentClassifier:
         ("mobile_action", "device", "mobile", ("mobile", "phone", "sms")),
         ("memory", "memory", "memory", ("remember", "recall", "memory", "obsidian", "note")),
         ("research", "research", "research", ("research", "summarize", "documentation", "docs", "find info")),
-        ("planning", "planner", "planning", ("schedule", "remind", "todo", "task", "goal", "mission")),
+        ("progression_engine", "xp", "gamification", ("xp", "stats", "award", "level", "reward", "mission")),
+        ("planning", "planner", "planning", ("schedule", "remind", "todo", "task", "goal", "mission", "quest", "boss", "streak")),
+        ("cad", "workflow", "workflow", ("generate a cad", "cad model", "cad generation")),
         ("automation", "workflow", "workflow", ("workflow", "deploy", "automate")),
         ("system_control", "device", "system", ("shutdown", "restart", "volume", "brightness")),
         ("debug", "debug", "debug", ("debug", "error", "failure", "logs", "test", "patch", "fix")),
-        ("xp", "xp", "gamification", ("xp", "stats", "award", "level", "reward")),
     )
 
     def classify(self, message: str) -> Intent:
@@ -156,6 +200,15 @@ class AlfredOrchestrator:
             return AgentResponse(agent_id=self.agent_id, handled=True, message="System Ready\n✓ Intent Classification\n✓ Skill Selection\n✓ Memory\n✓ Tool Registry\n✓ Permissions\n✓ Workflow\n✓ Runtime", trace_id=trace_id)
             
         # Clarification Engine (Phase 4)
+        if has_image and intent.confidence < 0.5:
+            intent = Intent(
+                label="vision",
+                agent_id="research",
+                task_class="vision",
+                confidence=0.75,
+                reason="Image input requires reasoning even when text extraction is ambiguous.",
+            )
+
         if intent.confidence < 0.5:
             self.pending_action = message
             clarification_msg = "I have two possible interpretations.\n\n1. Open on your PC.\n2. Launch on your phone.\n\nWhich one do you want?"
@@ -190,6 +243,11 @@ class AlfredOrchestrator:
         )
         
         self.context_buffer.append({"role": "user", "content": message})
+
+        if intent.agent_id == "friday":
+            _speak_offline("Friday, please handle this request.")
+        else:
+            _speak_offline(f"Routing request to {intent.agent_id}.")
         
         # Capability Fallback Chain (Simulated logic in Orchestrator for now)
         try:
@@ -201,7 +259,7 @@ class AlfredOrchestrator:
             )
         except Exception as e:
             # Fake fallback logic for transparency phase
-            self.logger.write("error", "alfred.skill_failed", error=str(e))
+            self.logger.write("error", "alfred.skill_failed", trace_id=user_event.trace_id, error=str(e))
             response = AgentResponse(
                 agent_id=self.agent_id, 
                 handled=False, 
@@ -228,14 +286,14 @@ class AlfredOrchestrator:
             "status": "success" if response.handled else "failed"
         }
         
-        import os
-        import json
         if os.environ.get("JARVIS_DEBUG") == "true":
             print(f"\n[DEBUG] Intent: {intent.label} ({intent.confidence})")
             print(f"[DEBUG] Chosen Skill: {intent.agent_id}_skill")
             print(f"[DEBUG] Execution Time: {exec_time} ms\n")
-            
-        with open("logs/runtime_trace.jsonl", "a") as f:
+
+        trace_log_path = Path(os.environ.get("JARVIS_TRACE_LOG", "var/log/runtime_trace.jsonl"))
+        trace_log_path.parent.mkdir(parents=True, exist_ok=True)
+        with trace_log_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(self.last_execution_trace) + "\n")
             
         return response

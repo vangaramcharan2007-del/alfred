@@ -4,7 +4,32 @@ import time
 import subprocess
 from typing import Optional, Dict, Any, List
 
-import pyautogui
+try:
+    import pyautogui
+    HAVE_PYAUTOGUI = True
+except ImportError:  # pragma: no cover - depends on local GUI packages
+    HAVE_PYAUTOGUI = False
+
+    class _MissingPyAutoGUI:
+        FAILSAFE = True
+
+        @staticmethod
+        def click(*args, **kwargs):
+            raise ImportError("pyautogui is not installed.")
+
+        @staticmethod
+        def write(*args, **kwargs):
+            raise ImportError("pyautogui is not installed.")
+
+        @staticmethod
+        def hotkey(*args, **kwargs):
+            raise ImportError("pyautogui is not installed.")
+
+        @staticmethod
+        def press(*args, **kwargs):
+            raise ImportError("pyautogui is not installed.")
+
+    pyautogui = _MissingPyAutoGUI()
 from jarvisx.tools.base import BaseTool, ToolResult
 
 class VSCodeController(BaseTool):
@@ -67,7 +92,7 @@ class VSCodeController(BaseTool):
     def vscode_open_workspace(self, path: str) -> ToolResult:
         """Open a directory in VS Code using reuse-window."""
         try:
-            subprocess.Popen(f"code --reuse-window {path}", shell=True)
+            subprocess.Popen(["code", "--reuse-window", path])
             self._wait_action(multiplier=1.5)  # Wait for load
             return ToolResult(success=True, message=f"Opened workspace: {path}")
         except Exception as e:
@@ -76,12 +101,17 @@ class VSCodeController(BaseTool):
     def vscode_open_file(self, path: str) -> ToolResult:
         """Open a file and ensure focus before typing."""
         try:
-            subprocess.Popen(f"code --reuse-window {path}", shell=True)
+            subprocess.Popen(["code", "--reuse-window", path])
             self._wait_action(multiplier=1.5)
             
             filename = os.path.basename(path)
             if not self._verify_vscode_focus(target_filename=filename):
                 # Fallback to click center of screen to focus editor area
+                if not HAVE_PYAUTOGUI:
+                    return ToolResult(
+                        success=False,
+                        message="VS Code focus automation unavailable: pyautogui is not installed.",
+                    )
                 pyautogui.click()
                 time.sleep(0.5)
 
@@ -92,6 +122,8 @@ class VSCodeController(BaseTool):
     def vscode_type_code(self, code_string: str) -> ToolResult:
         """Type code with visible physical automation (Tony Stark effect)."""
         try:
+            if not HAVE_PYAUTOGUI:
+                return ToolResult(success=False, message="VS Code typing unavailable: pyautogui is not installed.")
             # Add an extra safety verify check
             if not self._verify_vscode_focus():
                 pass # Depending on environment, might want to abort or warn
@@ -105,6 +137,8 @@ class VSCodeController(BaseTool):
     def vscode_save(self) -> ToolResult:
         """Save the current file."""
         try:
+            if not HAVE_PYAUTOGUI:
+                return ToolResult(success=False, message="VS Code save automation unavailable: pyautogui is not installed.")
             pyautogui.hotkey("ctrl", "s")
             self._wait_action(multiplier=0.5)
             return ToolResult(success=True, message="File saved.")
@@ -114,14 +148,12 @@ class VSCodeController(BaseTool):
     def vscode_run_in_terminal(self, command: str) -> ToolResult:
         """Execute a command in the integrated terminal."""
         try:
-            # Open terminal
-            pyautogui.hotkey("ctrl", "shift", "`")
-            self._wait_action(multiplier=1.0) # Wait for terminal to pop up
-            
-            # Type command and run
+            if not HAVE_PYAUTOGUI:
+                return ToolResult(success=False, message="VS Code terminal automation unavailable: pyautogui is not installed.")
+            # We don't use command palette because fuzzy search might select "Close Window"
+            # Instead, just write the command. We assume the caller manages terminal focus.
             pyautogui.write(command, interval=self._get_typing_speed())
             pyautogui.press("enter")
-            
             self._wait_action(multiplier=1.5) # Wait for execution
             
             return ToolResult(success=True, message=f"Ran command in terminal: {command}")

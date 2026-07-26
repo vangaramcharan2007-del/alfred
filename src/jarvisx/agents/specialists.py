@@ -99,6 +99,20 @@ class DeviceAgent(BaseAgent):
         is_desktop = not context or context.active_device == "desktop"
 
         if is_desktop and computer:
+            device_action = event.payload.get("device_action")
+            if isinstance(device_action, dict) and device:
+                action = str(device_action.get("action", ""))
+                parameters = device_action.get("parameters", {})
+                if not isinstance(parameters, dict):
+                    parameters = {}
+                result = device.prepare_device_action(action, parameters, trace_id=event.trace_id)
+                return self._response(
+                    event,
+                    handled=result.success,
+                    message=result.message,
+                    data={"tool": "device", "result": result.to_dict()}
+                )
+
             # Browser Intelligence (Phase 7)
             web_services = {
                 "youtube": "https://youtube.com",
@@ -113,6 +127,18 @@ class DeviceAgent(BaseAgent):
             for service, url in web_services.items():
                 if service in lowered:
                     result = computer.open_url(url)
+                    if not result.success and device:
+                        fallback = device.prepare_open_app(service, trace_id=event.trace_id)
+                        return self._response(
+                            event,
+                            handled=fallback.success,
+                            message=fallback.message,
+                            data={
+                                "tool": "device",
+                                "result": fallback.to_dict(),
+                                "desktop_result": result.to_dict(),
+                            }
+                        )
                     return self._response(
                         event,
                         handled=result.success,
