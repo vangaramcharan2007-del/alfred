@@ -1,112 +1,111 @@
-from __future__ import annotations
-
-import importlib.util
 import os
-from pathlib import Path
-import subprocess
-import sys
-import threading
+import json
 import asyncio
-from typing import Any
+from typing import AsyncGenerator
+from pathlib import Path
 
-from jarvisx.agents.base import BaseAgent, AgentResponse
-from jarvisx.core.events import Event
+from jarvisx.agents.base import BaseAgent, AgentResponse, Event
 from jarvisx.core.llm_router import OmniRouterClient
-from jarvisx.core.continuous_voice import ContinuousVoiceEngine
-from jarvisx.core.distraction_vault import GuardianMonitor
 from jarvisx.tools.termux import TermuxTool
-
-def _message(event: Event) -> str:
-    return str(event.payload.get("message", "")).strip()
-
-def speak_offline(text: str, voice_gender="female"):
-    if os.environ.get("JARVIS_SPEAK_OFFLINE", "").lower() not in {"1", "true", "yes"}:
-        return
-    if importlib.util.find_spec("pyttsx3") is None:
-        return
-
-    preferred_voice = "Zira" if voice_gender == "female" else "David"
-    script = (
-        "import sys, pyttsx3\n"
-        "engine = pyttsx3.init()\n"
-        "voices = engine.getProperty('voices')\n"
-        f"preferred_voice = {preferred_voice!r}\n"
-        "for v in voices:\n"
-        "    if preferred_voice in v.name or preferred_voice.lower() in v.name.lower():\n"
-        "        engine.setProperty('voice', v.id)\n"
-        "        break\n"
-        "engine.setProperty('rate', 170)\n"
-        "engine.say(sys.stdin.read())\n"
-        "engine.runAndWait()\n"
-    )
-
-    def run() -> None:
-        subprocess.run(
-            [sys.executable, "-c", script],
-            input=text.encode("utf-8"),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-        )
-
-    threading.Thread(target=run, daemon=True, name="JarvisFridaySpeech").start()
+from jarvisx.core.distraction_vault import GuardianMonitor
+from jarvisx.core.ingestion.campusweb import CampusWebEngine
+from jarvisx.core.ingestion.gcr import GCREngine
+from jarvisx.core.logging import StructuredLogger
 
 class FridayAgent(BaseAgent):
     agent_id = "friday"
-    role = "ADHD Cognitive Companion and Executive Enforcer"
-    expertise = ("10 CGPA", "ADHD management", "distraction blocking", "termux handoff")
-    tone = "friendly, loyal, and proactive"
-    personality = "empathetic AI friend"
-    capabilities = ("file.read", "file.write", "file.edit", "computer.run_command")
+    role = "Primary Companion & Controller"
+    expertise = ("daily management", "study scheduling", "accountability", "ad-hoc assistance")
+    tone = "warm, loyal, subtly sarcastic"
+    personality = "Jarvis-like but female; your ride-or-die AI friend for 10 CGPA and fitness."
+    capabilities = ("companion", "study_planner", "distraction_vault", "campusweb", "termux")
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.system_prompt = self._load_system_prompt()
+    def __init__(self, *, tools=None, logger=None):
+        super().__init__(tools=tools, logger=logger)
         self.router = OmniRouterClient()
-        self.voice_engine = ContinuousVoiceEngine(self._on_voice_input)
-        self.voice_engine.start()
-        
-        # Phase 2: Guardian & Mobile Handoff
-        self.guardian = GuardianMonitor(self._on_distraction_killed)
-        self.guardian.start()
         self.termux = TermuxTool()
         
-    def _on_distraction_killed(self, keyword: str):
-        # When the Guardian kills a distraction, Friday speaks up
-        msg = f"Focus mode is active. I have intercepted and closed your attempt to access {keyword}. Let's pivot back to the 10 CGPA goal."
-        speak_offline(msg, "female")
+        self.guardian = GuardianMonitor(callback=self._on_distraction)
+        self.campusweb = CampusWebEngine(username="", password="")
+        self.gcr = GCREngine()
         
-        # Also ping the phone natively
-        self.termux.notify("Distraction Intercepted", f"I've closed {keyword} on your PC.")
-        self.termux.vibrate(500)
+        self.system_prompt = self._load_prompt()
 
-    def _on_voice_input(self, text: str):
-        # This is triggered when the continuous mic detects the wake word
-        # We run the handle logic asynchronously
-        import asyncio
-        event = Event(type="voice_input", payload={"message": text})
-        asyncio.run(self.handle(event))
-
-    def _load_system_prompt(self) -> str:
+    def _load_prompt(self) -> str:
         prompt_path = Path("assets/prompts/friday.md")
-        if prompt_path.exists():
+        try:
             return prompt_path.read_text(encoding="utf-8")
-        return "You are Friday, the ultimate AI Cognitive Companion."
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to load Friday prompt: {e}")
+            return "You are Friday. Be helpful."
+
+    def _on_distraction(self, info: dict = None):
+        if self.logger:
+            self.logger.info(f"Distraction detected: {info}")
+        self.guardian.engage_focus_mode()
+
+    async def speak_offline(self, text: str):
+        try:
+            # Assuming TermuxTool has an execute method, fallback to print if not available
+            if hasattr(self.termux, 'execute'):
+                await self.termux.execute(f"termux-tts-speak '{text}'")
+            else:
+                print(f"[Friday] {text}")
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"TTS error: {e}")
+            print(f"[Friday] {text}")
 
     async def handle(self, event: Event) -> AgentResponse:
-        from jarvisx.core.state import get_agent_state, update_agent_state
-        text = _message(event).lower()
+        payload = event.payload
+        intent = payload.get("task_class", payload.get("intent", "companion"))
+        user_input = payload.get("message", payload.get("text", ""))
         
-        # Generate response using OmniRoute LLM
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": text}
-        ]
-        
-        try:
-            response = await self.router.chat(messages, model="omniroute-apex")
-        except Exception as e:
-            response = "I'm having trouble connecting to the OmniRoute gateway right now, sir. " + str(e)
+        handled = False
+        message = ""
+        data = {}
 
-        speak_offline(response, "female")
-        return AgentResponse(agent_id=self.agent_id, content=response, route_to=None)
+        if intent in ("greeting", "companion", "farewell"):
+            messages = [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": user_input}
+            ]
+            message = await self.router.chat(messages=messages)
+            handled = True
+            await self.speak_offline(message)
+
+        elif intent == "study" or intent == "schedule":
+            messages = [
+                {"role": "system", "content": self.system_prompt + "\n\nThe user wants to study or schedule. Create a micro-commitment plan."},
+                {"role": "user", "content": user_input}
+            ]
+            message = await self.router.chat(messages=messages)
+            handled = True
+            await self.speak_offline(message)
+
+        elif intent == "distraction":
+            self.guardian.start()
+            message = "I've engaged the Guardian Monitor. I'll be watching your back."
+            handled = True
+            await self.speak_offline(message)
+
+        elif intent == "fitness":
+            messages = [
+                {"role": "system", "content": self.system_prompt + "\n\nThe user is asking about fitness. Hype them up."},
+                {"role": "user", "content": user_input}
+            ]
+            message = await self.router.chat(messages=messages)
+            handled = True
+            await self.speak_offline(message)
+
+        else:
+            messages = [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": user_input}
+            ]
+            message = await self.router.chat(messages=messages)
+            handled = True
+            await self.speak_offline(message)
+
+        return self._response(event, handled=handled, message=message, data=data)

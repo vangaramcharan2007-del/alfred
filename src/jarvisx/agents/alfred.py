@@ -79,19 +79,18 @@ class IntentClassifier:
 
     _rules: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         ("whatsapp", "edith", "whatsapp", ("whatsapp", "excel", "send files", "send the 4 files", "do the excel", "whatasaap")),
-        ("companion", "friday", "companion", ("friday", "schedule", "class", "cgpa", "study", "tutor", "homework", "distraction")),
+        ("companion", "friday", "companion", ("friday", "schedule", "class", "cgpa", "study", "tutor", "homework", "distraction", "attendance", "exam", "semester", "lecture", "professor", "assignment")),
+        ("fitness", "friday", "fitness", ("gym", "workout", "fit", "exercise", "protein", "diet", "bulk", "cut", "gains", "progressive overload", "bench", "squat", "deadlift", "pushup", "cardio")),
         ("editing", "editing", "editing", ("create a file", "write a script", "edit code", "write code", "edit file", "python code")),
-        ("edith_mobile", "edith", "device", ("voice", "notification", "mobile companion")),
-        ("greeting", "friday", "greeting", ("hello", "hi", "hey", "yo", "sup", "morning", "evening")),
-        ("farewell", "friday", "greeting", ("bye", "goodbye", "exit", "quit")),
+        ("greeting", "friday", "greeting", ("hello", "hi", "hey", "yo", "sup", "morning", "evening", "good morning", "good night")),
+        ("farewell", "friday", "greeting", ("bye", "goodbye", "exit", "quit", "see you", "later")),
         ("video_processing", "video_skill", "video", ("upscale", "4k", "video", "lowquality")),
         ("browser", "device", "browser", ("youtube", "google", "gmail", "github", "chatgpt", "stackoverflow", "reddit", "search", "browse", "website")),
         ("desktop_action", "device", "desktop", ("open ", "launch ", "start app", "close app", "desktop")),
         ("mobile_action", "device", "mobile", ("mobile", "phone", "sms")),
         ("memory", "memory", "memory", ("remember", "recall", "memory", "obsidian", "note")),
         ("research", "research", "research", ("research", "summarize", "documentation", "docs", "find info")),
-        ("progression_engine", "xp", "gamification", ("xp", "stats", "award", "level", "reward", "mission")),
-        ("planning", "planner", "planning", ("todo", "task", "goal", "mission", "quest", "boss", "streak")),
+        ("planning", "friday", "planning", ("todo", "task", "remind", "schedule", "plan", "goal")),
         ("cad", "workflow", "workflow", ("generate a cad", "cad model", "cad generation")),
         ("automation", "workflow", "workflow", ("workflow", "deploy", "automate")),
         ("system_control", "device", "system", ("shutdown", "restart", "volume", "brightness")),
@@ -125,13 +124,13 @@ class IntentClassifier:
                         reason=f"Matched keyword '{keyword.strip()}'.",
                     )
                     
-        # Ambiguous Intent
+        # Default fallback — Friday handles everything else conversationally
         return Intent(
-            label="unknown",
-            agent_id="planner",
-            task_class="unknown",
-            confidence=0.35,
-            reason="No explicit keywords matched. Cannot determine intent confidently.",
+            label="general",
+            agent_id="friday",
+            task_class="companion",
+            confidence=0.5,
+            reason="No explicit keywords matched. Routing to Friday for conversational handling.",
         )
 
 

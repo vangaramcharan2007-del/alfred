@@ -5,7 +5,9 @@ import threading
 import time
 
 if hasattr(os, 'add_dll_directory'):
-    os.add_dll_directory(r"C:\Users\vanga\Documents\Codex\2026-07-11\files-mentioned-by-the-user-you\outputs\project-jarvis-x\ffmpeg-shared\ffmpeg-master-latest-win64-gpl-shared\bin")
+    dll_path = os.path.join(os.path.dirname(__file__), "..", "..", "ffmpeg-shared", "ffmpeg-master-latest-win64-gpl-shared", "bin")
+    if os.path.exists(dll_path):
+        os.add_dll_directory(dll_path)
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "src")))
 
@@ -14,102 +16,98 @@ from jarvisx.core.state import update_agent_state
 
 try:
     from rich.console import Console
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
     from rich.panel import Panel
-    from rich.text import Text
-    rich_available = True
+    console = Console()
+    RICH = True
 except ImportError:
-    rich_available = False
+    RICH = False
+    console = None
 
-async def print_message(text: str):
-    if rich_available:
-        Console().print(f"\n[bold cyan]Friday[/bold cyan]: {text}\n")
+
+def boot():
+    """Minimal cinematic boot — no bloat."""
+    if RICH:
+        console.clear()
+        console.print(Panel.fit(
+            "[bold cyan]F R I D A Y[/bold cyan]",
+            subtitle="[dim]Jarvis X  //  Protocol Omega[/dim]",
+            border_style="cyan",
+        ))
+        steps = [
+            "OmniRoute LLM Gateway",
+            "Termux Android Bridge",
+            "Distraction Vault",
+            "Waveform UI",
+        ]
+        for s in steps:
+            time.sleep(0.15)
+            console.print(f"  [green]+[/green] [dim]{s}[/dim]")
+        console.print()
     else:
-        print(f"\n[Friday]: {text}\n")
+        print("\n  F R I D A Y")
+        print("  Jarvis X  //  Protocol Omega\n")
+
+
+def start_web_os():
+    """Launch the waveform dashboard in background."""
+    try:
+        from jarvisx.api.server import run_server
+        threading.Thread(target=run_server, daemon=True, name="WebOS").start()
+        if RICH:
+            console.print("  [cyan]Waveform UI[/cyan] -> [link=http://127.0.0.1:8000]http://127.0.0.1:8000[/link]\n")
+        else:
+            print("  Waveform UI -> http://127.0.0.1:8000\n")
+    except Exception:
+        pass
+
 
 async def main():
-    if rich_available:
-        console = Console()
-        console.clear()
-        
-        # Cinematic Boot Sequence
-        console.print(Panel.fit("[bold cyan]J A R V I S   X   //   P R O T O C O L   O M E G A[/bold cyan]", border_style="cyan"))
-        
-        with Progress(
-            SpinnerColumn(spinner_name="line"),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(complete_style="cyan", finished_style="green"),
-            TimeElapsedColumn(),
-            console=console,
-        ) as progress:
-            t1 = progress.add_task("[cyan]Establishing Termux Android Bridge...", total=100)
-            t2 = progress.add_task("[cyan]Connecting to OmniRoute LLM Gateway...", total=100)
-            t3 = progress.add_task("[cyan]Initializing Distraction Vault (win32gui)...", total=100)
-            t4 = progress.add_task("[cyan]Booting Industrial Web OS...", total=100)
-            
-            for i in range(100):
-                time.sleep(0.01)
-                progress.update(t1, advance=1)
-                if i > 20: progress.update(t2, advance=1.25)
-                if i > 40: progress.update(t3, advance=1.66)
-                if i > 60: progress.update(t4, advance=2.5)
+    boot()
+    start_web_os()
 
-        # Start Web OS Background Thread
-        try:
-            from jarvisx.api.server import run_server
-            threading.Thread(target=run_server, daemon=True, name="WebOS").start()
-            console.print("[bold green]Web OS Dashboard running at http://127.0.0.1:8000[/bold green]")
-        except ImportError:
-            pass
-
-        console.print("\n[bold cyan]System Online. Open mic active. Type 'exit' to quit.[/bold cyan]\n")
-    else:
-        print("="*60)
-        print(" Jarvis X - Protocol Omega (Interactive Console)")
-        print("="*60)
-        print("\nSystem Online. Type 'exit' to quit.\n")
-    
-    # Ensure demo config exists
+    # Ensure config
     os.makedirs("config", exist_ok=True)
-    if not os.path.exists(os.path.join("config", "demo.json")):
-        import json
-        with open(os.path.join("config", "demo.json"), "w") as f:
-            json.dump({
-                "demo_mode": True,
-                "typing_speed": 0.005,
-                "action_delay": 0.5,
-                "verbose_narration": True
-            }, f)
 
-    # Pre-configure Friday state for this demonstration sequence
+    # Init Friday state
     update_agent_state("friday", "friday_introduced", True)
     update_agent_state("friday", "friday_greeted", False)
     update_agent_state("friday", "mission_stage", "idle")
     update_agent_state("friday", "correction_attempts", 0)
-    
+
     runtime = create_default_runtime()
-    
+
+    if RICH:
+        console.print("[bold cyan]Systems online.[/bold cyan] Talk to Friday.\n")
+    else:
+        print("Systems online. Talk to Friday.\n")
+
     while True:
         try:
-            user_input = input("\nYou: ")
-            if user_input.strip().lower() in ['exit', 'quit']:
-                print("Shutting down Jarvis X.")
+            user_input = input("You: ")
+            if user_input.strip().lower() in ("exit", "quit", "bye"):
+                if RICH:
+                    console.print("\n[dim]Shutting down. See you tomorrow, sir.[/dim]")
+                else:
+                    print("\nShutting down. See you tomorrow, sir.")
                 break
-                
+
             if not user_input.strip():
                 continue
-                
-            # Process via Alfred Orchestrator
-            response = await runtime.alfred.process(user_input, trace_id="interactive-console")
-            
-            # Format and print the response
-            await print_message(response.message)
-                
+
+            # Route through Alfred -> Friday
+            response = await runtime.alfred.process(user_input, trace_id="console")
+
+            if RICH:
+                console.print(f"\n[bold cyan]Friday[/bold cyan]: {response.message}\n")
+            else:
+                print(f"\nFriday: {response.message}\n")
+
         except KeyboardInterrupt:
-            print("\nShutting down Jarvis X.")
+            print("\nShutting down.")
             break
         except Exception as e:
-            print(f"\n[System Error]: {e}")
+            print(f"\n[Error]: {e}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

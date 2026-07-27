@@ -3,274 +3,219 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jarvis X | Protocol Omega</title>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <title>JARVIS X - Interface</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg-base: #050505;
-            --panel-bg: rgba(20, 20, 25, 0.7);
-            --accent-cyan: #00f0ff;
-            --accent-red: #ff003c;
-            --text-main: #e0e0e0;
-            --text-muted: #707070;
-            --glass-border: rgba(0, 240, 255, 0.2);
-        }
-
-        * {
-            box-sizing: border-box;
+        body, html {
             margin: 0;
             padding: 0;
-        }
-
-        body {
-            background-color: var(--bg-base);
-            color: var(--text-main);
+            width: 100%;
+            height: 100%;
+            background-color: #050505;
+            color: #00f0ff;
             font-family: 'Rajdhani', sans-serif;
-            height: 100vh;
             overflow: hidden;
-            display: grid;
-            grid-template-columns: 300px 1fr 350px;
-            grid-template-rows: 60px 1fr;
-            grid-template-areas: 
-                "header header header"
-                "sidebar main right";
-            gap: 15px;
-            padding: 15px;
-        }
-
-        /* Scanline Overlay */
-        body::before {
-            content: " ";
-            display: block;
-            position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 999;
-            background-size: 100% 2px, 3px 100%;
-            pointer-events: none;
-        }
-
-        header {
-            grid-area: header;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--glass-border);
-            padding: 0 20px;
-        }
-
-        header h1 {
-            font-size: 1.5rem;
-            color: var(--accent-cyan);
-            text-transform: uppercase;
-            letter-spacing: 3px;
-        }
-
-        .telemetry {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: var(--accent-cyan);
-        }
-
-        .panel {
-            background: var(--panel-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 4px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            transition: all 0.3s ease;
-        }
-
-        .panel:hover {
-            border-color: var(--accent-cyan);
-            box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
-        }
-
-        .panel h2 {
-            font-size: 1.2rem;
-            text-transform: uppercase;
-            border-bottom: 1px solid var(--text-muted);
-            padding-bottom: 5px;
-            margin-bottom: 10px;
-            color: var(--text-main);
-        }
-
-        /* Sidebar - Stats */
-        .sidebar { grid-area: sidebar; }
-        
-        .stat-box {
-            background: rgba(0,0,0,0.5);
-            padding: 15px;
-            border-left: 3px solid var(--accent-cyan);
-        }
-        .stat-box.alert { border-left-color: var(--accent-red); }
-        .stat-value { font-size: 2rem; font-weight: bold; color: var(--accent-cyan); }
-        .stat-label { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; }
-
-        /* Main - CAD for ML Canvas */
-        .main { 
-            grid-area: main; 
-            background: radial-gradient(circle, #1a1a24 0%, #050505 100%);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        /* Grid background for CAD */
-        .main::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-image: 
-                linear-gradient(var(--glass-border) 1px, transparent 1px),
-                linear-gradient(90deg, var(--glass-border) 1px, transparent 1px);
-            background-size: 50px 50px;
-            opacity: 0.1;
-            z-index: 0;
-        }
-
-        .node {
-            position: absolute;
-            background: rgba(0,0,0,0.8);
-            border: 1px solid var(--accent-cyan);
-            padding: 10px;
-            border-radius: 4px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            z-index: 10;
-            cursor: move;
-            transition: transform 0.2s;
-        }
-        
-        .node:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 10px var(--accent-cyan);
-        }
-
-        .node-1 { top: 30%; left: 10%; }
-        .node-2 { top: 50%; left: 40%; }
-        .node-3 { top: 30%; left: 70%; }
-
-        /* SVG lines for neural net simulation */
-        svg.connections {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 5;
-            pointer-events: none;
-        }
-        
-        path {
-            stroke: var(--accent-cyan);
-            stroke-width: 2;
-            fill: none;
-            opacity: 0.5;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 0.2; }
-            50% { opacity: 0.8; }
-            100% { opacity: 0.2; }
-        }
-
-        /* Right - NotebookLM Vault */
-        .right { grid-area: right; }
-        
-        .vault-item {
-            background: rgba(0,0,0,0.5);
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 4px;
-            border: 1px solid transparent;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
-            transition: all 0.2s;
         }
-        
-        .vault-item:hover {
-            border-color: var(--text-muted);
-            background: rgba(255,255,255,0.05);
-        }
-        
-        .vault-title { font-weight: bold; font-size: 1.1rem; }
-        .vault-desc { font-size: 0.85rem; color: var(--text-muted); margin-top: 5px; }
 
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0.5;
+        }
+
+        .header {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+            z-index: 5;
+            opacity: 0.6;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+        }
+
+        .status {
+            font-size: 12px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            color: rgba(0, 240, 255, 0.8);
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background-color: #00f0ff;
+            border-radius: 50%;
+            margin-right: 8px;
+            box-shadow: 0 0 8px #00f0ff;
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0% { opacity: 0.5; box-shadow: 0 0 4px #00f0ff; }
+            50% { opacity: 1; box-shadow: 0 0 12px #00f0ff; }
+            100% { opacity: 0.5; box-shadow: 0 0 4px #00f0ff; }
+        }
+
+        canvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 60%;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
-
-    <header>
-        <h1>Jarvis X // Protocol Omega</h1>
-        <div class="telemetry">
-            SYS: ONLINE | OMNIROUTE: SECURED | TERMUX: LINKED | LATENCY: 14ms
-        </div>
-    </header>
-
-    <div class="panel sidebar">
-        <h2>Executive Status</h2>
-        <div class="stat-box">
-            <div class="stat-value">{{ cgpa }}</div>
-            <div class="stat-label">Current CGPA Projection</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-value">{{ attendance }}</div>
-            <div class="stat-label">AOOP Attendance</div>
-        </div>
-        <div class="stat-box alert">
-            <div class="stat-value" style="color: var(--accent-red); font-size: 1.2rem;">{{ active_mode }}</div>
-            <div class="stat-label">Environment Status</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-value" style="font-size: 1.2rem;">{{ next_class }}</div>
-            <div class="stat-label">Next Mission (12:30 PM)</div>
-        </div>
+    <div class="scanlines"></div>
+    <div class="header">
+        <div class="title">FRIDAY</div>
+        <div class="status"><span class="status-dot"></span>ONLINE | OMNIROUTE CONNECTED</div>
     </div>
-
-    <div class="panel main">
-        <h2 style="z-index: 10; position: relative; display: inline-block; background: var(--bg-base); padding-right: 10px;">CAD for ML // Canvas</h2>
-        
-        <svg class="connections">
-            <path d="M 120 180 C 250 180, 200 300, 350 300"></path>
-            <path d="M 450 300 C 600 300, 550 180, 700 180"></path>
-        </svg>
-
-        <div class="node node-1">
-            <strong>InputLayer</strong><br>
-            shape: (224, 224, 3)
-        </div>
-        <div class="node node-2">
-            <strong>Conv2D</strong><br>
-            filters: 64<br>
-            kernel: (3, 3)
-        </div>
-        <div class="node node-3">
-            <strong>Dense</strong><br>
-            units: 10<br>
-            activation: softmax
-        </div>
-    </div>
-
-    <div class="panel right">
-        <h2>NotebookLM Vault</h2>
-        <div class="vault-item">
-            <div class="vault-title">AOOP_Lecture_04.pdf</div>
-            <div class="vault-desc">Polymorphism and Interface implementations. Extracted 4 key concepts.</div>
-        </div>
-        <div class="vault-item">
-            <div class="vault-title">Maths_Transforms_Ch2.pdf</div>
-            <div class="vault-desc">Fourier boundary values. Pre-class briefing generated.</div>
-        </div>
-        <div class="vault-item">
-            <div class="vault-title">OS_Deadlocks.pdf</div>
-            <div class="vault-desc">Banker's Algorithm notes. Pending review.</div>
-        </div>
-    </div>
+    
+    <canvas id="waveform"></canvas>
 
     <script>
-        // Micro-animations and terminal boot effect
-        document.addEventListener("DOMContentLoaded", () => {
-            console.log("[Jarvis X] Telemetry initialized.");
+        const canvas = document.getElementById('waveform');
+        const ctx = canvas.getContext('2d');
+        
+        let audioCtx;
+        let analyser;
+        let dataArray;
+        let isMicActive = false;
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight * 0.6;
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let time = 0;
+
+        function draw() {
+            requestAnimationFrame(draw);
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#00f0ff';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00f0ff';
+            
+            ctx.beginPath();
+            
+            const sliceWidth = canvas.width / 200;
+            let x = 0;
+            
+            if (isMicActive && dataArray) {
+                analyser.getByteTimeDomainData(dataArray);
+                
+                for (let i = 0; i < 200; i++) {
+                    const dataIndex = Math.floor(i * (dataArray.length / 200));
+                    const v = dataArray[dataIndex] / 128.0;
+                    
+                    const envelope = Math.sin((i / 200) * Math.PI);
+                    
+                    const y = (v * (canvas.height / 2) * envelope) + (canvas.height / 2 * (1 - envelope));
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, canvas.height / 2);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                    
+                    x += sliceWidth;
+                }
+            } else {
+                for (let i = 0; i < 200; i++) {
+                    const envelope = Math.sin((i / 200) * Math.PI);
+                    const breathingAmplitude = Math.sin(time * 0.05) * 20 + 20;
+                    const ripple = Math.sin((i * 0.1) + (time * 0.2)) * 10;
+                    const y = canvas.height / 2 + (Math.sin((i * 0.05) - (time * 0.1)) * breathingAmplitude + ripple) * envelope;
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, canvas.height / 2);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                    
+                    x += sliceWidth;
+                }
+                time++;
+            }
+            
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+            
+            ctx.lineWidth = 1;
+            ctx.shadowBlur = 5;
+            ctx.beginPath();
+            x = 0;
+            
+            if (!isMicActive) {
+                 for (let i = 0; i < 200; i++) {
+                    const envelope = Math.sin((i / 200) * Math.PI);
+                    const breathingAmplitude = Math.sin(time * 0.05 + Math.PI) * 15 + 15;
+                    const ripple = Math.sin((i * 0.15) + (time * 0.15)) * 5;
+                    const y = canvas.height / 2 + (Math.sin((i * 0.06) - (time * 0.12)) * breathingAmplitude + ripple) * envelope;
+                    
+                    if (i === 0) ctx.moveTo(x, canvas.height / 2);
+                    else ctx.lineTo(x, y);
+                    
+                    x += sliceWidth;
+                }
+                ctx.lineTo(canvas.width, canvas.height / 2);
+                ctx.stroke();
+            }
+        }
+        
+        draw();
+
+        document.body.addEventListener('click', async () => {
+            if (isMicActive) return;
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                const source = audioCtx.createMediaStreamSource(stream);
+                source.connect(analyser);
+                
+                analyser.fftSize = 2048;
+                const bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+                
+                isMicActive = true;
+                
+                document.querySelector('.status').innerHTML = '<span class="status-dot" style="background-color: #0f0; box-shadow: 0 0 8px #0f0;"></span>LISTENING | OMNIROUTE CONNECTED';
+                document.querySelector('.status-dot').style.backgroundColor = '#0f0';
+                document.querySelector('.status-dot').style.boxShadow = '0 0 8px #0f0';
+            } catch (err) {
+                console.error('Microphone access denied or error:', err);
+            }
         });
     </script>
 </body>
