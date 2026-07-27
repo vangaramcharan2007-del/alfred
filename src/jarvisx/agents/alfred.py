@@ -79,11 +79,11 @@ class IntentClassifier:
 
     _rules: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         ("whatsapp", "edith", "whatsapp", ("whatsapp", "excel", "send files", "send the 4 files", "do the excel", "whatasaap")),
-        ("coding", "friday", "coding", ("friday", "numpy")),
+        ("companion", "friday", "companion", ("friday", "schedule", "class", "cgpa", "study", "tutor", "homework", "distraction")),
         ("editing", "editing", "editing", ("create a file", "write a script", "edit code", "write code", "edit file", "python code")),
         ("edith_mobile", "edith", "device", ("voice", "notification", "mobile companion")),
-        ("greeting", "chat", "greeting", ("hello", "hi", "hey", "yo", "sup", "morning", "evening")),
-        ("farewell", "chat", "greeting", ("bye", "goodbye", "exit", "quit")),
+        ("greeting", "friday", "greeting", ("hello", "hi", "hey", "yo", "sup", "morning", "evening")),
+        ("farewell", "friday", "greeting", ("bye", "goodbye", "exit", "quit")),
         ("video_processing", "video_skill", "video", ("upscale", "4k", "video", "lowquality")),
         ("browser", "device", "browser", ("youtube", "google", "gmail", "github", "chatgpt", "stackoverflow", "reddit", "search", "browse", "website")),
         ("desktop_action", "device", "desktop", ("open ", "launch ", "start app", "close app", "desktop")),
@@ -91,7 +91,7 @@ class IntentClassifier:
         ("memory", "memory", "memory", ("remember", "recall", "memory", "obsidian", "note")),
         ("research", "research", "research", ("research", "summarize", "documentation", "docs", "find info")),
         ("progression_engine", "xp", "gamification", ("xp", "stats", "award", "level", "reward", "mission")),
-        ("planning", "planner", "planning", ("schedule", "remind", "todo", "task", "goal", "mission", "quest", "boss", "streak")),
+        ("planning", "planner", "planning", ("todo", "task", "goal", "mission", "quest", "boss", "streak")),
         ("cad", "workflow", "workflow", ("generate a cad", "cad model", "cad generation")),
         ("automation", "workflow", "workflow", ("workflow", "deploy", "automate")),
         ("system_control", "device", "system", ("shutdown", "restart", "volume", "brightness")),
