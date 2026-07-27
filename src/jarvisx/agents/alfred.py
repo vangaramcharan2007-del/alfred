@@ -78,6 +78,7 @@ class IntentClassifier:
     """Rule-based offline classifier. Replace with a local small model later."""
 
     _rules: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
+        ("whatsapp", "friday", "whatsapp", ("whatsapp", "excel", "send files", "send the 4 files", "do the excel", "whatasaap")),
         ("coding", "friday", "coding", ("friday", "numpy")),
         ("editing", "editing", "editing", ("create a file", "write a script", "edit code", "write code", "edit file", "python code")),
         ("edith_mobile", "edith", "device", ("voice", "notification", "mobile companion")),

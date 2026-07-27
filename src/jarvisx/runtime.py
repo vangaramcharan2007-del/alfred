@@ -46,6 +46,8 @@ from jarvisx.tools.cad import CADTool
 from jarvisx.tools.workflow import WorkflowTool
 from jarvisx.tools.computer_control import ComputerControlTool
 from jarvisx.tools.vscode_controller import VSCodeController
+from jarvisx.tools.data_processing import DataProcessingTool
+from jarvisx.tools.whatsapp_tool import WhatsAppTool
 
 from jarvisx.core.capabilities.registry import SystemCapabilityRegistry
 from jarvisx.core.capabilities.runtime import CapabilityRuntime
@@ -162,6 +164,9 @@ def create_default_runtime(
     vscode_tool = VSCodeController()
     backup_manager = BackupManager(data_dir=Path("data"), backup_dir=Path("backups"))
     device_context = DeviceContext()
+    
+    data_processing_tool = DataProcessingTool()
+    whatsapp_tool = WhatsAppTool()
 
     registry.register(GreetingAgent(logger=logger))
     registry.register(MemoryAgent(tools={"memory": memory_tool}, logger=logger))
@@ -173,7 +178,7 @@ def create_default_runtime(
             logger=logger,
         )
     )
-    registry.register(FridayAgent(tools={"file": FileSystem(root_dir="."), "computer": computer_tool, "vscode": vscode_tool}, logger=logger))
+    registry.register(FridayAgent(tools={"file": FileSystem(root_dir="."), "computer": computer_tool, "vscode": vscode_tool, "data_processing": data_processing_tool, "whatsapp": whatsapp_tool}, logger=logger))
     registry.register(EditingAgent(tools={"file": FileSystem(root_dir=".")}, logger=logger))
     registry.register(CADAgent(tools={"cad": cad_tool}, logger=logger))
     registry.register(ShadowBrokerAgent(tools={"research": research_tool}, logger=logger))

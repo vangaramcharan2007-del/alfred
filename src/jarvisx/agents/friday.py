@@ -98,6 +98,37 @@ class FridayAgent(BaseAgent):
         current_stage = get_agent_state("friday").get("mission_stage", "idle")
         attempts = get_agent_state("friday").get("correction_attempts", 0)
         
+        if any(kw in text for kw in ["whatsapp", "excel", "send files", "send the 4 files", "do the excel", "whatasaap"]):
+            data_tool = self.tools.get("data_processing")
+            wa_tool = self.tools.get("whatsapp")
+            
+            action_taken = "Right away, sir. I am parsing the employee data from the PDFs into Excel files now.\n"
+            speak_offline("Right away sir. I am parsing the employee data from the PDFs into Excel files now.", "female")
+            
+            if data_tool and wa_tool:
+                res = data_tool.parse_tabular_text_to_excel(_message(event), output_dir="scratch")
+                if res.success:
+                    num_files = len(res.data.get("files", []))
+                    speak_offline(f"Successfully generated {num_files} Excel files. Initializing WhatsApp Web interface.", "female")
+                    action_taken += f"Successfully generated {num_files} Excel files. Initializing WhatsApp Web interface.\n"
+                    
+                    speak_offline("Opening WhatsApp Web. Waiting 15 seconds for the page to load.", "female")
+                    speak_offline("Searching for Ravindar Vanga and typing out the transmission message.", "female")
+                    
+                    msg = "Hello Ravindar, I have generated the 4 requested Excel files regarding the ABT AE probation commencement."
+                    wa_tool.send_files_ui("ravindar vanga", res.data["files"], msg)
+                    
+                    speak_offline("The automation drill is complete.", "female")
+                    action_taken += "The automation drill is complete.\n"
+                else:
+                    speak_offline("I could not parse the raw data into Excel.", "female")
+                    action_taken += "Failed to parse data.\n"
+            else:
+                speak_offline("Data processing or WhatsApp tools are not available.", "female")
+                action_taken += "Missing tools.\n"
+                
+            return AgentResponse(agent_id=self.agent_id, handled=True, trace_id=event.trace_id, message=greeting + action_taken)
+
         if any(kw in text for kw in ["numpy", "files", "codes", "basics"]):
             update_agent_state("friday", "mission_stage", "writing")
             update_agent_state("friday", "correction_attempts", 0)
