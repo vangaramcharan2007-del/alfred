@@ -15,27 +15,28 @@ class WorkflowAgent(BaseAgent):
         super().__init__()
         self.engine = engine
         self.workflow_tool = WorkflowTool(engine)
+        
+        try:
+            from jarvisx.core.llm_router import OmniRouterClient
+            self.router = OmniRouterClient()
+        except ImportError:
+            self.router = None
 
     async def handle(self, event: Event) -> AgentResponse:
         from typing import Mapping
+        import asyncio
+        
         intent_payload = event.payload.get("intent", {})
-        intent_label = intent_payload.get("label", "") if isinstance(intent_payload, dict) else ""
         text = str(event.payload.get("message", "")) if isinstance(event.payload, Mapping) else str(event.payload)
         context = {}
         trace_id = event.trace_id
         
-        # In a real system, the LLM would parse the intent into a dynamic DAG.
-        # For Genesis Phase 6, we implement hardcoded workflow templates based on keywords.
-        
         lower_intent = text.lower()
         
-        if "status" in lower_intent or "check" in lower_intent:
-            workflow_id = context.get("workflow_id")
-            if not workflow_id:
-                # Try to extract an ID from the intent if not in context
-                parts = text.split()
-                workflow_id = parts[-1] if len(parts) > 1 else ""
-                
+        # Keep status checking intact
+        if "status" in lower_intent or "check workflow" in lower_intent:
+            parts = text.split()
+            workflow_id = parts[-1] if len(parts) > 1 else ""
             res = self.workflow_tool.get_status(workflow_id)
             if res.success:
                 return self._response(
@@ -46,79 +47,86 @@ class WorkflowAgent(BaseAgent):
                 )
             return self._response(event, handled=True, message=res.message)
 
-        if "deploy" in lower_intent or "deployment" in lower_intent:
-            return self._start_deployment_workflow(event)
+        # Dynamic Workflow Generation
+        if not self.router:
+            return self._response(
+                event,
+                handled=False,
+                message="Cannot generate workflow: OmniRouterClient is unavailable."
+            )
             
-        if "email" in lower_intent:
-            return self._start_email_workflow(event)
+        system_prompt = """
+You are Jarvis X's Workflow Generator.
+Given a user's task, break it down into a sequence of discrete steps.
+For each step, generate a valid Python function that takes a `ctx` (dict) argument and returns a dict.
+Do not use `time.sleep` in steps; workflows are asynchronous.
+Output ONLY a JSON array of objects, with no markdown formatting or backticks.
+Format:
+[
+  {
+    "name": "Step Name",
+    "code": "def run(ctx):\n    return {'result': 'data'}"
+  }
+]
+"""
+        try:
+            # Request the LLM to generate the steps
+            llm_response = await asyncio.to_thread(
+                self.router.generate,
+                prompt=text,
+                system=system_prompt,
+                model="gpt-4"
+            )
             
-        if "cad" in lower_intent or "generation" in lower_intent:
-            # Re-route long CAD generation to a workflow
-            return self._start_cad_workflow(event, text)
+            # Clean response
+            llm_text = llm_response.text.strip()
+            if llm_text.startswith("```json"):
+                llm_text = llm_text[7:]
+            if llm_text.startswith("```"):
+                llm_text = llm_text[3:]
+            if llm_text.endswith("```"):
+                llm_text = llm_text[:-3]
+                
+            steps_data = json.loads(llm_text.strip())
             
-        return self._response(
-            event,
-            handled=False,
-            message="I can only handle specific workflows: deployment, email, cad, or status checks."
-        )
-
-    def _start_deployment_workflow(self, event: Event) -> AgentResponse:
-        def step1(ctx): return {"build": "success"}
-        def step2(ctx): return {"test": "success"}
-        def step3(ctx): return {"deploy": "success"}
-        
-        workflow = Workflow(
-            name="Deployment Workflow",
-            context={"trace_id": event.trace_id},
-            steps=[
-                WorkflowStep("Build", step1),
-                WorkflowStep("Test", step2),
-                WorkflowStep("Deploy", step3)
-            ]
-        )
-        wid = self.engine.start(workflow)
-        return self._response(
-            event,
-            handled=True,
-            message=f"Deployment workflow started asynchronously. (ID: {wid})"
-        )
-
-    def _start_email_workflow(self, event: Event) -> AgentResponse:
-        def step1(ctx): return {"draft": "Drafted email."}
-        def step2(ctx): return {"send": "Sent email."}
-        
-        workflow = Workflow(
-            name="Email Workflow",
-            context={"trace_id": event.trace_id},
-            steps=[
-                WorkflowStep("Draft", step1),
-                WorkflowStep("Send", step2)
-            ]
-        )
-        wid = self.engine.start(workflow)
-        return self._response(
-            event,
-            handled=True,
-            message=f"Email workflow started asynchronously. (ID: {wid})"
-        )
-
-    def _start_cad_workflow(self, event: Event, prompt: str) -> AgentResponse:
-        def generate_step(ctx): 
-            # In a real impl, this would call CADTool.
-            import time
-            time.sleep(0.5) # Simulate long task
-            return {"file": "output.scad"}
+            # Build the DAG dynamically
+            workflow_steps = []
+            for i, step_info in enumerate(steps_data):
+                step_name = step_info.get("name", f"Step_{i}")
+                code_str = step_info.get("code", "def run(ctx): return {}")
+                
+                # We dynamically execute the LLM's generated string into a real Python function
+                # Note: In a production system, use sandbox_exec.py here for security.
+                local_env = {}
+                exec(code_str, {}, local_env)
+                
+                # Find the callable (usually 'run')
+                callable_func = next((v for k, v in local_env.items() if callable(v)), None)
+                if not callable_func:
+                    # Fallback if the LLM didn't write a proper function
+                    def dummy(ctx): return {"error": "Invalid code generated"}
+                    callable_func = dummy
+                    
+                workflow_steps.append(WorkflowStep(step_name, callable_func))
+                
+            workflow = Workflow(
+                name=f"Dynamic: {text[:20]}...",
+                context={"trace_id": event.trace_id},
+                steps=workflow_steps
+            )
             
-        workflow = Workflow(
-            name="CAD Generation Workflow",
-            context={"trace_id": event.trace_id, "prompt": prompt},
-            steps=[
-                WorkflowStep("Generate SCAD", generate_step)
-            ]
-        )
-        wid = self.engine.start(workflow)
-        return self._response(
-            event,
-            handled=True,
-            message=f"CAD generation started asynchronously in the background. (ID: {wid})"
-        )
+            wid = self.engine.start(workflow)
+            return self._response(
+                event,
+                handled=True,
+                message=f"Dynamically generated and started workflow '{workflow.name}'. (ID: {wid})"
+            )
+            
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Dynamic workflow generation failed: {e}")
+            return self._response(
+                event,
+                handled=True,
+                message=f"Failed to dynamically generate workflow: {e}"
+            )
