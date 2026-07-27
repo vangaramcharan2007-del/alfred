@@ -23,6 +23,9 @@ async def main():
     print("\n[User Prompt]:", prompt.split('\n')[0], "...\n")
     print("[*] Routing request via Alfred Orchestrator...\n")
     
+    from jarvisx.agents.alfred import _speak_offline
+    _speak_offline("Alfred here. Processing your WhatsApp request.", voice_hint="male")
+    
     response = await runtime.alfred.process(prompt, trace_id="whatsapp-demo")
     
     print(f"\n[Agent Response - {response.agent_id.upper()}]:\n{response.message}")

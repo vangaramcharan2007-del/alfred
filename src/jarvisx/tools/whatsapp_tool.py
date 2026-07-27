@@ -13,20 +13,26 @@ class WhatsAppTool(BaseTool):
     name = "whatsapp"
     
     def send_files_ui(self, contact_name: str, file_paths: list[str], message: str) -> ToolResult:
-        """Automates WhatsApp Web UI to send files and a message."""
+        """Automates WhatsApp Desktop app to send files and a message."""
         try:
-            webbrowser.open("https://web.whatsapp.com")
+            import os
+            # Launch WhatsApp Desktop App
+            os.system("start whatsapp:")
             
-            # Wait for WhatsApp Web to load
-            time.sleep(15)
+            # Wait for WhatsApp to open and load
+            time.sleep(5)
             
-            # Search for contact
-            pyautogui.hotkey('ctrl', 'alt', '/')
-            time.sleep(2)
+            # Search for contact (Ctrl + F is standard for search in the Desktop app)
+            pyautogui.hotkey('ctrl', 'f')
+            time.sleep(1)
             pyautogui.write(contact_name)
             time.sleep(2)
             pyautogui.press('enter')
-            time.sleep(2)
+            time.sleep(1)
+            pyautogui.press('tab')
+            time.sleep(0.5)
+            pyautogui.press('enter')
+            time.sleep(1.5)
             
             # Type message
             pyautogui.write(message)
