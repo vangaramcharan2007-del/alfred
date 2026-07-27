@@ -124,13 +124,13 @@ class IntentClassifier:
                         reason=f"Matched keyword '{keyword.strip()}'.",
                     )
                     
-        # Default fallback — Friday handles everything else conversationally
+        # Default fallback — Alfred handles everything else as the primary butler
         return Intent(
-            label="general",
-            agent_id="friday",
-            task_class="companion",
-            confidence=0.5,
-            reason="No explicit keywords matched. Routing to Friday for conversational handling.",
+            label="unknown",
+            agent_id="planner",
+            task_class="unknown",
+            confidence=0.35,
+            reason="No explicit keywords matched. Routing to Alfred (Planner) for butler handling.",
         )
 
 
@@ -245,9 +245,9 @@ class AlfredOrchestrator:
         self.context_buffer.append({"role": "user", "content": message})
 
         if intent.agent_id == "friday":
-            _speak_offline("Friday, please handle this request.")
-        else:
-            _speak_offline(f"Routing request to {intent.agent_id}.")
+            _speak_offline("Right away, sir. I have prepared your workspace. Friday, you have the floor.")
+        elif intent.agent_id != "planner":
+            _speak_offline(f"Executing protocol. Passing control to {intent.agent_id}.")
         
         # Capability Fallback Chain (Simulated logic in Orchestrator for now)
         try:
