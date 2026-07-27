@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JARVIS X - Interface</title>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         body, html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            background-color: #050505;
-            color: #00f0ff;
-            font-family: 'Rajdhani', sans-serif;
+            background-color: #030303;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
             overflow: hidden;
             display: flex;
             flex-direction: column;
@@ -22,118 +22,211 @@
             cursor: pointer;
         }
 
+        .orb-container {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
 
-
-        canvas {
+        /* The main glowing sphere */
+        .orb {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 100%;
-            height: 60%;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #5ce1e6, #3b82f6 60%, #1e3a8a 90%);
+            box-shadow: 0 0 50px rgba(59, 130, 246, 0.4), inset -20px -20px 40px rgba(0,0,0,0.5);
+            animation: orb-breathe 4s infinite alternate ease-in-out;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 5;
+        }
+
+        @keyframes orb-breathe {
+            0% { transform: scale(1); box-shadow: 0 0 40px rgba(59, 130, 246, 0.3), inset -20px -20px 40px rgba(0,0,0,0.5); }
+            100% { transform: scale(1.05); box-shadow: 0 0 70px rgba(92, 225, 230, 0.6), inset -20px -20px 40px rgba(0,0,0,0.5); }
+        }
+
+        /* Orbiting rings */
+        .ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             z-index: 1;
         }
+
+        .ring-1 {
+            width: 280px;
+            height: 280px;
+            animation: spin 20s linear infinite;
+        }
+        
+        .ring-2 {
+            width: 360px;
+            height: 360px;
+            animation: spin 30s linear infinite reverse;
+        }
+
+        /* Particles on rings */
+        .particle {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background-color: #5ce1e6;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #5ce1e6;
+        }
+
+        .p1 { top: -3px; left: 50%; transform: translateX(-50%); }
+        .p2 { bottom: 20%; right: -2px; }
+        .p3 { top: 20%; left: -2px; background-color: #fff; box-shadow: 0 0 10px #fff;}
+        .p4 { bottom: -3px; left: 50%; transform: translateX(-50%); }
+
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Waveform inside the orb */
+        .waveform-container {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            height: 40px;
+            z-index: 10;
+        }
+
+        .bar {
+            width: 4px;
+            background-color: white;
+            border-radius: 2px;
+            animation: wave 1.2s infinite ease-in-out;
+        }
+
+        .bar:nth-child(1) { height: 10px; animation-delay: 0.0s; }
+        .bar:nth-child(2) { height: 20px; animation-delay: 0.1s; }
+        .bar:nth-child(3) { height: 30px; animation-delay: 0.2s; }
+        .bar:nth-child(4) { height: 15px; animation-delay: 0.3s; }
+        .bar:nth-child(5) { height: 25px; animation-delay: 0.4s; }
+
+        @keyframes wave {
+            0%, 100% { transform: scaleY(0.5); }
+            50% { transform: scaleY(1.5); }
+        }
+
+        /* Subtitles and Status */
+        .info-panel {
+            margin-top: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 600px;
+            text-align: center;
+            z-index: 10;
+        }
+
+        .status-badge {
+            background-color: rgba(92, 225, 230, 0.1);
+            border: 1px solid rgba(92, 225, 230, 0.3);
+            color: #5ce1e6;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background-color: #5ce1e6;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #5ce1e6;
+            animation: pulse-dot 1.5s infinite alternate;
+        }
+
+        @keyframes pulse-dot {
+            0% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        .subtitle-heading {
+            font-size: 10px;
+            letter-spacing: 3px;
+            color: #888;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .subtitle-text {
+            font-size: 18px;
+            line-height: 1.5;
+            color: #e0e0e0;
+            font-weight: 300;
+        }
+
+        /* Hide elements when inactive */
+        .active-only {
+            opacity: 0.3;
+            transition: opacity 0.5s ease;
+        }
+        
+        body.listening .active-only {
+            opacity: 1;
+        }
+
+        body.listening .bar {
+            animation: mic-wave 0.1s infinite;
+        }
+
     </style>
 </head>
 <body>
-    <canvas id="waveform"></canvas>
+
+    <div class="orb-container">
+        <div class="ring ring-2">
+            <div class="particle p3"></div>
+            <div class="particle p4"></div>
+        </div>
+        <div class="ring ring-1">
+            <div class="particle p1"></div>
+            <div class="particle p2"></div>
+        </div>
+        
+        <div class="orb">
+            <div class="waveform-container active-only">
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="info-panel active-only">
+        <div class="status-badge">
+            <div class="status-dot"></div>
+            <span id="status-text">STANDBY</span>
+        </div>
+        <div class="subtitle-heading">NOW RESPONDING</div>
+        <div class="subtitle-text" id="subtitle-msg">
+            "Awaiting your command. Click anywhere to activate voice interface."
+        </div>
+    </div>
 
     <script>
-        const canvas = document.getElementById('waveform');
-        const ctx = canvas.getContext('2d');
-        
-        let audioCtx;
-        let analyser;
-        let dataArray;
         let isMicActive = false;
-        
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight * 0.6;
-        }
-        
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
-
-        let time = 0;
-
-        function draw() {
-            requestAnimationFrame(draw);
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#00f0ff';
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#00f0ff';
-            
-            ctx.beginPath();
-            
-            const sliceWidth = canvas.width / 200;
-            let x = 0;
-            
-            if (isMicActive && dataArray) {
-                analyser.getByteTimeDomainData(dataArray);
-                
-                for (let i = 0; i < 200; i++) {
-                    const dataIndex = Math.floor(i * (dataArray.length / 200));
-                    const v = dataArray[dataIndex] / 128.0;
-                    
-                    const envelope = Math.sin((i / 200) * Math.PI);
-                    
-                    const y = (v * (canvas.height / 2) * envelope) + (canvas.height / 2 * (1 - envelope));
-                    
-                    if (i === 0) {
-                        ctx.moveTo(x, canvas.height / 2);
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                    
-                    x += sliceWidth;
-                }
-            } else {
-                for (let i = 0; i < 200; i++) {
-                    const envelope = Math.sin((i / 200) * Math.PI);
-                    const breathingAmplitude = Math.sin(time * 0.05) * 20 + 20;
-                    const ripple = Math.sin((i * 0.1) + (time * 0.2)) * 10;
-                    const y = canvas.height / 2 + (Math.sin((i * 0.05) - (time * 0.1)) * breathingAmplitude + ripple) * envelope;
-                    
-                    if (i === 0) {
-                        ctx.moveTo(x, canvas.height / 2);
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                    
-                    x += sliceWidth;
-                }
-                time++;
-            }
-            
-            ctx.lineTo(canvas.width, canvas.height / 2);
-            ctx.stroke();
-            
-            ctx.lineWidth = 1;
-            ctx.shadowBlur = 5;
-            ctx.beginPath();
-            x = 0;
-            
-            if (!isMicActive) {
-                 for (let i = 0; i < 200; i++) {
-                    const envelope = Math.sin((i / 200) * Math.PI);
-                    const breathingAmplitude = Math.sin(time * 0.05 + Math.PI) * 15 + 15;
-                    const ripple = Math.sin((i * 0.15) + (time * 0.15)) * 5;
-                    const y = canvas.height / 2 + (Math.sin((i * 0.06) - (time * 0.12)) * breathingAmplitude + ripple) * envelope;
-                    
-                    if (i === 0) ctx.moveTo(x, canvas.height / 2);
-                    else ctx.lineTo(x, y);
-                    
-                    x += sliceWidth;
-                }
-                ctx.lineTo(canvas.width, canvas.height / 2);
-                ctx.stroke();
-            }
-        }
-        
-        draw();
+        let audioCtx, analyser, dataArray;
+        const bars = document.querySelectorAll('.bar');
 
         document.body.addEventListener('click', async () => {
             if (isMicActive) return;
@@ -145,19 +238,37 @@
                 const source = audioCtx.createMediaStreamSource(stream);
                 source.connect(analyser);
                 
-                analyser.fftSize = 2048;
+                analyser.fftSize = 64;
                 const bufferLength = analyser.frequencyBinCount;
                 dataArray = new Uint8Array(bufferLength);
                 
                 isMicActive = true;
+                document.body.classList.add('listening');
+                document.getElementById('status-text').innerText = 'LISTENING';
+                document.getElementById('subtitle-msg').innerText = '"I am listening. Go ahead."';
                 
-                document.querySelector('.status').innerHTML = '<span class="status-dot" style="background-color: #0f0; box-shadow: 0 0 8px #0f0;"></span>LISTENING | OMNIROUTE CONNECTED';
-                document.querySelector('.status-dot').style.backgroundColor = '#0f0';
-                document.querySelector('.status-dot').style.boxShadow = '0 0 8px #0f0';
+                updateWaveform();
             } catch (err) {
-                console.error('Microphone access denied or error:', err);
+                console.error('Microphone access denied:', err);
+                document.getElementById('subtitle-msg').innerText = '"Microphone access was denied."';
             }
         });
+
+        function updateWaveform() {
+            if (!isMicActive) return;
+            requestAnimationFrame(updateWaveform);
+            
+            analyser.getByteFrequencyData(dataArray);
+            
+            // Map frequency data to the 5 bars
+            const step = Math.floor(dataArray.length / 5);
+            for (let i = 0; i < 5; i++) {
+                let val = dataArray[i * step] / 255.0; // 0.0 to 1.0
+                let height = Math.max(8, val * 40); // min 8px, max ~40px
+                bars[i].style.height = `${height}px`;
+                bars[i].style.animation = 'none'; // stop CSS animation
+            }
+        }
     </script>
 </body>
 </html>
