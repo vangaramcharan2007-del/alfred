@@ -21,9 +21,33 @@ def main() -> int:
     parser.add_argument("message", nargs="*", help="User task to route through Alfred.")
     parser.add_argument("--serve", action="store_true", help="Start Alfred's local REST API.")
     parser.add_argument("--host", default="127.0.0.1", help="REST API host.")
-    parser.add_argument("--port", type=int, default=8765, help="REST API port.")
+    parser.add_argument("--overlay", action="store_true", help="Launch the persistent desktop UI overlay and background voice engine.")
     args = parser.parse_args()
-    if args.serve:
+    
+    if args.overlay:
+        import subprocess
+        import sys
+        
+        # Launch UI as a separate process so it has its own main thread
+        print("Starting Jarvis X Desktop Overlay...")
+        subprocess.Popen([sys.executable, "-m", "jarvisx.ui.overlay"])
+        
+        # Start the background voice engine
+        runtime = create_default_runtime(log_path=Path("var/log/jarvisx.jsonl"))
+        from jarvisx.core.continuous_voice import ContinuousVoiceEngine
+        voice_engine = ContinuousVoiceEngine(runtime)
+        voice_engine.start()
+        
+        print("Jarvis X background services online. Say 'Friday' or 'Alfred' to activate.")
+        try:
+            while True:
+                import time
+                time.sleep(1)
+        except KeyboardInterrupt:
+            voice_engine.stop()
+            return 0
+            
+    elif args.serve:
         runtime = create_default_runtime(log_path=Path("var/log/jarvisx.jsonl"))
         server = create_alfred_api_server(runtime, host=args.host, port=args.port)
         host, port = server.server_address
