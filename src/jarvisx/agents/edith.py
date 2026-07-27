@@ -40,6 +40,39 @@ class EdithAgent(BaseAgent):
             result = notification.prepare_notification("Jarvis X", message)
             data["notification"] = result.to_dict()
             
+        if any(kw in message for kw in ["whatsapp", "excel", "send files", "send the 4 files", "do the excel", "whatasaap"]):
+            data_tool = self.tools.get("data_processing")
+            wa_tool = self.tools.get("whatsapp")
+            
+            from jarvisx.agents.alfred import _speak_offline
+            
+            action_taken = "Right away, sir. I am parsing the employee data from the PDFs into Excel files now.\n"
+            _speak_offline("Right away sir. I am parsing the employee data from the PDFs into Excel files now.", voice_hint="female")
+            
+            if data_tool and wa_tool:
+                res = data_tool.parse_tabular_text_to_excel(str(event.payload.get("message", "")), output_dir="scratch")
+                if res.success:
+                    num_files = len(res.data.get("files", []))
+                    _speak_offline(f"Successfully generated {num_files} Excel files. Initializing WhatsApp Web interface.", voice_hint="female")
+                    action_taken += f"Successfully generated {num_files} Excel files. Initializing WhatsApp Web interface.\n"
+                    
+                    _speak_offline("Opening WhatsApp Web. Waiting 15 seconds for the page to load.", voice_hint="female")
+                    _speak_offline("Searching for Ravindar Vanga and typing out the transmission message. I will paste the files directly.", voice_hint="female")
+                    
+                    msg = "Hello Ravindar, I have generated the 4 requested Excel files regarding the ABT AE probation commencement. Sending them now."
+                    wa_tool.send_files_ui("ravindar vanga", res.data["files"], msg)
+                    
+                    _speak_offline("The automation drill is complete.", voice_hint="female")
+                    action_taken += "The automation drill is complete.\n"
+                else:
+                    _speak_offline("I could not parse the raw data into Excel.", voice_hint="female")
+                    action_taken += "Failed to parse data.\n"
+            else:
+                _speak_offline("Data processing or WhatsApp tools are not available.", voice_hint="female")
+                action_taken += "Missing tools.\n"
+                
+            return self._response(event, handled=True, message=action_taken, data=data)
+
         return self._response(
             event,
             handled=True,

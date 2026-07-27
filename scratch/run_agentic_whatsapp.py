@@ -26,7 +26,8 @@ async def main():
     response = await runtime.alfred.process(prompt, trace_id="whatsapp-demo")
     
     print(f"\n[Agent Response - {response.agent_id.upper()}]:\n{response.message}")
-    print("\n[*] Demonstration Completed.")
+    print("\n[*] Demonstration Completed. Keeping script alive for voice rendering to finish...")
+    await asyncio.sleep(10)
     
 if __name__ == "__main__":
     asyncio.run(main())

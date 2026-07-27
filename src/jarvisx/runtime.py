@@ -178,7 +178,7 @@ def create_default_runtime(
             logger=logger,
         )
     )
-    registry.register(FridayAgent(tools={"file": FileSystem(root_dir="."), "computer": computer_tool, "vscode": vscode_tool, "data_processing": data_processing_tool, "whatsapp": whatsapp_tool}, logger=logger))
+    registry.register(FridayAgent(tools={"file": FileSystem(root_dir="."), "computer": computer_tool, "vscode": vscode_tool}, logger=logger))
     registry.register(EditingAgent(tools={"file": FileSystem(root_dir=".")}, logger=logger))
     registry.register(CADAgent(tools={"cad": cad_tool}, logger=logger))
     registry.register(ShadowBrokerAgent(tools={"research": research_tool}, logger=logger))
@@ -190,6 +190,8 @@ def create_default_runtime(
                 "notification": notification_tool,
                 "personalization": personalization_tool,
                 "termux": termux_tool,
+                "data_processing": data_processing_tool,
+                "whatsapp": whatsapp_tool,
             },
             logger=logger,
         )
