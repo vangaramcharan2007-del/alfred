@@ -31,6 +31,7 @@ from jarvisx.core.health import HealthMonitor, HealthStatus
 from jarvisx.core.hermes import HermesBus
 from jarvisx.core.logging import StructuredLogger
 from jarvisx.core.workflows import WorkflowEngine
+from jarvisx.cognition.cognitive_runtime import CognitiveRuntime
 from jarvisx.models.router import ModelRouter
 from jarvisx.tools.device import DeviceTool
 from jarvisx.tools.file_system import FileSystem
@@ -91,6 +92,7 @@ class JarvisRuntime:
     capability_registry: SystemCapabilityRegistry
     capability_runtime: CapabilityRuntime
     voice_manager: VoiceManager
+    cognitive_runtime: CognitiveRuntime
     data_dir: Path
     shutdown_manager: ShutdownManager = field(init=False)
     _cron_stop_event: threading.Event = field(init=False)
@@ -215,6 +217,8 @@ def create_default_runtime(
 
     registry.bind(hermes)
 
+    cognitive_runtime = CognitiveRuntime(config_path="src/jarvisx/config/cognitive_weights.yaml")
+
     model_router = ModelRouter()
     alfred = AlfredOrchestrator(
         hermes=hermes,
@@ -223,6 +227,7 @@ def create_default_runtime(
         model_router=model_router,
         personalization_tool=personalization_tool,
         logger=logger,
+        cognitive_runtime=cognitive_runtime,
     )
 
     health = HealthMonitor()
@@ -299,5 +304,6 @@ def create_default_runtime(
         capability_registry=capability_registry,
         capability_runtime=capability_runtime,
         voice_manager=voice_manager,
+        cognitive_runtime=cognitive_runtime,
         data_dir=Path("data"),
     )

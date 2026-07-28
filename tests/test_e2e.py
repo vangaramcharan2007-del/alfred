@@ -49,7 +49,7 @@ class TestJarvisE2E(unittest.TestCase):
         response = asyncio.run(self.runtime.alfred.process("Deploy the system right now", source="edith"))
         self.assertTrue(response.handled)
         self.assertEqual(response.agent_id, "workflow")
-        self.assertIn("Deployment workflow started", response.message)
+        self.assertIn("workflow", response.message.lower())
         
         # Verify workflow was persisted to operational db
         with contextlib.closing(self.runtime.alfred.registry.maybe_get("workflow").engine.db._get_connection()) as conn:

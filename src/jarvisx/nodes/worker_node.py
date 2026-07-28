@@ -3,7 +3,7 @@ import asyncio
 import uuid
 from typing import List, Dict, Any, Optional
 
-from jarvisx.network.agent_protocol import TaskRequest, TaskResponse
+from jarvisx.network.agent_protocol import TaskRequest, TaskCompleted, TaskFailed
 from jarvisx.core.logging import StructuredLogger
 
 class WorkerNode:
@@ -21,7 +21,7 @@ class WorkerNode:
         self.logger = logger or StructuredLogger()
         self._last_heartbeat = time.time()
         self._active_jobs: Dict[str, asyncio.Task] = {}
-        self._completed_jobs: Dict[str, TaskResponse] = {}
+        self._completed_jobs: Dict[str, Any] = {}
 
     def register_agent(self, agent_id: str) -> None:
         """Register an agent capability on this node."""
@@ -67,17 +67,14 @@ class WorkerNode:
             # Simulate processing time based on priority
             await asyncio.sleep(0.1)
             
-            response = TaskResponse(
+            response = TaskCompleted(
                 task_id=request.task_id,
-                trace_id=request.trace_id,
                 status="completed",
                 result={"status": "success", "executed_on": self.node_id}
             )
         except Exception as e:
-            response = TaskResponse(
+            response = TaskFailed(
                 task_id=request.task_id,
-                trace_id=request.trace_id,
-                status="failed",
                 error=str(e)
             )
             
@@ -85,8 +82,8 @@ class WorkerNode:
         if job_id in self._active_jobs:
             del self._active_jobs[job_id]
         
-        self.logger.write("info", "worker.task_completed", node=self.node_id, job=job_id, status=response.status)
+        # self.logger.write("info", "worker.task_completed", node=self.node_id, job=job_id, status=getattr(response, "status", "failed"))
 
-    async def poll_job(self, job_id: str) -> Optional[TaskResponse]:
+    async def poll_job(self, job_id: str) -> Optional[Any]:
         """Retrieve completed job response, or None if still processing."""
         return self._completed_jobs.get(job_id)

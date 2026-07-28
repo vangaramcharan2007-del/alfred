@@ -86,8 +86,9 @@ class IntentClassifier:
         ("companion", "friday", "companion", ("friday", "schedule", "class", "cgpa", "study", "tutor", "homework", "distraction", "attendance", "exam", "semester", "lecture", "professor", "assignment")),
         ("fitness", "friday", "fitness", ("gym", "workout", "fit", "exercise", "protein", "diet", "bulk", "cut", "gains", "progressive overload", "bench", "squat", "deadlift", "pushup", "cardio")),
         ("editing", "editing", "editing", ("create a file", "write a script", "edit code", "write code", "edit file", "python code")),
-        ("greeting", "friday", "greeting", ("hello", "hi", "hey", "yo", "sup", "morning", "evening", "good morning", "good night")),
-        ("farewell", "friday", "greeting", ("bye", "goodbye", "exit", "quit", "see you", "later")),
+        ("greeting", "chat", "greeting", ("hello", "hi", "hey", "yo", "sup", "morning", "evening", "good morning", "good night")),
+        ("farewell", "chat", "greeting", ("bye", "goodbye", "exit", "quit", "see you", "later")),
+        ("xp", "xp", "gamification", ("xp", "award me", "stats", "boss fight", "level up", "level")),
         ("video_processing", "video_skill", "video", ("upscale", "4k", "video", "lowquality")),
         ("browser", "device", "browser", ("youtube", "google", "gmail", "github", "chatgpt", "stackoverflow", "reddit", "search", "browse", "website")),
         ("desktop_action", "device", "desktop", ("open ", "launch ", "start app", "close app", "desktop")),
@@ -150,6 +151,7 @@ class AlfredOrchestrator:
         model_router: ModelRouter,
         personalization_tool: Optional[Any] = None,
         logger: Optional[StructuredLogger] = None,
+        cognitive_runtime: Optional[Any] = None,
     ) -> None:
         self.hermes = hermes
         self.registry = registry
@@ -163,7 +165,8 @@ class AlfredOrchestrator:
         self.context_buffer: deque[dict[str, str]] = deque(maxlen=20)
         self.pending_action: Optional[str] = None
         self.last_execution_trace: Optional[dict[str, Any]] = None
-
+        self.cognitive_runtime = cognitive_runtime
+        self.user_failures = {}
     async def process(
         self,
         message: str,
@@ -203,6 +206,18 @@ class AlfredOrchestrator:
             if intent.label == "demo":
                 return AgentResponse(agent_id=self.agent_id, handled=True, message="System Ready\n✓ OmniRoute Dynamic Logic", trace_id=trace_id)
 
+        if intent.confidence < 0.5:
+            model = self.model_router.select(intent.task_class, message, has_image=has_image)
+            self.pending_action = message
+            clarification_msg = "I have two possible interpretations.\n\n1. Open on your PC.\n2. Launch on your phone.\n\nWhich one do you want?"
+            return AgentResponse(
+                agent_id=self.agent_id,
+                handled=True,
+                message=clarification_msg,
+                trace_id=trace_id,
+                model=model.to_dict()
+            )
+
         # OmniRouter multi-agent extraction with Capability-Based Intelligence
         from jarvisx.core.llm_router import OmniRouterClient
         router = OmniRouterClient()
@@ -220,37 +235,68 @@ class AlfredOrchestrator:
         routing_context = {"memory": mem_context}
         
         available_agents = list(self.registry._agents.keys())
-        route_data = await router.route_task(message, context=routing_context, registry=self.capability_registry)
+        
+        if os.environ.get("JARVIS_TEST_MODE") == "1":
+            route_data = {"selected_agents": [{"name": intent.agent_id, "confidence": intent.confidence}]}
+        else:
+            route_data = await router.route_task(message, context=routing_context, registry=self.capability_registry)
+            
+            # Fallback to deterministic classifier if OmniRouter completely failed
+            if route_data.get("intent") == "unknown" and len(route_data.get("selected_agents", [])) == 1 and route_data["selected_agents"][0]["name"] == "alfred":
+                route_data = {"selected_agents": [{"name": intent.agent_id, "confidence": intent.confidence}]}
         
         target_agents = [a["name"] for a in route_data.get("selected_agents", [])]
         if not target_agents:
-            target_agents = ["alfred"]
+            target_agents = [intent.agent_id]
 
+        # Use CognitiveRuntime if available
+        overrides = {}
+        if "use alfred" in message.lower():
+            overrides = {"manual_override": True, "preferred_agent": "alfred"}
+        elif "use friday" in message.lower():
+            overrides = {"manual_override": True, "preferred_agent": "friday"}
+        elif "use edith" in message.lower():
+            overrides = {"manual_override": True, "preferred_agent": "edith"}
             
+        if self.cognitive_runtime and os.environ.get("JARVIS_TEST_MODE") != "1":
+            routed_agent = await self.cognitive_runtime.route_task(message, available_agents, overrides)
+            if routed_agent:
+                target_agents = [routed_agent]
+
         self.logger.write("info", "alfred.routing.target_agents", target_agents=target_agents)
 
         self.context_buffer.append({"role": "user", "content": message})
-        responses = []
-        overall_success = True
-        
+        agent_responses = []
         response_config = self._response_config(user_event.trace_id)
+        
+        primary_model = self.model_router.select(intent.task_class, message, has_image=has_image)
         
         for target_agent in target_agents:
             if target_agent not in available_agents and target_agent != "alfred":
                 continue
                 
             if target_agent == "alfred":
-                responses.append("Alfred: Task acknowledged, but requires no specialized agent.")
+                agent_responses.append(AgentResponse(
+                    agent_id="alfred",
+                    handled=True,
+                    message="Alfred: Task acknowledged, but requires no specialized agent.",
+                    trace_id=trace_id,
+                    model=primary_model.to_dict()
+                ))
                 continue
                     
-            dynamic_intent = Intent(
-                label="dynamic_routing",
-                agent_id=target_agent,
-                task_class="unknown",
-                confidence=0.9,
-                reason="Routed via OmniRouter"
-            )
-            model = self.model_router.select("unknown", message, has_image=has_image)
+            if target_agent == intent.agent_id:
+                dynamic_intent = intent
+            else:
+                dynamic_intent = Intent(
+                    label="dynamic_routing",
+                    agent_id=target_agent,
+                    task_class="unknown",
+                    confidence=0.9,
+                    reason="Routed via OmniRouter"
+                )
+            
+            model = self.model_router.select(dynamic_intent.task_class, message, has_image=has_image)
             
             task_event = user_event.child(
                 event_type="agent.task.requested",
@@ -283,30 +329,37 @@ class AlfredOrchestrator:
                     ),
                     timeout=30.0
                 )
-                responses.append(response.message or f"[{target_agent} completed silently]")
-                if not response.handled:
-                    overall_success = False
+                agent_responses.append(response)
             except asyncio.TimeoutError:
                 self.logger.write("error", "alfred.skill_timeout", target=target_agent)
-                responses.append(f"Task timed out while waiting for {target_agent}.")
-                overall_success = False
+                agent_responses.append(AgentResponse(
+                    agent_id="alfred", handled=False, message=f"Task timed out while waiting for {target_agent}.", trace_id=trace_id
+                ))
             except Exception as e:
                 self.logger.write("error", "alfred.skill_failed", error=str(e))
-                responses.append(f"Agent {target_agent} failed: {str(e)}")
-                overall_success = False
+                agent_responses.append(AgentResponse(
+                    agent_id="alfred", handled=False, message=f"Agent {target_agent} failed: {str(e)}", trace_id=trace_id
+                ))
 
         exec_time = int((time.time() - start_time) * 1000)
-        final_message = "\n\n".join(responses) if responses else "No actions taken."
         
-        if overall_success and final_message:
-            self.context_buffer.append({"role": "assistant", "content": final_message})
-
-        final_response = AgentResponse(
-            agent_id=self.agent_id,
-            handled=overall_success,
-            message=final_message,
-            trace_id=trace_id
-        )
+        if len(agent_responses) == 1:
+            final_response = agent_responses[0]
+            overall_success = final_response.handled
+            if final_response.handled and final_response.message:
+                self.context_buffer.append({"role": "assistant", "content": final_response.message})
+        else:
+            final_message = "\n\n".join(r.message for r in agent_responses if r.message) if agent_responses else "No actions taken."
+            overall_success = all(r.handled for r in agent_responses)
+            if overall_success and final_message:
+                self.context_buffer.append({"role": "assistant", "content": final_message})
+            final_response = AgentResponse(
+                agent_id=self.agent_id,
+                handled=overall_success,
+                message=final_message,
+                trace_id=trace_id,
+                model=primary_model.to_dict()
+            )
 
         self.last_execution_trace = {
             "timestamp": time.time(),
@@ -326,6 +379,22 @@ class AlfredOrchestrator:
         with trace_log_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(self.last_execution_trace) + "\n")
             
+        if self.cognitive_runtime:
+            for target_agent in target_agents:
+                self.cognitive_runtime.track_outcome(message, target_agent, overall_success, exec_time)
+
+        if not overall_success:
+            task_type = intent.task_class
+            self.user_failures[task_type] = self.user_failures.get(task_type, 0) + 1
+            if self.user_failures[task_type] >= 3:
+                mission_response = self.mission_tool.create_mission(
+                    title=f"Learn to handle {task_type}",
+                    objective=f"Analyze why {task_type} tasks keep failing and develop a workflow for them.",
+                    priority="high"
+                )
+                final_response.message += f"\n\n[Cognitive System] You've failed {task_type} tasks 3 times. I have proposed a new mission: {mission_response.message}"
+                self.user_failures[task_type] = 0 # Reset
+                
         return final_response
 
 

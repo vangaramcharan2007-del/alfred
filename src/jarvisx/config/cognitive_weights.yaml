@@ -1,0 +1,6 @@
+routing_weights:
+  capability_match: 0.40
+  historical_success: 0.25
+  preference_match: 0.20
+  task_similarity: 0.10
+  confidence_score: 0.05

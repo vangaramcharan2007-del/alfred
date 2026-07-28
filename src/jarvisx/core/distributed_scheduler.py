@@ -5,16 +5,20 @@ from jarvisx.agents.capability_registry import CapabilityRegistry
 from jarvisx.nodes.node_registry import NodeRegistry
 from jarvisx.network.agent_protocol import TaskRequest
 from jarvisx.core.logging import StructuredLogger
+from jarvisx.cognition.decision_engine import DecisionEngine
+
 
 class DistributedScheduler:
     """
     Coordinates task execution by bridging the CapabilityRegistry (Agent Selection)
     and NodeRegistry (Machine Selection).
     """
-    def __init__(self, capability_registry: CapabilityRegistry, node_registry: NodeRegistry, logger: Optional[StructuredLogger] = None):
+    def __init__(self, capability_registry: CapabilityRegistry, node_registry: NodeRegistry, logger: Optional[StructuredLogger] = None, decision_engine: Optional[DecisionEngine] = None):
         self.capability_registry = capability_registry
         self.node_registry = node_registry
         self.logger = logger or StructuredLogger()
+        self.decision_engine = decision_engine
+
 
     def select_best_node(self, agent_id: str, required_capabilities: list[str], nodes_telemetry: list[Dict[str, Any]], user_preferences: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """
@@ -102,7 +106,18 @@ class DistributedScheduler:
             self.logger.write("warning", "scheduler.no_agent_found", capabilities=required_capabilities)
             return None
             
-        best_agent = agent_scores[0]["agent"]
+        capable_agents = [s["agent"] for s in agent_scores]
+        best_agent = capable_agents[0]
+        
+        if self.decision_engine:
+            try:
+                context = {a: {"capability_match": 1.0} for a in capable_agents}
+                ranked = self.decision_engine.rank_agents(capable_agents, context)
+                if ranked:
+                    best_agent = ranked[0]
+            except Exception as e:
+                self.logger.write("warning", "scheduler.cognitive_routing_failed", error=str(e))
+        
         self.logger.write("info", "scheduler.agent_selected", task=task_id, agent=best_agent)
         
         # 2. Query NodeRegistry (Machine Selection)
