@@ -41,9 +41,10 @@ class AgentMonitor:
         self._health_map: Dict[str, AgentHealth] = {}
         
     def _get_or_create(self, agent_id: str, node: str = "local") -> AgentHealth:
-        if agent_id not in self._health_map:
-            self._health_map[agent_id] = AgentHealth(agent=agent_id, node=node)
-        return self._health_map[agent_id]
+        key = f"{agent_id}@{node}"
+        if key not in self._health_map:
+            self._health_map[key] = AgentHealth(agent=agent_id, node=node)
+        return self._health_map[key]
 
     def register_heartbeat(self, agent_id: str, node: str = "local", gpu_available: bool = False) -> None:
         """Register a heartbeat from an agent node."""
@@ -52,9 +53,9 @@ class AgentMonitor:
         health.status = "online"
         health.gpu = "available" if gpu_available else "unavailable"
         
-    def record_success(self, agent_id: str, execution_time_ms: int) -> None:
+    def record_success(self, agent_id: str, execution_time_ms: int, node: str = "local") -> None:
         """Record a successful agent execution."""
-        health = self._get_or_create(agent_id)
+        health = self._get_or_create(agent_id, node)
         health._total_executions += 1
         health._successful_executions += 1
         health._last_execution_time = execution_time_ms
@@ -63,21 +64,22 @@ class AgentMonitor:
         # Calculate success rate
         health.success_rate = int((health._successful_executions / health._total_executions) * 100)
         
-    def record_failure(self, agent_id: str, execution_time_ms: int) -> None:
+    def record_failure(self, agent_id: str, execution_time_ms: int, node: str = "local") -> None:
         """Record a failed agent execution."""
-        health = self._get_or_create(agent_id)
+        health = self._get_or_create(agent_id, node)
         health._total_executions += 1
         health._last_execution_time = execution_time_ms
         health.latency = f"{execution_time_ms}ms"
         
         # Calculate success rate
         health.success_rate = int((health._successful_executions / health._total_executions) * 100)
-        self.logger.write("warning", "agent_monitor.failure_recorded", agent_id=agent_id, success_rate=health.success_rate)
+        self.logger.write("warning", "agent_monitor.failure_recorded", agent_id=agent_id, node=node, success_rate=health.success_rate)
 
-    def get_agent_health(self, agent_id: str) -> Optional[Dict[str, object]]:
-        """Get the current health dictionary for a specific agent."""
-        if agent_id in self._health_map:
-            health = self._health_map[agent_id]
+    def get_agent_health(self, agent_id: str, node: str = "local") -> Optional[Dict[str, object]]:
+        """Get the current health dictionary for a specific agent on a specific node."""
+        key = f"{agent_id}@{node}"
+        if key in self._health_map:
+            health = self._health_map[key]
             if time.time() - health._last_heartbeat > 300 and health.status == "online":
                 health.status = "offline"
             return health.to_dict()
@@ -85,7 +87,12 @@ class AgentMonitor:
 
     def list_health(self) -> List[Dict[str, object]]:
         """List health summaries for all registered agents."""
-        return [self.get_agent_health(agent_id) for agent_id in self._health_map.keys() if self.get_agent_health(agent_id)]
+        results = []
+        for health in self._health_map.values():
+            if time.time() - health._last_heartbeat > 300 and health.status == "online":
+                health.status = "offline"
+            results.append(health.to_dict())
+        return results
 
     def monitor_node(self, node_id: str, status: str, latency: int, active_jobs: int = 0, gpu_available: bool = False) -> None:
         """Explicitly monitor a node's health and hardware availability."""

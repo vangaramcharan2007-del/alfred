@@ -46,7 +46,7 @@ async def test_voice_orchestration_flow():
     
     # Populate voice configurations so VoiceManager can resolve voice_id
     runtime.config_manager.set("voices.device", {"voice_id": "device"})
-    runtime.config_manager.set("voices.planner", {"voice_id": "planner"})
+    runtime.config_manager.set("voices.friday", {"voice_id": "energetic_playful"})
     
     # Mock ProviderRouter to simulate STT and TTS without real providers
     async def mock_route(category, action, *args, **kwargs):
@@ -86,4 +86,4 @@ async def test_voice_orchestration_flow():
     audio_out_planner = await voice_manager.process_voice_input(audio_data_planner, trace_id="test-trace-456")
     
     result_planner = json.loads(audio_out_planner.decode("utf-8"))
-    assert result_planner["voice_profile"] == "planner"
+    assert result_planner["voice_profile"] == "energetic_playful"
