@@ -1,5 +1,23 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, List, Optional
+import json
+
+@dataclass
+class Envelope:
+    """Message envelope for all agent protocol communications."""
+    message_id: str
+    trace_id: str
+    timestamp: str
+    type: str
+    payload: Dict[str, Any]
+    
+    def to_json(self) -> str:
+        return json.dumps(asdict(self))
+        
+    @staticmethod
+    def from_json(data: str) -> "Envelope":
+        parsed = json.loads(data)
+        return Envelope(**parsed)
 
 @dataclass
 class TaskRequest:
@@ -10,30 +28,54 @@ class TaskRequest:
     payload: Dict[str, Any]
     priority: int = 5
     deadline: Optional[float] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
 
 @dataclass
-class TaskResponse:
+class TaskAccepted:
     task_id: str
-    trace_id: str
+    node_id: str
+    timestamp: str
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+@dataclass
+class TaskProgress:
+    task_id: str
+    progress: int
+    message: str
+    current_stage: str
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+@dataclass
+class TaskCompleted:
+    task_id: str
     status: str
     result: Dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
-
-class AgentProtocol:
-    """
-    Abstract base class for remote agent communication protocols.
-    Future implementations: WebSocketAgentProtocol, gRPCAgentProtocol, RESTAgentProtocol.
-    """
     
-    async def dispatch_task(self, node_id: str, request: TaskRequest) -> str:
-        """
-        Dispatches a task to a remote node.
-        Returns a job_id for tracking progress asynchronously.
-        """
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+@dataclass
+class TaskFailed:
+    task_id: str
+    error: str
+    recoverable: bool = False
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+class TransportInterface:
+    """Abstract interface for async message transport."""
+    async def send_message(self, node_id: str, message: Envelope) -> None:
         raise NotImplementedError
         
-    async def poll_status(self, job_id: str) -> TaskResponse:
-        """
-        Polls the status of a remote job.
-        """
+    async def receive_message(self, node_id: str) -> Optional[Envelope]:
+        raise NotImplementedError
+        
+    async def broadcast(self, message: Envelope) -> None:
         raise NotImplementedError

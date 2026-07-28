@@ -87,7 +87,7 @@ class AgentMonitor:
         """List health summaries for all registered agents."""
         return [self.get_agent_health(agent_id) for agent_id in self._health_map.keys() if self.get_agent_health(agent_id)]
 
-    def monitor_node(self, node_id: str, status: str, latency: int, gpu_available: bool = False) -> None:
+    def monitor_node(self, node_id: str, status: str, latency: int, active_jobs: int = 0, gpu_available: bool = False) -> None:
         """Explicitly monitor a node's health and hardware availability."""
         # For this phase, we update all agents assigned to this node with the latest node metrics
         for health in self._health_map.values():
@@ -96,7 +96,10 @@ class AgentMonitor:
                 health.latency = f"{latency}ms"
                 health.gpu = "available" if gpu_available else "unavailable"
                 health._last_heartbeat = time.time()
-                self.logger.write("info", "monitor.node_updated", node=node_id, status=status)
+        
+        # In a complete implementation we would store the node health in a separate map,
+        # but for this iteration we can attach active_jobs to the logger event.
+        self.logger.write("info", "monitor.node_updated", node=node_id, status=status, latency=latency, active_jobs=active_jobs)
 
     def monitor_agent(self, agent_id: str, success_rate: int) -> None:
         """Directly update an agent's success rate."""
@@ -109,8 +112,26 @@ class AgentMonitor:
         total_nodes = len(set(h.node for h in self._health_map.values()))
         online_agents = sum(1 for h in self._health_map.values() if h.status == "online")
         
+        # Provide the requested summary format alongside the mesh detail
+        summaries = []
+        for node in set(h.node for h in self._health_map.values()):
+            node_agents = [h for h in self._health_map.values() if h.node == node]
+            if node_agents:
+                # Approximate node health from its agents
+                first_agent = node_agents[0]
+                is_healthy = first_agent.status == "online"
+                latency_val = int(first_agent.latency.replace("ms", "")) if first_agent.latency.endswith("ms") else 0
+                
+                summaries.append({
+                    "node": node,
+                    "connection": "healthy" if is_healthy else "unhealthy",
+                    "latency": latency_val,
+                    "active_jobs": 0  # In a real implementation we would fetch from TaskManager
+                })
+        
         return {
             "total_nodes_tracked": total_nodes,
             "online_agents": online_agents,
+            "node_summaries": summaries,
             "agent_mesh": self.list_health()
         }
