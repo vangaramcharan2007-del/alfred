@@ -19,6 +19,7 @@ SUPPORTED_CATEGORIES = {
     "conversation": "Conversations",
     "architecture": "Architecture",
     "general": "Scratchpad",
+    "journal": "Journal",
 }
 REQUIRED_DIRECTORIES = (
     "Daily",
@@ -27,6 +28,7 @@ REQUIRED_DIRECTORIES = (
     "Conversations",
     "Architecture",
     "Scratchpad",
+    "Journal",
 )
 
 

@@ -1,0 +1,31 @@
+{
+  "id": "edith",
+  "name": "Edith",
+  "role": "Mobile Operator",
+  "capabilities": [
+    "mobile_control",
+    "reminders",
+    "sms",
+    "device_management"
+  ],
+  "tools": [
+    "termux",
+    "adb"
+  ],
+  "input_types": [
+    "text",
+    "voice"
+  ],
+  "output_types": [
+    "text",
+    "speech",
+    "haptic"
+  ],
+  "priority": 8,
+  "resource_requirements": {
+    "gpu": false,
+    "internet": false,
+    "tailscale": true
+  },
+  "status": "active"
+}

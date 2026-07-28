@@ -1,0 +1,29 @@
+{
+  "id": "vision",
+  "name": "Vision",
+  "role": "Visual Inspector",
+  "capabilities": [
+    "vision",
+    "ocr",
+    "image_analysis",
+    "screenshot_analysis"
+  ],
+  "tools": [
+    "screen_capture",
+    "ocr_engine"
+  ],
+  "input_types": [
+    "image",
+    "text"
+  ],
+  "output_types": [
+    "text",
+    "json"
+  ],
+  "priority": 7,
+  "resource_requirements": {
+    "gpu": true,
+    "internet": false
+  },
+  "status": "active"
+}

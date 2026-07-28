@@ -99,6 +99,8 @@ class WaveformOverlay(QWidget):
             if val == "friday":
                 self.color = QColor(0, 240, 255) # Cyan
             elif val == "alfred":
+                self.color = QColor(0, 150, 255) # Blue
+            elif val == "edith":
                 self.color = QColor(255, 165, 0) # Orange
             elif val.startswith("#"):
                 self.color = QColor(val)

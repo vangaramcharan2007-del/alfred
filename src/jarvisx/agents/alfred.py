@@ -14,16 +14,20 @@ from typing import Any, Optional
 
 from jarvisx.agents.base import AgentResponse
 from jarvisx.agents.registry import AgentRegistry
+from jarvisx.agents.capability_registry import CapabilityRegistry
 from jarvisx.core.events import Event
 from jarvisx.core.failures import FailureReport
 from jarvisx.core.hermes import HermesBus
 from jarvisx.core.logging import StructuredLogger
 from jarvisx.models.router import ModelRouter
 from jarvisx.tools.device import SUPPORTED_DEVICE_ACTIONS
+from jarvisx.tools.memory import LocalMemoryTool
+from jarvisx.tools.missions import MissionTool
 
 
 def _speak_offline(text: str, *, voice_hint: str = "male") -> None:
     """Best-effort local TTS hook used for demos; silently disabled without pyttsx3."""
+    print(f"\n[SPEECH EVENT | Voice: {voice_hint}] {text}\n")
     if os.environ.get("JARVIS_SPEAK_OFFLINE", "").lower() not in {"1", "true", "yes"}:
         return
     if importlib.util.find_spec("pyttsx3") is None:
@@ -87,12 +91,12 @@ class IntentClassifier:
         ("video_processing", "video_skill", "video", ("upscale", "4k", "video", "lowquality")),
         ("browser", "device", "browser", ("youtube", "google", "gmail", "github", "chatgpt", "stackoverflow", "reddit", "search", "browse", "website")),
         ("desktop_action", "device", "desktop", ("open ", "launch ", "start app", "close app", "desktop")),
-        ("mobile_action", "device", "mobile", ("mobile", "phone", "sms")),
+        ("mobile_action", "edith", "mobile", ("mobile", "phone", "sms", "battery", "vibrate", "termux", "notification")),
         ("memory", "memory", "memory", ("remember", "recall", "memory", "obsidian", "note")),
         ("research", "research", "research", ("research", "summarize", "documentation", "docs", "find info")),
         ("planning", "friday", "planning", ("todo", "task", "remind", "schedule", "plan", "goal")),
         ("cad", "workflow", "workflow", ("generate a cad", "cad model", "cad generation")),
-        ("automation", "workflow", "workflow", ("workflow", "deploy", "automate")),
+        ("automation", "workflow", "workflow", ("workflow", "deploy", "automate", "book", "ticket")),
         ("system_control", "device", "system", ("shutdown", "restart", "volume", "brightness")),
         ("debug", "debug", "debug", ("debug", "error", "failure", "logs", "test", "patch", "fix")),
     )
@@ -153,6 +157,9 @@ class AlfredOrchestrator:
         self.model_router = model_router
         self.personalization_tool = personalization_tool
         self.logger = logger or StructuredLogger()
+        self.capability_registry = CapabilityRegistry(logger=self.logger)
+        self.memory_tool = LocalMemoryTool(logger=self.logger)
+        self.mission_tool = MissionTool(memory_tool=self.memory_tool, logger=self.logger)
         self.context_buffer: deque[dict[str, str]] = deque(maxlen=20)
         self.pending_action: Optional[str] = None
         self.last_execution_trace: Optional[dict[str, Any]] = None
@@ -166,13 +173,13 @@ class AlfredOrchestrator:
         has_image: bool = False,
     ) -> AgentResponse:
         import time
+        import asyncio
         start_time = time.time()
         
         # Clarification Continuation
         if self.pending_action and message.lower() in ("browser", "pc", "desktop", "phone", "mobile", "android"):
             clarified_message = f"{self.pending_action} ({message})"
             self.pending_action = None
-            # Re-process with clarified context
             return await self.process(clarified_message, trace_id=trace_id, source=source, has_image=has_image)
             
         user_event = self._event(
@@ -181,122 +188,146 @@ class AlfredOrchestrator:
             trace_id=trace_id,
             payload={"message": message},
         )
+        
+        # Legacy Transparency/Status Fast Path
         intent = self.classifier.classify(message)
-        
-        # Transparency Commands
-        if intent.label == "explain":
-            explanation = self._generate_explanation()
-            return AgentResponse(agent_id=self.agent_id, handled=True, message=explanation, trace_id=trace_id)
-        if intent.label == "status":
-            status = self._generate_status()
-            return AgentResponse(agent_id=self.agent_id, handled=True, message=status, trace_id=trace_id)
-        if intent.label == "architecture":
-            arch = self._generate_architecture()
-            return AgentResponse(agent_id=self.agent_id, handled=True, message=arch, trace_id=trace_id)
-        if intent.label == "capabilities":
-            caps = self._generate_capabilities()
-            return AgentResponse(agent_id=self.agent_id, handled=True, message=caps, trace_id=trace_id)
-        if intent.label == "demo":
-            return AgentResponse(agent_id=self.agent_id, handled=True, message="System Ready\n✓ Intent Classification\n✓ Skill Selection\n✓ Memory\n✓ Tool Registry\n✓ Permissions\n✓ Workflow\n✓ Runtime", trace_id=trace_id)
-            
-        # Clarification Engine (Phase 4)
-        if has_image and intent.confidence < 0.5:
-            intent = Intent(
-                label="vision",
-                agent_id="research",
-                task_class="vision",
-                confidence=0.75,
-                reason="Image input requires reasoning even when text extraction is ambiguous.",
-            )
+        if intent.label in ("explain", "status", "architecture", "capabilities", "demo"):
+            if intent.label == "explain":
+                return AgentResponse(agent_id=self.agent_id, handled=True, message=self._generate_explanation(), trace_id=trace_id)
+            if intent.label == "status":
+                return AgentResponse(agent_id=self.agent_id, handled=True, message=self._generate_status(), trace_id=trace_id)
+            if intent.label == "architecture":
+                return AgentResponse(agent_id=self.agent_id, handled=True, message=self._generate_architecture(), trace_id=trace_id)
+            if intent.label == "capabilities":
+                return AgentResponse(agent_id=self.agent_id, handled=True, message=self._generate_capabilities(), trace_id=trace_id)
+            if intent.label == "demo":
+                return AgentResponse(agent_id=self.agent_id, handled=True, message="System Ready\n✓ OmniRoute Dynamic Logic", trace_id=trace_id)
 
-        if intent.confidence < 0.5:
-            self.pending_action = message
-            clarification_msg = "I have two possible interpretations.\n\n1. Open on your PC.\n2. Launch on your phone.\n\nWhich one do you want?"
-            return AgentResponse(
-                agent_id=self.agent_id,
-                handled=True,
-                message=clarification_msg,
-                trace_id=trace_id
-            )
-            
-        model = self.model_router.select(intent.task_class, message, has_image=has_image)
-        self.logger.write(
-            "info",
-            "alfred.intent.selected",
-            trace_id=user_event.trace_id,
-            intent=intent.to_dict(),
-            model=model.to_dict(),
-        )
-        response_config = self._response_config(user_event.trace_id)
-
-        task_event = user_event.child(
-            event_type="agent.task.requested",
-            source=self.agent_id,
-            target=intent.agent_id,
-            payload={
-                "message": message,
-                "context_buffer": list(self.context_buffer),
-                "intent": intent.to_dict(),
-                "model": model.to_dict(),
-                "response_config": response_config,
-            },
-        )
+        # OmniRouter multi-agent extraction with Capability-Based Intelligence
+        from jarvisx.core.llm_router import OmniRouterClient
+        router = OmniRouterClient()
         
-        self.context_buffer.append({"role": "user", "content": message})
-
-        if intent.agent_id == "friday":
-            _speak_offline("Right away, sir. I have prepared your workspace. Friday, you have the floor.")
-        elif intent.agent_id != "planner":
-            _speak_offline(f"Executing protocol. Passing control to {intent.agent_id}.")
-        
-        # Capability Fallback Chain (Simulated logic in Orchestrator for now)
+        # Build memory context
+        mem_context = {}
         try:
-            response = await self._delegate(
-                task_event,
-                intent=intent,
-                model=model.to_dict(),
-                response_config=response_config,
-            )
+            active_missions = self.mission_tool.list_active_missions().data
+            mem_context["active_missions"] = active_missions
+            recent_memories = self.memory_tool.list_memories(category="project", limit=2).data
+            mem_context["recent_projects"] = recent_memories
         except Exception as e:
-            # Fake fallback logic for transparency phase
-            self.logger.write("error", "alfred.skill_failed", trace_id=user_event.trace_id, error=str(e))
-            response = AgentResponse(
-                agent_id=self.agent_id, 
-                handled=False, 
-                message=f"Primary skill failed. Fallback explanation: Could not process {message} due to {e}", 
-                trace_id=trace_id
+            self.logger.write("warning", "alfred.memory_fetch_failed", error=str(e))
+            
+        routing_context = {"memory": mem_context}
+        
+        available_agents = list(self.registry._agents.keys())
+        route_data = await router.route_task(message, context=routing_context, registry=self.capability_registry)
+        
+        target_agents = [a["name"] for a in route_data.get("selected_agents", [])]
+        if not target_agents:
+            target_agents = ["alfred"]
+
+            
+        self.logger.write("info", "alfred.routing.target_agents", target_agents=target_agents)
+
+        self.context_buffer.append({"role": "user", "content": message})
+        responses = []
+        overall_success = True
+        
+        response_config = self._response_config(user_event.trace_id)
+        
+        for target_agent in target_agents:
+            if target_agent not in available_agents and target_agent != "alfred":
+                continue
+                
+            if target_agent == "alfred":
+                responses.append("Alfred: Task acknowledged, but requires no specialized agent.")
+                continue
+                    
+            dynamic_intent = Intent(
+                label="dynamic_routing",
+                agent_id=target_agent,
+                task_class="unknown",
+                confidence=0.9,
+                reason="Routed via OmniRouter"
+            )
+            model = self.model_router.select("unknown", message, has_image=has_image)
+            
+            task_event = user_event.child(
+                event_type="agent.task.requested",
+                source=self.agent_id,
+                target=target_agent,
+                payload={
+                    "message": message,
+                    "context_buffer": list(self.context_buffer),
+                    "intent": dynamic_intent.to_dict(),
+                    "model": model.to_dict(),
+                    "response_config": response_config,
+                },
             )
             
+            if target_agent == "friday":
+                _speak_offline("Executing protocol. Friday, you have the floor.", voice_hint="male")
+            elif target_agent == "edith":
+                _speak_offline("Edith, patching you in now.", voice_hint="male")
+            else:
+                _speak_offline(f"Executing protocol. Passing control to {target_agent}.", voice_hint="male")
+
+            try:
+                # Delegate using the existing _delegate, wrap in wait_for
+                response = await asyncio.wait_for(
+                    self._delegate(
+                        task_event,
+                        intent=dynamic_intent,
+                        model=model.to_dict(),
+                        response_config=response_config,
+                    ),
+                    timeout=30.0
+                )
+                responses.append(response.message or f"[{target_agent} completed silently]")
+                if not response.handled:
+                    overall_success = False
+            except asyncio.TimeoutError:
+                self.logger.write("error", "alfred.skill_timeout", target=target_agent)
+                responses.append(f"Task timed out while waiting for {target_agent}.")
+                overall_success = False
+            except Exception as e:
+                self.logger.write("error", "alfred.skill_failed", error=str(e))
+                responses.append(f"Agent {target_agent} failed: {str(e)}")
+                overall_success = False
+
         exec_time = int((time.time() - start_time) * 1000)
-            
-        if response.handled and response.message:
-            self.context_buffer.append({"role": "assistant", "content": response.message})
-            
-        # Write Execution Trace (Phase Ω.7)
+        final_message = "\n\n".join(responses) if responses else "No actions taken."
+        
+        if overall_success and final_message:
+            self.context_buffer.append({"role": "assistant", "content": final_message})
+
+        final_response = AgentResponse(
+            agent_id=self.agent_id,
+            handled=overall_success,
+            message=final_message,
+            trace_id=trace_id
+        )
+
         self.last_execution_trace = {
             "timestamp": time.time(),
             "user_input": message,
-            "intent": intent.label,
-            "confidence": intent.confidence,
-            "chosen_agent": intent.agent_id,
-            "chosen_skill": f"{intent.agent_id}_skill",
-            "tool": intent.task_class,
+            "intent": "dynamic_multi_agent",
+            "confidence": 0.9,
+            "chosen_agent": ",".join(target_agents),
+            "chosen_skill": "omniroute",
+            "tool": "dynamic",
             "permission_level": "granted",
             "execution_time_ms": exec_time,
-            "status": "success" if response.handled else "failed"
+            "status": "success" if overall_success else "failed"
         }
         
-        if os.environ.get("JARVIS_DEBUG") == "true":
-            print(f"\n[DEBUG] Intent: {intent.label} ({intent.confidence})")
-            print(f"[DEBUG] Chosen Skill: {intent.agent_id}_skill")
-            print(f"[DEBUG] Execution Time: {exec_time} ms\n")
-
         trace_log_path = Path(os.environ.get("JARVIS_TRACE_LOG", "var/log/runtime_trace.jsonl"))
         trace_log_path.parent.mkdir(parents=True, exist_ok=True)
         with trace_log_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(self.last_execution_trace) + "\n")
             
-        return response
+        return final_response
+
 
     def _generate_explanation(self) -> str:
         if not self.last_execution_trace:

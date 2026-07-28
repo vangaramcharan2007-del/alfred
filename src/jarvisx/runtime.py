@@ -178,7 +178,7 @@ def create_default_runtime(
             logger=logger,
         )
     )
-    registry.register(FridayAgent(tools={"file": FileSystem(root_dir="."), "computer": computer_tool, "vscode": vscode_tool}, logger=logger))
+    registry.register(FridayAgent(tools={"file": FileSystem(root_dir="."), "computer": computer_tool, "vscode": vscode_tool, "memory": memory_tool}, logger=logger))
     registry.register(EditingAgent(tools={"file": FileSystem(root_dir=".")}, logger=logger))
     registry.register(CADAgent(tools={"cad": cad_tool}, logger=logger))
     registry.register(ShadowBrokerAgent(tools={"research": research_tool}, logger=logger))

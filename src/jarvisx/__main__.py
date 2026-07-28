@@ -5,7 +5,6 @@ import asyncio
 import json
 from pathlib import Path
 
-from jarvisx.api import create_alfred_api_server
 from jarvisx.runtime import create_default_runtime
 
 
@@ -48,16 +47,10 @@ def main() -> int:
             return 0
             
     elif args.serve:
-        runtime = create_default_runtime(log_path=Path("var/log/jarvisx.jsonl"))
-        server = create_alfred_api_server(runtime, host=args.host, port=args.port)
-        host, port = server.server_address
-        print(f"Alfred REST API listening on http://{host}:{port}")
-        try:
-            server.serve_forever()
-        except KeyboardInterrupt:
-            return 0
-        finally:
-            server.server_close()
+        import uvicorn
+        from jarvisx.api.server import app
+        print(f"Alfred REST API listening on http://{args.host}:{args.port}")
+        uvicorn.run(app, host=args.host, port=args.port)
     if not args.message:
         parser.error("message is required unless --serve is used")
     return asyncio.run(_run(" ".join(args.message)))
