@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from jarvisx.core.logging import StructuredLogger
 
 @dataclass
@@ -76,7 +76,6 @@ class AgentMonitor:
 
     def get_agent_health(self, agent_id: str) -> Optional[Dict[str, object]]:
         """Get the current health dictionary for a specific agent."""
-        # Simple offline detection (no heartbeat in 5 minutes)
         if agent_id in self._health_map:
             health = self._health_map[agent_id]
             if time.time() - health._last_heartbeat > 300 and health.status == "online":
@@ -86,4 +85,32 @@ class AgentMonitor:
 
     def list_health(self) -> List[Dict[str, object]]:
         """List health summaries for all registered agents."""
-        return [self.get_agent_health(agent_id) for agent_id in self._health_map.keys()]
+        return [self.get_agent_health(agent_id) for agent_id in self._health_map.keys() if self.get_agent_health(agent_id)]
+
+    def monitor_node(self, node_id: str, status: str, latency: int, gpu_available: bool = False) -> None:
+        """Explicitly monitor a node's health and hardware availability."""
+        # For this phase, we update all agents assigned to this node with the latest node metrics
+        for health in self._health_map.values():
+            if health.node == node_id:
+                health.status = status
+                health.latency = f"{latency}ms"
+                health.gpu = "available" if gpu_available else "unavailable"
+                health._last_heartbeat = time.time()
+                self.logger.write("info", "monitor.node_updated", node=node_id, status=status)
+
+    def monitor_agent(self, agent_id: str, success_rate: int) -> None:
+        """Directly update an agent's success rate."""
+        health = self._get_or_create(agent_id)
+        health.success_rate = success_rate
+        self.logger.write("info", "monitor.agent_updated", agent=agent_id, success_rate=success_rate)
+
+    def get_network_health(self) -> Dict[str, Any]:
+        """Aggregate the health of the entire node mesh."""
+        total_nodes = len(set(h.node for h in self._health_map.values()))
+        online_agents = sum(1 for h in self._health_map.values() if h.status == "online")
+        
+        return {
+            "total_nodes_tracked": total_nodes,
+            "online_agents": online_agents,
+            "agent_mesh": self.list_health()
+        }
