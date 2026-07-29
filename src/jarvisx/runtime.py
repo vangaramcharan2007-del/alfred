@@ -52,6 +52,10 @@ from jarvisx.tools.whatsapp_tool import WhatsAppTool
 
 from jarvisx.core.capabilities.registry import SystemCapabilityRegistry
 from jarvisx.core.capabilities.runtime import CapabilityRuntime
+from jarvisx.capabilities.capability_registry import CapabilityRegistry as NewCapabilityRegistry
+from jarvisx.capabilities.capability_loader import CapabilityLoader as NewCapabilityLoader
+from jarvisx.capabilities.capability_health import CapabilityHealth as NewCapabilityHealth
+from jarvisx.capabilities.permission_manager import PermissionManager as NewPermissionManager
 
 from jarvisx.core.providers.provider_registry import ProviderRegistry
 from jarvisx.core.providers.fallback_manager import FallbackManager
@@ -91,6 +95,10 @@ class JarvisRuntime:
     backup_manager: BackupManager
     capability_registry: SystemCapabilityRegistry
     capability_runtime: CapabilityRuntime
+    new_capability_registry: NewCapabilityRegistry
+    new_capability_loader: NewCapabilityLoader
+    new_capability_health: NewCapabilityHealth
+    new_permission_manager: NewPermissionManager
     voice_manager: VoiceManager
     cognitive_runtime: CognitiveRuntime
     data_dir: Path
@@ -207,6 +215,12 @@ def create_default_runtime(
     capability_registry.discover_plugins(capabilities_plugins_dir)
     capability_runtime = CapabilityRuntime(registry=capability_registry, logger=logger)
     
+    # Bootstrap New Capability Framework
+    new_cap_registry = NewCapabilityRegistry()
+    new_cap_loader = NewCapabilityLoader(registry=new_cap_registry)
+    new_cap_health = NewCapabilityHealth()
+    new_perm_manager = NewPermissionManager()
+    
     # Register Capability Agent
     registry.register(CapabilityAgent(runtime=capability_runtime, logger=logger))
     
@@ -303,6 +317,10 @@ def create_default_runtime(
         backup_manager=backup_manager,
         capability_registry=capability_registry,
         capability_runtime=capability_runtime,
+        new_capability_registry=new_cap_registry,
+        new_capability_loader=new_cap_loader,
+        new_capability_health=new_cap_health,
+        new_permission_manager=new_perm_manager,
         voice_manager=voice_manager,
         cognitive_runtime=cognitive_runtime,
         data_dir=Path("data"),

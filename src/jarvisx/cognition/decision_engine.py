@@ -5,11 +5,13 @@ from typing import Dict, Any, List
 class DecisionEngine:
     def __init__(self, weights_path: str = None):
         self.weights = {
-            "capability_match": 0.40,
-            "historical_success": 0.25,
-            "preference_match": 0.20,
+            "capability_match": 0.30,
+            "historical_success": 0.20,
+            "preference_match": 0.15,
             "task_similarity": 0.10,
-            "confidence_score": 0.05
+            "confidence_score": 0.05,
+            "capability_reliability": 0.10,
+            "health_score": 0.10
         }
         if weights_path:
             self._load_weights(weights_path)
@@ -31,7 +33,10 @@ class DecisionEngine:
         sim = context.get("task_similarity", 0.0) * self.weights["task_similarity"]
         conf = context.get("confidence_score", 0.0) * self.weights["confidence_score"]
         
-        return cap + hist + pref + sim + conf
+        cap_rel = context.get("capability_reliability", 0.0) * self.weights.get("capability_reliability", 0.10)
+        health = context.get("health_score", 0.0) * self.weights.get("health_score", 0.10)
+        
+        return cap + hist + pref + sim + conf + cap_rel + health
 
     def rank_agents(self, capable_agents: List[str], context: Dict[str, Any]) -> List[str]:
         scored = [(agent, self.evaluate(agent, context.get(agent, {}))) for agent in capable_agents]
