@@ -3,9 +3,12 @@
 Jarvis X Main Production Entry Point.
 Usage:
   python -m jarvisx                     # Interactive
+  python -m jarvisx briefing            # Daily engineering context briefing
+  python -m jarvisx war                 # Friday Academic War Mode (10 CGPA)
+  python -m jarvisx daemon --start      # Start background daemon
+  python -m jarvisx report              # Generate TIME_SAVED_REPORT.md
   python -m jarvisx continue            # Resume work
   python -m jarvisx fix this            # Fix failing tests
-  python -m jarvisx write tests <file>  # Generate tests
   python -m jarvisx help                # Show all commands
 """
 import sys
@@ -28,23 +31,21 @@ async def async_main():
     if len(sys.argv) > 1:
         raw_cmd = " ".join(sys.argv[1:])
 
-        # Direct command routing — no "mission" prefix needed
-        # If the first word is a known top-level command, use it as-is.
-        # Otherwise, treat the entire input as a mission argument.
-        top_commands = {"status", "health", "history", "help", "doctor", "chat", "models"}
+        top_commands = {
+            "status", "health", "history", "help", "doctor", "chat", "models",
+            "briefing", "context", "daily", "war", "academic", "cgpa",
+            "daemon", "report", "time-saved", "metrics", "voice", "assistant"
+        }
         first_word = sys.argv[1].lower()
 
         if first_word in top_commands:
             res = await runtime.cli.handle_command_async(raw_cmd)
         elif first_word == "mission":
-            # Strip "mission" prefix and pass the rest
             mission_args = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else ""
             res = await runtime.cli.handle_command_async(f"mission {mission_args}")
         else:
-            # Treat everything as a mission command directly
             res = await runtime.cli.handle_command_async(f"mission {raw_cmd}")
 
-        # Print JSON for status-like commands
         if first_word in {"status", "history"}:
             print(json.dumps(res, indent=2))
 
