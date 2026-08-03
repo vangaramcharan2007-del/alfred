@@ -88,7 +88,39 @@ class JarvisCLI:
             return {"action": "history", "total_missions": len(missions), "missions": missions}
         elif command == "mission":
             if not args:
-                return {"error": "Mission command requires a description, e.g., jarvis mission \"build AI app\""}
+                args = "continue JarvisX"
+
+            if "continue" in args.lower() or "restore" in args.lower():
+                import subprocess
+                print("\nAlfred:")
+                print("Restoring workspace context...\n")
+
+                branch_res = subprocess.run(["git", "branch", "--show-current"], capture_output=True, text=True, check=False)
+                branch_name = branch_res.stdout.strip() or "main"
+
+                status_res = subprocess.run(["git", "status", "--short"], capture_output=True, text=True, check=False)
+                modified_files = [line.strip() for line in status_res.stdout.splitlines() if line.strip()]
+
+                log_res = subprocess.run(["git", "log", "-1", "--oneline"], capture_output=True, text=True, check=False)
+                latest_commit = log_res.stdout.strip() or "Initial commit"
+
+                test_res = subprocess.run([sys.executable, "-m", "pytest", "tests/unit/"], capture_output=True, text=True, check=False)
+                test_summary = "PASS" if test_res.returncode == 0 else "FAIL"
+
+                print(f"[Git Branch]       : {branch_name}")
+                print(f"[Latest Commit]    : {latest_commit}")
+                print(f"[Modified Files]   : {len(modified_files)} pending changes")
+                print(f"[Pytest Sandbox]   : {test_summary}\n")
+                print("Alfred: Workspace restored. System ready for continuous development.\n")
+
+                return {
+                    "action": "mission",
+                    "status": "RESTORED",
+                    "branch": branch_name,
+                    "latest_commit": latest_commit,
+                    "modified_files": modified_files,
+                    "test_status": test_summary
+                }
 
             print("Alfred:")
             print("Mission accepted.\n")
@@ -117,6 +149,7 @@ class JarvisCLI:
                 "status": "COMPLETED",
                 "mission_result": mission_res
             }
+
         elif command == "evolve":
             evo_res = await self.evolution_engine.run_evolution_cycle()
             return {
