@@ -50,8 +50,15 @@ class CodingMetrics:
     fallback_count: int = 0
     hardware_usage: float = 0.0
     estimated_cost: float = 0.0
+    capability_count: int = 0
+    knowledge_gaps: int = 0
+    improvement_plans: int = 0
+    self_analysis_runs: int = 0
+    failure_patterns: int = 0
+    system_confidence: float = 0.95
     capability_load_time: float = 0.0
     total_execution_time_seconds: float = 0.0
+
 
 
 
@@ -144,7 +151,14 @@ class CodingMetrics:
             "fallback_count": self.fallback_count,
             "hardware_usage": round(self.hardware_usage, 2),
             "estimated_cost": round(self.estimated_cost, 4),
+            "capability_count": self.capability_count,
+            "knowledge_gaps": self.knowledge_gaps,
+            "improvement_plans": self.improvement_plans,
+            "self_analysis_runs": self.self_analysis_runs,
+            "failure_patterns": self.failure_patterns,
+            "system_confidence": round(self.system_confidence, 3),
             "capability_load_time": round(self.capability_load_time, 3),
+
 
 
             "total_execution_time_seconds": round(self.total_execution_time_seconds, 3),

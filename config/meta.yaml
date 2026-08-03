@@ -1,0 +1,16 @@
+analysis_interval_seconds: 3600
+learning_mode: "continuous"
+auto_improvement_approval: true
+risk_limits:
+  max_unverified_capabilities: 5
+  min_system_confidence: 0.80
+  degradation_threshold: 0.85
+
+introspection:
+  scan_mcp_servers: true
+  map_dependencies: true
+
+performance:
+  track_tokens: true
+  track_latency: true
+  track_failures: true
