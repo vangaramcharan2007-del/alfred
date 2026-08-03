@@ -28,20 +28,44 @@ class DesktopController:
             except Exception as e:
                 return {"status": "FAILED", "action": "open_terminal", "error": str(e)}
 
-    def execute_powershell(self, command_line: str, cwd: Optional[str] = None) -> Dict[str, Any]:
+    def open_browser(self, url: str = "https://github.com") -> Dict[str, Any]:
         try:
-            res = subprocess.run(
-                ["powershell.exe", "-Command", command_line],
-                cwd=cwd or ".",
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            return {
-                "status": "SUCCESS" if res.returncode == 0 else "FAILED",
-                "exit_code": res.returncode,
-                "stdout": res.stdout.strip(),
-                "stderr": res.stderr.strip()
-            }
+            import webbrowser
+            webbrowser.open(url)
+            return {"status": "SUCCESS", "action": "open_browser", "url": url}
         except Exception as e:
-            return {"status": "FAILED", "error": str(e)}
+            return {"status": "FAILED", "action": "open_browser", "error": str(e)}
+
+    def open_explorer(self, target_dir: Optional[str] = None) -> Dict[str, Any]:
+        target = target_dir or "."
+        try:
+            subprocess.Popen(["explorer.exe", os.path.abspath(target)])
+            return {"status": "SUCCESS", "action": "open_explorer", "path": target}
+        except Exception as e:
+            return {"status": "FAILED", "action": "open_explorer", "error": str(e)}
+
+    def clipboard_get(self) -> str:
+        try:
+            import pyperclip
+            return pyperclip.paste()
+        except Exception:
+            return ""
+
+    def clipboard_set(self, text: str) -> bool:
+        try:
+            import pyperclip
+            pyperclip.copy(text)
+            return True
+        except Exception:
+            return False
+
+    def take_screenshot(self, output_path: str = "var/screenshot.png") -> Dict[str, Any]:
+        try:
+            from PIL import ImageGrab
+            screenshot = ImageGrab.grab()
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            screenshot.save(output_path)
+            return {"status": "SUCCESS", "action": "take_screenshot", "path": output_path}
+        except Exception as e:
+            return {"status": "FAILED", "action": "take_screenshot", "error": str(e)}
+

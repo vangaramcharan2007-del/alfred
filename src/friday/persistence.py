@@ -120,3 +120,28 @@ class FridayPersistenceManager:
         with self._get_connection() as conn:
             rows = conn.execute("SELECT * FROM notes_goals ORDER BY id").fetchall()
             return [dict(r) for r in rows]
+
+    def add_assignment(self, title: str, subject: str, due_date: str, status: str = "PENDING") -> Dict[str, Any]:
+        with self._get_connection() as conn:
+            conn.execute("INSERT INTO assignments (title, subject, due_date, status) VALUES (?, ?, ?, ?)", (title, subject, due_date, status))
+            conn.commit()
+        return {"status": "SUCCESS", "title": title, "due_date": due_date}
+
+    def add_schedule_event(self, time_slot: str, activity: str, category: str = "class") -> Dict[str, Any]:
+        with self._get_connection() as conn:
+            conn.execute("INSERT INTO schedule (time_slot, activity, category) VALUES (?, ?, ?)", (time_slot, activity, category))
+            conn.commit()
+        return {"status": "SUCCESS", "time_slot": time_slot, "activity": activity}
+
+    def update_habit(self, habit_name: str, last_completed: str = "Today") -> Dict[str, Any]:
+        with self._get_connection() as conn:
+            conn.execute("UPDATE habits SET streak_count = streak_count + 1, last_completed = ? WHERE habit_name = ?", (last_completed, habit_name))
+            conn.commit()
+        return {"status": "SUCCESS", "habit_name": habit_name}
+
+    def add_note_or_goal(self, item_type: str, content: str, target_date: Optional[str] = None) -> Dict[str, Any]:
+        with self._get_connection() as conn:
+            conn.execute("INSERT INTO notes_goals (type, content, target_date) VALUES (?, ?, ?)", (item_type, content, target_date or ""))
+            conn.commit()
+        return {"status": "SUCCESS", "type": item_type, "content": content}
+
