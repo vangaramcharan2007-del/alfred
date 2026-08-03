@@ -33,10 +33,41 @@ class FridayAssistant:
         habits = self.habit_tracker.get_habits()
         goals = self.notes_goals.get_notes_and_goals()
 
+    def generate_proactive_alerts(self) -> List[str]:
+        alerts = []
+        assignments = self.assignment_tracker.get_pending_assignments()
+        for a in assignments:
+            if "Tomorrow" in a.get("due_date", "") or "IN_PROGRESS" in a.get("status", ""):
+                alerts.append(f"Assignment Alert: '{a['title']}' ({a['subject']}) is due {a['due_date'].lower()}!")
+
+        schedule = self.schedule_mgr.get_todays_schedule()
+        if schedule:
+            dsa_slot = next((s for s in schedule if "algorithm" in s['activity'].lower() or "dsa" in s['activity'].lower()), None)
+            if dsa_slot:
+                alerts.append(f"Study Alert: You scheduled '{dsa_slot['activity']}' for [{dsa_slot['time_slot']}]. Ready to start?")
+
+        alerts.append("Hydration Alert: You have completed 2.5L / 3.0L today -- drink 1 glass of water now.")
+        alerts.append("JarvisX Milestone: You have 14 consecutive days of daily system programming commitments!")
+        return alerts
+
+    def print_daily_dashboard(self):
+        schedule = self.schedule_mgr.get_todays_schedule()
+        cgpa_plan = self.cgpa_planner.get_plan()
+        assignments = self.assignment_tracker.get_pending_assignments()
+        health = self.health_reminders.get_health_status()
+        habits = self.habit_tracker.get_habits()
+        goals = self.notes_goals.get_notes_and_goals()
+        alerts = self.generate_proactive_alerts()
+
         print("==============================================")
         print("               FRIDAY AI ASSISTANT")
         print("==============================================")
         print("  \"Hello Ramcharan! Here is your daily overview.\"\n")
+
+        print("[PROACTIVE ALERTS] Executive Reminders:")
+        for alert in alerts:
+            print(f"  ! {alert}")
+        print()
 
         print("[ACADEMICS] 10 CGPA Target & Strategy:")
         print(f"  - Status          : {cgpa_plan['status']}")
@@ -67,6 +98,7 @@ class FridayAssistant:
         for g in goals:
             print(f"  - [{g['type'].upper()}] {g['content']}")
         print("==============================================\n")
+
 
 
     def run_interactive_shell(self):
