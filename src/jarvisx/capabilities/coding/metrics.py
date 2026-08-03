@@ -38,8 +38,14 @@ class CodingMetrics:
     provider_reroutes: int = 0
     selection_latency: float = 0.0
     provider_utilization: float = 0.0
+    openhands_sessions: int = 0
+    openhands_tasks: int = 0
+    workspace_count: int = 0
+    average_session_duration: float = 0.0
+    provider_usage: int = 0
     capability_load_time: float = 0.0
     total_execution_time_seconds: float = 0.0
+
 
     @property
     def average_execution_time(self) -> float:
@@ -118,7 +124,13 @@ class CodingMetrics:
             "provider_reroutes": self.provider_reroutes,
             "selection_latency": round(self.selection_latency, 4),
             "provider_utilization": round(self.provider_utilization, 3),
+            "openhands_sessions": self.openhands_sessions,
+            "openhands_tasks": self.openhands_tasks,
+            "workspace_count": self.workspace_count,
+            "average_session_duration": round(self.average_session_duration, 3),
+            "provider_usage": self.provider_usage,
             "capability_load_time": round(self.capability_load_time, 3),
+
             "total_execution_time_seconds": round(self.total_execution_time_seconds, 3),
             "average_execution_time": round(self.average_execution_time, 3),
         }

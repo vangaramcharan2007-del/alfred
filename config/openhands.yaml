@@ -1,0 +1,25 @@
+runtime:
+  path: "openhands"
+  timeout_seconds: 300
+  retry_count: 3
+  streaming_enabled: true
+  logging_level: "INFO"
+  parallel_sessions: 4
+  provider_priority: 2
+
+workspace:
+  base_directory: "./sandbox/openhands_workspaces"
+  persistent_by_default: true
+  auto_cleanup_temp: true
+
+capabilities:
+  - fix_bug
+  - implement_feature
+  - refactor
+  - generate_tests
+  - documentation
+  - security_audit
+  - performance_optimization
+  - dependency_upgrade
+  - architecture_migration
+  - code_review
