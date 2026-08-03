@@ -11,7 +11,10 @@ class DecisionEngine:
             "task_similarity": 0.10,
             "confidence_score": 0.05,
             "capability_reliability": 0.10,
-            "health_score": 0.10
+            "health_score": 0.10,
+            "repository_similarity": 0.05,
+            "framework_familiarity": 0.05,
+            "coding_capability_health": 0.05
         }
         if weights_path:
             self._load_weights(weights_path)
@@ -36,9 +39,15 @@ class DecisionEngine:
         cap_rel = context.get("capability_reliability", 0.0) * self.weights.get("capability_reliability", 0.10)
         health = context.get("health_score", 0.0) * self.weights.get("health_score", 0.10)
         
-        return cap + hist + pref + sim + conf + cap_rel + health
+        # Coding-specific scoring terms
+        repo_sim = context.get("repository_similarity", 0.0) * self.weights.get("repository_similarity", 0.05)
+        fw_fam = context.get("framework_familiarity", 0.0) * self.weights.get("framework_familiarity", 0.05)
+        coding_health = context.get("coding_capability_health", 0.0) * self.weights.get("coding_capability_health", 0.05)
+        
+        return cap + hist + pref + sim + conf + cap_rel + health + repo_sim + fw_fam + coding_health
 
     def rank_agents(self, capable_agents: List[str], context: Dict[str, Any]) -> List[str]:
         scored = [(agent, self.evaluate(agent, context.get(agent, {}))) for agent in capable_agents]
         scored.sort(key=lambda x: x[1], reverse=True)
         return [agent for agent, score in scored]
+

@@ -1,0 +1,25 @@
+{
+  "name": "coding_agent",
+  "version": "1.0.0",
+  "api_version": "v1",
+  "description": "Multi-agent advanced coding capability for planning, code execution, testing, reviewing, and safe git management.",
+  "category": "coding",
+  "inputs": {
+    "repository": "string",
+    "task_description": "string"
+  },
+  "outputs": {
+    "code_changes": "array",
+    "test_results": "object",
+    "review": "object"
+  },
+  "requirements": {
+    "python": ">=3.9"
+  },
+  "permissions": [
+    "READ",
+    "WRITE",
+    "EXECUTE"
+  ],
+  "confidence": 0.95
+}

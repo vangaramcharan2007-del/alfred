@@ -69,3 +69,16 @@ class CognitiveMemory:
         if success:
             self.logger.write("info", "cognitive_memory.forgotten", memory_id=memory_id)
         return success
+
+    async def store_coding_experience(self, framework: str, task: str, solution_pattern: str) -> str:
+        """Store coding procedural experience for ExperienceEngine and coding capability."""
+        return await self.build_relationships(
+            workflow=f"coding_pattern_{framework}",
+            steps=[task, solution_pattern],
+            confidence=1.0
+        )
+
+    async def query_framework_patterns(self, framework: str) -> List[Dict[str, Any]]:
+        """Retrieve stored coding patterns for a given framework."""
+        return await self.retrieve_context(f"coding_pattern_{framework}")
+

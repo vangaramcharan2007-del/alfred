@@ -1,0 +1,44 @@
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Dict, Any
+
+@dataclass
+class CodingMetrics:
+    coding_tasks_completed: int = 0
+    successful_fixes: int = 0
+    tests_passed: int = 0
+    tests_failed: int = 0
+    reviews_completed: int = 0
+    total_execution_time_seconds: float = 0.0
+
+    @property
+    def average_execution_time(self) -> float:
+        if self.coding_tasks_completed == 0:
+            return 0.0
+        return self.total_execution_time_seconds / self.coding_tasks_completed
+
+    def record_task_completed(self, duration_seconds: float, success: bool = True) -> None:
+        self.coding_tasks_completed += 1
+        self.total_execution_time_seconds += duration_seconds
+        if success:
+            self.successful_fixes += 1
+
+    def record_test_run(self, passed: bool) -> None:
+        if passed:
+            self.tests_passed += 1
+        else:
+            self.tests_failed += 1
+
+    def record_review(self) -> None:
+        self.reviews_completed += 1
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "coding_tasks_completed": self.coding_tasks_completed,
+            "successful_fixes": self.successful_fixes,
+            "tests_passed": self.tests_passed,
+            "tests_failed": self.tests_failed,
+            "reviews_completed": self.reviews_completed,
+            "total_execution_time_seconds": round(self.total_execution_time_seconds, 3),
+            "average_execution_time": round(self.average_execution_time, 3),
+        }
