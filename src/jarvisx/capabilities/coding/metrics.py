@@ -33,6 +33,11 @@ class CodingMetrics:
     successful_tasks: int = 0
     failed_tasks: int = 0
     average_task_duration: float = 0.0
+    provider_selections: int = 0
+    provider_failovers: int = 0
+    provider_reroutes: int = 0
+    selection_latency: float = 0.0
+    provider_utilization: float = 0.0
     capability_load_time: float = 0.0
     total_execution_time_seconds: float = 0.0
 
@@ -108,10 +113,16 @@ class CodingMetrics:
             "successful_tasks": self.successful_tasks,
             "failed_tasks": self.failed_tasks,
             "average_task_duration": round(self.average_task_duration, 3),
+            "provider_selections": self.provider_selections,
+            "provider_failovers": self.provider_failovers,
+            "provider_reroutes": self.provider_reroutes,
+            "selection_latency": round(self.selection_latency, 4),
+            "provider_utilization": round(self.provider_utilization, 3),
             "capability_load_time": round(self.capability_load_time, 3),
             "total_execution_time_seconds": round(self.total_execution_time_seconds, 3),
             "average_execution_time": round(self.average_execution_time, 3),
         }
+
 
 
 
