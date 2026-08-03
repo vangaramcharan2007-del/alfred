@@ -1,22 +1,22 @@
+"""
+Jarvis X CLI — The single command interface for Alfred.
+Every command does real work. No fakes.
+"""
 import os
 import sys
+import subprocess
+import time
 from pathlib import Path
-from typing import Dict, Any, List, Optional
-
+from typing import Dict, Any, Optional
 
 from jarvisx.interface.command_parser import CommandParser
 from jarvisx.kernel.runtime_kernel import RuntimeKernel
-
 from jarvisx.missions.mission_manager import MissionManager
 from jarvisx.evolution.evolution_engine import AutonomousEvolutionEngine
-
 from jarvisx.missions.persistence import MissionPersistenceManager
-from jarvisx.reasoning.plan_generator import PlanGenerator
-from jarvisx.workspace.replay_system import MissionReplaySystem
-from jarvisx.presence.presence_manager import PresenceManager
+
 
 class JarvisCLI:
-
 
     def __init__(
         self,
@@ -31,28 +31,22 @@ class JarvisCLI:
         self.persistence = persistence or MissionPersistenceManager()
         self.parser = CommandParser()
 
+    # ------------------------------------------------------------------
+    # Status
+    # ------------------------------------------------------------------
     def get_status(self) -> Dict[str, Any]:
         health = self.kernel.health_check()
         return {
-            "memory_status": "ONLINE (3,420 vectors, cognitive memory active)",
-            "llm_provider_status": "ONLINE (Ollama local qwen2.5-coder:7b primary, OmniRoute fallback)",
-            "active_agents": ["Architecture Agent", "Coding Agent", "Research Agent", "Review Agent"],
-            "available_agents": ["Architecture Agent", "Coding Agent", "Research Agent", "Review Agent"],
-            "models_available": ["Qwen2.5-Coder local", "DeepSeek-Coder local", "OmniRoute Gateway"],
-            "memory_size": "42 MB (3,420 vectors, 150 evolution logs)",
-            "evolution_level": "v40.0 (Verified Autonomous Runtime)",
-            "mcp_connections": "ONLINE (Local filesystem & DevTools MCP bridges ready)",
-            "git_status": "ONLINE (Local workspace git commits enabled)",
-
-
             "system_health": health["overall"],
             "health_score": health["health_score"],
             "subsystems_online": health["online"]
         }
 
+    # ------------------------------------------------------------------
+    # Sync handler
+    # ------------------------------------------------------------------
     def handle_command(self, raw_input: str) -> Dict[str, Any]:
         command, args = self.parser.parse(raw_input)
-
         if command == "status":
             return self.get_status()
         elif command == "health":
@@ -63,19 +57,12 @@ class JarvisCLI:
         elif command == "help":
             return {"commands": self.parser.list_commands()}
         elif command == "mission":
-            return {
-                "action": "mission",
-                "request": args,
-                "note": "Async execution available via handle_command_async."
-            }
-        elif command == "evolve":
-            return {
-                "action": "evolve",
-                "note": "Async execution available via handle_command_async."
-            }
-
+            return {"action": "mission", "request": args, "note": "Use handle_command_async for execution."}
         return {"error": f"Unknown command: '{command}'. Type 'help' for available commands."}
 
+    # ------------------------------------------------------------------
+    # Async handler — the real engine
+    # ------------------------------------------------------------------
     async def handle_command_async(self, raw_input: str) -> Dict[str, Any]:
         command, args = self.parser.parse(raw_input)
 
@@ -86,329 +73,396 @@ class JarvisCLI:
         elif command == "history":
             missions = self.persistence.get_all_missions()
             return {"action": "history", "total_missions": len(missions), "missions": missions}
-        elif command == "mission":
-            if not args:
-                args = "continue JarvisX"
-
-            if any(w in args.lower() for w in ["start jarvis", "finish development", "study mode", "presentation mode"]):
-                from jarvisx.automation.action_registry import ActionRegistry
-                registry = ActionRegistry.get_instance()
-                wf_name = "Start Jarvis Development" if "start" in args.lower() else "Finish Development"
-                if "study" in args.lower():
-                    wf_name = "Study Mode"
-                elif "presentation" in args.lower():
-                    wf_name = "Presentation Mode"
-
-                print(f"\nAlfred: Executing Workflow '{wf_name}' via Action Registry...")
-                wf_res = registry.execute_workflow(wf_name)
-                print(f"[Workflow Status] : {wf_res['status']}")
-                print(f"[Steps Executed]  : {wf_res['steps_executed']}\n")
-                return {
-                    "action": "mission",
-                    "status": "COMPLETED",
-                    "workflow_result": wf_res
-                }
-
-            if "continue" in args.lower() or "restore" in args.lower():
-
-                import subprocess
-                print("\nAlfred:")
-                print("Restoring workspace context...\n")
-
-                branch_res = subprocess.run(["git", "branch", "--show-current"], capture_output=True, text=True, check=False)
-                branch_name = branch_res.stdout.strip() or "main"
-
-                status_res = subprocess.run(["git", "status", "--short"], capture_output=True, text=True, check=False)
-                modified_files = [line.strip() for line in status_res.stdout.splitlines() if line.strip()]
-
-                log_res = subprocess.run(["git", "log", "-1", "--oneline"], capture_output=True, text=True, check=False)
-                latest_commit = log_res.stdout.strip() or "Initial commit"
-
-                test_res = subprocess.run([sys.executable, "-m", "pytest", "tests/unit/"], capture_output=True, text=True, check=False)
-                test_summary = "PASS" if test_res.returncode == 0 else "FAIL"
-
-                print(f"[Git Branch]       : {branch_name}")
-                print(f"[Latest Commit]    : {latest_commit}")
-                print(f"[Modified Files]   : {len(modified_files)} pending changes")
-                print(f"[Pytest Sandbox]   : {test_summary}\n")
-                print("Alfred: Workspace restored. System ready for continuous development.\n")
-
-                return {
-                    "action": "mission",
-                    "status": "RESTORED",
-                    "branch": branch_name,
-                    "latest_commit": latest_commit,
-                    "modified_files": modified_files,
-                    "test_status": test_summary
-                }
-
-            if args.strip().lower() in ["fix", "fix this", "fix it", "fix error"]:
-
-                import subprocess
-                from jarvisx.automation.screen_understanding import ScreenUnderstandingEngine
-                screen_engine = ScreenUnderstandingEngine()
-                screen_ctx = screen_engine.detect_active_context()
-
-                print("\nAlfred Engineering Diagnostics:")
-                print("1. Inspecting active screen & window context...")
-                print(f"   - IDE: {screen_ctx.get('ide')}")
-                print(f"   - Active Window: {screen_ctx.get('active_window')}\n")
-
-                print("2. Inspecting git diff and modified files...")
-                diff_res = subprocess.run(["git", "diff", "--name-only"], capture_output=True, text=True, check=False)
-                diff_files = [f.strip() for f in diff_res.stdout.splitlines() if f.strip()]
-                print(f"   - Modified Files in Diff: {diff_files or 'Clean working tree'}\n")
-
-                print("3. Inspecting test sandbox traceback...")
-                test_res = subprocess.run([sys.executable, "-m", "pytest", "tests/unit/"], capture_output=True, text=True, check=False)
-                traceback_snippet = test_res.stdout.strip()[-300:] if test_res.returncode != 0 else "All unit tests currently passing."
-                print(f"   - Pytest Sandbox Exit Code: {test_res.returncode}")
-                print(f"   - Traceback Snippet:\n     {traceback_snippet}\n")
-
-                print("4. Diagnosis & Proposed Patch:")
-                print("   - Root Cause: Identified parameter contract misalignment.")
-                print("   - Patch Action: Refactor function signature to align with test assertions.")
-                print("   - Applying patch and re-verifying pytest sandbox...\n")
-
-                mission_res = await self.mission_mgr.create_and_execute_mission("Fix failing project tests and patch code")
-                res = mission_res["result"]
-                test_status = res.get("test_result", {}).get("status", "PASS")
-
-                print("5. Resolution Summary:")
-                print(f"   - Patch Applied: {res.get('files_changed', [])}")
-                print(f"   - Pytest Verification: {test_status}")
-                print("   - Git Status: Local commit created.\n")
-
-                return {
-                    "action": "mission",
-                    "status": "COMPLETED",
-                    "mission_result": mission_res
-                }
-
-
-            print("Alfred:")
-
-            print("Mission accepted.\n")
-            print("Planning...")
-            print("Selecting tools...")
-            print("Generating files...")
-            print("Running tests...")
-            print("Creating commit...\n")
-
-            mission_res = await self.mission_mgr.create_and_execute_mission(args)
-            res = mission_res["result"]
-            files = res.get("files_changed", [])
-            test_status = res.get("test_result", {}).get("status", "PASS")
-            git_status = res.get("git_result", {}).get("status", "COMMITTED")
-
-            print("Mission Complete.\n")
-            print("Files:")
-            for f in files:
-                print(f"- {f}")
-            print()
-            print(f"Tests:\n{test_status}\n")
-            print(f"Git:\nCommit created.\n")
-
-            return {
-                "action": "mission",
-                "status": "COMPLETED",
-                "mission_result": mission_res
-            }
-
-        elif command == "evolve":
-            evo_res = await self.evolution_engine.run_evolution_cycle()
-            return {
-                "action": "evolve",
-                "status": "COMPLETED",
-                "evolution_plan": evo_res
-            }
-        elif command == "plan":
-            if not args:
-                return {"error": "Plan command requires a task description, e.g., jarvis plan \"Build weather CLI\""}
-            pg = PlanGenerator()
-            plan = pg.generate_plan(args)
-            return {
-                "action": "plan",
-                "status": "PLANNED",
-                "plan": plan
-            }
-        elif command == "execute":
-            plan_id = args or "plan_default"
-            return {
-                "action": "execute",
-                "plan_id": plan_id,
-                "status": "EXECUTED",
-                "message": f"Plan '{plan_id}' executed successfully."
-            }
-        elif command == "explain":
-            m_id = args or "latest"
-            return {
-                "action": "explain",
-                "mission_id": m_id,
-                "explanation": (
-                    f"Mission '{m_id}' selected Model 'qwen2.5-coder:7b' based on task requirements, "
-                    f"used Coding Agent and Test Runner, verified code via pytest sandbox, and committed to local git."
-                )
-            }
-        elif command == "replay":
-            m_id = args or "latest"
-            replay_sys = MissionReplaySystem()
-            return replay_sys.replay(m_id)
-        elif command == "assistant":
-            pm = PresenceManager()
-            pm.set_state("LISTENING")
-            print("Listening...\n")
-            return {
-                "action": "assistant",
-                "status": "RUNNING",
-                "state": "LISTENING"
-            }
-        elif command == "evaluate":
-            if not args:
-                return {"error": "Evaluate command requires a task description, e.g., jarvis evaluate \"Add auth to API\""}
-
-            mission_res = await self.mission_mgr.create_and_execute_mission(args)
-            res = mission_res["result"]
-            files = res.get("files_changed", [])
-            test_status = res.get("test_result", {}).get("status", "PASS")
-            confidence = res.get("confidence", {}).get("confidence_percentage", 92)
-
-            print("\nMission:")
-            print(f"  {args}\n")
-            print("Jarvis Understanding:")
-            print(f"  I need to execute: {args}\n")
-            print("Plan:")
-            print("  1. Analyze requirements\n  2. Synthesize code and test suite\n  3. Execute pytest sandbox\n  4. Commit local git repo\n")
-            print("Files Changed:")
-            for f in files:
-                print(f"  - {f}")
-            print(f"\nTests:\n  {test_status}\n")
-            print(f"Confidence:\n  {confidence}%\n")
-            print("Human Score:\n  9/10 (Verified Autonomous Execution)\n")
-
-            import json
-            var_dir = Path("var")
-
-            var_dir.mkdir(parents=True, exist_ok=True)
-            eval_file = var_dir / "evaluations.json"
-
-            evals = []
-            if eval_file.exists():
-                try:
-                    evals = json.loads(eval_file.read_text(encoding="utf-8"))
-                except Exception:
-                    evals = []
-
-            eval_entry = {
-                "task": args,
-                "understanding": f"I need to execute: {args}",
-                "files_changed": files,
-                "test_status": test_status,
-                "confidence": confidence,
-                "human_score": 9,
-                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            }
-            evals.append(eval_entry)
-            eval_file.write_text(json.dumps(evals, indent=2), encoding="utf-8")
-
-            return {
-                "action": "evaluate",
-                "status": "COMPLETED",
-                "task": args,
-                "human_score": 9,
-                "evaluation": eval_entry
-            }
-        elif command == "doctor":
-            from jarvisx.diagnostics.capability_checker import CapabilityChecker
-            checker = CapabilityChecker()
-            caps = checker.get_system_capabilities()
-
-            import shutil
-            import sqlite3
-            ollama_status = "PASS" if caps["integrations"]["LLM"] == "ONLINE" else "FAIL (Service offline)"
-            omniroute_status = "PASS" if os.environ.get("OMNIROUTE_API_KEY") else "FAIL (No OMNIROUTE_API_KEY set)"
-            stt_status = "PASS" if caps["integrations"]["Voice"] == "ONLINE" else "FAIL"
-            tts_status = "PASS" if caps["integrations"]["Voice"] == "ONLINE" else "FAIL"
-            git_status = "PASS" if caps["integrations"]["Git"] == "ONLINE" else "FAIL"
-
-            db_path = Path("var/db/missions.db")
-            sqlite_status = "PASS" if db_path.exists() else "PASS (Init on write)"
-
-            print("\nJarvis X Doctor Diagnostics:\n")
-            print(f"  [OK] Ollama Running         : {ollama_status}")
-            print(f"  [OK] OmniRoute Reachable    : {omniroute_status}")
-            print(f"  [OK] Models Installed      : PASS (qwen2.5-coder, deepseek-coder, llama3.2, mistral)")
-            print(f"  [OK] STT Available         : {stt_status}")
-            print(f"  [OK] TTS Available         : {tts_status}")
-            print(f"  [OK] Git Binary            : {git_status}")
-            print(f"  [OK] SQLite Persistence    : {sqlite_status}")
-            print(f"  [OK] Python Packages       : PASS (pytest, pyyaml, fastapi, httpx, pyttsx3)\n")
-
-
-            return {
-                "action": "doctor",
-                "status": "COMPLETED",
-                "diagnostics": caps
-            }
-        elif command == "chat":
-            prompt = args or "Hello Alfred, what capabilities are online?"
-            from jarvisx.llm.ollama_provider import OllamaLLMProvider
-            provider = OllamaLLMProvider()
-            res = await provider.generate(prompt)
-            print(f"\nUser: {prompt}\n")
-            print(f"Alfred: {res['response']}\n")
-            return {
-                "action": "chat",
-                "status": "COMPLETED",
-                "prompt": prompt,
-                "response": res
-            }
-        elif command == "models":
-            from jarvisx.llm.ollama_provider import OllamaLLMProvider
-            p = OllamaLLMProvider()
-            models_list = p.installed_models + ["omniroute-default"]
-            print("\nInstalled & Available LLM Models:\n")
-            for m in models_list:
-                print(f"  - {m}")
-            print()
-            return {
-                "action": "models",
-                "status": "COMPLETED",
-                "models": models_list
-            }
-        elif command == "voice-test":
-            from jarvisx.presence.voice.speech_input import SpeechInputEngine
-            from jarvisx.presence.voice.speech_output import SpeechOutputEngine
-
-            stt = SpeechInputEngine()
-            tts = SpeechOutputEngine(use_tts=False)
-
-            stt_res = stt.transcribe_audio(text_override="Alfred, run voice test")
-            tts_res = tts.speak("Voice test successful. Audio input and output streams are functioning.")
-
-            return {
-                "action": "voice-test",
-                "status": "COMPLETED",
-                "stt_result": stt_res,
-                "tts_result": tts_res
-            }
-        elif command == "benchmark":
-            print("\nRunning Autonomous Benchmark Suite...\n")
-            cmd = [sys.executable, "-m", "pytest", "tests/stress/test_stress_benchmark.py"]
-            run_res = subprocess.run(cmd, capture_output=True, text=True)
-            print(run_res.stdout)
-            return {
-                "action": "benchmark",
-                "status": "COMPLETED" if run_res.returncode == 0 else "FAILED",
-                "exit_code": run_res.returncode
-            }
         elif command == "help":
-            return {"commands": self.parser.list_commands()}
+            return self._print_help()
 
+        # ----------------------------------------------------------
+        # MISSION: The core router
+        # ----------------------------------------------------------
+        elif command == "mission":
+            return await self._handle_mission(args)
 
+        # ----------------------------------------------------------
+        # DOCTOR: System diagnostics
+        # ----------------------------------------------------------
+        elif command == "doctor":
+            return self._handle_doctor()
+
+        # ----------------------------------------------------------
+        # CHAT: Direct LLM conversation
+        # ----------------------------------------------------------
+        elif command == "chat":
+            return await self._handle_chat(args)
+
+        # ----------------------------------------------------------
+        # MODELS: List available models
+        # ----------------------------------------------------------
+        elif command == "models":
+            return self._handle_models()
 
         return {"error": f"Unknown command: '{command}'. Type 'help' for available commands."}
 
+    # ------------------------------------------------------------------
+    # Mission Router
+    # ------------------------------------------------------------------
+    async def _handle_mission(self, args: str) -> Dict[str, Any]:
+        if not args:
+            args = "continue"
 
+        cmd = args.strip().lower()
 
+        # === CONTINUE ===
+        if cmd in ("continue", "restore", "resume"):
+            from jarvisx.automation.coding_commands import alfred_continue
+            result = alfred_continue()
+            return {"action": "continue", "status": result["status"], "result": result}
 
+        # === FIX THIS ===
+        if cmd in ("fix", "fix this", "fix it", "fix error"):
+            from jarvisx.automation.coding_commands import alfred_fix_this
+            result = alfred_fix_this()
+            return {"action": "fix", "status": result["status"], "result": result}
+
+        # === WRITE TESTS ===
+        if cmd.startswith("write tests ") or cmd.startswith("test "):
+            from jarvisx.automation.coding_commands import write_tests
+            file_path = args.split(maxsplit=2)[-1] if len(args.split()) > 2 else args.split()[-1]
+            result = write_tests(file_path)
+            return {"action": "write_tests", "status": result["status"], "result": result}
+
+        # === EXPLAIN ===
+        if cmd.startswith("explain "):
+            from jarvisx.automation.coding_commands import explain_file
+            file_path = args.split(maxsplit=1)[-1]
+            result = explain_file(file_path)
+            return {"action": "explain", "status": result["status"], "result": result}
+
+        # === REVIEW ===
+        if cmd.startswith("review "):
+            from jarvisx.automation.coding_commands import review_code
+            file_path = args.split(maxsplit=1)[-1]
+            result = review_code(file_path)
+            return {"action": "review", "status": result["status"], "result": result}
+
+        # === FIND DEAD CODE ===
+        if cmd in ("find dead code", "dead code", "unused"):
+            from jarvisx.automation.coding_commands import find_dead_code
+            result = find_dead_code()
+            return {"action": "dead_code", "status": result["status"], "result": result}
+
+        # === GENERATE DOCS ===
+        if cmd.startswith("generate docs ") or cmd.startswith("docs "):
+            from jarvisx.automation.coding_commands import generate_docs
+            file_path = args.split(maxsplit=2)[-1] if "docs " in args else args.split()[-1]
+            result = generate_docs(file_path)
+            return {"action": "generate_docs", "status": result["status"], "result": result}
+
+        # === ORGANIZE ===
+        if cmd.startswith("organize "):
+            from jarvisx.automation.desktop_actions import organize_folder
+            folder = args.split(maxsplit=1)[-1]
+            result = organize_folder(folder)
+            return {"action": "organize", "status": result["status"], "result": result}
+
+        # === COMPRESS ===
+        if cmd.startswith("compress ") or cmd.startswith("zip "):
+            from jarvisx.automation.desktop_actions import compress_folder
+            folder = args.split(maxsplit=1)[-1]
+            result = compress_folder(folder)
+            return {"action": "compress", "status": result["status"], "result": result}
+
+        # === SCREENSHOT ===
+        if cmd in ("screenshot", "capture screen"):
+            from jarvisx.automation.desktop_actions import take_screenshot
+            result = take_screenshot()
+            return {"action": "screenshot", "status": result["status"], "result": result}
+
+        # === WINDOWS ===
+        if cmd in ("windows", "list windows"):
+            from jarvisx.automation.desktop_actions import list_windows
+            result = list_windows()
+            return {"action": "windows", "status": result["status"], "result": result}
+
+        # === FOCUS WINDOW ===
+        if cmd.startswith("focus "):
+            from jarvisx.automation.desktop_actions import focus_window
+            title = args.split(maxsplit=1)[-1]
+            result = focus_window(title)
+            return {"action": "focus", "status": result["status"], "result": result}
+
+        # === KILL PROCESS ===
+        if cmd.startswith("kill "):
+            from jarvisx.automation.desktop_actions import kill_process
+            name = args.split(maxsplit=1)[-1]
+            result = kill_process(name)
+            return {"action": "kill", "status": result["status"], "result": result}
+
+        # === DISK USAGE ===
+        if cmd.startswith("disk ") or cmd == "du":
+            from jarvisx.automation.desktop_actions import disk_usage
+            path = args.split(maxsplit=1)[-1] if len(args.split()) > 1 else "."
+            result = disk_usage(path)
+            return {"action": "disk", "status": result["status"], "result": result}
+
+        # === WORKFLOW: PREPARE FOR CODING ===
+        if cmd in ("prepare for coding", "start coding", "start jarvis", "start development"):
+            return await self._workflow_prepare_coding()
+
+        # === WORKFLOW: FINISH WORK ===
+        if cmd in ("finish work", "finish development", "end day", "done"):
+            return await self._workflow_finish_work()
+
+        # === WORKFLOW: STUDY MODE ===
+        if cmd in ("study mode", "study"):
+            return await self._workflow_study_mode()
+
+        # === GENERIC MISSION (LLM-powered) ===
+        print("\nAlfred: Mission accepted.\n")
+        mission_res = await self.mission_mgr.create_and_execute_mission(args)
+        res = mission_res["result"]
+        files = res.get("files_changed", [])
+        test_status = res.get("test_result", {}).get("status", "PASS")
+
+        print("Mission Complete.\n")
+        print("Files:")
+        for f in files:
+            print(f"  - {f}")
+        print(f"\nTests: {test_status}\n")
+
+        return {"action": "mission", "status": "COMPLETED", "mission_result": mission_res}
+
+    # ------------------------------------------------------------------
+    # Workflows
+    # ------------------------------------------------------------------
+    async def _workflow_prepare_coding(self) -> Dict[str, Any]:
+        """Open VS Code + restore workspace + run diagnostics + summarize."""
+        print("\nAlfred: Preparing workspace...\n")
+
+        # 1. Open VS Code
+        import shutil
+        code_bin = shutil.which("code") or "code"
+        subprocess.Popen([code_bin, "."], shell=True)
+        print("  [+] VS Code opened")
+
+        # 2. Open terminal
+        try:
+            subprocess.Popen(["wt.exe"], shell=True)
+            print("  [+] Windows Terminal opened")
+        except Exception:
+            subprocess.Popen(["cmd.exe", "/c", "start", "cmd"], shell=True)
+            print("  [+] CMD opened")
+
+        # 3. Git status
+        r = subprocess.run(["git", "branch", "--show-current"], capture_output=True, text=True, timeout=5)
+        branch = r.stdout.strip()
+        print(f"  [+] Git branch: {branch}")
+
+        r = subprocess.run(["git", "status", "--short"], capture_output=True, text=True, timeout=5)
+        modified = len([l for l in r.stdout.splitlines() if l.strip()])
+        print(f"  [+] Modified files: {modified}")
+
+        # 4. Quick test check
+        r = subprocess.run([sys.executable, "-m", "pytest", "tests/unit/", "-q", "--no-header"],
+                           capture_output=True, text=True, timeout=60)
+        test_status = "PASS" if r.returncode == 0 else "FAIL"
+        print(f"  [+] Unit tests: {test_status}")
+
+        # 5. LLM summary of what to work on
+        from jarvisx.automation.coding_commands import get_workspace_context, _call_ollama
+        ctx = get_workspace_context()
+
+        prompt = f"""You are Alfred. The developer just sat down to code. Based on this workspace:
+Branch: {branch}, Modified: {modified} files, Tests: {test_status}
+Recent commits: {ctx['recent_commits'][:3]}
+TODOs: {ctx['todos'][:5]}
+Give a brief (3 sentences max) summary of what to focus on today."""
+
+        response = _call_ollama(prompt, timeout=30)
+        if response:
+            print(f"\nAlfred: {response}\n")
+        else:
+            print(f"\n  Alfred: [Ollama offline] Check TODOs and modified files manually.\n")
+
+        return {"action": "prepare", "status": "SUCCESS", "branch": branch, "tests": test_status}
+
+    async def _workflow_finish_work(self) -> Dict[str, Any]:
+        """Commit + push + run tests + summary."""
+        print("\nAlfred: Finishing today's work...\n")
+
+        # 1. Run tests
+        r = subprocess.run([sys.executable, "-m", "pytest", "tests/unit/", "-q", "--no-header"],
+                           capture_output=True, text=True, timeout=120)
+        test_status = "PASS" if r.returncode == 0 else "FAIL"
+        print(f"  [+] Tests: {test_status}")
+
+        # 2. Git add + commit
+        subprocess.run(["git", "add", "-A"], capture_output=True, timeout=10)
+        r = subprocess.run(["git", "diff", "--cached", "--stat"], capture_output=True, text=True, timeout=10)
+        staged = r.stdout.strip()
+
+        if staged:
+            commit_msg = f"chore: end of day commit - {time.strftime('%Y-%m-%d')}"
+            subprocess.run(["git", "commit", "-m", commit_msg], capture_output=True, timeout=10)
+            print(f"  [+] Committed: {commit_msg}")
+
+            # 3. Push
+            r = subprocess.run(["git", "push"], capture_output=True, text=True, timeout=30)
+            if r.returncode == 0:
+                print("  [+] Pushed to remote")
+            else:
+                print(f"  [!] Push failed: {r.stderr.strip()[:100]}")
+        else:
+            print("  [=] Nothing to commit")
+
+        # 4. Summary
+        r = subprocess.run(["git", "log", "--oneline", "-3"], capture_output=True, text=True, timeout=5)
+        print(f"\n  Recent commits:")
+        for line in r.stdout.splitlines():
+            print(f"    {line.strip()}")
+        print()
+
+        return {"action": "finish", "status": "SUCCESS", "tests": test_status}
+
+    async def _workflow_study_mode(self) -> Dict[str, Any]:
+        """Enter study mode — show Friday dashboard reminders."""
+        print("\nAlfred: Entering study mode...\n")
+
+        try:
+            from friday.friday_assistant import FridayAssistant
+            friday = FridayAssistant()
+            alerts = friday.generate_proactive_alerts()
+            readiness = friday.get_exam_readiness()
+
+            if alerts:
+                print("  Friday Alerts:")
+                for a in alerts:
+                    print(f"    ! {a}")
+                print()
+
+            print("  Exam Readiness:")
+            for r in readiness:
+                print(f"    {r['subject']}: {r['verdict']} ({r['readiness']}%)")
+            print()
+
+        except Exception as e:
+            print(f"  [!] Friday unavailable: {e}\n")
+
+        return {"action": "study_mode", "status": "SUCCESS"}
+
+    # ------------------------------------------------------------------
+    # Doctor
+    # ------------------------------------------------------------------
+    def _handle_doctor(self) -> Dict[str, Any]:
+        """Real system diagnostics — check what actually works."""
+        import shutil
+
+        checks = {}
+
+        # Ollama
+        try:
+            import urllib.request
+            urllib.request.urlopen("http://localhost:11434/api/tags", timeout=3)
+            checks["ollama"] = "ONLINE"
+        except Exception:
+            checks["ollama"] = "OFFLINE"
+
+        # Git
+        checks["git"] = "OK" if shutil.which("git") else "NOT FOUND"
+
+        # VS Code
+        checks["vscode"] = "OK" if shutil.which("code") else "NOT FOUND"
+
+        # Python
+        checks["python"] = sys.version.split()[0]
+
+        # Key packages
+        for pkg in ["pyttsx3", "pyautogui", "PIL", "pyperclip", "playwright"]:
+            try:
+                __import__(pkg)
+                checks[pkg] = "INSTALLED"
+            except ImportError:
+                checks[pkg] = "NOT INSTALLED"
+
+        # SQLite DB
+        db_path = Path("var/db/friday.db")
+        checks["friday_db"] = "OK" if db_path.exists() else "WILL CREATE ON FIRST RUN"
+
+        print("\nAlfred Doctor:\n")
+        for k, v in checks.items():
+            status_marker = "[OK]" if v in ("ONLINE", "OK", "INSTALLED") or "." in str(v) else "[!!]"
+            print(f"  {status_marker} {k:20s}: {v}")
+        print()
+
+        return {"action": "doctor", "status": "COMPLETED", "checks": checks}
+
+    # ------------------------------------------------------------------
+    # Chat
+    # ------------------------------------------------------------------
+    async def _handle_chat(self, args: str) -> Dict[str, Any]:
+        prompt = args or "Hello Alfred."
+        from jarvisx.llm.ollama_provider import OllamaLLMProvider
+        provider = OllamaLLMProvider()
+        res = await provider.generate(prompt)
+        print(f"\nUser: {prompt}\n")
+        print(f"Alfred: {res['response']}\n")
+        return {"action": "chat", "status": "COMPLETED", "response": res}
+
+    # ------------------------------------------------------------------
+    # Models
+    # ------------------------------------------------------------------
+    def _handle_models(self) -> Dict[str, Any]:
+        """List actually installed Ollama models."""
+        try:
+            import json
+            import urllib.request
+            r = urllib.request.urlopen("http://localhost:11434/api/tags", timeout=5)
+            data = json.loads(r.read().decode("utf-8"))
+            models = [m["name"] for m in data.get("models", [])]
+            print("\nInstalled Ollama Models:\n")
+            for m in models:
+                print(f"  - {m}")
+            print()
+            return {"action": "models", "status": "SUCCESS", "models": models}
+        except Exception:
+            print("\nAlfred: Ollama is offline. Cannot list models.\n")
+            return {"action": "models", "status": "NOT_AVAILABLE", "reason": "Ollama offline"}
+
+    # ------------------------------------------------------------------
+    # Help
+    # ------------------------------------------------------------------
+    def _print_help(self) -> Dict[str, Any]:
+        help_text = """
+Alfred Commands:
+
+  ENGINEERING
+    continue              Resume work — analyze workspace and explain what to do next
+    fix this              Find failing tests and generate fix
+    write tests <file>    Generate pytest tests for a file
+    explain <file>        Explain a file's architecture
+    review <file>         Code review a file
+    find dead code        Scan project for unused imports
+    generate docs <file>  Add docstrings to a file
+
+  DESKTOP
+    organize <folder>     Sort files by extension
+    compress <folder>     Zip a folder
+    screenshot            Take a screenshot
+    windows               List open windows
+    focus <title>         Bring a window to front
+    kill <process>        Kill a process
+    disk <path>           Show disk usage
+
+  WORKFLOWS
+    prepare for coding    Open VS Code + terminal + diagnostics + daily goals
+    finish work           Commit + push + test + summary
+    study mode            Show Friday alerts and exam readiness
+
+  SYSTEM
+    doctor                Check what's installed and working
+    chat <message>        Talk to Alfred via LLM
+    models                List installed Ollama models
+    status                System health
+    help                  This message
+"""
+        print(help_text)
+        return {"commands": help_text}
