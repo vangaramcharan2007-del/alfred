@@ -15,6 +15,9 @@ class CodingMetrics:
     dependencies_detected: int = 0
     risk_assessments: int = 0
     architecture_queries: int = 0
+    architectures_designed: int = 0
+    adrs_recorded: int = 0
+    diagrams_generated: int = 0
     total_execution_time_seconds: float = 0.0
 
     @property
@@ -49,6 +52,11 @@ class CodingMetrics:
         self.risk_assessments += risks
         self.architecture_queries += arch_queries
 
+    def record_architecture_design(self, adrs: int = 0, diagrams: int = 0) -> None:
+        self.architectures_designed += 1
+        self.adrs_recorded += adrs
+        self.diagrams_generated += diagrams
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "coding_tasks_completed": self.coding_tasks_completed,
@@ -62,8 +70,12 @@ class CodingMetrics:
             "dependencies_detected": self.dependencies_detected,
             "risk_assessments": self.risk_assessments,
             "architecture_queries": self.architecture_queries,
+            "architectures_designed": self.architectures_designed,
+            "adrs_recorded": self.adrs_recorded,
+            "diagrams_generated": self.diagrams_generated,
             "total_execution_time_seconds": round(self.total_execution_time_seconds, 3),
             "average_execution_time": round(self.average_execution_time, 3),
         }
+
 
 
