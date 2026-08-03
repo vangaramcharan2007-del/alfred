@@ -27,6 +27,7 @@ KERNEL_SUBSYSTEMS = [
     "brain_controller",
     "mission_system",
     "decision_engine",
+    "voice_runtime",
 ]
 
 class RuntimeKernel:
@@ -57,7 +58,7 @@ class RuntimeKernel:
                 version="1.0.0",
                 author="Jarvis X",
                 category="kernel",
-                supported_actions=["boot", "shutdown", "health", "status"],
+                supported_actions=["boot", "shutdown", "health", "status", "recover"],
                 handler=self.execute_kernel_action
             )
         ]
@@ -90,6 +91,9 @@ class RuntimeKernel:
     def health_check(self) -> Dict[str, Any]:
         return self.health_coordinator.run_health_check()
 
+    def recover_components(self) -> Dict[str, Any]:
+        return self.health_coordinator.recover_failed_components()
+
     def status(self) -> Dict[str, Any]:
         runtime = self.lifecycle.get_runtime_info()
         health = self.health_check()
@@ -107,4 +111,7 @@ class RuntimeKernel:
             return self.health_check()
         elif action == "status":
             return self.status()
+        elif action == "recover":
+            return self.recover_components()
         raise NotImplementedError(f"Action '{action}' not supported by RuntimeKernel.")
+

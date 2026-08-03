@@ -12,8 +12,14 @@ async def test_unified_decision_engine():
     ctx = DecisionContext(task_description="Fix authentication bug", intent="debugging")
     decision = engine.decide(ctx)
 
-    assert decision["capability"] == "coding.agent"
+    assert "Goose" in decision["capability"] or decision["capability"] == "coding.agent"
     assert decision["provider"] == "goose"
-    assert decision["model"] == "qwen2.5-coder:7b"
-    assert decision["risk"] == "LOW"
+    assert "Qwen" in decision["model"]
+    assert decision["risk"] == "Low"
     assert decision["confidence"] >= 0.90
+    assert len(decision["reasons"]) > 0
+
+    explanation = engine.explainer.explain(decision)
+    assert "Task:" in explanation
+    assert "Fix authentication bug" in explanation
+    assert "Decision:" in explanation

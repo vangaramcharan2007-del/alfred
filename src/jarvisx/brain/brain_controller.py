@@ -41,31 +41,46 @@ class BrainController:
     async def process_request(self, user_request: str) -> Dict[str, Any]:
         # 1. Intent Analysis
         intent = self.intent_engine.analyze_intent(user_request)
-
         await self.bus.publish(Event(
             type="brain.intent.analyzed",
             source="brain_controller",
             payload={"intent": intent["intent"], "confidence": intent["confidence"]}
         ))
 
-        # 2. Mission Routing
+        # 2. Mission Planning
         route = self.mission_router.route(intent["intent"])
 
-        # 3. Context Build
+        # 3. Capability Selection
+        capability = route["capability"]
+
+        # 4. Provider Selection
+        provider = route["preferred_provider"]
+
+        # 5. Context & Execution Setup
         ctx = self.context_mgr.push_context(user_request, intent, route)
 
+        # 6. Learning & Event Dispatch
         await self.bus.publish(Event(
             type="brain.request.processed",
             source="brain_controller",
-            payload={"request": user_request, "capability": route["capability"], "provider": route["preferred_provider"]}
+            payload={
+                "request": user_request,
+                "intent": intent["intent"],
+                "capability": capability,
+                "provider": provider
+            }
         ))
 
         return {
             "request": user_request,
             "intent": intent,
             "route": route,
-            "context_depth": len(self.context_mgr.context_stack)
+            "capability": capability,
+            "provider": provider,
+            "context_depth": len(self.context_mgr.context_stack),
+            "pipeline_status": "READY"
         }
+
 
     async def execute_brain_action(self, action: str, **kwargs) -> Dict[str, Any]:
         if action == "process_request":

@@ -16,3 +16,8 @@ async def test_mission_manager_create_and_execute():
     assert mission["intent"] == "engineering"
     assert result["test_result"]["exit_code"] == 0
     assert result["github_pr"]["status"] == "created"
+    assert "evolution_memory" in result
+    assert result["evolution_memory"]["success"] is True
+
+    history = await manager.execute_mission_action("get_history")
+    assert len(history["history"]) == 1

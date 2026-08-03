@@ -5,7 +5,7 @@ from typing import Dict, Any, List, Optional, Set
 @dataclass
 class SystemNode:
     entity_id: str
-    entity_type: str  # capability, provider, model, agent, tool, repository, memory
+    entity_type: str  # capability, agent, model, repository, memory, mission, failure, improvement, evolution_history
     name: str
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -21,7 +21,7 @@ class SystemNode:
 class SystemEdge:
     source_id: str
     target_id: str
-    relation: str  # uses, depends_on, improves, replaces, conflicts_with
+    relation: str  # uses, depends_on, improves, replaces, conflicts_with, executes, records
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -50,6 +50,37 @@ class SystemKnowledgeGraph:
         self.edges.append(edge)
         return edge
 
+    # First-class entity tracking helpers
+    def add_capability(self, entity_id: str, name: str, metadata: Optional[Dict[str, Any]] = None) -> SystemNode:
+        return self.add_node(entity_id, "capability", name, metadata)
+
+    def add_agent(self, entity_id: str, name: str, metadata: Optional[Dict[str, Any]] = None) -> SystemNode:
+        return self.add_node(entity_id, "agent", name, metadata)
+
+    def add_model(self, entity_id: str, name: str, metadata: Optional[Dict[str, Any]] = None) -> SystemNode:
+        return self.add_node(entity_id, "model", name, metadata)
+
+    def add_repository(self, entity_id: str, name: str, metadata: Optional[Dict[str, Any]] = None) -> SystemNode:
+        return self.add_node(entity_id, "repository", name, metadata)
+
+    def add_memory(self, entity_id: str, name: str, metadata: Optional[Dict[str, Any]] = None) -> SystemNode:
+        return self.add_node(entity_id, "memory", name, metadata)
+
+    def add_mission(self, entity_id: str, name: str, metadata: Optional[Dict[str, Any]] = None) -> SystemNode:
+        return self.add_node(entity_id, "mission", name, metadata)
+
+    def add_failure(self, entity_id: str, name: str, metadata: Optional[Dict[str, Any]] = None) -> SystemNode:
+        return self.add_node(entity_id, "failure", name, metadata)
+
+    def add_improvement(self, entity_id: str, name: str, metadata: Optional[Dict[str, Any]] = None) -> SystemNode:
+        return self.add_node(entity_id, "improvement", name, metadata)
+
+    def add_evolution_history(self, entity_id: str, name: str, metadata: Optional[Dict[str, Any]] = None) -> SystemNode:
+        return self.add_node(entity_id, "evolution_history", name, metadata)
+
+    def get_nodes_by_type(self, entity_type: str) -> List[SystemNode]:
+        return [n for n in self.nodes.values() if n.entity_type == entity_type]
+
     def query_relationships(self, entity_id: str) -> List[Dict[str, Any]]:
         rel = []
         for e in self.edges:
@@ -57,10 +88,18 @@ class SystemKnowledgeGraph:
                 rel.append(e.to_dict())
         return rel
 
+    def summary(self) -> Dict[str, int]:
+        counts: Dict[str, int] = {}
+        for n in self.nodes.values():
+            counts[n.entity_type] = counts.get(n.entity_type, 0) + 1
+        return counts
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "nodes_count": len(self.nodes),
             "edges_count": len(self.edges),
+            "type_summary": self.summary(),
             "nodes": [n.to_dict() for n in self.nodes.values()],
             "edges": [e.to_dict() for e in self.edges]
         }
+

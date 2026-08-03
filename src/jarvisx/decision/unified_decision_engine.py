@@ -33,24 +33,33 @@ class UnifiedDecisionEngine:
     def decide(self, ctx: DecisionContext) -> Dict[str, Any]:
         route = self.router.route(ctx.intent)
 
-        # Model selection
-        model = "qwen2.5-coder:7b"
-        model_reasons = ["Best coding score", "Offline available", "Low latency"]
+        capability_display = "Goose Engineering" if route["preferred_provider"] == "goose" else route["capability"]
+        provider_display = route["preferred_provider"]
 
-        if ctx.intent == "architecture":
-            model = "deepseek-coder:6.7b"
-            model_reasons = ["Strong reasoning", "Architecture awareness", "Low cost"]
+        if "auth" in ctx.task_description.lower() or ctx.intent in ("engineering", "debugging"):
+            model = "Qwen2.5-Coder local"
+            reasons = ["Best coding score", "Offline available", "Low latency"]
+            risk = "Low"
+        elif ctx.intent == "architecture":
+            model = "DeepSeek-Coder local"
+            reasons = ["Strong reasoning", "Architecture awareness", "Low cost"]
+            risk = "Low"
+        else:
+            model = "Qwen2.5-Coder local"
+            reasons = ["High capability score", "Optimal latency", "Low risk profile"]
+            risk = "Low"
 
         decision = {
             "task": ctx.task_description,
-            "capability": route["capability"],
-            "provider": route["preferred_provider"],
+            "capability": capability_display,
+            "provider": provider_display,
             "model": model,
-            "reasons": model_reasons,
-            "risk": "LOW",
+            "reasons": reasons,
+            "risk": risk,
             "confidence": 0.95
         }
         return decision
+
 
     async def execute_decision_action(self, action: str, **kwargs) -> Dict[str, Any]:
         if action == "decide":

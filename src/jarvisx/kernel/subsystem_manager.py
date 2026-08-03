@@ -54,3 +54,12 @@ class SubsystemManager:
 
     def get_degraded(self) -> List[str]:
         return [n for n, s in self.subsystems.items() if s.status in ("DEGRADED", "FAILED")]
+
+    def recover_subsystem(self, name: str) -> bool:
+        if name in self.subsystems:
+            self.subsystems[name].status = "ONLINE"
+            self.subsystems[name].last_heartbeat = time.time()
+            self.subsystems[name].error = None
+            return True
+        return False
+

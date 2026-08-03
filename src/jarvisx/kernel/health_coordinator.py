@@ -23,3 +23,16 @@ class HealthCoordinator:
             "overall": "HEALTHY" if health_score >= 0.90 else "DEGRADED" if health_score >= 0.50 else "CRITICAL",
             "subsystems": statuses
         }
+
+    def recover_failed_components(self) -> Dict[str, Any]:
+        degraded = self.subsystem_mgr.get_degraded()
+        recovered = []
+        for name in degraded:
+            if self.subsystem_mgr.recover_subsystem(name):
+                recovered.append(name)
+        return {
+            "recovered_count": len(recovered),
+            "recovered_subsystems": recovered,
+            "current_health": self.run_health_check()
+        }
+

@@ -1,139 +1,163 @@
 #!/usr/bin/env python3
 """
-Live Demonstration Script for Phase 39: Jarvis X Unified Autonomous Operating System
-Demonstrates kernel boot, subsystem health, brain intent analysis, unified decision making,
-autonomous mission execution, GitHub PR simulation, evolution check, and CLI commands.
+Jarvis X Unified Autonomous Operating System Layer - Full Runtime Demo
+Phase 39 Live Demonstration Script
+
+Demonstrates:
+- Kernel boot & Subsystem manager initialization
+- Subsystem health verification across all 17 components
+- Intent Understanding & Mission Routing
+- Unified Decision Engine reasoning (Task, Capability, Provider, Model, Reasons, Risk)
+- Autonomous Mission Execution (Architecture Agent -> Planner -> Provider -> Sandbox -> GitHub PR -> Evolution Memory)
+- System Knowledge Graph tracking
+- Voice Runtime Engine waveform output
+- Jarvis CLI status & command handling
 """
 
-import asyncio
 import sys
-from pathlib import Path
+import os
+import time
+import asyncio
+import json
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+# Ensure UTF-8 output encoding for Windows terminal
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
 
-from jarvisx.core.hermes import HermesBus
-from jarvisx.core.events import Event
-from jarvisx.capabilities.core.capability_registry import CapabilityRegistry
+# Ensure src directory is in path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
 from jarvisx.kernel.runtime_kernel import RuntimeKernel
 from jarvisx.brain.brain_controller import BrainController
 from jarvisx.missions.mission_manager import MissionManager
-from jarvisx.decision.decision_context import DecisionContext
-from jarvisx.decision.unified_decision_engine import UnifiedDecisionEngine
-from jarvisx.meta.meta_engine import MetaCognitionEngine
-from jarvisx.evolution.evolution_engine import AutonomousEvolutionEngine
+from jarvisx.decision.unified_decision_engine import UnifiedDecisionEngine, DecisionContext
+from jarvisx.meta.system_graph import SystemKnowledgeGraph
 from jarvisx.interface.cli import JarvisCLI
+from jarvisx.interface.voice_runtime import VoiceRuntimeEngine
+from jarvisx.capabilities.core.capability_registry import CapabilityRegistry
+from jarvisx.core.hermes import HermesBus
 
-async def event_logger(event: Event):
-    t = event.type
-    p = event.payload
-    if t == "kernel.booted":
-        print(f"⚡ [HERMES] Kernel Booted: {p['subsystems']} subsystems online in {p['duration']}s")
-    elif t == "brain.intent.analyzed":
-        print(f"🧠 [HERMES] Intent Analyzed: '{p['intent']}' (Confidence: {p['confidence'] * 100}%)")
-    elif t == "brain.request.processed":
-        print(f"📡 [HERMES] Request Routed: Capability={p['capability']} Provider={p['provider']}")
-    elif t == "mission.created":
-        print(f"🚀 [HERMES] Mission Created: {p['mission_id']} (Intent: {p['intent']})")
-    elif t == "mission.completed":
-        print(f"✅ [HERMES] Mission Completed: {p['mission_id']} (Status: {p['status']})")
-
-async def main():
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8")
-
+async def run_demo():
     print("=" * 80)
-    print("      JARVIS X - PHASE 39 UNIFIED AUTONOMOUS OPERATING SYSTEM DEMO")
+    print("      JARVIS X UNIFIED AUTONOMOUS OPERATING SYSTEM LAYER - PHASE 39")
     print("=" * 80)
+    print()
 
-    # Wire up HermesBus
+    # 1. Initialize Core Foundations
+    registry = CapabilityRegistry()
     bus = HermesBus()
-    for evt in ["kernel.booted", "brain.intent.analyzed", "brain.request.processed", "mission.created", "mission.completed"]:
-        bus.subscribe(evt, event_logger)
-
-    registry = CapabilityRegistry(bus=bus)
-
-    # === STEP 1: Boot Runtime Kernel ===
-    print("\n⚡ Step 1: Booting Jarvis X Runtime Kernel...")
     kernel = RuntimeKernel(registry=registry, bus=bus)
-    await kernel.register(registry)
-    boot_res = await kernel.boot()
-    print(f"   State:              {boot_res['state']}")
-    print(f"   Subsystems Online:  {boot_res['subsystems_online']}")
-    print(f"   Boot Duration:      {boot_res['boot_duration']}s")
+    voice = VoiceRuntimeEngine(bus=bus)
+    graph = SystemKnowledgeGraph()
 
-    # === STEP 2: System Health Check ===
-    print("\n💚 Step 2: Running Full System Health Check...")
+    # Register graph entities
+    graph.add_capability("cap.coding", "Coding Agent Capability", {"version": "1.0.0"})
+    graph.add_agent("agent.architecture", "Architecture Agent", {"tier": "system"})
+    graph.add_model("model.qwen_local", "Qwen2.5-Coder local", {"offline": True, "score": 0.97})
+    graph.add_repository("repo.jarvisx", "vangaramcharan2007-del/alfred", {"branch": "main"})
+    graph.add_memory("mem.cognitive", "Cognitive Vector Memory", {"size": "42 MB"})
+
+    # 2. Boot Kernel
+    print("[STEP 1] Booting Jarvis X Runtime Kernel...")
+    boot_info = await kernel.boot()
+    print(f"   [+] State: {boot_info['state']}")
+    print(f"   [+] Subsystems Online: {boot_info['subsystems_online']} / 17")
+    print(f"   [+] Boot Duration: {boot_info['boot_duration']} seconds")
+    print()
+
+    # 3. Health Check
+    print("[STEP 2] Running Subsystem Health Check...")
     health = kernel.health_check()
-    print(f"   Overall Health:     {health['overall']}")
-    print(f"   Health Score:       {health['health_score'] * 100}%")
-    print(f"   Online:             {health['online']}/{health['total_subsystems']}")
-    print(f"   Degraded:           {health['degraded_count']}")
+    print(f"   [+] Health Score: {health['health_score'] * 100:.1f}%")
+    print(f"   [+] Overall Status: {health['overall']}")
+    for sub in health['subsystems'][:6]:
+        print(f"     - Subsystem [{sub['name']}]: {sub['status']}")
+    print(f"     - ... ({len(health['subsystems']) - 6} more subsystems online)")
+    print()
 
-    # === STEP 3: Brain Processes User Request ===
-    user_request = "Create a productivity app with task management and calendar"
-    print(f"\n🧠 Step 3: Brain Processing Request: \"{user_request}\"")
+    # 4. User Request Input
+    user_request = "Create a productivity app"
+    print(f"[STEP 3] User Request Received: \"{user_request}\"")
+    print()
+
+    # 5. Intent Understanding & Brain Routing
+    print("[STEP 4] Jarvis Brain Intent Understanding & Routing...")
     brain = BrainController(registry=registry, bus=bus)
-    await brain.register(registry)
     brain_res = await brain.process_request(user_request)
-    print(f"   Detected Intent:    {brain_res['intent']['intent']}")
-    print(f"   Intent Confidence:  {brain_res['intent']['confidence'] * 100}%")
-    print(f"   Target Capability:  {brain_res['route']['capability']}")
-    print(f"   Target Provider:    {brain_res['route']['preferred_provider']}")
+    print(f"   [+] Detected Intent: {brain_res['intent']['intent']} (Confidence: {brain_res['intent']['confidence']*100:.0f}%)")
+    print(f"   [+] Capability Selected: {brain_res['capability']}")
+    print(f"   [+] Preferred Provider: {brain_res['provider']}")
+    print()
 
-    # === STEP 4: Unified Decision Engine ===
-    print("\n🎯 Step 4: Unified Decision Engine Evaluation...")
+    # 6. Unified Decision Engine
+    print("[STEP 5] Unified Decision Engine (Reasoning & Model Selection)...")
     decision_engine = UnifiedDecisionEngine(registry=registry)
-    await decision_engine.register(registry)
-    ctx = DecisionContext(
-        task_description=user_request,
-        intent=brain_res["intent"]["intent"]
-    )
+    ctx = DecisionContext(task_description=user_request, intent=brain_res['intent']['intent'])
     decision = decision_engine.decide(ctx)
     explanation = decision_engine.explainer.explain(decision)
-    print(f"   Capability:         {decision['capability']}")
-    print(f"   Provider:           {decision['provider']}")
-    print(f"   Local Model:        {decision['model']}")
-    print(f"   Risk:               {decision['risk']}")
-    print(f"   Confidence:         {decision['confidence'] * 100}%")
-    print(f"   Reasons:")
-    for r in decision["reasons"]:
-        print(f"      - {r}")
 
-    # === STEP 5: Autonomous Mission Execution ===
-    print(f"\n🚀 Step 5: Executing Autonomous Mission: \"{user_request}\"")
+    print("-" * 50)
+    print(explanation)
+    print("-" * 50)
+    print()
+
+    # Update Graph with Mission & Decision
+    graph.add_mission("mission_001", user_request, {"intent": brain_res['intent']['intent']})
+    graph.add_edge("mission_001", "model.qwen_local", "uses")
+    graph.add_edge("mission_001", "cap.coding", "executes")
+
+    # 7. Execute Autonomous Mission
+    print("[STEP 6] Executing Autonomous Mission Pipeline...")
     mission_mgr = MissionManager(brain=brain, registry=registry, bus=bus)
-    await mission_mgr.register(registry)
     mission_res = await mission_mgr.create_and_execute_mission(user_request)
+
     m = mission_res["mission"]
-    r = mission_res["result"]
-    print(f"   Mission ID:         {m['mission_id']}")
-    print(f"   Status:             {m['status']}")
-    print(f"   Architecture:       {r['architecture']}")
-    print(f"   Provider Output:    {r['provider_output']['output'][:60]}...")
-    print(f"   Sandbox Test:       {r['test_result']['stdout']}")
-    print(f"   GitHub PR:          PR #{r['github_pr']['pr_number']} - {r['github_pr']['title']}")
-    print(f"   Mission Steps:")
-    for step in m["steps"]:
-        print(f"      ✓ {step}")
+    res = mission_res["result"]
 
-    # === STEP 6: Meta-Cognition Self Analysis ===
-    print("\n🔬 Step 6: Meta-Cognition Self Analysis...")
-    meta_engine = MetaCognitionEngine(registry=registry, bus=bus)
-    await meta_engine.register(registry)
-    meta_res = await meta_engine.run_self_analysis()
-    print(f"   Registered Capabilities: {meta_res['capabilities_summary']['total_capabilities']}")
-    print(f"   System Confidence:       {meta_res['confidence'] * 100}%")
+    print(f"   [+] Mission ID: {m['mission_id']}")
+    print(f"   [+] Status: {m['status']}")
+    print(f"   [+] Architecture Design: {res['architecture']}")
+    print(f"   [+] Provider Output: {res['provider_output']['output']}")
+    print(f"   [+] Sandbox Test Result: {res['test_result']['stdout']} (Exit code: {res['test_result']['exit_code']})")
+    print(f"   [+] GitHub PR Created: #{res['github_pr']['pr_number']} - {res['github_pr']['title']} ({res['github_pr']['url']})")
+    print(f"   [+] Review Status: {res['github_pr']['review_status']}")
+    print(f"   [+] Recorded Evolution Memory: {res['evolution_memory']['upgrade_id']} (Lessons: {res['evolution_memory']['lessons_learned']})")
+    print()
 
-    # === STEP 7: CLI Interface Demo ===
-    print("\n💻 Step 7: CLI Interface Commands...")
-    cli = JarvisCLI(kernel=kernel)
-    help_res = cli.handle_command("help")
-    print("   Available CLI Commands:")
-    for cmd, desc in help_res["commands"].items():
-        print(f"      jarvis {cmd:12s} - {desc}")
+    # 8. Voice Synthesis Output
+    print("[STEP 7] Voice Runtime Engine Speech Output...")
+    voice_res = voice.speak("Autonomous productivity app mission completed successfully. Pull request is ready for review.", persona="Friday")
+    print(f"   [+] Persona: {voice_res['persona']}")
+    print(f"   [+] Status: {voice_res['status']}")
+    print(f"   [+] Waveform Samples: {voice_res['waveform_samples']}")
+    print()
 
-    print("\n✨ Phase 39 Unified Autonomous Operating System Demonstration Complete!")
+    # 9. CLI Status Verification
+    print("[STEP 8] Jarvis CLI Interface Status Check...")
+    cli = JarvisCLI(kernel=kernel, mission_manager=mission_mgr)
+    cli_status = cli.handle_command("status")
+    print(f"   [+] System Health: {cli_status['system_health']}")
+    print(f"   [+] Active Agents: {', '.join(cli_status['active_agents'])}")
+    print(f"   [+] Available Models: {', '.join(cli_status['models_available'])}")
+    print(f"   [+] Memory Size: {cli_status['memory_size']}")
+    print(f"   [+] Evolution Level: {cli_status['evolution_level']}")
+    print()
+
+    # 10. Global Knowledge Graph Summary
+    print("[STEP 9] Global Knowledge Graph Summary...")
+    graph_summary = graph.to_dict()
+    print(f"   [+] Total Nodes: {graph_summary['nodes_count']}")
+    print(f"   [+] Total Edges: {graph_summary['edges_count']}")
+    print(f"   [+] Entity Type Summary: {json.dumps(graph_summary['type_summary'])}")
+    print()
+
+    print("=" * 80)
+    print("  [SUCCESS] PHASE 39: UNIFIED AUTONOMOUS OPERATING SYSTEM DEMO COMPLETED!")
     print("=" * 80)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(run_demo())
