@@ -82,17 +82,7 @@ class BootstrapManager:
         return self.state
 
     def print_startup_banner(self) -> None:
-        lines = [
-            "=========================",
-            "       JARVIS X",
-            "=========================",
-            ""
-        ]
-        for name in ["Memory", "LLM Gateway", "Capabilities", "Agents", "Git"]:
-            srv = self.state.services.get(name)
-            status = srv.status if srv else "OFFLINE"
-            lines.append(f"{name:<15} ........ {status}")
-        lines.append("")
-        lines.append("Alfred online.")
-        lines.append("")
-        print("\n".join(lines))
+        from jarvisx.diagnostics.system_health_report import SystemHealthReporter
+        reporter = SystemHealthReporter()
+        print(reporter.generate_startup_banner())
+

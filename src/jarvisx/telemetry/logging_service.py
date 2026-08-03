@@ -6,9 +6,13 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 class ProductionLogger:
-    def __init__(self, log_path: Optional[str] = None):
-        self.log_path = Path(log_path or "logs/jarvis.log")
-        self.log_path.parent.mkdir(parents=True, exist_ok=True)
+    def __init__(self, log_dir: Optional[str] = None):
+        self.log_dir = Path(log_dir or "logs")
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        self.log_path = self.log_dir / "jarvis.log"
+        self.runtime_jsonl = self.log_dir / "runtime.jsonl"
+        self.missions_jsonl = self.log_dir / "missions.jsonl"
+        self.errors_jsonl = self.log_dir / "errors.jsonl"
 
     def log_event(
         self,
@@ -24,10 +28,23 @@ class ProductionLogger:
             "level": level,
             "payload": payload
         }
-        line = json.dumps(entry)
+        line = json.dumps(entry) + "\n"
+
         with open(self.log_path, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
+            f.write(line)
+
+        if category == "mission":
+            with open(self.missions_jsonl, "a", encoding="utf-8") as f:
+                f.write(line)
+        elif level in ("ERROR", "WARNING", "CRITICAL") or category == "error":
+            with open(self.errors_jsonl, "a", encoding="utf-8") as f:
+                f.write(line)
+        else:
+            with open(self.runtime_jsonl, "a", encoding="utf-8") as f:
+                f.write(line)
+
         return entry
+
 
 _global_logger: Optional[ProductionLogger] = None
 

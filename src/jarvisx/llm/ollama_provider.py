@@ -33,18 +33,43 @@ class OllamaLLMProvider(LLMProvider):
         start_t = time.time()
         chosen_model = model or "qwen2.5-coder:7b"
 
-        # Formulate response
-        response_text = f"[Ollama {chosen_model} Response]: Refactored and optimized solution for prompt:\n'{prompt[:100]}...'"
-        latency = time.time() - start_t
+        # Attempt live connection to local Ollama API
+        try:
+            import json
+            import urllib.request
+            url = f"{self.endpoint}/api/generate"
+            payload = json.dumps({"model": chosen_model, "prompt": prompt, "stream": False}).encode("utf-8")
+            req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
 
+            with urllib.request.urlopen(req, timeout=3.0) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    response_text = data.get("response", "")
+                    latency = round(time.time() - start_t, 3)
+                    return {
+                        "status": "AVAILABLE",
+                        "provider_id": "ollama.local",
+                        "model": chosen_model,
+                        "response": response_text,
+                        "latency": latency,
+                        "cost": 0.0,
+                        "tokens_generated": len(response_text.split())
+                    }
+        except Exception:
+            pass
+
+        # Return explicit NOT_AVAILABLE contract if local daemon is offline
+        latency = round(time.time() - start_t, 3)
         return {
+            "status": "NOT_AVAILABLE",
             "provider_id": "ollama.local",
             "model": chosen_model,
-            "response": response_text,
-            "latency": round(latency, 3),
+            "response": f"[Ollama {chosen_model} Offline]: Explicit NOT_AVAILABLE returned per production contract.",
+            "latency": latency,
             "cost": 0.0,
-            "tokens_generated": len(response_text.split())
+            "tokens_generated": 0
         }
+
 
     async def stream(self, prompt: str, model: Optional[str] = None, **kwargs) -> AsyncGenerator[str, None]:
         chosen_model = model or "qwen2.5-coder:7b"
