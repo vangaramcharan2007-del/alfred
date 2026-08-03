@@ -22,6 +22,11 @@ class CodingMetrics:
     provider_connections: int = 0
     mcp_connections: int = 0
     failed_connections: int = 0
+    repositories_opened: int = 0
+    issues_processed: int = 0
+    prs_created: int = 0
+    reviews_generated: int = 0
+    workflow_runs: int = 0
     capability_load_time: float = 0.0
     total_execution_time_seconds: float = 0.0
 
@@ -86,10 +91,16 @@ class CodingMetrics:
             "provider_connections": self.provider_connections,
             "mcp_connections": self.mcp_connections,
             "failed_connections": self.failed_connections,
+            "repositories_opened": self.repositories_opened,
+            "issues_processed": self.issues_processed,
+            "prs_created": self.prs_created,
+            "reviews_generated": self.reviews_generated,
+            "workflow_runs": self.workflow_runs,
             "capability_load_time": round(self.capability_load_time, 3),
             "total_execution_time_seconds": round(self.total_execution_time_seconds, 3),
             "average_execution_time": round(self.average_execution_time, 3),
         }
+
 
 
 
