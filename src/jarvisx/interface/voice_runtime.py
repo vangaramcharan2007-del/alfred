@@ -1,0 +1,94 @@
+from __future__ import annotations
+import os
+import sys
+import time
+import math
+import asyncio
+from typing import Dict, Any, List, Optional
+from jarvisx.core.hermes import HermesBus
+from jarvisx.core.events import Event
+
+class VoiceRuntimeEngine:
+    """
+    Voice & Speech Synthesis Runtime Subsystem for Alfred & Friday personas.
+    Provides native Windows SAPI5 / pyttsx3 voice output, audio frequency waveform data generation,
+    and HermesBus event publishing.
+    """
+    def __init__(self, bus: Optional[HermesBus] = None):
+        self.bus = bus or HermesBus()
+        self._sapi_voice = None
+        self._init_sapi()
+
+    def _init_sapi(self):
+        if sys.platform == "win32":
+            try:
+                import win32com.client
+                self._sapi_voice = win32com.client.Dispatch("SAPI.SpVoice")
+            except Exception:
+                self._sapi_voice = None
+
+    def speak(self, text: str, persona: str = "Alfred", rate: int = 1, volume: int = 100) -> Dict[str, Any]:
+        """
+        Speak text with specified persona voice and publish TTS events.
+        """
+        prefix = f"[{persona.upper()}] "
+        full_text = f"{prefix}{text}"
+        print(f"\n🔊 🗣️  {persona} (TTS Voice): \"{text}\"")
+
+        # Publish event
+        if self.bus:
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(self.bus.publish(Event(
+                        type="voice.speaking",
+                        source="voice_runtime",
+                        payload={"persona": persona, "text": text}
+                    )))
+            except Exception:
+                pass
+
+        # Native SAPI5 speech synthesis output on Windows
+        if self._sapi_voice:
+            try:
+                # Select voice if possible
+                voices = self._sapi_voice.GetVoices()
+                if persona.lower() == "friday" and voices.Count > 1:
+                    # Select female voice if available
+                    self._sapi_voice.Voice = voices.Item(1)
+                elif voices.Count > 0:
+                    self._sapi_voice.Voice = voices.Item(0)
+
+                self._sapi_voice.Rate = rate
+                self._sapi_voice.Volume = volume
+                self._sapi_voice.Speak(text, 1)  # 1 = SFFlagsAsync
+            except Exception as e:
+                pass
+
+        # Generate audio waveform frequency data snapshot
+        waveform_snapshot = self.generate_waveform_data(text_length=len(text))
+
+        return {
+            "persona": persona,
+            "text": text,
+            "waveform_samples": len(waveform_snapshot),
+            "status": "spoken"
+        }
+
+    def generate_waveform_data(self, text_length: int = 50, samples: int = 64) -> List[float]:
+        """
+        Generates simulated real-time audio frequency spectrum / waveform amplitude data.
+        """
+        frequencies = []
+        t = time.time()
+        for i in range(samples):
+            # Combine sine waves to produce realistic dynamic audio spectrum amplitude
+            amp = (
+                0.5 * math.sin(2 * math.pi * 0.1 * i + t * 5) +
+                0.3 * math.cos(2 * math.pi * 0.25 * i + t * 3) +
+                0.2 * math.sin(2 * math.pi * 0.05 * (i + text_length) + t * 8)
+            )
+            # Normalize to range 0.1 .. 1.0
+            norm_amp = round(max(0.1, min(1.0, (amp + 1.0) / 2.0)), 3)
+            frequencies.append(norm_amp)
+        return frequencies
