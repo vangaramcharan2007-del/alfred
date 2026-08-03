@@ -10,9 +10,11 @@ src_dir = Path(__file__).resolve().parent.parent
 if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
+import json
 import asyncio
 from jarvisx.runtime.runtime import JarvisRuntime
 from jarvisx.interface.cli import JarvisCLI
+
 
 async def async_main():
     runtime = JarvisRuntime()
@@ -20,12 +22,13 @@ async def async_main():
 
     if len(sys.argv) > 1:
         raw_cmd = " ".join(sys.argv[1:])
-        print(f"Executing task: {raw_cmd}")
         res = await runtime.cli.handle_command_async(raw_cmd)
-        print(res)
+        if raw_cmd.startswith("status") or raw_cmd.startswith("history"):
+            print(json.dumps(res, indent=2))
 
 def main():
     asyncio.run(async_main())
+
 
 if __name__ == "__main__":
     main()

@@ -5,10 +5,12 @@ class CommandParser:
     COMMANDS = {
         "status": "Show system health, active agents, models, memory, evolution level",
         "mission": "Run autonomous mission (usage: jarvis mission \"description\")",
+        "history": "Show previous persisted missions",
         "evolve": "Trigger self-improvement analysis",
         "health": "Run full health check",
         "help": "Show available commands",
     }
+
 
     def parse(self, raw_input: str) -> Tuple[str, str]:
         parts = raw_input.strip().split(maxsplit=1)
