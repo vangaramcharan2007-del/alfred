@@ -56,7 +56,14 @@ class CodingMetrics:
     self_analysis_runs: int = 0
     failure_patterns: int = 0
     system_confidence: float = 0.95
+    evolution_cycles: int = 0
+    successful_upgrades: int = 0
+    failed_upgrades: int = 0
+    improvement_score: float = 0.90
+    system_growth_rate: float = 0.15
+    automation_level: float = 0.95
     capability_load_time: float = 0.0
+
     total_execution_time_seconds: float = 0.0
 
 
@@ -157,7 +164,14 @@ class CodingMetrics:
             "self_analysis_runs": self.self_analysis_runs,
             "failure_patterns": self.failure_patterns,
             "system_confidence": round(self.system_confidence, 3),
+            "evolution_cycles": self.evolution_cycles,
+            "successful_upgrades": self.successful_upgrades,
+            "failed_upgrades": self.failed_upgrades,
+            "improvement_score": round(self.improvement_score, 2),
+            "system_growth_rate": round(self.system_growth_rate, 2),
+            "automation_level": round(self.automation_level, 2),
             "capability_load_time": round(self.capability_load_time, 3),
+
 
 
 

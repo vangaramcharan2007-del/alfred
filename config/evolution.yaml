@@ -1,0 +1,13 @@
+auto_mode: true
+approval_required: true
+risk_threshold: "MEDIUM"
+max_parallel_upgrades: 1
+
+simulation:
+  min_safety_score: 0.80
+  min_benefit_pct: 10.0
+
+guard_policies:
+  disallow_core_memory_deletion: true
+  disallow_security_auto_change: true
+  require_approval_for_external_mcp: true
