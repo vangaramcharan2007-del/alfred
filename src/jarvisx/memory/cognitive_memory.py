@@ -94,4 +94,18 @@ class CognitiveMemory:
         """Retrieve stored repair patterns for a given error type."""
         return await self.retrieve_context(f"repair_pattern_{error_type}")
 
+    async def store_architecture_pattern(self, pattern_name: str, details: str) -> str:
+        """Store long-term codebase architecture patterns and engineering conventions."""
+        return await self.extract_knowledge(
+            fact=f"Architecture pattern '{pattern_name}': {details}",
+            subject=f"arch_pattern_{pattern_name}",
+            confidence=1.0,
+            source="architecture_memory"
+        )
+
+    async def query_architecture_context(self, query: str) -> List[Dict[str, Any]]:
+        """Retrieve stored architecture context."""
+        return await self.retrieve_context(f"arch_pattern_{query}")
+
+
 

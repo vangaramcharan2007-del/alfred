@@ -11,6 +11,10 @@ class CodingMetrics:
     reviews_completed: int = 0
     auto_repairs_attempted: int = 0
     auto_repairs_succeeded: int = 0
+    files_analyzed: int = 0
+    dependencies_detected: int = 0
+    risk_assessments: int = 0
+    architecture_queries: int = 0
     total_execution_time_seconds: float = 0.0
 
     @property
@@ -39,6 +43,12 @@ class CodingMetrics:
         if success:
             self.auto_repairs_succeeded += 1
 
+    def record_codebase_intelligence(self, files: int = 0, deps: int = 0, risks: int = 0, arch_queries: int = 0) -> None:
+        self.files_analyzed += files
+        self.dependencies_detected += deps
+        self.risk_assessments += risks
+        self.architecture_queries += arch_queries
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "coding_tasks_completed": self.coding_tasks_completed,
@@ -48,7 +58,12 @@ class CodingMetrics:
             "reviews_completed": self.reviews_completed,
             "auto_repairs_attempted": self.auto_repairs_attempted,
             "auto_repairs_succeeded": self.auto_repairs_succeeded,
+            "files_analyzed": self.files_analyzed,
+            "dependencies_detected": self.dependencies_detected,
+            "risk_assessments": self.risk_assessments,
+            "architecture_queries": self.architecture_queries,
             "total_execution_time_seconds": round(self.total_execution_time_seconds, 3),
             "average_execution_time": round(self.average_execution_time, 3),
         }
+
 

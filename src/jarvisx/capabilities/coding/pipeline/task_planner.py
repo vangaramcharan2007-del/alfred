@@ -1,7 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional
-from jarvisx.capabilities.coding.pipeline.repository_analyzer import RepositoryContext
+from jarvisx.capabilities.coding.pipeline.repository_analyzer import RepositoryContext, RepositoryProfile
+from jarvisx.capabilities.coding.code_graph import CodeGraph
+from jarvisx.capabilities.coding.architecture_memory import ArchitectureMemory
 
 @dataclass
 class PlanStep:
@@ -34,14 +36,50 @@ class TaskPlan:
         }
 
 class TaskPlanner:
-    def plan_task(self, task_description: str, repo_context: RepositoryContext) -> TaskPlan:
+    def plan_task(
+        self,
+        task_description: str,
+        repo_context: RepositoryContext,
+        code_graph: Optional[CodeGraph] = None,
+        architecture_memory: Optional[ArchitectureMemory] = None
+    ) -> TaskPlan:
         steps: List[PlanStep] = []
-        
-        # Formulate intelligent heuristic plan based on framework and task
         desc_lower = task_description.lower()
-        
-        if "calculator" in desc_lower or "api endpoint" in desc_lower:
-            target_file = "main.py" if repo_context.framework in ["FastAPI", "Flask", "Python Standard"] else "app.js"
+        profile = repo_context.profile
+
+        # Check existing codebase components in graph
+        has_auth_module = False
+        if code_graph:
+            auth_nodes = code_graph.search("auth")
+            has_auth_module = len(auth_nodes) > 0
+
+        if "auth" in desc_lower or "authentication" in desc_lower:
+            target_file = "auth.py" if repo_context.primary_language == "python" else "auth.js"
+            action = "modify" if has_auth_module or (repo_context.key_files and target_file in repo_context.key_files) else "create"
+            
+            steps.append(PlanStep(
+                step_id=1,
+                title="Integrate Auth Schema & Route",
+                description=f"{'Extend existing auth module' if has_auth_module else 'Create new auth route'} with JWT token verification",
+                target_file=target_file,
+                action_type=action
+            ))
+            steps.append(PlanStep(
+                step_id=2,
+                title="Connect Auth to Router",
+                description="Attach authentication middleware to protected API endpoints",
+                target_file="main.py" if repo_context.primary_language == "python" else "index.js",
+                action_type="modify"
+            ))
+            steps.append(PlanStep(
+                step_id=3,
+                title="Run Auth Tests",
+                description="Verify token issuance, verification, and unauthorized access rejections",
+                target_file="test_auth.py" if repo_context.primary_language == "python" else "test_auth.js",
+                action_type="test"
+            ))
+        elif "calculator" in desc_lower or "api endpoint" in desc_lower:
+            target_file = "main.py" if repo_context.primary_language == "python" else "app.js"
             steps.append(PlanStep(
                 step_id=1,
                 title="Design API Route",
@@ -70,11 +108,10 @@ class TaskPlanner:
                 action_type="review"
             ))
         else:
-            # Generic fallback planning heuristic
             steps.append(PlanStep(
                 step_id=1,
                 title="Analyze Requirements",
-                description=f"Deconstruct request '{task_description}' for language '{repo_context.primary_language}'",
+                description=f"Deconstruct request '{task_description}' for framework '{repo_context.framework}'",
                 action_type="analyze"
             ))
             steps.append(PlanStep(
