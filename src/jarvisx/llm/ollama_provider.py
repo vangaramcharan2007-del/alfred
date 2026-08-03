@@ -45,30 +45,45 @@ class OllamaLLMProvider(LLMProvider):
                 if resp.status == 200:
                     data = json.loads(resp.read().decode("utf-8"))
                     response_text = data.get("response", "")
-                    latency = round(time.time() - start_t, 3)
+                    latency_sec = round(time.time() - start_t, 3)
+                    latency_ms = round(latency_sec * 1000, 1)
+                    prompt_size = len(prompt)
+                    response_size = len(response_text)
+                    tokens = len(response_text.split())
                     return {
                         "status": "AVAILABLE",
                         "provider_id": "ollama.local",
                         "model": chosen_model,
                         "response": response_text,
-                        "latency": latency,
+                        "latency": latency_sec,
+                        "latency_ms": latency_ms,
+                        "prompt_size": prompt_size,
+                        "response_size": response_size,
                         "cost": 0.0,
-                        "tokens_generated": len(response_text.split())
+                        "tokens_generated": tokens,
+                        "fallback_used": False
                     }
         except Exception:
             pass
 
         # Return explicit NOT_AVAILABLE contract if local daemon is offline
-        latency = round(time.time() - start_t, 3)
+        latency_sec = round(time.time() - start_t, 3)
+        latency_ms = round(latency_sec * 1000, 1)
+        fallback_msg = f"[Ollama {chosen_model} Offline]: Explicit NOT_AVAILABLE returned per production contract."
         return {
             "status": "NOT_AVAILABLE",
             "provider_id": "ollama.local",
             "model": chosen_model,
-            "response": f"[Ollama {chosen_model} Offline]: Explicit NOT_AVAILABLE returned per production contract.",
-            "latency": latency,
+            "response": fallback_msg,
+            "latency": latency_sec,
+            "latency_ms": latency_ms,
+            "prompt_size": len(prompt),
+            "response_size": len(fallback_msg),
             "cost": 0.0,
-            "tokens_generated": 0
+            "tokens_generated": 0,
+            "fallback_used": True
         }
+
 
 
     async def stream(self, prompt: str, model: Optional[str] = None, **kwargs) -> AsyncGenerator[str, None]:
