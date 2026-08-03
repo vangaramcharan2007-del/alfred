@@ -23,8 +23,9 @@ async def async_main():
     if len(sys.argv) > 1:
         raw_cmd = " ".join(sys.argv[1:])
         res = await runtime.cli.handle_command_async(raw_cmd)
-        if raw_cmd.startswith("status") or raw_cmd.startswith("history"):
+        if any(raw_cmd.startswith(c) for c in ["status", "history", "plan", "execute", "explain", "replay"]):
             print(json.dumps(res, indent=2))
+
 
 def main():
     asyncio.run(async_main())

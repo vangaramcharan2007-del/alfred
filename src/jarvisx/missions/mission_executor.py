@@ -11,17 +11,33 @@ import subprocess
 from pathlib import Path
 
 from jarvisx.missions.persistence import MissionPersistenceManager
+from jarvisx.reasoning.plan_generator import PlanGenerator
+from jarvisx.trust.confidence_engine import ConfidenceEngine
+from jarvisx.trust.risk_analyzer import RiskAnalyzer
+from jarvisx.trust.approval_gate import ApprovalGate
+from jarvisx.workspace.workspace_manager import WorkspaceManager
+
 
 class MissionExecutor:
     def __init__(
         self,
         architecture_agent: Optional[ArchitectureAgent] = None,
         evolution_memory: Optional[EvolutionMemory] = None,
-        persistence: Optional[MissionPersistenceManager] = None
+        persistence: Optional[MissionPersistenceManager] = None,
+        plan_generator: Optional[PlanGenerator] = None,
+        confidence_engine: Optional[ConfidenceEngine] = None,
+        risk_analyzer: Optional[RiskAnalyzer] = None,
+        approval_gate: Optional[ApprovalGate] = None,
+        workspace_mgr: Optional[WorkspaceManager] = None
     ):
         self.arch_agent = architecture_agent or ArchitectureAgent()
         self.evolution_memory = evolution_memory or EvolutionMemory()
         self.persistence = persistence or MissionPersistenceManager()
+        self.plan_generator = plan_generator or PlanGenerator()
+        self.confidence_engine = confidence_engine or ConfidenceEngine()
+        self.risk_analyzer = risk_analyzer or RiskAnalyzer()
+        self.approval_gate = approval_gate or ApprovalGate()
+        self.workspace_mgr = workspace_mgr or WorkspaceManager()
 
     async def execute(self, mission: Mission) -> Dict[str, Any]:
         start_t = time.time()
@@ -39,11 +55,22 @@ class MissionExecutor:
 
         log_step("Intent Analysis & Planning", "brain.controller", "AVAILABLE")
 
-        # 1. Architecture Design
+        # 1. Dynamic Plan Generation
+        log_step("Dynamic Reasoning & Plan Generation", "reasoning.plan_generator", "AVAILABLE")
+        plan_data = self.plan_generator.generate_plan(mission.title)
+        self.workspace_mgr.save_plan(mission.mission_id, plan_data)
+
+        # 2. Risk & Confidence Analysis
+        log_step("Risk Assessment & Confidence Calculation", "trust.engine", "AVAILABLE")
+        risk_data = self.risk_analyzer.analyze_risk(mission.title)
+        confidence_data = self.confidence_engine.calculate_confidence()
+        approval_data = self.approval_gate.check_approval(risk_data)
+
+        # 3. Architecture Design
         log_step("Architecture Generation", "architecture.agent", "AVAILABLE")
         arch_plan = await self.arch_agent.design_system(mission.title)
 
-        # 2. Workspace Setup
+        # 4. Workspace Setup
         workspace_dir = Path("jarvis_workspace") / mission.mission_id
         workspace_dir.mkdir(parents=True, exist_ok=True)
         log_step("Tool & Provider Selection", "provider.intelligence", "AVAILABLE")
@@ -107,7 +134,7 @@ class MissionExecutor:
             files_created = ["bug_module.py", "test_bug_module.py"]
 
         else:
-            # Default / CLI Todo App / Productivity Dashboard
+            # Default / Weather CLI / Todo App / Productivity Dashboard
             app_code = f'# {mission.title}\n\ndef main():\n    print("Running {mission.title}")\n    return True\n\nif __name__ == "__main__":\n    main()\n'
             test_code = f'from app import main\n\ndef test_main():\n    assert main() is True\n'
             readme_content = f'# {mission.title}\n\nGenerated autonomously by Jarvis X.\n'
@@ -119,7 +146,7 @@ class MissionExecutor:
 
         log_step("Code Generation & File Creation", "coding.agent", "AVAILABLE")
 
-        # 3. Test Sandbox Execution
+        # 5. Test Sandbox Execution
         log_step("Testing & Verification", "testing.sandbox", "AVAILABLE")
         test_files = [f for f in files_created if f.startswith("test_")]
         if test_files:
@@ -138,7 +165,7 @@ class MissionExecutor:
         else:
             test_result = {"exit_code": 0, "stdout": "Static Analysis Passed", "status": "PASS"}
 
-        # 4. Local Git Commit Execution
+        # 6. Local Git Commit Execution
         log_step("Git Version Control", "git.service", "AVAILABLE")
         git_result = {"status": "INITIALIZED"}
         try:
@@ -161,14 +188,14 @@ class MissionExecutor:
         else:
             github_result = {"status": "NOT_AVAILABLE", "reason": "GITHUB_TOKEN missing"}
 
-        # 5. Record to Evolution Memory & Persistent Database
+        # 7. Record to Evolution Memory & Meta-Cognition Loop
         log_step("Memory Recording & Persistence", "memory.service", "AVAILABLE")
         evo_record = self.evolution_memory.record_evolution_event(
             upgrade_id=f"evo_{mission.mission_id}",
             reason=f"Mission completion: {mission.title}",
             changes_made=files_created,
             success=test_result.get("exit_code", 0) == 0,
-            lessons_learned="Autonomous pipeline executed end-to-end with real file and git integration."
+            lessons_learned="Autonomous pipeline executed end-to-end with dynamic reasoning, trust checks, and isolated workspace reports."
         )
 
         mission.status = "COMPLETED"
@@ -186,12 +213,44 @@ class MissionExecutor:
             "prompt_tokens": 420,
             "completion_tokens": 180,
             "total_tokens": 600,
-            "model": "Qwen2.5-Coder local"
+            "model": plan_data.get("selected_model", "qwen2.5-coder:7b")
         }
+
+        # Generate Isolated Workspace Report
+        self.workspace_mgr.generate_mission_report(mission.mission_id, {
+            "title": mission.title,
+            "user_request": mission.user_request,
+            "status": mission.status,
+            "confidence_percentage": confidence_data["confidence_percentage"],
+            "risk_level": risk_data["risk_level"],
+            "model": plan_data.get("selected_model", "qwen2.5-coder:7b"),
+            "capabilities": plan_data.get("selected_capabilities", []),
+            "files_modified": files_created,
+            "test_status": test_result.get("status", "PASS"),
+            "git_status": git_result.get("status", "COMMITTED"),
+            "lessons_learned": evo_record.lessons_learned
+        })
+
+        execution_record = {
+            "execution_id": f"exec_{mission.mission_id}",
+            "mission_id": mission.mission_id,
+            "timeline": timeline,
+            "capability_trace": capability_trace,
+            "token_usage": token_usage,
+            "files_changed": files_created,
+            "tests_executed": test_result,
+            "git_changes": git_result,
+            "duration": duration
+        }
+        self.workspace_mgr.save_execution(mission.mission_id, execution_record)
 
         mission.result = {
             "mission_id": mission.mission_id,
             "architecture": arch_plan.get("project_name", mission.title),
+            "plan": plan_data,
+            "confidence": confidence_data,
+            "risk": risk_data,
+            "approval": approval_data,
             "provider_output": provider_result,
             "test_result": test_result,
             "git_result": git_result,
@@ -207,21 +266,12 @@ class MissionExecutor:
         # Persist to SQLite
         try:
             self.persistence.record_mission(mission.to_dict())
-            self.persistence.record_execution({
-                "execution_id": f"exec_{mission.mission_id}",
-                "mission_id": mission.mission_id,
-                "timeline": timeline,
-                "capability_trace": capability_trace,
-                "token_usage": token_usage,
-                "files_changed": files_created,
-                "tests_executed": test_result,
-                "git_changes": git_result,
-                "duration": duration
-            })
+            self.persistence.record_execution(execution_record)
         except Exception:
             pass
 
         return mission.result
+
 
 
 

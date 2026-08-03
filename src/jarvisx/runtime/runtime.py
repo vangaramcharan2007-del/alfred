@@ -21,9 +21,10 @@ class JarvisRuntime:
         self.shutdown_mgr = ShutdownManager(state)
         self.cli = JarvisCLI(
             kernel=self.kernel,
-            mission_manager=self.bootstrap.mission_mgr,
+            mission_manager=getattr(self.bootstrap, "mission_mgr", None),
             evolution_engine=None
         )
+
         if print_banner:
             self.bootstrap.print_startup_banner()
         return state
