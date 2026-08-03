@@ -29,13 +29,18 @@ if __name__ == "__main__":
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
 
-    run_checks()
-    
+    if "--live" in sys.argv or "--demo" in sys.argv:
+        print("[Jarvis] Launching Genesis Live Voice & Waveform Desktop Runtime...")
+        import subprocess
+        subprocess.run([sys.executable, "scripts/demo_genesis_live.py"])
+        sys.exit(0)
+
     try:
         from jarvisx.core.config.settings import settings
         from jarvisx.core.config.logging_config import setup_logging
         from jarvisx.runtime import create_default_runtime
     except ImportError as e:
+
         print(f"ERROR: Initialization failed: {e}")
         print("Did you run 'python scripts/bootstrap.py'?")
         sys.exit(1)
