@@ -90,7 +90,27 @@ class JarvisCLI:
             if not args:
                 args = "continue JarvisX"
 
+            if any(w in args.lower() for w in ["start jarvis", "finish development", "study mode", "presentation mode"]):
+                from jarvisx.automation.action_registry import ActionRegistry
+                registry = ActionRegistry.get_instance()
+                wf_name = "Start Jarvis Development" if "start" in args.lower() else "Finish Development"
+                if "study" in args.lower():
+                    wf_name = "Study Mode"
+                elif "presentation" in args.lower():
+                    wf_name = "Presentation Mode"
+
+                print(f"\nAlfred: Executing Workflow '{wf_name}' via Action Registry...")
+                wf_res = registry.execute_workflow(wf_name)
+                print(f"[Workflow Status] : {wf_res['status']}")
+                print(f"[Steps Executed]  : {wf_res['steps_executed']}\n")
+                return {
+                    "action": "mission",
+                    "status": "COMPLETED",
+                    "workflow_result": wf_res
+                }
+
             if "continue" in args.lower() or "restore" in args.lower():
+
                 import subprocess
                 print("\nAlfred:")
                 print("Restoring workspace context...\n")
