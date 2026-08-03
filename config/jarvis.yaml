@@ -1,0 +1,49 @@
+# Jarvis X Unified Production Configuration
+
+system:
+  name: "Jarvis X"
+  version: "39.0.0"
+  environment: "production"
+  log_level: "INFO"
+  log_file: "logs/jarvis.log"
+
+runtime:
+  auto_recovery: true
+  health_check_interval_seconds: 30
+  max_retry_attempts: 3
+
+memory:
+  enabled: true
+  provider: "cognitive_memory"
+  vector_dim: 1536
+  persistence_path: "var/memory"
+
+llm_gateway:
+  default_provider: "ollama"
+  fallback_provider: "omniroute"
+  offline_mode: true
+  default_model: "qwen2.5-coder:7b"
+  architecture_model: "deepseek-coder:6.7b"
+  providers:
+    ollama:
+      endpoint: "http://localhost:11434"
+      timeout_seconds: 60
+    omniroute:
+      endpoint: "http://localhost:8080"
+      timeout_seconds: 30
+
+capabilities:
+  auto_register: true
+  enabled_modules:
+    - coding.agent
+    - architecture.agent
+    - github.engineering
+    - goose.runtime
+    - openhands.runtime
+    - meta.cognition
+    - evolution.engine
+
+git:
+  enabled: true
+  auto_commit: true
+  default_branch: "main"

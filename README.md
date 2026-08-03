@@ -1,109 +1,128 @@
-# Jarvis X
+# Jarvis X Autonomous AI Assistant & Engineering Operating System
 
-An offline-first, modular personal AI operating system scaffold.
+[![Build Status](https://img.shields.io/badge/status-production--ready-brightgreen.svg)]()
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)]()
+[![Phase](https://img.shields.io/badge/phase-39%20(Production%20Maturity)-purple.svg)]()
 
-Jarvis X (Alpha 0.1) provides a robust "One Alfred" architecture designed to route tasks seamlessly across multiple domains (device control, intelligence, memory, workflow) using the OmniRoute LLM gateway and a unified Event Bus (Hermes). 
+Jarvis X is an autonomous engineering operating system and local AI assistant. It combines Intent Analysis, Architecture Planning, LLM Model Routing, Real Disk Workspace Generation, Automated Pytest Sandbox Execution, Local Git Management, and Cognitive Memory Storage into a unified runtime kernel.
 
-> **Phase Ω (Production Ready)**
-> Jarvis X is designed to be a "clone, install, run" repository. No extensive configuration required.
+---
 
-## 🎭 Personalities and Modes
+## 🏗️ Architecture Matrix
 
-Jarvis X (v1.0) includes built-in Personalities and Modes that adapt the system's communication style and orchestration priority without overriding security rules or business logic.
+```
+                      +-----------------------------------+
+                      |      Jarvis CLI / Main Entry      |
+                      +-----------------------------------+
+                                        |
+                      +-----------------------------------+
+                      |       Runtime Kernel Services     |
+                      +-----------------------------------+
+                                        |
+             +--------------------------+--------------------------+
+             |                          |                          |
+    +------------------+      +-------------------+      +------------------+
+    | Brain Controller |      | Mission Executor  |      | Decision Engine  |
+    +------------------+      +-------------------+      +------------------+
+             |                          |                          |
+             +--------------------------+--------------------------+
+                                        |
+             +--------------------------+--------------------------+
+             |                          |                          |
+    +------------------+      +-------------------+      +------------------+
+    | Capability Reg.  |      | Provider Selector |      | Memory & Graph   |
+    +------------------+      +-------------------+      +------------------+
+```
 
-- **Modes**: `focus`, `study`, `builder`, `research`, `companion`, `emergency`
-- **Personalities**: `alfred`, `edith`, `hermes` (extensible via `PersonalizationTool`)
+---
 
 ## 🚀 Quick Start
 
-### 1. Clone the repository
+### 1. Installation & Environment Setup
 ```bash
-git clone https://github.com/your-username/project-jarvis-x.git
-cd project-jarvis-x
+# Clone repository
+git clone https://github.com/vangaramcharan2007-del/alfred.git
+cd alfred
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-### 2. Install
-Run the automated bootstrap script. This will create your virtual environment, install dependencies, and create standard project directories.
+### 2. Run Main Production Runtime
 ```bash
-# On Windows PowerShell
-.\install.ps1
-
-# On Linux/macOS
-./install.sh
-# or
-make install
+python -m jarvisx
 ```
 
-### 3. Run
-Boot the Jarvis X operating system.
-```bash
-# On Windows PowerShell
-.\run.ps1
+**Output**:
+```text
+=========================
+       JARVIS X
+=========================
 
-# On Linux/macOS
-./run.sh
-# or
-make run
+Memory          ........ ONLINE
+LLM Gateway     ........ ONLINE
+Capabilities    ........ ONLINE
+Agents          ........ ONLINE
+Git             ........ ONLINE
+
+Alfred online.
 ```
 
-## 🛠️ Testing & Diagnostics
-
-**Diagnose System Health:**
-Jarvis X includes a diagnostic script to verify your Python environment, required dependencies, and local Ollama connections:
+### 3. Run Golden Production Mission
+Execute a real autonomous mission ("Build a personal productivity dashboard"):
 ```bash
-make diagnose
+python scripts/run_real_mission.py
 ```
 
-**Run Acceptance Tests:**
-To verify the core orchestration path is fully functional, run the smoke test:
+This runs the full end-to-end pipeline with real file generation in `jarvis_workspace/`, real pytest sandbox execution, real local git commits, and memory storage.
+
+---
+
+## 🧪 Testing
+
+Run the full structured test suite (Unit, Integration, System):
 ```bash
-python scripts/acceptance_test.py
+pytest tests/unit/ tests/integration/ tests/system/ tests/
 ```
 
-**Run Full Test Suite:**
-```bash
-# On Windows PowerShell
-.\test.ps1
+---
 
-# On Linux/macOS
-./test.sh
-# or
-make test
-```
-
-## 🏗️ Architecture Overview
-
-The system operates via a strict verified control path:
+## 📂 Project Organization
 
 ```text
-User
- ↓
-Alfred (Central Orchestrator)
- ↓
-Mission Engine (Task Planning & Delegation)
- ↓
-Capability Intelligence & Skill Ranker
- ↓
-Skill Executor
- ↓
-Tool Registry (Dynamic Plugin Discovery)
- ↓
-Execution
- ↓
-Memory + Workflow Learning
+src/jarvisx/             # Core Jarvis X Operating System Source
+  ├── runtime/           # Bootstrap, Shutdown, State, Runtime Services
+  ├── kernel/            # Kernel Lifecycle, Event Orchestrator, Health Coordinator
+  ├── brain/             # Intent Understanding, Mission Router, Context Manager
+  ├── decision/          # Unified Decision Engine & Explainer
+  ├── missions/          # Autonomous Mission Manager & Executor
+  ├── meta/              # System Knowledge Graph & Meta Memory
+  ├── llm/               # LLM Gateway & Provider Scoring
+  ├── providers/         # Intelligence & Selection Services
+  ├── interface/         # CLI & Voice Runtime Engine
+  └── main.py            # Single Production Entry Point
+
+scripts/                 # Utility Scripts
+  └── run_real_mission.py # Single Golden Production Mission Script
+
+examples/
+  └── phase_history/     # Archived Phase Demonstration Scripts
+
+config/
+  └── jarvis.yaml        # Main Consolidated System Configuration
+
+docs/
+  └── ARCHITECTURE_AUDIT.md # Architecture Audit & Production Readiness Score
 ```
 
-## 📦 Directory Structure
+---
 
-- `src/jarvisx/` - Core source code (Agents, Core Services, Skills, Tools)
-- `tests/` - Comprehensive test suite
-- `scripts/` - Utility scripts (`bootstrap.py`, `diagnose.py`, `acceptance_test.py`)
-- `examples/` - Reference implementations and valid demos
-- `docs/` - System architecture and reports
+## ⚠️ Current Limitations & Fallback Behavior
 
-## 🤝 Contributing
-- Ensure PRs pass all tests (`make test`).
-- Target >95% test coverage for `src/jarvisx/`.
+1. **GitHub Cloud Integration**: If `GITHUB_TOKEN` is not configured in the environment, GitHub PR creation returns an explicit `NOT_AVAILABLE` status contract instead of returning a simulated response.
+2. **Local LLM Models**: Offline model routing defaults to local Ollama (`qwen2.5-coder:7b`, `deepseek-coder:6.7b`). If Ollama is offline, local intelligent routing fallbacks engage automatically.
+
+---
 
 ## 📜 License
 MIT License
