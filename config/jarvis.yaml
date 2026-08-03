@@ -1,49 +1,69 @@
 # Jarvis X Unified Production Configuration
+# Single Source of Truth for Jarvis X Operating System Layer
 
 system:
   name: "Jarvis X"
-  version: "39.0.0"
+  version: "46.0.0"
   environment: "production"
   log_level: "INFO"
   log_file: "logs/jarvis.log"
+  runtime_jsonl: "logs/runtime.jsonl"
+  missions_jsonl: "logs/missions.jsonl"
+  errors_jsonl: "logs/errors.jsonl"
 
 runtime:
   auto_recovery: true
   health_check_interval_seconds: 30
   max_retry_attempts: 3
+  execution_sandbox: "isolated"
 
-memory:
-  enabled: true
-  provider: "cognitive_memory"
-  vector_dim: 1536
-  persistence_path: "var/memory"
-
-llm_gateway:
+llm:
   default_provider: "ollama"
   fallback_provider: "omniroute"
-  offline_mode: true
   default_model: "qwen2.5-coder:7b"
   architecture_model: "deepseek-coder:6.7b"
-  providers:
-    ollama:
-      endpoint: "http://localhost:11434"
-      timeout_seconds: 60
-    omniroute:
-      endpoint: "http://localhost:8080"
-      timeout_seconds: 30
+  chat_model: "llama3.2:3b"
 
-capabilities:
-  auto_register: true
-  enabled_modules:
-    - coding.agent
-    - architecture.agent
-    - github.engineering
-    - goose.runtime
-    - openhands.runtime
-    - meta.cognition
-    - evolution.engine
+providers:
+  ollama:
+    endpoint: "http://localhost:11434"
+    timeout_seconds: 60
+    installed_models:
+      - "qwen2.5-coder:7b"
+      - "deepseek-coder:6.7b"
+      - "llama3.2:3b"
+      - "mistral:7b"
+  omniroute:
+    endpoint: "http://localhost:8080"
+    timeout_seconds: 30
+    max_retries: 3
 
-git:
-  enabled: true
-  auto_commit: true
-  default_branch: "main"
+speech:
+  stt_engine: "faster-whisper"
+  model: "base"
+  language: "en"
+  wake_word: "Alfred"
+  vad_enabled: true
+
+tts:
+  engine: "pyttsx3"
+  voice_profile: "Alfred (British Male)"
+  rate: 175
+  volume: 1.0
+  interruptible: true
+
+timeouts:
+  llm_generation: 60
+  http_request: 10
+  pytest_execution: 15
+  command_execution: 30
+
+logging:
+  jsonl_enabled: true
+  latency_telemetry: true
+  token_accounting: true
+
+models:
+  primary: "qwen2.5-coder:7b"
+  reasoning: "deepseek-coder:6.7b"
+  fast: "llama3.2:3b"

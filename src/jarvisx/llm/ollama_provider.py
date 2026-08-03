@@ -29,42 +29,59 @@ class OllamaLLMProvider(LLMProvider):
             "offline_ready": True
         }
 
-    async def generate(self, prompt: str, model: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+    def select_model_for_prompt(self, prompt: str, requested_model: Optional[str] = None) -> str:
+        if requested_model and requested_model in self.installed_models:
+            return requested_model
+        p_lower = prompt.lower()
+        if "arch" in p_lower or "design" in p_lower or "refactor" in p_lower:
+            return "deepseek-coder:6.7b"
+        elif "chat" in p_lower or "hello" in p_lower or "speak" in p_lower:
+            return "llama3.2:3b"
+        return "qwen2.5-coder:7b"
+
+    async def generate(self, prompt: str, model: Optional[str] = None, conversation: Optional[List[Dict[str, str]]] = None, **kwargs) -> Dict[str, Any]:
         start_t = time.time()
-        chosen_model = model or "qwen2.5-coder:7b"
+        chosen_model = self.select_model_for_prompt(prompt, model)
+        timeout_sec = kwargs.get("timeout", 5.0)
+        max_retries = kwargs.get("retries", 2)
 
-        # Attempt live connection to local Ollama API
-        try:
-            import json
-            import urllib.request
-            url = f"{self.endpoint}/api/generate"
-            payload = json.dumps({"model": chosen_model, "prompt": prompt, "stream": False}).encode("utf-8")
-            req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+        # Attempt live connection to local Ollama API with retries
+        for attempt in range(1, max_retries + 1):
+            try:
+                import json
+                import urllib.request
+                url = f"{self.endpoint}/api/generate"
+                payload_dict = {"model": chosen_model, "prompt": prompt, "stream": False}
+                if conversation:
+                    payload_dict["context_history"] = conversation[-10:] # Last 10 context window
+                payload = json.dumps(payload_dict).encode("utf-8")
+                req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
 
-            with urllib.request.urlopen(req, timeout=3.0) as resp:
-                if resp.status == 200:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    response_text = data.get("response", "")
-                    latency_sec = round(time.time() - start_t, 3)
-                    latency_ms = round(latency_sec * 1000, 1)
-                    prompt_size = len(prompt)
-                    response_size = len(response_text)
-                    tokens = len(response_text.split())
-                    return {
-                        "status": "AVAILABLE",
-                        "provider_id": "ollama.local",
-                        "model": chosen_model,
-                        "response": response_text,
-                        "latency": latency_sec,
-                        "latency_ms": latency_ms,
-                        "prompt_size": prompt_size,
-                        "response_size": response_size,
-                        "cost": 0.0,
-                        "tokens_generated": tokens,
-                        "fallback_used": False
-                    }
-        except Exception:
-            pass
+                with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        response_text = data.get("response", "")
+                        latency_sec = round(time.time() - start_t, 3)
+                        latency_ms = round(latency_sec * 1000, 1)
+                        prompt_size = len(prompt)
+                        response_size = len(response_text)
+                        tokens = len(response_text.split())
+                        return {
+                            "status": "AVAILABLE",
+                            "provider_id": "ollama.local",
+                            "model": chosen_model,
+                            "response": response_text,
+                            "latency": latency_sec,
+                            "latency_ms": latency_ms,
+                            "prompt_size": prompt_size,
+                            "response_size": response_size,
+                            "cost": 0.0,
+                            "tokens_generated": tokens,
+                            "fallback_used": False,
+                            "attempt": attempt
+                        }
+            except Exception:
+                time.sleep(0.1 * attempt)
 
         # Return explicit NOT_AVAILABLE contract if local daemon is offline
         latency_sec = round(time.time() - start_t, 3)
@@ -83,6 +100,7 @@ class OllamaLLMProvider(LLMProvider):
             "tokens_generated": 0,
             "fallback_used": True
         }
+
 
 
 
