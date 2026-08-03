@@ -1,0 +1,20 @@
+from __future__ import annotations
+from typing import Dict, Any, List, Optional, Tuple
+
+class CommandParser:
+    COMMANDS = {
+        "status": "Show system health, active agents, models, memory, evolution level",
+        "mission": "Run autonomous mission (usage: jarvis mission \"description\")",
+        "evolve": "Trigger self-improvement analysis",
+        "health": "Run full health check",
+        "help": "Show available commands",
+    }
+
+    def parse(self, raw_input: str) -> Tuple[str, str]:
+        parts = raw_input.strip().split(maxsplit=1)
+        command = parts[0].lower() if parts else "help"
+        args = parts[1].strip('"').strip("'") if len(parts) > 1 else ""
+        return command, args
+
+    def list_commands(self) -> Dict[str, str]:
+        return dict(self.COMMANDS)
