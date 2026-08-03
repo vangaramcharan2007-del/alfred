@@ -9,8 +9,10 @@ from jarvisx.evolution.evolution_engine import AutonomousEvolutionEngine
 from jarvisx.missions.persistence import MissionPersistenceManager
 from jarvisx.reasoning.plan_generator import PlanGenerator
 from jarvisx.workspace.replay_system import MissionReplaySystem
+from jarvisx.presence.presence_manager import PresenceManager
 
 class JarvisCLI:
+
 
     def __init__(
         self,
@@ -150,10 +152,20 @@ class JarvisCLI:
             m_id = args or "latest"
             replay_sys = MissionReplaySystem()
             return replay_sys.replay(m_id)
+        elif command == "assistant":
+            pm = PresenceManager()
+            pm.set_state("LISTENING")
+            print("Listening...\n")
+            return {
+                "action": "assistant",
+                "status": "RUNNING",
+                "state": "LISTENING"
+            }
         elif command == "help":
             return {"commands": self.parser.list_commands()}
 
         return {"error": f"Unknown command: '{command}'. Type 'help' for available commands."}
+
 
 
 

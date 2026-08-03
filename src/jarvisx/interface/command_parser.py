@@ -9,11 +9,13 @@ class CommandParser:
         "execute": "Execute an approved plan (usage: jarvis execute <plan_id>)",
         "explain": "Explain why decisions were made (usage: jarvis explain <mission_id>)",
         "replay": "Replay previous mission state (usage: jarvis replay <mission_id>)",
+        "assistant": "Launch persistent multimodal desktop assistant mode",
         "history": "Show previous persisted missions",
         "evolve": "Trigger self-improvement analysis",
         "health": "Run full health check",
         "help": "Show available commands",
     }
+
 
 
 
