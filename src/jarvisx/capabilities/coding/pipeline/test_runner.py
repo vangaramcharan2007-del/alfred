@@ -13,12 +13,12 @@ class TestResult:
     stderr: str
     execution_time_seconds: float
     command: str
+    exit_code: int = 0
 
 class TestRunner:
     __test__ = False
 
     def __init__(self, sandbox_manager: Optional[SandboxManager] = None):
-
         self.sandbox = sandbox_manager or SandboxManager()
 
     async def run_tests(
@@ -54,5 +54,7 @@ class TestRunner:
             stdout=stdout,
             stderr=stderr,
             execution_time_seconds=1.0,
-            command=cmd
+            command=cmd,
+            exit_code=exit_code
         )
+

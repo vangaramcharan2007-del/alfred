@@ -19,6 +19,8 @@ from jarvisx.capabilities.coding.pipeline.test_runner import TestRunner
 from jarvisx.capabilities.coding.pipeline.code_reviewer import CodeReviewer
 from jarvisx.capabilities.coding.pipeline.git_manager import GitManager
 
+from jarvisx.capabilities.coding.autonomous_loop import AutonomousLoop, AutonomousLoopReport
+
 class CodingAdapter(CapabilityAdapter):
     def __init__(
         self,
@@ -32,9 +34,9 @@ class CodingAdapter(CapabilityAdapter):
                 data = json.loads(manifest_path.read_text(encoding="utf-8"))
                 manifest = CapabilityManifest(
                     name=data.get("name", "coding_agent"),
-                    version=data.get("version", "1.0.0"),
+                    version=data.get("version", "1.1.0"),
                     api_version=data.get("api_version", "v1"),
-                    description=data.get("description", "Advanced Coding Agent Capability"),
+                    description=data.get("description", "Advanced Autonomous Coding Agent Capability"),
                     category=data.get("category", "coding"),
                     inputs=data.get("inputs", {}),
                     outputs=data.get("outputs", {}),
@@ -45,9 +47,9 @@ class CodingAdapter(CapabilityAdapter):
             else:
                 manifest = CapabilityManifest(
                     name="coding_agent",
-                    version="1.0.0",
+                    version="1.1.0",
                     api_version="v1",
-                    description="Advanced Coding Agent Capability",
+                    description="Advanced Autonomous Coding Agent Capability",
                     category="coding",
                     inputs={"repository": "string", "task_description": "string"},
                     outputs={"code_changes": "array", "test_results": "object", "review": "object"},
@@ -68,6 +70,13 @@ class CodingAdapter(CapabilityAdapter):
         self.reviewer = CodeReviewer()
         self.git_manager = GitManager(sandbox_manager=self.sandbox, permission_manager=self.permission_manager)
         
+        self.autonomous_loop = AutonomousLoop(
+            max_attempts=3,
+            bus=self.bus,
+            permission_manager=self.permission_manager,
+            metrics=self.metrics
+        )
+        
         self.initialized = False
 
     async def initialize(self) -> None:
@@ -87,107 +96,46 @@ class CodingAdapter(CapabilityAdapter):
         self.initialized = False
 
     async def execute(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
-        start_time = time.time()
-        
         repo_path = inputs.get("repository", ".")
         task_desc = inputs.get("task_description", "Generic coding task")
         test_command = inputs.get("test_command", None)
-        code_edits = inputs.get("code_edits", [])  # Optional pre-defined edits list
+        code_edits = inputs.get("code_edits", []) or inputs.get("initial_code_edits", [])  # Optional pre-defined edits list
 
-        # Step 1: Hermes Event - Task Requested
-        await self.bus.publish(Event(
-            type="coding.task.started",
-            source="coding_adapter",
-            payload={"repo": repo_path, "task": task_desc}
-        ))
+        max_attempts = inputs.get("max_attempts", 3)
 
-        # Step 2: Repository Analysis
-        repo_context = self.analyzer.analyze(repo_path)
-
-        # Step 3: Task Planning (Planner Agent)
-        plan = self.planner.plan_task(task_desc, repo_context)
-        await self.bus.publish(Event(
-            type="coding.plan.created",
-            source="task_planner",
-            payload=plan.to_dict()
-        ))
-
-        # Step 4: Code Execution (Developer Agent)
-        file_changes = []
-        if code_edits:
-            for edit in code_edits:
-                rec = self.executor.write_file(
-                    repo_root=repo_path,
-                    relative_path=edit["file"],
-                    content=edit["content"],
-                    capability_name=self.manifest.name
-                )
-                file_changes.append(rec)
-        else:
-            # Generate default change according to plan
-            for step in plan.steps:
-                if step.target_file and step.action_type in ["create", "modify"]:
-                    default_content = f"# Auto-generated code for {step.title}\n# Task: {task_desc}\n\ndef calculator_handler(op: str, a: float, b: float):\n    if op == 'add': return a + b\n    if op == 'sub': return a - b\n    if op == 'mul': return a * b\n    if op == 'div': return a / b if b != 0 else 'error'\n    return None\n"
-                    rec = self.executor.write_file(
-                        repo_root=repo_path,
-                        relative_path=step.target_file,
-                        content=default_content,
-                        capability_name=self.manifest.name
-                    )
-                    file_changes.append(rec)
-                    break
-
-        await self.bus.publish(Event(
-            type="coding.code.modified",
-            source="code_executor",
-            payload={"changes_count": len(file_changes)}
-        ))
-
-        # Step 5: Test Execution (Tester Agent)
-        test_result = await self.test_runner.run_tests(
-            repo_path=repo_path,
-            test_command=test_command
+        loop = AutonomousLoop(
+            max_attempts=max_attempts,
+            bus=self.bus,
+            permission_manager=self.permission_manager,
+            metrics=self.metrics
         )
-        self.metrics.record_test_run(test_result.passed)
 
-        await self.bus.publish(Event(
-            type="coding.tests.completed",
-            source="test_runner",
-            payload={"passed": test_result.passed}
-        ))
+        report = await loop.run(
+            repo_path=repo_path,
+            task_description=task_desc,
+            test_command=test_command,
+            initial_code_edits=code_edits,
+            capability_name=self.manifest.name
+        )
 
-        # Step 6: Code Review (Reviewer Agent)
-        review_result = self.reviewer.review_changes(file_changes)
-        self.metrics.record_review()
-
-        await self.bus.publish(Event(
-            type="coding.review.completed",
-            source="code_reviewer",
-            payload=review_result.to_dict()
-        ))
-
-        duration = time.time() - start_time
-        success = test_result.passed and review_result.approved
-        self.metrics.record_task_completed(duration_seconds=duration, success=success)
+        repo_context = self.analyzer.analyze(repo_path)
+        plan = self.planner.plan_task(task_desc, repo_context)
 
         return {
-            "status": "success" if success else "completed_with_issues",
+            "status": report.status,
             "repository_context": repo_context.to_dict(),
             "plan": plan.to_dict(),
             "code_changes": [
                 {
-                    "file_path": fc.file_path,
-                    "action": fc.action,
-                    "content_after": fc.content_after
-                } for fc in file_changes
+                    "file_path": att["file"],
+                    "action": att.get("action", "modified")
+                }
+                for a in report.history.attempts
+                for att in a.changes_made
             ],
-            "test_results": {
-                "passed": test_result.passed,
-                "total_tests": test_result.total_tests,
-                "passed_count": test_result.passed_count,
-                "failed_count": test_result.failed_count,
-                "command": test_result.command
-            },
-            "review": review_result.to_dict(),
-            "metrics": self.metrics.to_dict()
+            "test_results": report.test_results,
+            "review": report.review,
+            "metrics": report.metrics,
+            "history": report.history.to_dict()
         }
+

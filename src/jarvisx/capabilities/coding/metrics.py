@@ -9,6 +9,8 @@ class CodingMetrics:
     tests_passed: int = 0
     tests_failed: int = 0
     reviews_completed: int = 0
+    auto_repairs_attempted: int = 0
+    auto_repairs_succeeded: int = 0
     total_execution_time_seconds: float = 0.0
 
     @property
@@ -32,6 +34,11 @@ class CodingMetrics:
     def record_review(self) -> None:
         self.reviews_completed += 1
 
+    def record_auto_repair(self, success: bool = True) -> None:
+        self.auto_repairs_attempted += 1
+        if success:
+            self.auto_repairs_succeeded += 1
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "coding_tasks_completed": self.coding_tasks_completed,
@@ -39,6 +46,9 @@ class CodingMetrics:
             "tests_passed": self.tests_passed,
             "tests_failed": self.tests_failed,
             "reviews_completed": self.reviews_completed,
+            "auto_repairs_attempted": self.auto_repairs_attempted,
+            "auto_repairs_succeeded": self.auto_repairs_succeeded,
             "total_execution_time_seconds": round(self.total_execution_time_seconds, 3),
             "average_execution_time": round(self.average_execution_time, 3),
         }
+

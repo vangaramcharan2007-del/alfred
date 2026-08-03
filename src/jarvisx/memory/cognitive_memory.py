@@ -82,3 +82,16 @@ class CognitiveMemory:
         """Retrieve stored coding patterns for a given framework."""
         return await self.retrieve_context(f"coding_pattern_{framework}")
 
+    async def store_repair_experience(self, error_type: str, failing_code: str, fix_applied: str) -> str:
+        """Store automated self-repair experience for future debugging sessions."""
+        return await self.build_relationships(
+            workflow=f"repair_pattern_{error_type}",
+            steps=[failing_code, fix_applied],
+            confidence=1.0
+        )
+
+    async def query_repair_patterns(self, error_type: str) -> List[Dict[str, Any]]:
+        """Retrieve stored repair patterns for a given error type."""
+        return await self.retrieve_context(f"repair_pattern_{error_type}")
+
+

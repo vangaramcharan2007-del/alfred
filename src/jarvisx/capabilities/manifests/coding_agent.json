@@ -1,17 +1,19 @@
 {
   "name": "coding_agent",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "api_version": "v1",
-  "description": "Multi-agent advanced coding capability for planning, code execution, testing, reviewing, and safe git management.",
+  "description": "Multi-agent autonomous coding capability for planning, code execution, automated debugging, testing, reviewing, and safe git management.",
   "category": "coding",
   "inputs": {
     "repository": "string",
-    "task_description": "string"
+    "task_description": "string",
+    "max_attempts": "number"
   },
   "outputs": {
     "code_changes": "array",
     "test_results": "object",
-    "review": "object"
+    "review": "object",
+    "history": "object"
   },
   "requirements": {
     "python": ">=3.9"
@@ -21,5 +23,5 @@
     "WRITE",
     "EXECUTE"
   ],
-  "confidence": 0.95
+  "confidence": 0.98
 }
