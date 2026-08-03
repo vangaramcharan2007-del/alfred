@@ -1,0 +1,19 @@
+# External Provider Configurations for Jarvis X
+ollama:
+  enabled: true
+  url: "http://localhost:11434"
+
+litellm:
+  enabled: true
+  proxy_url: "http://localhost:4000"
+
+openrouter:
+  enabled: false
+  api_key_env: "OPENROUTER_API_KEY"
+
+openhands:
+  enabled: false
+  sandbox_dir: "./sandbox"
+
+goose:
+  enabled: false

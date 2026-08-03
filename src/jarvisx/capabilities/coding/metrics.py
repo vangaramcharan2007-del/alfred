@@ -18,6 +18,11 @@ class CodingMetrics:
     architectures_designed: int = 0
     adrs_recorded: int = 0
     diagrams_generated: int = 0
+    registered_capabilities: int = 0
+    provider_connections: int = 0
+    mcp_connections: int = 0
+    failed_connections: int = 0
+    capability_load_time: float = 0.0
     total_execution_time_seconds: float = 0.0
 
     @property
@@ -57,6 +62,10 @@ class CodingMetrics:
         self.adrs_recorded += adrs
         self.diagrams_generated += diagrams
 
+    def record_capability_metrics(self, load_time: float = 0.0) -> None:
+        self.registered_capabilities += 1
+        self.capability_load_time += load_time
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "coding_tasks_completed": self.coding_tasks_completed,
@@ -73,9 +82,15 @@ class CodingMetrics:
             "architectures_designed": self.architectures_designed,
             "adrs_recorded": self.adrs_recorded,
             "diagrams_generated": self.diagrams_generated,
+            "registered_capabilities": self.registered_capabilities,
+            "provider_connections": self.provider_connections,
+            "mcp_connections": self.mcp_connections,
+            "failed_connections": self.failed_connections,
+            "capability_load_time": round(self.capability_load_time, 3),
             "total_execution_time_seconds": round(self.total_execution_time_seconds, 3),
             "average_execution_time": round(self.average_execution_time, 3),
         }
+
 
 
 

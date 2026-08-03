@@ -1,31 +1,36 @@
 import pytest
-from jarvisx.capabilities.capability_manifest import CapabilityManifest
-from jarvisx.capabilities.capability_registry import CapabilityRegistry
-from jarvisx.capabilities.capability_adapter import CapabilityAdapter
+from jarvisx.capabilities.core.capability_descriptor import CapabilityDescriptor
+from jarvisx.capabilities.core.capability_registry import CapabilityRegistry
 
-class MockAdapter(CapabilityAdapter):
-    async def initialize(self): pass
-    async def execute(self, inputs): return {}
-    async def health_check(self): return True
-    async def shutdown(self): pass
-
-def test_registry_register_and_discover():
+@pytest.mark.asyncio
+async def test_capability_registry_lifecycle():
     registry = CapabilityRegistry()
-    manifest = CapabilityManifest(name="test", version="1.0.0", api_version="v1", description="Test", category="test")
-    adapter = MockAdapter(manifest)
-    
-    registry.register(adapter)
-    assert registry.query("test") == adapter
-    
-    discovered = registry.discover("test")
+
+    async def sample_handler(action: str, **kwargs):
+        return f"executed {action}"
+
+    cap = CapabilityDescriptor(
+        id="test.sample",
+        name="Sample Capability",
+        version="1.0.0",
+        category="testing",
+        supported_actions=["run"],
+        handler=sample_handler
+    )
+
+    await registry.register(cap)
+    assert len(registry.list_capabilities()) == 1
+    assert registry.get("test.sample") is not None
+
+    res = await registry.execute("test.sample", "run")
+    assert res == "executed run"
+
+    discovered = registry.discover(category="testing")
     assert len(discovered) == 1
-    assert discovered[0] == adapter
 
-def test_registry_remove():
-    registry = CapabilityRegistry()
-    manifest = CapabilityManifest(name="test", version="1.0.0", api_version="v1", description="Test", category="test")
-    adapter = MockAdapter(manifest)
-    
-    registry.register(adapter)
-    registry.remove("test")
-    assert registry.query("test") is None
+    health = registry.health_check("test.sample")
+    assert health.status == "HEALTHY"
+
+    unreg = await registry.unregister("test.sample")
+    assert unreg is True
+    assert len(registry.list_capabilities()) == 0
