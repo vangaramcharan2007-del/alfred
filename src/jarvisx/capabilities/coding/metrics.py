@@ -27,6 +27,12 @@ class CodingMetrics:
     prs_created: int = 0
     reviews_generated: int = 0
     workflow_runs: int = 0
+    goose_sessions: int = 0
+    goose_tasks: int = 0
+    engineering_missions: int = 0
+    successful_tasks: int = 0
+    failed_tasks: int = 0
+    average_task_duration: float = 0.0
     capability_load_time: float = 0.0
     total_execution_time_seconds: float = 0.0
 
@@ -96,10 +102,17 @@ class CodingMetrics:
             "prs_created": self.prs_created,
             "reviews_generated": self.reviews_generated,
             "workflow_runs": self.workflow_runs,
+            "goose_sessions": self.goose_sessions,
+            "goose_tasks": self.goose_tasks,
+            "engineering_missions": self.engineering_missions,
+            "successful_tasks": self.successful_tasks,
+            "failed_tasks": self.failed_tasks,
+            "average_task_duration": round(self.average_task_duration, 3),
             "capability_load_time": round(self.capability_load_time, 3),
             "total_execution_time_seconds": round(self.total_execution_time_seconds, 3),
             "average_execution_time": round(self.average_execution_time, 3),
         }
+
 
 
 
