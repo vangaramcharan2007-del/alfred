@@ -43,8 +43,16 @@ class CodingMetrics:
     workspace_count: int = 0
     average_session_duration: float = 0.0
     provider_usage: int = 0
+    llm_requests: int = 0
+    successful_requests: int = 0
+    failed_requests: int = 0
+    model_usage: int = 0
+    fallback_count: int = 0
+    hardware_usage: float = 0.0
+    estimated_cost: float = 0.0
     capability_load_time: float = 0.0
     total_execution_time_seconds: float = 0.0
+
 
 
     @property
@@ -129,7 +137,15 @@ class CodingMetrics:
             "workspace_count": self.workspace_count,
             "average_session_duration": round(self.average_session_duration, 3),
             "provider_usage": self.provider_usage,
+            "llm_requests": self.llm_requests,
+            "successful_requests": self.successful_requests,
+            "failed_requests": self.failed_requests,
+            "model_usage": self.model_usage,
+            "fallback_count": self.fallback_count,
+            "hardware_usage": round(self.hardware_usage, 2),
+            "estimated_cost": round(self.estimated_cost, 4),
             "capability_load_time": round(self.capability_load_time, 3),
+
 
             "total_execution_time_seconds": round(self.total_execution_time_seconds, 3),
             "average_execution_time": round(self.average_execution_time, 3),

@@ -1,0 +1,26 @@
+default_provider: "ollama.local"
+
+ollama:
+  endpoint: "http://localhost:11434"
+  timeout_seconds: 60
+  default_model: "qwen2.5-coder:7b"
+  offline_mandatory: true
+
+omniroute:
+  gateway_url: "https://api.omniroute.ai/v1"
+  timeout_seconds: 30
+  default_model: "omniroute/gemini-1.5-pro"
+  enabled: true
+
+fallback_order:
+  - "ollama.local"
+  - "omniroute.gateway"
+
+resource_limits:
+  max_context_window: 128000
+  max_ram_usage_gb: 16.0
+  max_vram_usage_gb: 8.0
+
+privacy:
+  default_level: "HIGH"
+  allow_external_fallback: true
