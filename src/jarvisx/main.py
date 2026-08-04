@@ -34,7 +34,8 @@ async def async_main():
         top_commands = {
             "status", "health", "history", "help", "doctor", "chat", "models",
             "briefing", "context", "daily", "war", "academic", "cgpa",
-            "daemon", "report", "time-saved", "metrics", "voice", "assistant"
+            "daemon", "report", "time-saved", "metrics", "voice", "assistant",
+            "benchmark", "autonomy", "eval"
         }
         first_word = sys.argv[1].lower()
 

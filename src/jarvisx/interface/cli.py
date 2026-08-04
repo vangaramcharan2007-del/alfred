@@ -68,6 +68,21 @@ class JarvisCLI:
             return self._print_help()
 
         # ----------------------------------------------------------
+        # BENCHMARK: Autonomous Mission Benchmark & Autonomy Score
+        # ----------------------------------------------------------
+        elif command in ("benchmark", "eval", "autonomy"):
+            from jarvisx.benchmark.runner import BenchmarkRunner
+            from jarvisx.benchmark.scoring import AutonomyScorer
+            from jarvisx.benchmark.reporter import BenchmarkReporter
+
+            runner = BenchmarkRunner()
+            results = runner.run_all()
+            scores = AutonomyScorer.calculate(results)
+            report = BenchmarkReporter.format_report(results, scores)
+            print(report)
+            return {"action": "benchmark", "status": "SUCCESS", "report": report, "scores": scores.to_dict()}
+
+        # ----------------------------------------------------------
         # BRIEFING: Daily Engineering Context
         # ----------------------------------------------------------
         elif command in ("briefing", "context", "daily"):
