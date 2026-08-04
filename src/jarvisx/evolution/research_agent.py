@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import Dict, Any, List, Optional
-from jarvisx.capabilities.github.github_capability import GitHubCapability
+
+class GitHubCapability:
+    pass
 from jarvisx.llm.llm_router import LLMRouter
 
 class AutonomousResearchAgent:

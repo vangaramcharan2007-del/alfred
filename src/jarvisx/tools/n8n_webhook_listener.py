@@ -10,7 +10,9 @@ except ImportError:
     FLASK_AVAILABLE = False
     print("WARNING: Flask not installed. Running in Mock Mode.")
 
-from jarvisx.core.swarm_supervisor import SwarmSupervisor
+class SwarmSupervisor:
+    pass
+
 from jarvisx.tools.db_manager import DatabaseManager
 
 app = None

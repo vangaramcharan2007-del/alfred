@@ -69,6 +69,9 @@ class TimeSavedTracker:
             conn.commit()
         return {"status": "SUCCESS", "action": action_name, "minutes_saved": minutes_saved}
 
+    def record(self, action_name: str, minutes_saved: float, clicks_avoided: int = 1, category: str = "engineering", bugs_fixed: int = 0) -> Dict[str, Any]:
+        return self.log_event(action_name=action_name, category=category, minutes_saved=minutes_saved, clicks_avoided=clicks_avoided)
+
     def get_summary(self) -> Dict[str, Any]:
         d = str(date.today())
         with self._get_conn() as conn:

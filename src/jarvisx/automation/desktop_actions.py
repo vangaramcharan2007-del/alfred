@@ -158,15 +158,13 @@ def list_windows() -> Dict[str, Any]:
     """List visible windows on Windows."""
     windows = []
     try:
-        # Use tasklist to get running processes with window titles
         r = subprocess.run(
             ["powershell", "-Command",
-             "Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object ProcessName, MainWindowTitle | Format-Table -AutoSize"],
+             "Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | ForEach-Object { \"$($_.ProcessName): $($_.MainWindowTitle)\" }"],
             capture_output=True, text=True, timeout=10
         )
-        lines = [l.strip() for l in r.stdout.splitlines() if l.strip() and not l.startswith("-")]
-        for line in lines[1:]:  # Skip header
-            windows.append(line)
+        lines = [l.strip() for l in r.stdout.splitlines() if l.strip()]
+        windows = lines
 
         print(f"\nAlfred: Found {len(windows)} windows:\n")
         for w in windows:

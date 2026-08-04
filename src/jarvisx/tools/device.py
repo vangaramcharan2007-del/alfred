@@ -1,9 +1,27 @@
 from __future__ import annotations
-
-from typing import Optional
-
-from jarvisx.adapters.android import MacroDroidIntentAdapter
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any
 from jarvisx.tools.base import BaseTool, ToolResult
+
+
+@dataclass
+class _MacroDroidIntent:
+    action: str = ""
+    extras: Dict[str, Any] = field(default_factory=dict)
+    def to_dict(self) -> Dict[str, Any]:
+        return {"action": self.action, "extras": self.extras}
+
+
+class _MacroDroidAdapter:
+    """Inline stub — replaces deleted jarvisx.adapters.android."""
+    def open_app(self, app_name: str, package_hint: Optional[str] = None, trace_id: Optional[str] = None) -> _MacroDroidIntent:
+        return _MacroDroidIntent(action="open_app", extras={"app": app_name, "package": package_hint})
+
+    def notification(self, title: str, body: str, trace_id: Optional[str] = None) -> _MacroDroidIntent:
+        return _MacroDroidIntent(action="notification", extras={"title": title, "body": body})
+
+    def speak_text(self, text: str, trace_id: Optional[str] = None) -> _MacroDroidIntent:
+        return _MacroDroidIntent(action="speak_text", extras={"text": text})
 
 
 SUPPORTED_DEVICE_ACTIONS = ("open_app", "notification", "speak_text")
@@ -12,8 +30,8 @@ SUPPORTED_DEVICE_ACTIONS = ("open_app", "notification", "speak_text")
 class DeviceTool(BaseTool):
     name = "device"
 
-    def __init__(self, *, android_adapter: Optional[MacroDroidIntentAdapter] = None) -> None:
-        self.android_adapter = android_adapter or MacroDroidIntentAdapter()
+    def __init__(self, *, android_adapter: Optional[_MacroDroidAdapter] = None) -> None:
+        self.android_adapter = android_adapter or _MacroDroidAdapter()
 
     def prepare_device_action(
         self,

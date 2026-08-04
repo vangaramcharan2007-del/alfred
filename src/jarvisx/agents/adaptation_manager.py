@@ -1,7 +1,7 @@
 from typing import Dict, Any, List, Optional
 
 from jarvisx.memory.cognitive_memory import CognitiveMemory
-from jarvisx.learning.knowledge_graph import KnowledgeGraph
+from jarvisx.memory.knowledge_graph import PersonalKnowledgeGraph as KnowledgeGraph
 from jarvisx.core.logging import StructuredLogger
 
 

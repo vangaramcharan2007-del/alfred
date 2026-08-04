@@ -3,8 +3,12 @@ import time
 from typing import Optional
 from jarvisx.agents.base import BaseAgent, AgentResponse
 from jarvisx.core.events import Event
-from jarvisx.ui.client import set_overlay_color
 from jarvisx.agents.alfred import _speak_offline
+
+
+def set_overlay_color(*_args, **_kwargs):
+    """No-op stub — replaces deleted jarvisx.ui.client."""
+    pass
 
 
 class EdithAgent(BaseAgent):

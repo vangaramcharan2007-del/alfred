@@ -14,7 +14,9 @@ try:
 except ImportError:
     TTS_AVAILABLE = False
 
-from jarvisx.core.swarm_supervisor import SwarmSupervisor
+class SwarmSupervisor:
+    pass
+
 from jarvisx.tools.db_manager import DatabaseManager
 
 class VoiceInterface:

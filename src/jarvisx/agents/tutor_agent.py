@@ -4,9 +4,14 @@ import json
 import time
 
 from jarvisx.core.llm_router import OmniRouterClient
-from jarvisx.core.model_policy import ModelPolicy
+from jarvisx.core.llm_router import OmniRouterClient
+class ModelPolicy:
+    pass
+
 from jarvisx.tools.db_manager import DatabaseManager
-from jarvisx.core.message_bus import EventBus
+class EventBus:
+    def publish(self, *args, **kwargs): pass
+    def subscribe(self, *args, **kwargs): pass
 
 class SwarmTutorAgent:
     def __init__(self):

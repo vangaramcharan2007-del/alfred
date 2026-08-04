@@ -1,1 +1,0 @@
-copy(Array.from(document.querySelectorAll('.qt-question, .question-wrapper, .gcb-question-row, form')).map(e => e.innerText).join('\n\n'));

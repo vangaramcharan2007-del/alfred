@@ -136,6 +136,62 @@ class JarvisCLI:
             return {"action": "voice", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # ALFRED & FRIDAY CORE REBUILT MVP WORKFLOWS
+        # ----------------------------------------------------------
+        elif command in ("im-back", "back", "im_back"):
+            from jarvisx.cognition.alfred_mvp import AlfredMVP
+            amvp = AlfredMVP()
+            res = amvp.im_back()
+            return {"action": "im_back", "status": "SUCCESS", "result": res}
+
+        elif command in ("fix-this", "fix_this"):
+            from jarvisx.cognition.alfred_mvp import AlfredMVP
+            amvp = AlfredMVP()
+            res = amvp.fix_this()
+            return {"action": "fix_this", "status": res["status"], "result": res}
+
+        elif command in ("build-this", "build_this"):
+            from jarvisx.cognition.alfred_mvp import AlfredMVP
+            amvp = AlfredMVP()
+            res = amvp.build_this(args if args else "New Feature")
+            return {"action": "build_this", "status": "SUCCESS", "result": res}
+
+        elif command in ("ask", "ask-brain", "question"):
+            from jarvisx.memory.second_brain import SecondBrain
+            sb = SecondBrain()
+            res = await sb.answer_question(args if args else "What were we doing?")
+            print(f"\nSecond Brain Answer: {res['answer']}\n")
+            return {"action": "ask_brain", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
+        # REAL DESKTOP AUTOMATIONS
+        # ----------------------------------------------------------
+        elif command in ("organize-downloads", "organize"):
+            from jarvisx.automation.real_automations import RealDesktopAutomations
+            rda = RealDesktopAutomations()
+            res = rda.organize_downloads(args if args else "var/downloads")
+            return {"action": "organize_downloads", "status": "SUCCESS", "result": res}
+
+        elif command in ("archive-screenshots", "clean-screenshots"):
+            from jarvisx.automation.real_automations import RealDesktopAutomations
+            rda = RealDesktopAutomations()
+            res = rda.archive_screenshots(args if args else "var/screenshots")
+            return {"action": "archive_screenshots", "status": "SUCCESS", "result": res}
+
+        elif command in ("clipboard", "clip"):
+            from jarvisx.automation.real_automations import RealDesktopAutomations
+            rda = RealDesktopAutomations()
+            res = rda.summarize_clipboard()
+            return {"action": "clipboard", "status": "SUCCESS", "result": res}
+
+        elif command in ("template", "assignment-template"):
+            from jarvisx.automation.real_automations import RealDesktopAutomations
+            rda = RealDesktopAutomations()
+            title = args if args else "New Assignment"
+            res = rda.create_assignment_template(title, "General")
+            return {"action": "assignment_template", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # PHASE 51: UNIFIED BRAIN & AUTOMATION ENGINES
         # ----------------------------------------------------------
         elif command in ("morning", "morning-briefing"):

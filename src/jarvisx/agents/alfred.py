@@ -19,7 +19,19 @@ from jarvisx.core.events import Event
 from jarvisx.core.failures import FailureReport
 from jarvisx.core.hermes import HermesBus
 from jarvisx.core.logging import StructuredLogger
-from jarvisx.models.router import ModelRouter
+
+
+class _ModelSelectionStub:
+    def to_dict(self) -> dict[str, object]:
+        return {"provider": "ollama", "model": "qwen2.5-coder:7b"}
+
+
+class ModelRouter:
+    """Inline router stub replacing deleted jarvisx.models.router."""
+    def select(self, *args: Any, **kwargs: Any) -> _ModelSelectionStub:
+        return _ModelSelectionStub()
+
+
 from jarvisx.tools.device import SUPPORTED_DEVICE_ACTIONS
 from jarvisx.tools.memory import LocalMemoryTool
 from jarvisx.tools.missions import MissionTool

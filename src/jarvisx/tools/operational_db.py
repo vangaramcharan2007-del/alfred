@@ -5,7 +5,7 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any, Optional
 
-from jarvisx.clients.supabase_client import SupabaseClient
+
 from jarvisx.core.health import HealthStatus
 from jarvisx.core.logging import StructuredLogger
 import queue
