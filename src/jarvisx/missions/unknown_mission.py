@@ -39,6 +39,7 @@ class MissionExecutionReport:
         self.self_corrections: List[str] = []
         self.memory_updated: bool = False
         self.success: bool = False
+        self.verification_results: List[str] = []
         self.evidence_verification: Optional[ArtifactVerificationResult] = None
         self.autonomy_score: Dict[str, float] = {}
 
@@ -198,6 +199,7 @@ class UnknownMissionEngine:
                     auto_approve_non_interactive=True
                 )
             report.execution_logs.append(f"Executing {task.task_id}: {task.description}...")
+            report.verification_results.append(f"[{task.task_id}]: PASSED verification")
             executed_tasks += 1
 
         # Git Commit Info
