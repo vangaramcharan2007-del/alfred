@@ -136,6 +136,68 @@ class JarvisCLI:
             return {"action": "voice", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # PHASE 51: UNIFIED BRAIN & AUTOMATION ENGINES
+        # ----------------------------------------------------------
+        elif command in ("morning", "morning-briefing"):
+            from jarvisx.cognition.morning_briefing import MorningBriefingGenerator
+            mbg = MorningBriefingGenerator()
+            res = mbg.generate_briefing()
+            print(f"\n{res['briefing_text']}\n")
+            return {"action": "morning_briefing", "status": "SUCCESS", "result": res}
+
+        elif command in ("study", "study-mode"):
+            from friday.study_mode import StudyModeEngine
+            sme = StudyModeEngine()
+            res = sme.start_study_mode(target_subject=args if args else None)
+            return {"action": "study_mode", "status": "SUCCESS", "result": res}
+
+        elif command in ("coding-session", "code-session"):
+            from jarvisx.cognition.coding_session import CodingSessionEngine
+            cse = CodingSessionEngine()
+            res = cse.start_coding_session()
+            return {"action": "coding_session", "status": "SUCCESS", "result": res}
+
+        elif command in ("brain", "knowledge", "query-brain"):
+            from jarvisx.core.command_center import PersonalCommandCenter
+            pcc = PersonalCommandCenter.get_instance()
+            res = await pcc.query_brain(args if args else "Jarvis")
+            print(f"\nUnified Brain Query Result for '{args}':")
+            print(f"  Memory Matches    : {len(res['memory_matches'])}")
+            print(f"  Schedule Matches  : {len(res['schedule_matches'])}")
+            print(f"  Assignment Matches: {len(res['assignment_matches'])}\n")
+            return {"action": "query_brain", "status": "SUCCESS", "result": res}
+
+        elif command in ("graph", "knowledge-graph"):
+            from jarvisx.memory.knowledge_graph import PersonalKnowledgeGraph
+            pkg = PersonalKnowledgeGraph()
+            res = pkg.query_relationship(args if args else "decision")
+            print(f"\nKnowledge Graph Answer for '{args}':")
+            print(f"  {res['answer']}\n")
+            return {"action": "knowledge_graph", "status": "SUCCESS", "result": res}
+
+        elif command in ("vision-agent", "vision-loop"):
+            from jarvisx.automation.computer_vision_agent import ComputerVisionAgent
+            cva = ComputerVisionAgent()
+            res = cva.run_observe_reason_act_verify_loop(args if args else "take screenshot")
+            return {"action": "vision_agent", "status": "SUCCESS", "result": res}
+
+        elif command in ("proactive", "prepare-assignments"):
+            from jarvisx.automation.proactive_tasks import ProactiveTaskEngine
+            pte = ProactiveTaskEngine()
+            res = pte.scan_and_prepare_all()
+            print(f"\nFriday Proactive: Prepared {res['total_prepared']} assignment workspaces.\n")
+            return {"action": "proactive_tasks", "status": "SUCCESS", "result": res}
+
+        elif command in ("notify", "interrupt"):
+            from jarvisx.automation.interrupt_manager import SmartInterruptManager
+            sim = SmartInterruptManager()
+            parts = args.split(maxsplit=1)
+            title = parts[0] if parts else "Alert"
+            msg = parts[1] if len(parts) > 1 else "Task Notification"
+            res = sim.dispatch_notification(title, msg, priority="IMPORTANT")
+            return {"action": "interrupt", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # MISSION ROUTER
         # ----------------------------------------------------------
         elif command == "mission":
