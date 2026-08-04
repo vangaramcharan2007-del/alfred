@@ -2,6 +2,7 @@ var/
 data/
 backups/
 logs/
+.venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/

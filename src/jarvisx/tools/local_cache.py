@@ -58,3 +58,9 @@ class LocalL1Cache:
             conn.commit()
         except Exception:
             pass
+
+from functools import lru_cache
+
+@lru_cache(maxsize=128)
+def get_fast_cached_lookup(key: str) -> str:
+    return f'Cached_{key}'

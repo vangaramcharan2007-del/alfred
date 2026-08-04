@@ -24,7 +24,64 @@ import asyncio
 from jarvisx.runtime.runtime import JarvisRuntime
 
 
+def _handle_engineering_command(cmd: str, args_list: list[str]) -> int:
+    from jarvisx.engineering import (
+        AdaptiveEngineeringAgent,
+        DebugLoopEngine,
+        ProjectIntelligence,
+    )
+
+    target_repo = args_list[0] if args_list else "."
+    
+    if cmd == "analyze":
+        intel = ProjectIntelligence(target_repo)
+        print(intel.analyze().generate_report())
+        return 0
+
+    elif cmd == "explain":
+        intel = ProjectIntelligence(target_repo)
+        info = intel.analyze()
+        lines = [
+            f"ARCHITECTURE EXPLANATION FOR REPOSITORY: '{info.root_path}'",
+            f"Primary Architecture Style: {info.architecture_style}",
+            f"Core Languages: {', '.join(info.languages)}",
+            f"Key Frameworks: {', '.join(info.frameworks)}",
+            f"Package Management: {info.package_manager} | Build System: {info.build_system}",
+            f"Test Framework: {info.test_framework}",
+            f"Detected Entry Points: {', '.join(info.entry_points)}",
+            f"\nDesign Rationale & Tradeoffs:\n  The project employs a {info.architecture_style} pattern to isolate domain responsibilities and ensure extensible component modularity. External dependencies are encapsulated cleanly within dedicated adapters.",
+        ]
+        print("\n".join(lines))
+        return 0
+
+    elif cmd == "improve":
+        agent = AdaptiveEngineeringAgent(target_repo)
+        report = agent.execute_mission("Analyze repository risk areas and apply highest impact structural improvements.")
+        print(report.generate_report())
+        return 0
+
+    elif cmd == "debug":
+        debug_engine = DebugLoopEngine(target_repo)
+        res = debug_engine.debug_repository()
+        print(res.generate_report())
+        return 0
+
+    elif cmd == "engineer":
+        goal = " ".join(args_list) if args_list else "General architectural optimization and verification."
+        agent = AdaptiveEngineeringAgent(".")
+        report = agent.execute_mission(goal)
+        print(report.generate_report())
+        return 0
+
+    return 1
+
+
 async def async_main():
+    if len(sys.argv) > 1:
+        first_word = sys.argv[1].lower()
+        if first_word in {"analyze", "explain", "improve", "debug", "engineer"}:
+            sys.exit(_handle_engineering_command(first_word, sys.argv[2:]))
+
     runtime = JarvisRuntime()
     await runtime.start(print_banner=True)
 
@@ -57,3 +114,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

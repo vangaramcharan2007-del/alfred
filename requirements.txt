@@ -1,1 +1,1 @@
-playwright
+-e .[dev]
