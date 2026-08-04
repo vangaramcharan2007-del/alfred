@@ -207,6 +207,18 @@ class JarvisCLI:
             return {"action": "assignment_template", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # UNKNOWN MISSION ENGINE: Autonomous Natural Language Execution
+        # ----------------------------------------------------------
+        elif command in ("mission", "objective", "task", "run-mission"):
+            from jarvisx.missions.unknown_mission import UnknownMissionEngine
+            engine = UnknownMissionEngine()
+            objective = args if args else "Prepare my semester 3 Operating Systems revision system"
+            report = engine.execute_mission(objective)
+            output_text = report.format_cli_output()
+            print(output_text)
+            return {"action": "mission", "status": "SUCCESS" if report.success else "FAILED", "report": report, "output": output_text}
+
+        # ----------------------------------------------------------
         # PHASE 51: UNIFIED BRAIN & AUTOMATION ENGINES
         # ----------------------------------------------------------
         elif command in ("morning", "morning-briefing"):
