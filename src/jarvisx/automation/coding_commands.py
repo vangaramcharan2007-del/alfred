@@ -77,7 +77,7 @@ def get_workspace_context(cwd: str = ".") -> Dict[str, Any]:
     try:
         r = subprocess.run(
             [sys.executable, "-m", "pytest", "tests/unit/", "--tb=short", "-q", "-m", "not slow"],
-            cwd=cwd, capture_output=True, text=True, timeout=10
+            cwd=cwd, capture_output=True, text=True, timeout=30
         )
         ctx["test_exit_code"] = r.returncode
         ctx["test_output"] = r.stdout.strip()[-500:]  # Last 500 chars

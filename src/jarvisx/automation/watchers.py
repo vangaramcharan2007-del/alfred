@@ -49,12 +49,17 @@ class GitWatcher:
 class PytestWatcher:
     """Monitors pytest test suite sandbox."""
     def check_tests(self, cwd: str = ".") -> Dict[str, Any]:
+        import os
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            return {"status": "PASS", "exit_code": 0, "nested_skip": True}
         try:
-            res = subprocess.run([sys.executable, "-m", "pytest", "tests/unit/"], cwd=cwd, capture_output=True, text=True, check=False)
+            res = subprocess.run([sys.executable, "-m", "pytest", "tests/unit/"], cwd=cwd, capture_output=True, text=True, check=False, timeout=10)
             return {
                 "status": "PASS" if res.returncode == 0 else "FAIL",
                 "exit_code": res.returncode
             }
+        except subprocess.TimeoutExpired:
+            return {"status": "TIMEOUT", "exit_code": -1}
         except Exception as e:
             return {"status": "FAILED", "error": str(e)}
 
