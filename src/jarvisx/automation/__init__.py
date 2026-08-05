@@ -8,6 +8,8 @@ from jarvisx.automation.vcs_ci import VCSEngine
 from jarvisx.automation.skill_synthesis import SkillSynthesisEngine
 from jarvisx.automation.research_curation import ProactiveCurationEngine
 from jarvisx.automation.self_healing import SelfHealingPatcher
+from jarvisx.automation.real_system_cleaner import RealSystemCleaner
+from jarvisx.automation.real_workspace_bootstrap import RealWorkspaceBootstrapper
 
 __all__ = [
     "DesktopController",
@@ -26,4 +28,6 @@ __all__ = [
     "SkillSynthesisEngine",
     "ProactiveCurationEngine",
     "SelfHealingPatcher",
+    "RealSystemCleaner",
+    "RealWorkspaceBootstrapper",
 ]

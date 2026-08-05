@@ -18,7 +18,13 @@ from jarvisx.agents import (
     TestingAgent,
     RedTeamVerifier,
 )
-from jarvisx.automation import DevelopmentWorkflow, ProjectGuardian, SelfHealingPatcher
+from jarvisx.automation import (
+    DevelopmentWorkflow,
+    ProjectGuardian,
+    SelfHealingPatcher,
+    RealSystemCleaner,
+    RealWorkspaceBootstrapper,
+)
 from jarvisx.productivity import (
     PersonalKnowledgeBase,
     StudyScheduler,
@@ -49,6 +55,8 @@ class PersonalOSKernel:
         healing_engine: Optional[SelfHealingPatcher] = None,
         finops_engine: Optional[FinOpsOptimizer] = None,
         redteam_engine: Optional[RedTeamVerifier] = None,
+        real_cleaner: Optional[RealSystemCleaner] = None,
+        real_bootstrapper: Optional[RealWorkspaceBootstrapper] = None,
     ):
         self.id = str(uuid.uuid4())
         self.registry = registry or self._init_workforce()
@@ -61,6 +69,8 @@ class PersonalOSKernel:
         self.healing_engine = healing_engine or SelfHealingPatcher()
         self.finops_engine = finops_engine or FinOpsOptimizer()
         self.redteam_engine = redteam_engine or RedTeamVerifier()
+        self.real_cleaner = real_cleaner or RealSystemCleaner()
+        self.real_bootstrapper = real_bootstrapper or RealWorkspaceBootstrapper()
 
         self.productivity_agent = (
             productivity_agent
@@ -102,11 +112,27 @@ class PersonalOSKernel:
         return reg
 
     def execute_objective(self, request: str, **kwargs: Any) -> Dict[str, Any]:
-        """Classify and route user instructions across study, research, engineering, DevOps, skill synthesis, or diagnostic handlers."""
+        """Classify and route user instructions across real PC control, study, research, DevOps, or diagnostic handlers."""
         req_lower = request.lower()
         res: Dict[str, Any] = {}
 
-        if any(w in req_lower for w in ["heal", "patch", "ast", "dependency", "upgrade", "library", "self-healing"]):
+        if any(w in req_lower for w in ["clean pc", "disk", "temp bloat", "pycache", "storage", "hardware", "process sweep", "system cleaner"]):
+            res = self.real_cleaner.scan_and_clean_temp_bloat(target_root=kwargs.get("target_root", "."), delete=kwargs.get("delete", True))
+            self._kernel_hspw += 0.5
+
+        elif any(w in req_lower for w in ["bootstrap", "workspace", "launch ide", "launch terminal", "clipboard", "strip tracking", "1-click"]):
+            if any(k in req_lower for k in ["clipboard", "tracking", "strip"]):
+                res = self.real_bootstrapper.clean_clipboard_text(fallback_text=kwargs.get("fallback_text"))
+            else:
+                res = self.real_bootstrapper.bootstrap_project_workspace(
+                    project_dir=kwargs.get("project_dir", "."),
+                    launch_ide=kwargs.get("launch_ide", False),
+                    launch_terminal=kwargs.get("launch_terminal", False),
+                    docs_url=kwargs.get("docs_url"),
+                )
+            self._kernel_hspw += 0.5
+
+        elif any(w in req_lower for w in ["heal", "patch", "ast", "dependency", "upgrade", "library", "self-healing"]):
             res = self.healing_engine.execute_healing_sweep(
                 target_pkg=kwargs.get("target_pkg", "pydantic"),
                 old_ver=kwargs.get("old_ver", "1.10.8"),
@@ -223,6 +249,8 @@ class PersonalOSKernel:
         healing_stat = self.healing_engine.get_healing_telemetry()
         finops_stat = self.finops_engine.get_finops_telemetry()
         redteam_stat = self.redteam_engine.get_red_team_telemetry()
+        cleaner_stat = self.real_cleaner.get_real_hardware_telemetry()
+        bootstrap_stat = self.real_bootstrapper.get_workspace_telemetry()
 
         total_hspw = (
             workforce_health.get("total_hours_saved", 0.0)
@@ -234,6 +262,8 @@ class PersonalOSKernel:
             + healing_stat.get("healing_hspw", 0.0)
             + finops_stat.get("finops_hspw", 0.0)
             + redteam_stat.get("redteam_hspw", 0.0)
+            + cleaner_stat.get("cleaner_hspw", 0.0)
+            + bootstrap_stat.get("bootstrap_hspw", 0.0)
             + (2.5 if self.execution_log else 0.0)
         )
 
@@ -242,8 +272,14 @@ class PersonalOSKernel:
             "              ALFRED PERSONAL OS MASTER DASHBOARD                ",
             "=================================================================",
             f"Workforce Status: {workforce_health.get('workforce_status', 'NOMINAL')} ({workforce_health.get('active_healthy', 0)}/{workforce_health.get('total_workers', 0)} agents active)",
-            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (100+ HSPW BENCHMARK ACHIEVED!)",
+            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (REAL PRODUCTION PC CONTROL ACTIVE!)",
             f"Active Objectives Executed: {len(self.execution_log)} missions logged",
+            "-----------------------------------------------------------------",
+            "[REAL WINDOWS HARDWARE HYGIENE & STORAGE CLEANER]",
+            f"{cleaner_stat.get('output', 'Nominal').strip()}",
+            "-----------------------------------------------------------------",
+            "[REAL 1-CLICK WORKSPACE & CLIPBOARD CONTROLLER]",
+            f"{bootstrap_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
             "[AUTONOMOUS SELF-HEALING DEPENDENCY AUTO-PATCHER]",
             f"{healing_stat.get('output', 'Nominal').strip()}",
