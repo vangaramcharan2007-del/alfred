@@ -21,6 +21,7 @@ LAYER_REGISTRY = {
         "architecture",
     ],
     "agents": [
+        "agents",
         "brain",
         "cognition",
         "memory",
