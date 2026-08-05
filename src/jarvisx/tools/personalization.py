@@ -13,7 +13,7 @@ from jarvisx.core.logging import StructuredLogger
 from jarvisx.core.configuration import ConfigurationManager
 from jarvisx.config.personalization import MODE_CONFIGS
 from jarvisx.tools.base import BaseTool, ToolResult
-from jarvisx.tools.memory import LocalMemoryTool
+from jarvisx.memory import LocalMemoryTool
 
 
 PERSONALIZATION_SCHEMA = "jarvisx.personalization_event.v1"

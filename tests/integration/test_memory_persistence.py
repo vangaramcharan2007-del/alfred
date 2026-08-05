@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from jarvisx.tools.memory import LocalMemoryTool
+from jarvisx.memory import LocalMemoryTool
 
 def test_integration_memory_persistence():
     tool = LocalMemoryTool(vault_path=Path("var/test_vault"))

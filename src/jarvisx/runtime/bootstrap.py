@@ -82,7 +82,5 @@ class BootstrapManager:
         return self.state
 
     def print_startup_banner(self) -> None:
-        from jarvisx.diagnostics.system_health_report import SystemHealthReporter
-        reporter = SystemHealthReporter()
-        print(reporter.generate_startup_banner())
+        print(self.state.generate_startup_banner())
 

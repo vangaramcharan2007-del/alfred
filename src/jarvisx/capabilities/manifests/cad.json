@@ -1,0 +1,8 @@
+{
+  "name": "cad",
+  "version": "1.0.0",
+  "api_version": "1.0",
+  "description": "Parametric CAD generation and spatial reasoning capability",
+  "category": "engineering",
+  "confidence": 0.90
+}

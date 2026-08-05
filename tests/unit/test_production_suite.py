@@ -30,11 +30,11 @@ def test_system_doctor(runtime):
     assert res["checks"]["git"] == "OK"
 
 
-def test_academic_war_mode(runtime):
-    res = asyncio.run(runtime.cli.handle_command_async("war"))
-    assert res["status"] == "SUCCESS"
-    assert res["result"]["target_cgpa"] == 10.0
-    assert len(res["result"]["impact_ranking"]) > 0
+def test_cli_help(runtime):
+    res = asyncio.run(runtime.cli.handle_command_async("--help"))
+    assert "commands" in res
+    assert "PERSONAL ASSISTANT" in res["commands"]
+    assert "war" not in res["commands"]
 
 
 def test_time_saved_report(runtime):

@@ -1,17 +1,5 @@
-"""
-Alfred Autonomous Mission Benchmark System.
-Tests and scores Alfred's real autonomy across core capabilities:
-- Mission 001: Python app creation & test execution
-- Mission 002: Python project debugging & failure recovery
-- Mission 003: Technical research & memory storage
-- Mission 004: Academic study plan generation (Friday Engine)
-- Mission 005: Desktop workflow automation & safety validation
-"""
-
-from jarvisx.benchmark.definitions import get_all_missions, MissionDefinition
-from jarvisx.benchmark.runner import BenchmarkRunner
-from jarvisx.benchmark.scoring import AutonomyScorer, AutonomyScoreResult
-from jarvisx.benchmark.reporter import BenchmarkReporter
+from __future__ import annotations
+from typing import Any
 
 __all__ = [
     "get_all_missions",
@@ -19,5 +7,20 @@ __all__ = [
     "BenchmarkRunner",
     "AutonomyScorer",
     "AutonomyScoreResult",
-    "BenchmarkReporter"
+    "BenchmarkReporter",
 ]
+
+def __getattr__(name: str) -> Any:
+    if name in ("get_all_missions", "MissionDefinition"):
+        from jarvisx.benchmark.definitions import get_all_missions, MissionDefinition
+        return get_all_missions if name == "get_all_missions" else MissionDefinition
+    elif name == "BenchmarkRunner":
+        from jarvisx.benchmark.runner import BenchmarkRunner
+        return BenchmarkRunner
+    elif name in ("AutonomyScorer", "AutonomyScoreResult"):
+        from jarvisx.benchmark.scoring import AutonomyScorer, AutonomyScoreResult
+        return AutonomyScorer if name == "AutonomyScorer" else AutonomyScoreResult
+    elif name == "BenchmarkReporter":
+        from jarvisx.benchmark.reporter import BenchmarkReporter
+        return BenchmarkReporter
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

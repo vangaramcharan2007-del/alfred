@@ -167,7 +167,7 @@ class BenchmarkRunner:
         res.steps_completed += 1
 
         res.logs.append("Step 3: Storing summary into Cognitive Memory...")
-        from jarvisx.tools.memory import LocalMemoryTool
+        from jarvisx.memory import LocalMemoryTool
         vault = self.var_dir / "test_vault_m003"
         cm = LocalMemoryTool(vault_path=vault)
         saved = cm.save_memory(f"transformer: {summary}", "general")

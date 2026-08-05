@@ -30,3 +30,20 @@ class RuntimeState:
             "uptime_seconds": round(time.time() - self.start_time, 2) if self.start_time > 0 else 0.0,
             "services": {k: {"status": v.status, "details": v.details} for k, v in self.services.items()}
         }
+
+    def generate_startup_banner(self) -> str:
+        lines = [
+            "=========================",
+            "       JARVIS X",
+            "=========================",
+            ""
+        ]
+        for srv in ["Memory", "LLM", "Voice", "Vision", "Git", "Agents"]:
+            status = self.services.get(srv, ServiceState(srv, "OFFLINE")).status
+            lines.append(f"{srv:<12} ........ {status}")
+        lines.extend([
+            "",
+            "Alfred online.",
+            ""
+        ])
+        return "\n".join(lines)

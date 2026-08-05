@@ -39,3 +39,27 @@ class JarvisRuntime:
         if self.shutdown_mgr:
             return await self.shutdown_mgr.graceful_shutdown()
         return {"status": "STOPPED"}
+
+    def shutdown(self) -> None:
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(self.stop())
+            else:
+                loop.run_until_complete(self.stop())
+        except Exception:
+            pass
+
+
+def create_default_runtime(*args, **kwargs) -> JarvisRuntime:
+    runtime = JarvisRuntime()
+    try:
+        from jarvisx.capabilities.capability_registry import CapabilityRegistry
+        from jarvisx.capabilities.capability_loader import CapabilityLoader
+        reg = CapabilityRegistry()
+        loader = CapabilityLoader(reg)
+        loader.load_built_in_sync()
+        setattr(runtime, "new_capability_registry", reg)
+    except Exception:
+        pass
+    return runtime

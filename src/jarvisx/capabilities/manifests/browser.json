@@ -1,0 +1,8 @@
+{
+  "name": "browser",
+  "version": "1.0.0",
+  "api_version": "1.0",
+  "description": "Autonomous browser control and verification capability",
+  "category": "automation",
+  "confidence": 0.95
+}

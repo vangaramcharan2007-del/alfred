@@ -16,7 +16,7 @@ from typing import Dict, Any, List, Optional
 from jarvisx.brain.dynamic_planner import DynamicTaskPlanner, ExecutionPlan, AtomicTask
 from jarvisx.capabilities.core.capability_discovery import CapabilityDiscoverySystem
 from jarvisx.core.safety import ProductionSafetyGate, RiskLevel
-from jarvisx.tools.memory import LocalMemoryTool
+from jarvisx.memory import LocalMemoryTool
 from jarvisx.automation.real_project_builder import RealProjectBuilder
 from jarvisx.verification.artifact_verifier import ArtifactVerifier, ArtifactVerificationResult
 from jarvisx.deployment.deployer import DeploymentEngine, DeploymentResult

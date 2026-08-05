@@ -1,0 +1,8 @@
+{
+  "name": "github",
+  "version": "1.0.0",
+  "api_version": "1.0",
+  "description": "GitHub repository intelligence and automated pull request workflows",
+  "category": "engineering",
+  "confidence": 0.95
+}

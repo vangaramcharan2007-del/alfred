@@ -48,7 +48,7 @@ class JarvisCLI:
         elif command == "history":
             missions = self.persistence.get_all_missions()
             return {"action": "history", "total_missions": len(missions), "missions": missions}
-        elif command == "help":
+        elif command in ("help", "--help", "-h"):
             return {"commands": self.parser.list_commands()}
         elif command == "mission":
             return {"action": "mission", "request": args, "note": "Use handle_command_async for execution."}
@@ -64,7 +64,7 @@ class JarvisCLI:
         elif command == "history":
             missions = self.persistence.get_all_missions()
             return {"action": "history", "total_missions": len(missions), "missions": missions}
-        elif command == "help":
+        elif command in ("help", "--help", "-h"):
             return self._print_help()
 
         # ----------------------------------------------------------
@@ -91,24 +91,6 @@ class JarvisCLI:
             res = dec.generate_briefing()
             print(f"\n{res['briefing_text']}\n")
             return {"action": "briefing", "status": "SUCCESS", "result": res}
-
-        # ----------------------------------------------------------
-        # WAR MODE: 10 CGPA Optimizer
-        # ----------------------------------------------------------
-        elif command in ("war", "academic", "cgpa"):
-            from friday.academic_war_mode import AcademicWarMode
-            awm = AcademicWarMode()
-            res = awm.get_war_strategy()
-            print("\n==============================================")
-            print("        FRIDAY - ACADEMIC WAR MODE")
-            print("==============================================")
-            print(f"  Target CGPA   : {res['target_cgpa']}")
-            print(f"  Recommendation: {res['daily_recommendation']}\n")
-            print("  Impact Ranking:")
-            for item in res["impact_ranking"]:
-                print(f"    - {item['subject']:<35} (Score: {item['score']}%, Impact Score: {item['impact_score']})")
-            print("==============================================\n")
-            return {"action": "war", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
         # DAEMON: Background service management
@@ -458,7 +440,6 @@ Alfred & Friday Commands:
 
   PERSONAL ASSISTANT
     briefing              Daily Engineering Briefing (workspace context & next recommended action)
-    war                   Friday Academic War Mode (10 CGPA strategy & high-impact task list)
     report                Generate TIME_SAVED_REPORT.md from real execution metrics
     daemon                Manage background daemon service (--start, --stop, --startup)
     voice <text>          Run hands-free voice assistant pipeline

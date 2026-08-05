@@ -89,8 +89,8 @@ async def async_main():
         raw_cmd = " ".join(sys.argv[1:])
 
         top_commands = {
-            "status", "health", "history", "help", "doctor", "chat", "models",
-            "briefing", "context", "daily", "war", "academic", "cgpa",
+            "status", "health", "history", "help", "--help", "-h", "doctor", "chat", "models",
+            "briefing", "context", "daily",
             "daemon", "report", "time-saved", "metrics", "voice", "assistant",
             "benchmark", "autonomy", "eval"
         }

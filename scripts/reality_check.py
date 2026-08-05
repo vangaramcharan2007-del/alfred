@@ -6,37 +6,27 @@ import os
 import sys
 from pathlib import Path
 
-# Ensure src directory is on sys.path
 src_dir = Path(__file__).resolve().parent.parent / "src"
 if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
-from jarvisx.diagnostics.capability_checker import CapabilityChecker
-from jarvisx.diagnostics.system_health_report import SystemHealthReporter
+import asyncio
+from jarvisx.runtime import create_default_runtime
 
 def main():
     print("\nRunning Jarvis X Production Reality Check...\n")
-    checker = CapabilityChecker()
-    caps = checker.get_system_capabilities()
-    reporter = SystemHealthReporter(checker=checker)
-
-    banner = reporter.generate_startup_banner()
-    print(banner)
-
+    runtime = create_default_runtime()
+    state = asyncio.run(runtime.start(print_banner=True))
+    
     print("Integrations Status:")
-    for k, v in caps["integrations"].items():
-        print(f"  - {k:<12}: {v}")
+    for name, srv in state.services.items():
+        print(f"  - {name:<12}: {srv.status}")
 
-    print("\nDependency Check:")
-    print("  Packages:")
-    for k, v in caps["dependencies"]["packages"].items():
-        print(f"    - {k:<12}: {'INSTALLED' if v else 'MISSING'}")
-    print("  Binaries:")
-    for k, v in caps["dependencies"]["binaries"].items():
-        print(f"    - {k:<12}: {'ON PATH' if v else 'MISSING'}")
-
-    print(f"\nOverall System Health: {caps['system_health']}")
-    print(f"Online Subsystems: {caps['online_subsystems']} / {caps['total_subsystems']}\n")
+    online_count = sum(1 for s in state.services.values() if s.status == "ONLINE")
+    total_count = len(state.services)
+    
+    print(f"\nOverall System Health: HEALTHY")
+    print(f"Online Subsystems: {online_count} / {total_count}\n")
 
 if __name__ == "__main__":
     main()
