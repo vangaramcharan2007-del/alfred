@@ -21,6 +21,7 @@ from jarvisx.automation import DevelopmentWorkflow, ProjectGuardian
 from jarvisx.productivity import PersonalKnowledgeBase, StudyScheduler
 from jarvisx.runtime import MissionRuntime
 from jarvisx.adapters import FederationSyncEngine
+from jarvisx.memory import NeuroSymbolicReasoner
 
 
 class PersonalOSKernel:
@@ -36,12 +37,14 @@ class PersonalOSKernel:
         devops_agent: Optional[DevOpsAgent] = None,
         synthesizer_agent: Optional[SynthesizerAgent] = None,
         federate_engine: Optional[FederationSyncEngine] = None,
+        reasoner: Optional[NeuroSymbolicReasoner] = None,
     ):
         self.id = str(uuid.uuid4())
         self.registry = registry or self._init_workforce()
         self.runtime = runtime or MissionRuntime()
         self.dev_workflow = dev_workflow or DevelopmentWorkflow(registry=self.registry)
         self.federate_engine = federate_engine or FederationSyncEngine()
+        self.reasoner = reasoner or NeuroSymbolicReasoner()
 
         self.productivity_agent = (
             productivity_agent
@@ -87,7 +90,11 @@ class PersonalOSKernel:
         req_lower = request.lower()
         res: Dict[str, Any] = {}
 
-        if any(w in req_lower for w in ["study", "revision", "exam", "note", "assignment", "college"]):
+        if any(w in req_lower for w in ["why", "how did we solve", "reason", "infer", "graph", "neuro", "symbolic", "causal", "derivation"]):
+            res = self.reasoner.execute_multi_hop_reasoning(query=request)
+            self._kernel_hspw += 0.9
+
+        elif any(w in req_lower for w in ["study", "revision", "exam", "note", "assignment", "college"]):
             action = kwargs.get("action", "schedule_revision" if "revision" in req_lower else "add_assignment")
             payload = {"action": action, "course": kwargs.get("course", "General Study"), **kwargs}
             if isinstance(self.productivity_agent, ProductivityAgent):
@@ -164,11 +171,13 @@ class PersonalOSKernel:
         synth_stat = self.synthesizer_agent.execute({"action": "status"}) if isinstance(self.synthesizer_agent, SynthesizerAgent) else {"output": "Offline"}
         research_stat = self.research_agent.execute({"action": "status"}) if isinstance(self.research_agent, ResearchAgent) else {"output": "Offline"}
         federate_stat = self.federate_engine.get_federation_telemetry()
+        reason_stat = self.reasoner.get_reasoning_telemetry()
 
         total_hspw = (
             workforce_health.get("total_hours_saved", 0.0)
             + self._kernel_hspw
             + federate_stat.get("federate_hspw", 0.0)
+            + reason_stat.get("reasoning_hspw", 0.0)
             + (2.5 if self.execution_log else 0.0)
         )
 
@@ -185,6 +194,9 @@ class PersonalOSKernel:
             "-----------------------------------------------------------------",
             "[PERSONAL PRODUCTIVITY & ACADEMICS]",
             f"{study_stat.get('output', 'Status nominal').strip()}",
+            "-----------------------------------------------------------------",
+            "[NEURO-SYMBOLIC KNOWLEDGE GRAPH REASONING]",
+            f"{reason_stat.get('output', 'Status nominal').strip()}",
             "-----------------------------------------------------------------",
             "[DEVOPS & RELEASE ENGINEERING]",
             f"{devops_stat.get('output', 'Status nominal').strip()}",
