@@ -12,6 +12,8 @@ from jarvisx.automation.real_system_cleaner import RealSystemCleaner
 from jarvisx.automation.real_workspace_bootstrap import RealWorkspaceBootstrapper
 from jarvisx.automation.real_notifications import RealNotificationEngine
 from jarvisx.automation.real_folder_watcher import RealFolderWatcher
+from jarvisx.automation.real_window_controller import RealWindowController
+from jarvisx.automation.real_power_supervisor import RealPowerSupervisor
 
 __all__ = [
     "DesktopController",
@@ -34,4 +36,6 @@ __all__ = [
     "RealWorkspaceBootstrapper",
     "RealNotificationEngine",
     "RealFolderWatcher",
+    "RealWindowController",
+    "RealPowerSupervisor",
 ]
