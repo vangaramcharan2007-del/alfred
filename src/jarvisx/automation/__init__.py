@@ -3,6 +3,7 @@ from jarvisx.automation.screen_understanding import ScreenUnderstandingEngine
 from jarvisx.automation.action_registry import ActionRegistry, Action, OpenAppAction, ExecuteTerminalAction
 from jarvisx.automation.watchers import BatteryWatcher, GitWatcher, PytestWatcher
 from jarvisx.automation.dev_workflow import DevelopmentWorkflow, WorkflowStage
+from jarvisx.automation.guardian import ProjectGuardian
 
 __all__ = [
     "DesktopController",
@@ -16,4 +17,5 @@ __all__ = [
     "PytestWatcher",
     "DevelopmentWorkflow",
     "WorkflowStage",
+    "ProjectGuardian",
 ]

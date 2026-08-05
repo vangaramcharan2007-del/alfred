@@ -9,6 +9,7 @@ from jarvisx.agents.research import ResearchAgent
 from jarvisx.agents.testing import TestingAgent
 from jarvisx.agents.coding import CodingAgent
 from jarvisx.agents.productivity import ProductivityAgent
+from jarvisx.agents.guardian import GuardianAgent
 
 __all__ = [
     "OperationalAgent",
@@ -17,4 +18,5 @@ __all__ = [
     "TestingAgent",
     "CodingAgent",
     "ProductivityAgent",
+    "GuardianAgent",
 ]
