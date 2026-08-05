@@ -1,206 +1,71 @@
-# Architecture
+# Jarvis X Architecture & Governance Specification (`docs/ARCHITECTURE.md`)
 
-## Core roles
+This document defines the official 6-layer structural constitution of Jarvis X, established during **Phase 44B: Jarvis X Architectural Constitution**.
 
-### Alfred
+---
 
-Alfred is the executive orchestrator. It classifies intent, selects a specialist agent, selects a model profile, emits a task event through Hermes, and aggregates the response.
+## 1. Core Implementation Principles
+1. **Do NOT move folders** without proven architectural need.
+2. **Do NOT rewrite working modules** or break established import relationships.
+3. **Contracts before features; Architecture before automation.**
+4. Eliminate unnecessary abstractions and avoid speculative or unverified agents/UI demonstrations.
 
-Alfred should not perform specialized work directly when a specialist exists.
+---
 
-### Edith
+## 2. The 6-Layer Hierarchy
 
-Edith is the mobile companion and Android execution layer. In this scaffold, Edith is represented as a lightweight agent that can route device-adjacent requests to the Device Agent. Real Android execution should be added through tools such as MacroDroid, ADB, or a local Android bridge.
-
-### Hermes
-
-Hermes is the communication bus. Agents do not call each other directly. They subscribe to event types, and Hermes delivers targeted events by agent ID.
-
-## Event flow
-
-```text
-User message
-  -> Alfred classifies intent
-  -> Alfred selects agent and model profile
-  -> Alfred publishes agent.task.requested to Hermes
-  -> Hermes delivers the event to the targeted specialist
-  -> Specialist uses tools and returns an AgentResponse
-  -> Alfred aggregates the response
+```
+1. Human Layer         (User guidance & config)
+          ↓
+2. Intelligence Layer  (Alfred central orchestration & decision making)
+          ↓
+3. Agent Layer         (Specialized autonomous workers: Brain, Memory, Planner, Voice, Vision, Hands, Research)
+          ↓
+4. Capability Layer    (Reusable modular abilities & tools exposed to agents)
+          ↓
+5. Infrastructure Layer(External systems, adapters, database persistence, observability)
+          ↓
+6. Interface Layer     (Human-facing interaction surfaces & command displays)
 ```
 
-## Edith communication
+### Layer Details & Module Ownership
 
-Edith Communication v1 adds a local REST boundary owned by Alfred. Edith acts as a lightweight HTTP client and talks only to Alfred.
+* **Layer 1 — Human Layer:** Holds user preferences, operational parameters, and configuration settings.
+  * *Canonical modules:* `config/`
+* **Layer 2 — Alfred Intelligence Layer:** Centralized routing engine, lifecycle supervisor, mission decision maker, and architectural governance.
+  * *Canonical modules:* `main.py`, `core/`, `kernel/`, `runtime/`, `decision/`, `evolution/`, `architecture/`
+* **Layer 3 — Agent Layer:** Encapsulates autonomous functional domains controlled by Alfred.
+  * *Canonical modules:* `brain/`, `cognition/`, `memory/`, `missions/`, `engineering/`, `llm/`, `learning/`, `automation/`, `skills/`, `verification/`
+* **Layer 4 — Capability Layer:** Reusable operational tools and benchmark suites made accessible to active agents.
+  * *Canonical modules:* `capabilities/`, `tools/`, `benchmark/`
+* **Layer 5 — Infrastructure Layer:** Manages persistent storage connectors, deployment wrappers, LLM models, and observability logging.
+  * *Canonical modules:* `adapters/`, `deployment/`, `observability/`, `models/`
+* **Layer 6 — Interface Layer:** Handles command line presentations, input argument parsing, and user terminal interfaces.
+  * *Canonical modules:* `interface/`, `ui/`
 
-```text
-Edith client
-  -> Alfred REST API
-  -> Alfred orchestration method
-  -> Hermes agent.task.requested event
-  -> Device Agent or selected specialist
-  -> Tool result
-  -> Alfred API response
-```
+---
 
-Supported endpoints:
+## 3. Dependency Flow & Forbidden Interactions
+Dependencies flow strictly **downward** from Human $\rightarrow$ Alfred $\rightarrow$ Agents $\rightarrow$ Capabilities $\rightarrow$ Infrastructure, while Interface components may invoke Alfred and Agent APIs to fulfill human command execution.
 
-- `/chat`: routes free-form user text through Alfred intent classification.
-- `/status`: returns runtime health checks.
-- `/notify`: converts a notification request into a device action and routes it through Hermes.
-- `/device_action`: routes supported device actions through the Device Agent.
+### Explicit Forbidden Imports
+To safeguard modular integrity and prevent architectural regressions, the following import relationships are strictly restricted via AST enforcement (`ArchitectureValidator`):
+1. **`memory` $\rightarrow$ `runtime`**: Memory storage must remain decoupled from higher-level runtime engine sequencing.
+2. **`automation` $\rightarrow$ `brain`**: Physical input/output action layers must not couple directly to core reasoning logic.
+3. **`tools` $\rightarrow$ `missions`**: Low-level tool utilities must remain agnostic to mission planning abstractions.
+4. **`adapters` $\rightarrow$ `ui` / `interface`**: Backend persistence and database connectors must never import presentation surfaces.
 
-Supported device actions:
+---
 
-- `open_app`
-- `notification`
-- `speak_text`
+## 4. The Canonical Agent Interface (`AgentContract`)
+Any functional autonomous worker introduced into Jarvis X must inherit from `jarvisx.architecture.AgentContract` and implement the standard operational interface:
+* **Attributes:** `name: str`, `purpose: str`, `capabilities: List[str]`
+* **Methods:**
+  * `execute(task: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]`
+  * `status() -> Dict[str, Any]`
+  * `report() -> str`
 
-Each request either supplies a trace ID through `trace_id` or `X-Trace-ID`, or Alfred generates one. The same trace ID is carried through Hermes events and returned in the HTTP response.
+---
 
-Edith must not communicate directly with agents. Any future mobile transport, voice adapter, or MacroDroid bridge should remain behind the Edith client or device tools while keeping Alfred as the API gateway.
-
-## Android adapter
-
-Android Adapter v1 lives behind `DeviceTool`. It converts supported device actions into MacroDroid-compatible broadcast intent payloads without executing them directly.
-
-The internal route is preserved:
-
-```text
-Alfred
-  -> Hermes
-  -> Device Agent
-  -> DeviceTool
-  -> MacroDroid intent payload
-```
-
-MacroDroid should listen for broadcast action `com.projectjarvisx.MACRODROID_INTENT`. The payload extras include:
-
-- `jarvis_action`: one of `open_app`, `notification`, or `speak_text`
-- `trace_id`: the Hermes/API trace ID
-- action-specific values such as `app_name`, `package_hint`, `title`, `body`, or `text`
-
-This adapter is local-first. It prepares the Android intent contract and leaves actual execution to Edith, MacroDroid, or a future Android bridge.
-
-## Offline-first design
-
-The base runtime uses only the Python standard library. Networked integrations such as Supabase, remote search, and hosted LLMs should be adapters behind tools or model providers. The system should continue to boot and route tasks even when those adapters are unavailable.
-
-## Mission system
-
-Mission System v1 is owned by the Planner Agent through `MissionTool`. It is designed for momentum and continuity rather than checklist management.
-
-Supported mission types:
-
-- `main_quest`
-- `side_quest`
-- `boss_fight`
-- `daily_mission`
-- `recovery_mission`
-
-Supported operations:
-
-- `create_mission()`
-- `complete_mission()`
-- `list_active_missions()`
-- `get_next_mission()`
-- `generate_recovery_mission()`
-
-Mission persistence is append-only. The Mission Tool writes mission events through `LocalMemoryTool.save_memory(..., "project")` and reconstructs current state from project memory records. This keeps the vault boundary inside the Memory Tool while still allowing XP totals, progress, streaks, and inactivity recovery to be rebuilt offline.
-
-Recovery missions are generated when continuity has been interrupted. They are intentionally small and high priority so the next suggested mission favors restart momentum.
-
-## Personality and modes
-
-Personality and Modes v1 is owned by `PersonalizationTool`. It is a style and response-configuration layer only.
-
-Hard boundaries:
-
-- It must not change routing.
-- It must not change permissions.
-- It must not execute actions.
-- It must not choose models.
-- It must not bypass Hermes or agent delegation.
-
-Built-in modes:
-
-- `focus`: shorter responses, minimal distractions, active-mission emphasis.
-- `study`: detailed explanations, teaching orientation, more examples.
-- `builder`: coding and project emphasis, active development missions.
-- `research`: exploration and deeper information gathering.
-- `companion`: conversational interaction with preference/context awareness.
-- `emergency`: concise wording, speed, and critical actions.
-
-Built-in personalities exist for Alfred, Edith, and Hermes. Future agents can use a fallback profile immediately, or store a custom profile through `set_personality()`.
-
-Persistence is append-only through `LocalMemoryTool.save_memory(..., "preference")`, which places personalization events in the Obsidian `Preferences/` folder. Startup restoration replays those events to recover active mode and custom profiles.
-
-Integration points:
-
-- Alfred attaches current response configuration to orchestration responses.
-- Edith returns its own agent-specific response configuration when activated.
-- Mission Tool reads the current mode for mission priority bias.
-
-These integrations are advisory style/configuration metadata. Business logic remains owned by the relevant agent and tool.
-
-## Memory layers
-
-- Human-readable memory: Obsidian-compatible Markdown files in the configured vault.
-- Structured memory: future Supabase adapter.
-- Semantic memory: future embedding provider and vector index.
-
-Memory v1 implements only the human-readable layer. The `LocalMemoryTool` is the sole vault boundary, and agents must never read or write vault files directly. Alfred reaches memory by routing work to the Memory Agent, and the Memory Agent calls tool methods.
-
-The vault path is configurable. On startup or first use, the Memory Tool creates or repairs:
-
-- `Daily/`
-- `Projects/`
-- `Preferences/`
-- `Conversations/`
-- `Architecture/`
-- `Scratchpad/`
-
-Category routing:
-
-- `preference` -> `Preferences/`
-- `project` -> `Projects/`
-- `conversation` -> `Conversations/`
-- `architecture` -> `Architecture/`
-- `general` -> `Scratchpad/`
-
-Supported Memory v1 operations:
-
-- `save_memory(text, category)`
-- `search_memory(query)`
-- `append_daily_note(text)`
-- `get_daily_note()`
-- `list_memories(category)`
-
-Search is simple keyword matching across Markdown files. Embeddings, vector databases, and RAG are intentionally excluded from this version.
-
-## Debuggability
-
-Each event carries:
-
-- `id`
-- `trace_id`
-- `source`
-- `target`
-- `type`
-- `timestamp`
-
-Failures are normalized into `FailureReport` so operators can answer:
-
-- What failed?
-- Why did it fail?
-- Which agent failed?
-- Which tool failed?
-- What is the proposed fix?
-
-## Personalities and Modes
-
-Personality and Modes v1 allows Jarvis X to adapt its communication style and operating behavior without affecting core routing, permissions, or business logic.
-
-- **Modes**: Support for ocus, study, uilder, esearch, companion, and emergency. Modes dictate things like verbosity, proactiveness, and mission prioritization.
-- **Personalities**: Built-in profiles for lfred, edith, and hermes. Custom personalities can be added for future agents.
-- **Storage**: Modes and Personalities are persisted securely using LocalMemoryTool and restored automatically on startup.
-- **Strict Boundary**: Personalities ONLY affect communication style (tone, verbosity, warmth, pacing) and never override AgentRegistry routing or task execution logic. Alfred uses the current mode to adjust orchestration, and Edith adapts its companion responses accordingly.
+## 5. Architectural Verification & Enforcement
+Automated verification is embedded within the build pipeline via `jarvisx.architecture.dependency_rules.ArchitectureValidator`. It scans the AST of all source files to guarantee zero circular dependencies, zero layer inversions, and strict adherence to defined package boundaries.
