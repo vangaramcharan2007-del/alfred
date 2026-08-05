@@ -1,8 +1,9 @@
 """Adapters Package for Jarvis X (Layer 5 - Infrastructure Layer).
 
-Exposes zero-fluff cloud federation engines and external system communication adapters.
+Exposes zero-fluff cloud federation engines, FinOps resource optimizers, and external adapters.
 """
 
 from jarvisx.adapters.federate import FederationNode, FederationSyncEngine
+from jarvisx.adapters.finops import FinOpsOptimizer
 
-__all__ = ["FederationNode", "FederationSyncEngine"]
+__all__ = ["FederationNode", "FederationSyncEngine", "FinOpsOptimizer"]
