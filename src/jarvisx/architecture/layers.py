@@ -37,6 +37,7 @@ LAYER_REGISTRY = {
         "capabilities",
         "tools",
         "benchmark",
+        "productivity",
     ],
     "infrastructure": [
         "adapters",

@@ -8,6 +8,7 @@ from jarvisx.agents.registry import AgentRegistry
 from jarvisx.agents.research import ResearchAgent
 from jarvisx.agents.testing import TestingAgent
 from jarvisx.agents.coding import CodingAgent
+from jarvisx.agents.productivity import ProductivityAgent
 
 __all__ = [
     "OperationalAgent",
@@ -15,4 +16,5 @@ __all__ = [
     "ResearchAgent",
     "TestingAgent",
     "CodingAgent",
+    "ProductivityAgent",
 ]
