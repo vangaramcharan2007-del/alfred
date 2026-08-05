@@ -10,6 +10,8 @@ from jarvisx.automation.research_curation import ProactiveCurationEngine
 from jarvisx.automation.self_healing import SelfHealingPatcher
 from jarvisx.automation.real_system_cleaner import RealSystemCleaner
 from jarvisx.automation.real_workspace_bootstrap import RealWorkspaceBootstrapper
+from jarvisx.automation.real_notifications import RealNotificationEngine
+from jarvisx.automation.real_folder_watcher import RealFolderWatcher
 
 __all__ = [
     "DesktopController",
@@ -30,4 +32,6 @@ __all__ = [
     "SelfHealingPatcher",
     "RealSystemCleaner",
     "RealWorkspaceBootstrapper",
+    "RealNotificationEngine",
+    "RealFolderWatcher",
 ]

@@ -24,6 +24,8 @@ from jarvisx.automation import (
     SelfHealingPatcher,
     RealSystemCleaner,
     RealWorkspaceBootstrapper,
+    RealNotificationEngine,
+    RealFolderWatcher,
 )
 from jarvisx.productivity import (
     PersonalKnowledgeBase,
@@ -57,6 +59,8 @@ class PersonalOSKernel:
         redteam_engine: Optional[RedTeamVerifier] = None,
         real_cleaner: Optional[RealSystemCleaner] = None,
         real_bootstrapper: Optional[RealWorkspaceBootstrapper] = None,
+        real_notifier: Optional[RealNotificationEngine] = None,
+        real_watcher: Optional[RealFolderWatcher] = None,
     ):
         self.id = str(uuid.uuid4())
         self.registry = registry or self._init_workforce()
@@ -71,6 +75,8 @@ class PersonalOSKernel:
         self.redteam_engine = redteam_engine or RedTeamVerifier()
         self.real_cleaner = real_cleaner or RealSystemCleaner()
         self.real_bootstrapper = real_bootstrapper or RealWorkspaceBootstrapper()
+        self.real_notifier = real_notifier or RealNotificationEngine()
+        self.real_watcher = real_watcher or RealFolderWatcher(notifier=self.real_notifier)
 
         self.productivity_agent = (
             productivity_agent
@@ -116,7 +122,19 @@ class PersonalOSKernel:
         req_lower = request.lower()
         res: Dict[str, Any] = {}
 
-        if any(w in req_lower for w in ["clean pc", "disk", "temp bloat", "pycache", "storage", "hardware", "process sweep", "system cleaner"]):
+        if any(w in req_lower for w in ["notify", "notification", "toast", "desktop alert", "popup"]):
+            res = self.real_notifier.send_desktop_alert(
+                title=kwargs.get("title", "Alfred Personal OS"),
+                message=kwargs.get("message", "Background system hygiene & folder sorting active."),
+                timeout_seconds=kwargs.get("timeout", 3),
+            )
+            self._kernel_hspw += 0.5
+
+        elif any(w in req_lower for w in ["organize", "folder watcher", "downloads", "sweep folder", "sort files", "staging"]):
+            res = self.real_watcher.sweep_and_organize_folder(target_dir=kwargs.get("target_dir", "var/downloads"), notify=kwargs.get("notify", True))
+            self._kernel_hspw += 0.5
+
+        elif any(w in req_lower for w in ["clean pc", "disk", "temp bloat", "pycache", "storage", "hardware", "process sweep", "system cleaner"]):
             res = self.real_cleaner.scan_and_clean_temp_bloat(target_root=kwargs.get("target_root", "."), delete=kwargs.get("delete", True))
             self._kernel_hspw += 0.5
 
@@ -251,6 +269,8 @@ class PersonalOSKernel:
         redteam_stat = self.redteam_engine.get_red_team_telemetry()
         cleaner_stat = self.real_cleaner.get_real_hardware_telemetry()
         bootstrap_stat = self.real_bootstrapper.get_workspace_telemetry()
+        notify_stat = self.real_notifier.get_notification_telemetry()
+        watcher_stat = self.real_watcher.get_watcher_telemetry()
 
         total_hspw = (
             workforce_health.get("total_hours_saved", 0.0)
@@ -264,6 +284,8 @@ class PersonalOSKernel:
             + redteam_stat.get("redteam_hspw", 0.0)
             + cleaner_stat.get("cleaner_hspw", 0.0)
             + bootstrap_stat.get("bootstrap_hspw", 0.0)
+            + notify_stat.get("notify_hspw", 0.0)
+            + watcher_stat.get("watcher_hspw", 0.0)
             + (2.5 if self.execution_log else 0.0)
         )
 
@@ -272,8 +294,14 @@ class PersonalOSKernel:
             "              ALFRED PERSONAL OS MASTER DASHBOARD                ",
             "=================================================================",
             f"Workforce Status: {workforce_health.get('workforce_status', 'NOMINAL')} ({workforce_health.get('active_healthy', 0)}/{workforce_health.get('total_workers', 0)} agents active)",
-            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (REAL PRODUCTION PC CONTROL ACTIVE!)",
+            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (REAL INTERACTIVE AUTONOMY ACTIVE!)",
             f"Active Objectives Executed: {len(self.execution_log)} missions logged",
+            "-----------------------------------------------------------------",
+            "[REAL WINDOWS DESKTOP TOAST & NOTIFICATION ENGINE]",
+            f"{notify_stat.get('output', 'Nominal').strip()}",
+            "-----------------------------------------------------------------",
+            "[REAL BACKGROUND FOLDER WATCHER & AUTO-ORGANIZER]",
+            f"{watcher_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
             "[REAL WINDOWS HARDWARE HYGIENE & STORAGE CLEANER]",
             f"{cleaner_stat.get('output', 'Nominal').strip()}",

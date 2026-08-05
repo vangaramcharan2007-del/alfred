@@ -79,6 +79,9 @@ class AlfredDaemon:
         # Autonomously clean OS clipboard tracking parameter clutter
         self.os_kernel.execute_objective("Run automated clipboard tracking strip and hygiene check")
 
+        # Autonomously sweep and sort downloads staging folder and trigger desktop toast notifications
+        self.os_kernel.execute_objective("Run automated folder watcher and file organizer sweep", target_dir="var/downloads", notify=True)
+
         # Evaluate if actionable alerts should be elevated
         alerts = []
         guardian_summary = guardian_res.get("summary", {}).get("output", "")
@@ -105,6 +108,7 @@ class AlfredDaemon:
             "redteam_status": "verified",
             "real_cleaner_status": "swept",
             "clipboard_status": "scrubbed",
+            "folder_watcher_status": "organized",
             "actionable_alerts": alerts,
             "hspw_accumulated": round(self._daemon_hspw, 2),
         }
@@ -128,13 +132,21 @@ class AlfredDaemon:
         redteam_stat = self.os_kernel.redteam_engine.get_red_team_telemetry()
         cleaner_stat = self.os_kernel.real_cleaner.get_real_hardware_telemetry()
         bootstrap_stat = self.os_kernel.real_bootstrapper.get_workspace_telemetry()
+        notify_stat = self.os_kernel.real_notifier.get_notification_telemetry()
+        watcher_stat = self.os_kernel.real_watcher.get_watcher_telemetry()
 
         briefing_text = [
             "=================================================================",
             "                 ALFRED DAILY EXECUTIVE BRIEFING                 ",
             "=================================================================",
             f"Daemon Uptime Cycles: {self.cycle_count} active background sweeps completed",
-            f"Total Autonomous Time Reclamation: +{total_system_hspw:.2f} HSPW (REAL PC AUTOMATION ACTIVE!)",
+            f"Total Autonomous Time Reclamation: +{total_system_hspw:.2f} HSPW (INTERACTIVE OS ACTIVE!)",
+            "-----------------------------------------------------------------",
+            "[REAL WINDOWS TOAST & DESKTOP ALERT TELEMETRY]",
+            f"{notify_stat.get('output', 'Nominal').strip()}",
+            "-----------------------------------------------------------------",
+            "[OVERNIGHT BACKGROUND FOLDER WATCHER & SORTING]",
+            f"{watcher_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
             "[OVERNIGHT REAL PC STORAGE HYGIENE & CAPACITY]",
             f"{cleaner_stat.get('output', 'Nominal').strip()}",
