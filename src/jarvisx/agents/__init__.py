@@ -10,6 +10,7 @@ from jarvisx.agents.testing import TestingAgent
 from jarvisx.agents.coding import CodingAgent
 from jarvisx.agents.productivity import ProductivityAgent
 from jarvisx.agents.guardian import GuardianAgent
+from jarvisx.agents.devops import DevOpsAgent
 
 __all__ = [
     "OperationalAgent",
@@ -19,4 +20,5 @@ __all__ = [
     "CodingAgent",
     "ProductivityAgent",
     "GuardianAgent",
+    "DevOpsAgent",
 ]

@@ -4,6 +4,7 @@ from jarvisx.automation.action_registry import ActionRegistry, Action, OpenAppAc
 from jarvisx.automation.watchers import BatteryWatcher, GitWatcher, PytestWatcher
 from jarvisx.automation.dev_workflow import DevelopmentWorkflow, WorkflowStage
 from jarvisx.automation.guardian import ProjectGuardian
+from jarvisx.automation.vcs_ci import VCSEngine
 
 __all__ = [
     "DesktopController",
@@ -18,4 +19,5 @@ __all__ = [
     "DevelopmentWorkflow",
     "WorkflowStage",
     "ProjectGuardian",
+    "VCSEngine",
 ]
