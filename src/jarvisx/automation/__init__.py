@@ -14,6 +14,8 @@ from jarvisx.automation.real_notifications import RealNotificationEngine
 from jarvisx.automation.real_folder_watcher import RealFolderWatcher
 from jarvisx.automation.real_window_controller import RealWindowController
 from jarvisx.automation.real_power_supervisor import RealPowerSupervisor
+from jarvisx.automation.real_deliverable_synthesizer import RealDeliverableSynthesizer
+from jarvisx.automation.real_web_navigator import RealWebNavigator
 
 __all__ = [
     "DesktopController",
@@ -38,4 +40,6 @@ __all__ = [
     "RealFolderWatcher",
     "RealWindowController",
     "RealPowerSupervisor",
+    "RealDeliverableSynthesizer",
+    "RealWebNavigator",
 ]

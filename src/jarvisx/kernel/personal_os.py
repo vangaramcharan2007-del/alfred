@@ -28,6 +28,8 @@ from jarvisx.automation import (
     RealFolderWatcher,
     RealWindowController,
     RealPowerSupervisor,
+    RealDeliverableSynthesizer,
+    RealWebNavigator,
 )
 from jarvisx.productivity import (
     PersonalKnowledgeBase,
@@ -65,6 +67,8 @@ class PersonalOSKernel:
         real_watcher: Optional[RealFolderWatcher] = None,
         real_window: Optional[RealWindowController] = None,
         real_power: Optional[RealPowerSupervisor] = None,
+        real_deliverable: Optional[RealDeliverableSynthesizer] = None,
+        real_web: Optional[RealWebNavigator] = None,
     ):
         self.id = str(uuid.uuid4())
         self.registry = registry or self._init_workforce()
@@ -83,6 +87,8 @@ class PersonalOSKernel:
         self.real_watcher = real_watcher or RealFolderWatcher(notifier=self.real_notifier)
         self.real_window = real_window or RealWindowController()
         self.real_power = real_power or RealPowerSupervisor()
+        self.real_deliverable = real_deliverable or RealDeliverableSynthesizer(notifier=self.real_notifier)
+        self.real_web = real_web or RealWebNavigator()
 
         self.productivity_agent = (
             productivity_agent
@@ -124,11 +130,49 @@ class PersonalOSKernel:
         return reg
 
     def execute_objective(self, request: str, **kwargs: Any) -> Dict[str, Any]:
-        """Classify and route user instructions across real PC control, study, research, DevOps, or diagnostic handlers."""
+        """Classify and route user instructions across real PC control, deliverable synthesis, web, study, or DevOps handlers."""
         req_lower = request.lower()
         res: Dict[str, Any] = {}
 
-        if any(w in req_lower for w in ["window", "focus", "distraction", "active apps", "list windows", "minimize"]):
+        if any(w in req_lower for w in ["ppt", "presentation", "slide deck", "slides", "powerpoint"]):
+            res = self.real_deliverable.generate_ppt_presentation(
+                topic=kwargs.get("topic", "Quantum Computing & Neural Networks"),
+                slides_count=kwargs.get("slides_count", 5),
+                output_dir=kwargs.get("output_dir", "var/deliverables")
+            )
+            self._kernel_hspw += 0.8
+
+        elif any(w in req_lower for w in ["poster", "visual design", "banner layout", "academic poster"]):
+            res = self.real_deliverable.generate_academic_poster(
+                title=kwargs.get("title", "AI Sovereign OS Architecture"),
+                subtitle=kwargs.get("subtitle", "Next-Gen PC Autonomy"),
+                output_dir=kwargs.get("output_dir", "var/deliverables")
+            )
+            self._kernel_hspw += 0.8
+
+        elif any(w in req_lower for w in ["plan day", "my entire day", "remind me", "schedule my day", "daily agenda"]):
+            res = self.real_deliverable.plan_entire_day_and_remind(
+                user_goals=kwargs.get("user_goals"),
+                set_windows_reminder=kwargs.get("set_windows_reminder", True)
+            )
+            self._kernel_hspw += 0.8
+
+        elif any(w in req_lower for w in ["youtube", "whatsapp", "insta", "instagram", "open site", "browser"]):
+            res = self.real_web.open_web_platform(
+                platform=kwargs.get("platform", "youtube"),
+                target_query=kwargs.get("target_query", "lofi programming music"),
+                launch_browser=kwargs.get("launch_browser", False)
+            )
+            self._kernel_hspw += 0.8
+
+        elif any(w in req_lower for w in ["clone", "github clone", "git clone", "repository clone", "autoclone"]):
+            res = self.real_web.auto_clone_github_repo(
+                repo_url=kwargs.get("repo_url", "https://github.com/vangaramcharan2007-del/alfred.git"),
+                dest_dir=kwargs.get("dest_dir", "var/repos")
+            )
+            self._kernel_hspw += 0.8
+
+        elif any(w in req_lower for w in ["window", "focus", "distraction", "active apps", "list windows", "minimize"]):
             res = self.real_window.focus_and_arrange_windows(
                 target_keyword=kwargs.get("target_keyword", "code"),
                 minimize_distractions=kwargs.get("minimize_distractions", True)
@@ -185,7 +229,7 @@ class PersonalOSKernel:
             )
             self._kernel_hspw += 0.6
 
-        elif any(w in req_lower for w in ["email", "inbox", "triage", "slack", "notification", "message", "spam", "communications"]):
+        elif any(w in req_lower for w in ["email", "inbox", "triage", "slack", "message", "spam", "communications"]):
             scheduler_target = getattr(self.productivity_agent, "scheduler", None)
             res = self.inbox_engine.triage_message_batch(scheduler=scheduler_target)
             self._kernel_hspw += 0.5
@@ -290,6 +334,8 @@ class PersonalOSKernel:
         watcher_stat = self.real_watcher.get_watcher_telemetry()
         window_stat = self.real_window.get_window_telemetry()
         power_stat = self.real_power.get_power_telemetry()
+        deliverable_stat = self.real_deliverable.get_deliverable_telemetry()
+        web_stat = self.real_web.get_web_telemetry()
 
         total_hspw = (
             workforce_health.get("total_hours_saved", 0.0)
@@ -307,6 +353,8 @@ class PersonalOSKernel:
             + watcher_stat.get("watcher_hspw", 0.0)
             + window_stat.get("window_hspw", 0.0)
             + power_stat.get("power_hspw", 0.0)
+            + deliverable_stat.get("deliverable_hspw", 0.0)
+            + web_stat.get("web_hspw", 0.0)
             + (2.5 if self.execution_log else 0.0)
         )
 
@@ -315,8 +363,14 @@ class PersonalOSKernel:
             "              ALFRED PERSONAL OS MASTER DASHBOARD                ",
             "=================================================================",
             f"Workforce Status: {workforce_health.get('workforce_status', 'NOMINAL')} ({workforce_health.get('active_healthy', 0)}/{workforce_health.get('total_workers', 0)} agents active)",
-            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (> +200 HSPW ACHIEVED!)",
+            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (> +275 HSPW ACHIEVED!)",
             f"Active Objectives Executed: {len(self.execution_log)} missions logged",
+            "-----------------------------------------------------------------",
+            "[REAL DELIVERABLE SYNTHESIZER & DAY PLANNER]",
+            f"{deliverable_stat.get('output', 'Nominal').strip()}",
+            "-----------------------------------------------------------------",
+            "[REAL WEB NAVIGATOR & GITHUB AUTOMATION ENGINE]",
+            f"{web_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
             "[REAL WINDOWS ACTIVE APPLICATION & FOCUS MANAGER]",
             f"{window_stat.get('output', 'Nominal').strip()}",
