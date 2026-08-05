@@ -20,6 +20,7 @@ from jarvisx.agents import (
 from jarvisx.automation import DevelopmentWorkflow, ProjectGuardian
 from jarvisx.productivity import PersonalKnowledgeBase, StudyScheduler
 from jarvisx.runtime import MissionRuntime
+from jarvisx.adapters import FederationSyncEngine
 
 
 class PersonalOSKernel:
@@ -34,11 +35,13 @@ class PersonalOSKernel:
         guardian_agent: Optional[GuardianAgent] = None,
         devops_agent: Optional[DevOpsAgent] = None,
         synthesizer_agent: Optional[SynthesizerAgent] = None,
+        federate_engine: Optional[FederationSyncEngine] = None,
     ):
         self.id = str(uuid.uuid4())
         self.registry = registry or self._init_workforce()
         self.runtime = runtime or MissionRuntime()
         self.dev_workflow = dev_workflow or DevelopmentWorkflow(registry=self.registry)
+        self.federate_engine = federate_engine or FederationSyncEngine()
 
         self.productivity_agent = (
             productivity_agent
@@ -110,6 +113,14 @@ class PersonalOSKernel:
                 res = {"status": "error", "error": "Synthesizer worker unavailable"}
             self._kernel_hspw += 1.2
 
+        elif any(w in req_lower for w in ["federate", "sync", "edge", "cloud", "remote", "vps", "cluster", "node", "synchronize"]):
+            if any(k in req_lower for k in ["sync", "federate", "synchronize"]):
+                res = self.federate_engine.sync_cluster_state(local_kernel=self)
+            else:
+                node_target = kwargs.get("node", "vps_cloud_01")
+                res = self.federate_engine.dispatch_remote_execution(node_name=node_target, objective=request, payload=kwargs)
+            self._kernel_hspw += 1.0
+
         elif any(w in req_lower for w in ["research", "literature", "curate", "documentation", "wiki", "survey", "docs"]):
             action = kwargs.get("action", "sweep" if any(k in req_lower for k in ["literature", "survey", "sweep", "research"]) else ("curate" if any(c in req_lower for c in ["curate", "wiki", "documentation", "docs"]) else "status"))
             payload = {"action": action, **kwargs}
@@ -152,10 +163,12 @@ class PersonalOSKernel:
         devops_stat = self.devops_agent.execute({"action": "status"}) if isinstance(self.devops_agent, DevOpsAgent) else {"output": "Offline"}
         synth_stat = self.synthesizer_agent.execute({"action": "status"}) if isinstance(self.synthesizer_agent, SynthesizerAgent) else {"output": "Offline"}
         research_stat = self.research_agent.execute({"action": "status"}) if isinstance(self.research_agent, ResearchAgent) else {"output": "Offline"}
+        federate_stat = self.federate_engine.get_federation_telemetry()
 
         total_hspw = (
             workforce_health.get("total_hours_saved", 0.0)
             + self._kernel_hspw
+            + federate_stat.get("federate_hspw", 0.0)
             + (2.5 if self.execution_log else 0.0)
         )
 
@@ -178,6 +191,9 @@ class PersonalOSKernel:
             "-----------------------------------------------------------------",
             "[PROACTIVE RESEARCH & DOC CURATION]",
             f"{research_stat.get('output', 'Status nominal').strip()}",
+            "-----------------------------------------------------------------",
+            "[CLOUD & EDGE FEDERATION MESH]",
+            f"{federate_stat.get('output', 'Status nominal').strip()}",
             "-----------------------------------------------------------------",
             "[AUTONOMOUS SKILL SYNTHESIS]",
             f"{synth_stat.get('output', 'Status nominal').strip()}",

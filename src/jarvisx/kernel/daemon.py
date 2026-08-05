@@ -58,6 +58,9 @@ class AlfredDaemon:
         # Autonomously verify proactive research curation status
         self.os_kernel.execute_objective("Check proactive research and documentation status", action="status")
 
+        # Autonomously synchronize cloud and edge federation mesh nodes
+        self.os_kernel.execute_objective("Synchronize cloud and edge federation mesh nodes", action="sync")
+
         # Evaluate if actionable alerts should be elevated
         alerts = []
         guardian_summary = guardian_res.get("summary", {}).get("output", "")
@@ -77,6 +80,7 @@ class AlfredDaemon:
             "guardian_status": "audited",
             "productivity_status": "audited",
             "research_status": "audited",
+            "federation_status": "synced",
             "actionable_alerts": alerts,
             "hspw_accumulated": round(self._daemon_hspw, 2),
         }
@@ -93,6 +97,7 @@ class AlfredDaemon:
         productivity_stat = self.os_kernel.productivity_agent.execute({"action": "dashboard"})
         guardian_stat = self.os_kernel.guardian_agent.execute({"action": "report"})
         research_stat = self.os_kernel.research_agent.execute({"action": "status"})
+        federate_stat = self.os_kernel.federate_engine.get_federation_telemetry()
 
         briefing_text = [
             "=================================================================",
@@ -106,6 +111,9 @@ class AlfredDaemon:
             "-----------------------------------------------------------------",
             "[PROACTIVE RESEARCH & DOCUMENTATION TELEMETRY]",
             f"{research_stat.get('output', 'Nominal').strip()}",
+            "-----------------------------------------------------------------",
+            "[OVERNIGHT CLOUD & EDGE FEDERATION SYNC]",
+            f"{federate_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
             "[OVERNIGHT PROJECT HEALTH & REGRESSION TELEMETRY]",
             f"{guardian_stat.get('output', 'Nominal').strip()}",
