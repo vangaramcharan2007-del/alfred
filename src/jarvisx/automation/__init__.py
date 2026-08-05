@@ -5,6 +5,7 @@ from jarvisx.automation.watchers import BatteryWatcher, GitWatcher, PytestWatche
 from jarvisx.automation.dev_workflow import DevelopmentWorkflow, WorkflowStage
 from jarvisx.automation.guardian import ProjectGuardian
 from jarvisx.automation.vcs_ci import VCSEngine
+from jarvisx.automation.skill_synthesis import SkillSynthesisEngine
 
 __all__ = [
     "DesktopController",
@@ -20,4 +21,5 @@ __all__ = [
     "WorkflowStage",
     "ProjectGuardian",
     "VCSEngine",
+    "SkillSynthesisEngine",
 ]

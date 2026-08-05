@@ -11,6 +11,7 @@ from jarvisx.agents.coding import CodingAgent
 from jarvisx.agents.productivity import ProductivityAgent
 from jarvisx.agents.guardian import GuardianAgent
 from jarvisx.agents.devops import DevOpsAgent
+from jarvisx.agents.synthesizer import SynthesizerAgent
 
 __all__ = [
     "OperationalAgent",
@@ -21,4 +22,5 @@ __all__ = [
     "ProductivityAgent",
     "GuardianAgent",
     "DevOpsAgent",
+    "SynthesizerAgent",
 ]

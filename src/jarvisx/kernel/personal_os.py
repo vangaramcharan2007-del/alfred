@@ -14,6 +14,7 @@ from jarvisx.agents import (
     GuardianAgent,
     ProductivityAgent,
     ResearchAgent,
+    SynthesizerAgent,
     TestingAgent,
 )
 from jarvisx.automation import DevelopmentWorkflow, ProjectGuardian
@@ -32,6 +33,7 @@ class PersonalOSKernel:
         productivity_agent: Optional[ProductivityAgent] = None,
         guardian_agent: Optional[GuardianAgent] = None,
         devops_agent: Optional[DevOpsAgent] = None,
+        synthesizer_agent: Optional[SynthesizerAgent] = None,
     ):
         self.id = str(uuid.uuid4())
         self.registry = registry or self._init_workforce()
@@ -53,6 +55,11 @@ class PersonalOSKernel:
             or (self.registry.get_agent("devops_agent") if self.registry.get_agent("devops_agent") else None)
             or DevOpsAgent()
         )
+        self.synthesizer_agent = (
+            synthesizer_agent
+            or (self.registry.get_agent("synthesizer_agent") if self.registry.get_agent("synthesizer_agent") else None)
+            or SynthesizerAgent()
+        )
 
         self.execution_log: List[Dict[str, Any]] = []
         self._kernel_hspw: float = 0.0
@@ -65,10 +72,11 @@ class PersonalOSKernel:
         reg.register(ProductivityAgent())
         reg.register(GuardianAgent())
         reg.register(DevOpsAgent())
+        reg.register(SynthesizerAgent())
         return reg
 
     def execute_objective(self, request: str, **kwargs: Any) -> Dict[str, Any]:
-        """Classify and route user instructions across academic, engineering, DevOps, or diagnostic handlers."""
+        """Classify and route user instructions across academic, engineering, DevOps, skill synthesis, or diagnostic handlers."""
         req_lower = request.lower()
         res: Dict[str, Any] = {}
 
@@ -80,6 +88,14 @@ class PersonalOSKernel:
             else:
                 res = {"status": "error", "error": "Productivity worker unavailable"}
             self._kernel_hspw += 0.5
+
+        elif any(w in req_lower for w in ["skill", "distill", "synthesize", "workflow skill", "package skill"]):
+            payload = {"action": "synthesize", **kwargs}
+            if isinstance(self.synthesizer_agent, SynthesizerAgent):
+                res = self.synthesizer_agent.execute(payload)
+            else:
+                res = {"status": "error", "error": "Synthesizer worker unavailable"}
+            self._kernel_hspw += 1.2
 
         elif any(w in req_lower for w in ["pr", "pull request", "triage", "issue", "release", "devops", "deploy"]):
             action = kwargs.get("action", "pr_create" if any(k in req_lower for k in ["pr", "pull request"]) else ("triage" if "issue" in req_lower else "release"))
@@ -121,6 +137,7 @@ class PersonalOSKernel:
         guardian_stat = self.guardian_agent.execute({"action": "report"}) if isinstance(self.guardian_agent, GuardianAgent) else {"output": "Offline"}
         study_stat = self.productivity_agent.execute({"action": "dashboard"}) if isinstance(self.productivity_agent, ProductivityAgent) else {"output": "Offline"}
         devops_stat = self.devops_agent.execute({"action": "status"}) if isinstance(self.devops_agent, DevOpsAgent) else {"output": "Offline"}
+        synth_stat = self.synthesizer_agent.execute({"action": "status"}) if isinstance(self.synthesizer_agent, SynthesizerAgent) else {"output": "Offline"}
 
         total_hspw = (
             workforce_health.get("total_hours_saved", 0.0)
@@ -144,6 +161,9 @@ class PersonalOSKernel:
             "-----------------------------------------------------------------",
             "[DEVOPS & RELEASE ENGINEERING]",
             f"{devops_stat.get('output', 'Status nominal').strip()}",
+            "-----------------------------------------------------------------",
+            "[AUTONOMOUS SKILL SYNTHESIS]",
+            f"{synth_stat.get('output', 'Status nominal').strip()}",
             "-----------------------------------------------------------------",
             "[ENGINEERING & WORKFLOW AUTOMATION]",
             f"Current Development Stage: {self.dev_workflow.current_stage.value}",
