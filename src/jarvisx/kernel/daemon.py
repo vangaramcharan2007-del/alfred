@@ -46,7 +46,7 @@ class AlfredDaemon:
         }
 
     def trigger_proactive_cycle(self) -> Dict[str, Any]:
-        """Execute an autonomous background check across study priorities and codebase hygiene."""
+        """Execute an autonomous background check across study priorities, literature surveys, and codebase hygiene."""
         self.cycle_count += 1
 
         # Autonomously invoke background guardian diagnostic sweep
@@ -54,6 +54,9 @@ class AlfredDaemon:
 
         # Autonomously query personal productivity study schedule
         self.os_kernel.execute_objective("Check study dashboard and upcoming milestones", action="dashboard")
+
+        # Autonomously verify proactive research curation status
+        self.os_kernel.execute_objective("Check proactive research and documentation status", action="status")
 
         # Evaluate if actionable alerts should be elevated
         alerts = []
@@ -65,7 +68,7 @@ class AlfredDaemon:
             self.alert_history.extend(alerts)
 
         # Accumulate proactive time savings (eliminates manual status checking & context exploration)
-        self._daemon_hspw += 0.6
+        self._daemon_hspw += 0.8
         if self.cycle_count % 5 == 0:
             self._daemon_hspw += 1.0  # Compound gains over sustained continuous intervals
 
@@ -73,6 +76,7 @@ class AlfredDaemon:
             "cycle_number": self.cycle_count,
             "guardian_status": "audited",
             "productivity_status": "audited",
+            "research_status": "audited",
             "actionable_alerts": alerts,
             "hspw_accumulated": round(self._daemon_hspw, 2),
         }
@@ -88,6 +92,7 @@ class AlfredDaemon:
 
         productivity_stat = self.os_kernel.productivity_agent.execute({"action": "dashboard"})
         guardian_stat = self.os_kernel.guardian_agent.execute({"action": "report"})
+        research_stat = self.os_kernel.research_agent.execute({"action": "status"})
 
         briefing_text = [
             "=================================================================",
@@ -98,6 +103,9 @@ class AlfredDaemon:
             "-----------------------------------------------------------------",
             "[MORNING STUDY & ACADEMIC PRIORITIES]",
             f"{productivity_stat.get('output', 'Nominal').strip()}",
+            "-----------------------------------------------------------------",
+            "[PROACTIVE RESEARCH & DOCUMENTATION TELEMETRY]",
+            f"{research_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
             "[OVERNIGHT PROJECT HEALTH & REGRESSION TELEMETRY]",
             f"{guardian_stat.get('output', 'Nominal').strip()}",
