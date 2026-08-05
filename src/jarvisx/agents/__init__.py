@@ -7,10 +7,12 @@ from jarvisx.agents.base import OperationalAgent
 from jarvisx.agents.registry import AgentRegistry
 from jarvisx.agents.research import ResearchAgent
 from jarvisx.agents.testing import TestingAgent
+from jarvisx.agents.coding import CodingAgent
 
 __all__ = [
     "OperationalAgent",
     "AgentRegistry",
     "ResearchAgent",
     "TestingAgent",
+    "CodingAgent",
 ]
