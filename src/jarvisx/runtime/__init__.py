@@ -7,6 +7,13 @@ __all__ = [
     "RuntimeState",
     "BootstrapManager",
     "ShutdownManager",
+    "MissionRuntime",
+    "MissionState",
+    "MissionStatus",
+    "TaskItem",
+    "AgentDispatcher",
+    "RecoveryManager",
+    "MissionExecutor",
 ]
 
 def __getattr__(name: str) -> Any:
@@ -22,4 +29,23 @@ def __getattr__(name: str) -> Any:
     elif name == "ShutdownManager":
         from jarvisx.runtime.shutdown import ShutdownManager
         return ShutdownManager
+    elif name in ("MissionState", "MissionStatus", "TaskItem"):
+        from jarvisx.runtime.mission_state import MissionState, MissionStatus, TaskItem
+        if name == "MissionState":
+            return MissionState
+        elif name == "MissionStatus":
+            return MissionStatus
+        return TaskItem
+    elif name == "AgentDispatcher":
+        from jarvisx.runtime.agent_dispatcher import AgentDispatcher
+        return AgentDispatcher
+    elif name == "RecoveryManager":
+        from jarvisx.runtime.recovery_manager import RecoveryManager
+        return RecoveryManager
+    elif name in ("MissionRuntime", "MissionExecutor"):
+        if name == "MissionExecutor":
+            from jarvisx.runtime.mission_executor import MissionExecutor
+            return MissionExecutor
+        from jarvisx.runtime.mission_runtime import MissionRuntime
+        return MissionRuntime
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
