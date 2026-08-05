@@ -18,7 +18,12 @@ from jarvisx.agents import (
     TestingAgent,
 )
 from jarvisx.automation import DevelopmentWorkflow, ProjectGuardian
-from jarvisx.productivity import PersonalKnowledgeBase, StudyScheduler
+from jarvisx.productivity import (
+    PersonalKnowledgeBase,
+    StudyScheduler,
+    InboxTriageEngine,
+    LectureExamSynthesizer,
+)
 from jarvisx.runtime import MissionRuntime
 from jarvisx.adapters import FederationSyncEngine
 from jarvisx.memory import NeuroSymbolicReasoner
@@ -38,6 +43,8 @@ class PersonalOSKernel:
         synthesizer_agent: Optional[SynthesizerAgent] = None,
         federate_engine: Optional[FederationSyncEngine] = None,
         reasoner: Optional[NeuroSymbolicReasoner] = None,
+        inbox_engine: Optional[InboxTriageEngine] = None,
+        lecture_engine: Optional[LectureExamSynthesizer] = None,
     ):
         self.id = str(uuid.uuid4())
         self.registry = registry or self._init_workforce()
@@ -45,6 +52,8 @@ class PersonalOSKernel:
         self.dev_workflow = dev_workflow or DevelopmentWorkflow(registry=self.registry)
         self.federate_engine = federate_engine or FederationSyncEngine()
         self.reasoner = reasoner or NeuroSymbolicReasoner()
+        self.inbox_engine = inbox_engine or InboxTriageEngine()
+        self.lecture_engine = lecture_engine or LectureExamSynthesizer()
 
         self.productivity_agent = (
             productivity_agent
@@ -90,7 +99,19 @@ class PersonalOSKernel:
         req_lower = request.lower()
         res: Dict[str, Any] = {}
 
-        if any(w in req_lower for w in ["why", "how did we solve", "reason", "infer", "graph", "neuro", "symbolic", "causal", "derivation"]):
+        if any(w in req_lower for w in ["email", "inbox", "triage", "slack", "notification", "message", "spam", "communications"]):
+            scheduler_target = getattr(self.productivity_agent, "scheduler", None)
+            res = self.inbox_engine.triage_message_batch(scheduler=scheduler_target)
+            self._kernel_hspw += 0.5
+
+        elif any(w in req_lower for w in ["lecture", "transcript", "flashcard", "mock exam", "practice exam", "quiz", "ingest lecture"]):
+            if any(k in req_lower for k in ["exam", "practice", "quiz"]):
+                res = self.lecture_engine.generate_practice_exam(course=kwargs.get("course", "Linear Algebra & Quantum Algorithms"))
+            else:
+                res = self.lecture_engine.ingest_lecture_transcript()
+            self._kernel_hspw += 0.8
+
+        elif any(w in req_lower for w in ["why", "how did we solve", "reason", "infer", "graph", "neuro", "symbolic", "causal", "derivation"]):
             res = self.reasoner.execute_multi_hop_reasoning(query=request)
             self._kernel_hspw += 0.9
 
@@ -172,12 +193,16 @@ class PersonalOSKernel:
         research_stat = self.research_agent.execute({"action": "status"}) if isinstance(self.research_agent, ResearchAgent) else {"output": "Offline"}
         federate_stat = self.federate_engine.get_federation_telemetry()
         reason_stat = self.reasoner.get_reasoning_telemetry()
+        inbox_stat = self.inbox_engine.get_triage_telemetry()
+        lecture_stat = self.lecture_engine.get_synthesis_telemetry()
 
         total_hspw = (
             workforce_health.get("total_hours_saved", 0.0)
             + self._kernel_hspw
             + federate_stat.get("federate_hspw", 0.0)
             + reason_stat.get("reasoning_hspw", 0.0)
+            + inbox_stat.get("triage_hspw", 0.0)
+            + lecture_stat.get("lecture_hspw", 0.0)
             + (2.5 if self.execution_log else 0.0)
         )
 
@@ -188,6 +213,12 @@ class PersonalOSKernel:
             f"Workforce Status: {workforce_health.get('workforce_status', 'NOMINAL')} ({workforce_health.get('active_healthy', 0)}/{workforce_health.get('total_workers', 0)} agents active)",
             f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW",
             f"Active Objectives Executed: {len(self.execution_log)} missions logged",
+            "-----------------------------------------------------------------",
+            "[AUTONOMOUS INBOX ZERO & COMMUNICATIONS TRIAGE]",
+            f"{inbox_stat.get('output', 'Status nominal').strip()}",
+            "-----------------------------------------------------------------",
+            "[LECTURE INGESTION & EXAM SYNTHESIS]",
+            f"{lecture_stat.get('output', 'Status nominal').strip()}",
             "-----------------------------------------------------------------",
             "[SYSTEM HYGIENE & PROJECT GUARDIAN]",
             f"{guardian_stat.get('output', 'Status nominal').strip()}",

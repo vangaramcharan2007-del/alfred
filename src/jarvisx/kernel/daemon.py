@@ -61,6 +61,9 @@ class AlfredDaemon:
         # Autonomously synchronize cloud and edge federation mesh nodes
         self.os_kernel.execute_objective("Synchronize cloud and edge federation mesh nodes", action="sync")
 
+        # Autonomously sweep communications inbox zero and extract academic deadlines
+        self.os_kernel.execute_objective("Run overnight communications triage and email inbox zero sweep", action="triage")
+
         # Evaluate if actionable alerts should be elevated
         alerts = []
         guardian_summary = guardian_res.get("summary", {}).get("output", "")
@@ -81,6 +84,7 @@ class AlfredDaemon:
             "productivity_status": "audited",
             "research_status": "audited",
             "federation_status": "synced",
+            "inbox_status": "triaged",
             "actionable_alerts": alerts,
             "hspw_accumulated": round(self._daemon_hspw, 2),
         }
@@ -98,6 +102,7 @@ class AlfredDaemon:
         guardian_stat = self.os_kernel.guardian_agent.execute({"action": "report"})
         research_stat = self.os_kernel.research_agent.execute({"action": "status"})
         federate_stat = self.os_kernel.federate_engine.get_federation_telemetry()
+        inbox_stat = self.os_kernel.inbox_engine.get_triage_telemetry()
 
         briefing_text = [
             "=================================================================",
@@ -105,6 +110,9 @@ class AlfredDaemon:
             "=================================================================",
             f"Daemon Uptime Cycles: {self.cycle_count} active background sweeps completed",
             f"Total Autonomous Time Reclamation: +{total_system_hspw:.2f} HSPW",
+            "-----------------------------------------------------------------",
+            "[OVERNIGHT INBOX ZERO & COMMUNICATIONS SUMMARY]",
+            f"{inbox_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
             "[MORNING STUDY & ACADEMIC PRIORITIES]",
             f"{productivity_stat.get('output', 'Nominal').strip()}",
