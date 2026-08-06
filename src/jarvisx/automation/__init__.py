@@ -20,6 +20,8 @@ from jarvisx.automation.real_voice_runtime import RealVoicePipeline
 from jarvisx.automation.real_system_tray import RealSystemTray
 from jarvisx.automation.capability_registry import CapabilityRealityRegistry
 from jarvisx.automation.companion_hud import CompanionHUDController
+from jarvisx.automation.native_companion_ui import NativeCompanionUI
+from jarvisx.automation.interactive_notifications import InteractiveNotificationEngine
 
 __all__ = [
     "DesktopController",
@@ -50,4 +52,6 @@ __all__ = [
     "RealSystemTray",
     "CapabilityRealityRegistry",
     "CompanionHUDController",
+    "NativeCompanionUI",
+    "InteractiveNotificationEngine",
 ]

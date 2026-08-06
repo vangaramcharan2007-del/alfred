@@ -35,6 +35,8 @@ class CapabilityRealityRegistry:
             {"name": "habit engine", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "self refinement", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "companion hud", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["filesystem"], "requires_confirmation": False},
+            {"name": "native companion ui", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["tkinter", "win32"], "requires_confirmation": False},
+            {"name": "interactive notification", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["powershell", "dotnet"], "requires_confirmation": False},
             {"name": "inbox triage", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "lecture synthesizer", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "finops optimizer", "execution_type": "SIMULATED", "confidence": 0.6, "dependencies": ["cloud_adapter"], "requires_confirmation": False},
@@ -69,7 +71,11 @@ class CapabilityRealityRegistry:
         name_clean = name.lower()
 
         # Intent mapping for kernel requests
-        if any(k in name_clean for k in ["habit", "detect habit", "routine", "rhythm"]):
+        if any(k in name_clean for k in ["widget", "launch widget", "floating companion"]):
+            name_clean = "native companion ui"
+        elif any(k in name_clean for k in ["interactive alert", "confirm prompt", "toast prompt"]):
+            name_clean = "interactive notification"
+        elif any(k in name_clean for k in ["habit", "detect habit", "routine", "rhythm"]):
             name_clean = "habit engine"
         elif any(k in name_clean for k in ["refine", "self-refinement", "refine strategy", "multiplier"]):
             name_clean = "self refinement"
