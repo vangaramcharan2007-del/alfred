@@ -30,6 +30,8 @@ class CapabilityRealityRegistry:
             {"name": "goal tracker", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "proactive engine", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite", "wmi"], "requires_confirmation": False},
             {"name": "daily briefing", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
+            {"name": "mission executor", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
+            {"name": "feedback engine", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "inbox triage", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "lecture synthesizer", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "finops optimizer", "execution_type": "SIMULATED", "confidence": 0.6, "dependencies": ["cloud_adapter"], "requires_confirmation": False},
@@ -64,7 +66,11 @@ class CapabilityRealityRegistry:
         name_clean = name.lower()
 
         # Intent mapping for kernel requests
-        if any(k in name_clean for k in ["decompose", "plan goal", "mission tree"]):
+        if any(k in name_clean for k in ["execute mission", "run mission", "mission loop"]):
+            name_clean = "mission executor"
+        elif any(k in name_clean for k in ["feedback", "record learning"]):
+            name_clean = "feedback engine"
+        elif any(k in name_clean for k in ["decompose", "plan goal", "mission tree"]):
             name_clean = "adaptive planner"
         elif any(k in name_clean for k in ["replan", "adjust target"]):
             name_clean = "adaptive planner"
@@ -74,6 +80,18 @@ class CapabilityRealityRegistry:
             name_clean = "goal tracker"
         elif any(k in name_clean for k in ["proactive", "suggest"]):
             name_clean = "proactive engine"
+        elif any(k in name_clean for k in ["organize", "download", "folder watcher"]):
+            name_clean = "folder watcher"
+        elif any(k in name_clean for k in ["clean", "storage", "system cleaner", "bloat", "delete"]):
+            name_clean = "system cleaner"
+        elif any(k in name_clean for k in ["voice", "listen", "speak"]):
+            name_clean = "voice runtime"
+        elif any(k in name_clean for k in ["tray", "system tray"]):
+            name_clean = "desktop notifications"
+        elif any(k in name_clean for k in ["ppt", "poster", "deliverable"]):
+            name_clean = "deliverable synthesizer"
+        elif any(k in name_clean for k in ["web", "clone", "youtube"]):
+            name_clean = "web navigator"
 
         cap = self.capabilities.get(name_clean)
         if not cap:
