@@ -26,6 +26,10 @@ class CapabilityRealityRegistry:
             {"name": "deliverable synthesizer", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["filesystem"], "requires_confirmation": False},
             {"name": "web navigator", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["browser", "git"], "requires_confirmation": False},
             {"name": "voice runtime", "execution_type": "PHYSICAL", "confidence": 0.9, "dependencies": ["sqlite", "audio"], "requires_confirmation": False},
+            {"name": "adaptive planner", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
+            {"name": "goal tracker", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
+            {"name": "proactive engine", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite", "wmi"], "requires_confirmation": False},
+            {"name": "daily briefing", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "inbox triage", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "lecture synthesizer", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "finops optimizer", "execution_type": "SIMULATED", "confidence": 0.6, "dependencies": ["cloud_adapter"], "requires_confirmation": False},
@@ -58,6 +62,19 @@ class CapabilityRealityRegistry:
     def verify_capability(self, name: str) -> Dict[str, Any]:
         """Verify capability reality before execution. Returns blocked status if UNKNOWN."""
         name_clean = name.lower()
+
+        # Intent mapping for kernel requests
+        if any(k in name_clean for k in ["decompose", "plan goal", "mission tree"]):
+            name_clean = "adaptive planner"
+        elif any(k in name_clean for k in ["replan", "adjust target"]):
+            name_clean = "adaptive planner"
+        elif any(k in name_clean for k in ["briefing", "good morning"]):
+            name_clean = "daily briefing"
+        elif any(k in name_clean for k in ["add goal", "track goal"]):
+            name_clean = "goal tracker"
+        elif any(k in name_clean for k in ["proactive", "suggest"]):
+            name_clean = "proactive engine"
+
         cap = self.capabilities.get(name_clean)
         if not cap:
             cap = self.register_capability(name_clean, execution_type="UNKNOWN", confidence=0.0)
