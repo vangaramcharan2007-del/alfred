@@ -42,6 +42,7 @@ class CapabilityRealityRegistry:
             {"name": "workflow autopilot", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["os_kernel"], "requires_confirmation": False},
             {"name": "remote sync", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite", "network"], "requires_confirmation": False},
             {"name": "dispatch remote autopilot", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["network", "os_kernel"], "requires_confirmation": False},
+            {"name": "package skill", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["filesystem", "sqlite"], "requires_confirmation": False},
             {"name": "inbox triage", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "lecture synthesizer", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "finops optimizer", "execution_type": "SIMULATED", "confidence": 0.6, "dependencies": ["cloud_adapter"], "requires_confirmation": False},
@@ -76,7 +77,9 @@ class CapabilityRealityRegistry:
         name_clean = name.lower()
 
         # Intent mapping for kernel requests
-        if any(k in name_clean for k in ["remote sync", "mesh sync", "node sync"]):
+        if any(k in name_clean for k in ["package skill", "auto package", "distill workflow"]):
+            name_clean = "package skill"
+        elif any(k in name_clean for k in ["remote sync", "mesh sync", "node sync"]):
             name_clean = "remote sync"
         elif any(k in name_clean for k in ["dispatch remote autopilot", "remote dispatch"]):
             name_clean = "dispatch remote autopilot"
