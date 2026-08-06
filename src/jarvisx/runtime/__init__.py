@@ -14,6 +14,7 @@ __all__ = [
     "AgentDispatcher",
     "RecoveryManager",
     "MissionExecutor",
+    "EdgeQuantizationManager",
 ]
 
 def __getattr__(name: str) -> Any:
@@ -48,4 +49,7 @@ def __getattr__(name: str) -> Any:
             return MissionExecutor
         from jarvisx.runtime.mission_runtime import MissionRuntime
         return MissionRuntime
+    elif name == "EdgeQuantizationManager":
+        from jarvisx.runtime.edge_quantization_manager import EdgeQuantizationManager
+        return EdgeQuantizationManager
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
