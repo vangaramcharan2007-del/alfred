@@ -32,6 +32,9 @@ class CapabilityRealityRegistry:
             {"name": "daily briefing", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "mission executor", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "feedback engine", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
+            {"name": "habit engine", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
+            {"name": "self refinement", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
+            {"name": "companion hud", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["filesystem"], "requires_confirmation": False},
             {"name": "inbox triage", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "lecture synthesizer", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "finops optimizer", "execution_type": "SIMULATED", "confidence": 0.6, "dependencies": ["cloud_adapter"], "requires_confirmation": False},
@@ -66,7 +69,13 @@ class CapabilityRealityRegistry:
         name_clean = name.lower()
 
         # Intent mapping for kernel requests
-        if any(k in name_clean for k in ["execute mission", "run mission", "mission loop"]):
+        if any(k in name_clean for k in ["habit", "detect habit", "routine", "rhythm"]):
+            name_clean = "habit engine"
+        elif any(k in name_clean for k in ["refine", "self-refinement", "refine strategy", "multiplier"]):
+            name_clean = "self refinement"
+        elif any(k in name_clean for k in ["hud", "companion hud", "overlay", "render hud"]):
+            name_clean = "companion hud"
+        elif any(k in name_clean for k in ["execute mission", "run mission", "mission loop"]):
             name_clean = "mission executor"
         elif any(k in name_clean for k in ["feedback", "record learning"]):
             name_clean = "feedback engine"

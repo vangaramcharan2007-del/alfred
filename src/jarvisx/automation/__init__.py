@@ -19,6 +19,7 @@ from jarvisx.automation.real_web_navigator import RealWebNavigator
 from jarvisx.automation.real_voice_runtime import RealVoicePipeline
 from jarvisx.automation.real_system_tray import RealSystemTray
 from jarvisx.automation.capability_registry import CapabilityRealityRegistry
+from jarvisx.automation.companion_hud import CompanionHUDController
 
 __all__ = [
     "DesktopController",
@@ -48,4 +49,5 @@ __all__ = [
     "RealVoicePipeline",
     "RealSystemTray",
     "CapabilityRealityRegistry",
+    "CompanionHUDController",
 ]
