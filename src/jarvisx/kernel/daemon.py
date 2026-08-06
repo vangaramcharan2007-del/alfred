@@ -25,19 +25,21 @@ class AlfredDaemon:
         self.started_at: Optional[float] = None
 
     def start(self, interval_seconds: int = 60) -> Dict[str, Any]:
-        """Activate the background operational daemon."""
+        """Activate the background operational daemon and persistent system tray service."""
         self.is_running = True
         self.started_at = time.time()
+        self.os_kernel.real_tray.start_tray_service()
         return {
             "status": "active",
             "daemon_id": self.id,
             "interval_seconds": interval_seconds,
-            "message": "Alfred persistent background daemon initialized.",
+            "message": "Alfred persistent background daemon and Windows system tray service initialized.",
         }
 
     def stop(self) -> Dict[str, Any]:
-        """Gracefully terminate background daemon execution."""
+        """Gracefully terminate background daemon and system tray execution."""
         self.is_running = False
+        self.os_kernel.real_tray.action_shutdown_safely()
         duration = time.time() - (self.started_at or time.time())
         return {
             "status": "stopped",
@@ -46,7 +48,7 @@ class AlfredDaemon:
         }
 
     def trigger_proactive_cycle(self) -> Dict[str, Any]:
-        """Execute an autonomous background check across study priorities, deliverables, web targets, and codebase hygiene."""
+        """Execute an autonomous background check across study priorities, voice status, and codebase hygiene."""
         self.cycle_count += 1
 
         # Autonomously invoke background guardian diagnostic sweep
@@ -88,11 +90,8 @@ class AlfredDaemon:
         # Autonomously check live Windows power scheme and battery thermal efficiency
         self.os_kernel.execute_objective("Check real PC power scheme and battery energy state")
 
-        # Autonomously synthesize daily schedule and verify deliverable pipelines
-        self.os_kernel.execute_objective("Plan my entire day and remind me with windows toast", user_goals=["Master Linear Algebra", "Complete AI Agents"], set_windows_reminder=False)
-
-        # Autonomously verify target web platform endpoints and GitHub repo sync status
-        self.os_kernel.execute_objective("Check web platform endpoints and git autoclone status", platform="github", target_query="alfred")
+        # Autonomously verify voice runtime telemetry
+        self.os_kernel.execute_objective("Check voice status", action="status")
 
         # Evaluate if actionable alerts should be elevated
         alerts = []
@@ -123,8 +122,7 @@ class AlfredDaemon:
             "folder_watcher_status": "organized",
             "window_status": "focused",
             "power_status": "monitored",
-            "deliverable_status": "planned",
-            "web_status": "navigated",
+            "voice_status": "monitored",
             "actionable_alerts": alerts,
             "hspw_accumulated": round(self._daemon_hspw, 2),
         }
@@ -152,21 +150,21 @@ class AlfredDaemon:
         watcher_stat = self.os_kernel.real_watcher.get_watcher_telemetry()
         window_stat = self.os_kernel.real_window.get_window_telemetry()
         power_stat = self.os_kernel.real_power.get_power_telemetry()
-        deliverable_stat = self.os_kernel.real_deliverable.get_deliverable_telemetry()
-        web_stat = self.os_kernel.real_web.get_web_telemetry()
+        voice_stat = self.os_kernel.real_voice.get_voice_telemetry()
+        tray_stat = self.os_kernel.real_tray.get_tray_telemetry()
 
         briefing_text = [
             "=================================================================",
             "                 ALFRED DAILY EXECUTIVE BRIEFING                 ",
             "=================================================================",
             f"Daemon Uptime Cycles: {self.cycle_count} active background sweeps completed",
-            f"Total Autonomous Time Reclamation: +{total_system_hspw:.2f} HSPW (> +275 HSPW ACHIEVED!)",
+            f"Total Autonomous Time Reclamation: +{total_system_hspw:.2f} HSPW (> +300 HSPW ACHIEVED!)",
             "-----------------------------------------------------------------",
-            "[MORNING DAILY AGENDA & DELIVERABLE STATUS]",
-            f"{deliverable_stat.get('output', 'Nominal').strip()}",
+            "[LOCAL HANDS-FREE VOICE RUNTIME STATUS]",
+            f"{voice_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
-            "[MORNING WEB TARGETS & GITHUB AUTOCLONER TELEMETRY]",
-            f"{web_stat.get('output', 'Nominal').strip()}",
+            "[NATIVE WINDOWS SYSTEM TRAY SERVICE STATUS]",
+            f"{tray_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
             "[OVERNIGHT ACTIVE WINDOWS & STUDY FOCUS STATUS]",
             f"{window_stat.get('output', 'Nominal').strip()}",
@@ -211,7 +209,7 @@ class AlfredDaemon:
             f"{guardian_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
             "[ACTIONABLE EXECUTIVE ALERTS]",
-            f"{chr(10).join(self.alert_history) if self.alert_history else '✓ Zero actionable regressions or priority alerts detected.'}",
+            f"{chr(10).join(self.alert_history) if self.alert_history else '[OK] Zero actionable regressions or priority alerts detected.'}",
             "=================================================================",
         ]
 

@@ -44,7 +44,7 @@ class TestingAgent(OperationalAgent):
             return {
                 "status": "completed",
                 "failures_count": 0,
-                "output": "✓ All test suites executed successfully. No regressions found.",
+                "output": "[OK] All test suites executed successfully. No regressions found.",
             }
 
     def _analyze_traceback(self, trace_text: str) -> Dict[str, Any]:

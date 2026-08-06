@@ -16,6 +16,8 @@ from jarvisx.automation.real_window_controller import RealWindowController
 from jarvisx.automation.real_power_supervisor import RealPowerSupervisor
 from jarvisx.automation.real_deliverable_synthesizer import RealDeliverableSynthesizer
 from jarvisx.automation.real_web_navigator import RealWebNavigator
+from jarvisx.automation.real_voice_runtime import RealVoicePipeline
+from jarvisx.automation.real_system_tray import RealSystemTray
 
 __all__ = [
     "DesktopController",
@@ -42,4 +44,6 @@ __all__ = [
     "RealPowerSupervisor",
     "RealDeliverableSynthesizer",
     "RealWebNavigator",
+    "RealVoicePipeline",
+    "RealSystemTray",
 ]

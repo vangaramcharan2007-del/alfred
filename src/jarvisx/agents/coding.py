@@ -47,7 +47,7 @@ class CodingAgent(OperationalAgent):
                 "target_file": target_file,
                 "ast_valid": True,
                 "diff": diff_res["diff"],
-                "output": f"✓ Code changes drafted and syntax verified for {target_file}",
+                "output": f"[OK] Code changes drafted and syntax verified for {target_file}",
             }
 
     def validate_syntax(self, code: str, filepath: str) -> Dict[str, Any]:
@@ -58,7 +58,7 @@ class CodingAgent(OperationalAgent):
                 "status": "completed",
                 "action": "ast_validation",
                 "valid": True,
-                "output": f"✓ Static AST syntax check passed cleanly for {filepath}",
+                "output": f"[OK] Static AST syntax check passed cleanly for {filepath}",
             }
         except SyntaxError as e:
             return {

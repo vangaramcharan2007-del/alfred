@@ -64,7 +64,7 @@ class ProjectGuardian:
     def get_telemetry_report(self) -> Dict[str, Any]:
         """Synthesize executive background health telemetry for human supervisor review."""
         latest = self.health_history[-1] if self.health_history else self.run_health_sweep()
-        status_icon = "✓" if latest["overall_status"] == "HEALTHY" else "⚠"
+        status_icon = "[OK]" if latest["overall_status"] == "HEALTHY" else "[!]"
 
         report_lines = [
             "ALFRED PROJECT GUARDIAN TELEMETRY",
@@ -83,7 +83,7 @@ class ProjectGuardian:
             for alert in latest["alerts"]:
                 report_lines.append(f"  [!] {alert}")
         else:
-            report_lines.append("✓ Zero regressions or background conflicts detected.")
+            report_lines.append("[OK] Zero regressions or background conflicts detected.")
 
         return {
             "status": latest["overall_status"],

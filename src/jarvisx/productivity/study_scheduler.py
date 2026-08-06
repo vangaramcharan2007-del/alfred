@@ -82,7 +82,7 @@ class StudyScheduler:
             dashboard_lines.append(f"  [{a.priority}] {a.course} - {a.title} (Due: {a.due_date})")
 
         if not pending:
-            dashboard_lines.append("  ✓ All assignments currently completed.")
+            dashboard_lines.append("  [OK] All assignments currently completed.")
 
         dashboard_lines.append("")
         dashboard_lines.append("Active Revision Schedules:")

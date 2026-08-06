@@ -69,8 +69,7 @@ class SQLiteMemoryProvider(MemoryProvider):
             return 0.0
         return dot / (norm1 * norm2)
 
-    async def save(self, key: str, value: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> bool:
-        category = str(value.get("type", "general"))
+    def save_memory(self, category: str, key: str, value: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> bool:
         val_str = json.dumps(value)
         ctx_str = json.dumps(context or {})
         corpus = f"{key} {category} {val_str} {ctx_str}"
@@ -83,6 +82,25 @@ class SQLiteMemoryProvider(MemoryProvider):
             """, (key, category, key, val_str, ctx_str, corpus, now))
             conn.commit()
         return True
+
+    def search_memory(self, category: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            rows = conn.execute("SELECT * FROM memories WHERE category = ? ORDER BY created_at DESC LIMIT ?", (category, top_k)).fetchall()
+        results = []
+        for r in rows:
+            results.append({
+                "id": r["id"],
+                "category": r["category"],
+                "key": r["key"],
+                "value": json.loads(r["value_json"]),
+                "context": json.loads(r["context_json"]),
+                "created_at": r["created_at"],
+            })
+        return results
+
+    async def save(self, key: str, value: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> bool:
+        category = str(value.get("type", "general"))
+        return self.save_memory(category, key, value, context)
 
     async def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         query_tokens = self._tokenize(query)

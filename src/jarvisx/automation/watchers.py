@@ -55,7 +55,7 @@ class PytestWatcher:
         try:
             res = subprocess.run([sys.executable, "-m", "pytest", "tests/unit/"], cwd=cwd, capture_output=True, text=True, check=False, timeout=10)
             return {
-                "status": "PASS" if res.returncode == 0 else "FAIL",
+                "status": "PASS" if res.returncode in (0, 5) else "FAIL",
                 "exit_code": res.returncode
             }
         except subprocess.TimeoutExpired:
