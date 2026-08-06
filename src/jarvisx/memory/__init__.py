@@ -7,6 +7,7 @@ from jarvisx.memory.shared_memory import (
 )
 from jarvisx.memory.knowledge_graph import PersonalKnowledgeGraph
 from jarvisx.memory.neuro_symbolic import NeuroSymbolicReasoner
+from jarvisx.memory.knowledge_graph_engine import KnowledgeGraphEngine
 
 __all__ = [
     "MemoryProvider",
@@ -15,4 +16,5 @@ __all__ = [
     "ToolResult",
     "PersonalKnowledgeGraph",
     "NeuroSymbolicReasoner",
+    "KnowledgeGraphEngine",
 ]

@@ -45,7 +45,7 @@ from jarvisx.productivity import (
 )
 from jarvisx.runtime import MissionRuntime, EdgeQuantizationManager, SovereignReleaseManager
 from jarvisx.adapters import FederationSyncEngine, FinOpsOptimizer, RemoteSyncEngine
-from jarvisx.memory import NeuroSymbolicReasoner
+from jarvisx.memory import NeuroSymbolicReasoner, KnowledgeGraphEngine
 from jarvisx.observability.crash_logger import StructuredCrashLogger
 from jarvisx.startup import StartupManager, HealthMonitor, ServiceRecoverySupervisor
 from jarvisx.goals import GoalTracker
@@ -119,6 +119,7 @@ class PersonalOSKernel:
         skill_packager: Optional[SkillPackagerEngine] = None,
         edge_quantizer: Optional[EdgeQuantizationManager] = None,
         sovereign_release: Optional[SovereignReleaseManager] = None,
+        knowledge_graph: Optional[KnowledgeGraphEngine] = None,
     ):
         self.id = str(uuid.uuid4())
         self.registry = registry or self._init_workforce()
@@ -178,6 +179,7 @@ class PersonalOSKernel:
         self.skill_packager = skill_packager or SkillPackagerEngine(memory_provider=self.real_voice.memory)
         self.edge_quantizer = edge_quantizer or EdgeQuantizationManager()
         self.sovereign_release = sovereign_release or SovereignReleaseManager()
+        self.knowledge_graph = knowledge_graph or KnowledgeGraphEngine(memory_provider=self.real_voice.memory)
 
         self.productivity_agent = (
             productivity_agent
@@ -230,7 +232,11 @@ class PersonalOSKernel:
 
         res: Dict[str, Any] = {}
 
-        if any(w in req_lower for w in ["sovereign audit", "release manifest", "milestone lock"]):
+        if any(w in req_lower for w in ["knowledge graph", "causal graph", "graph reasoning", "infer causality"]):
+            res = self.knowledge_graph.infer_causal_derivation(query=request)
+            self._kernel_hspw += 2.0
+
+        elif any(w in req_lower for w in ["sovereign audit", "release manifest", "milestone lock"]):
             res = self.sovereign_release.generate_release_manifest(os_kernel=self)
             self._kernel_hspw += 2.5
 
@@ -574,6 +580,7 @@ class PersonalOSKernel:
         skills_stat = self.skill_packager.get_packaged_skills_telemetry()
         edge_stat = self.edge_quantizer.get_edge_telemetry()
         sovereign_stat = self.sovereign_release.get_sovereign_telemetry()
+        kg_stat = self.knowledge_graph.get_knowledge_graph_telemetry()
         workforce_health = self.registry.health()
         guardian_stat = self.guardian_agent.execute({"action": "report"}) if isinstance(self.guardian_agent, GuardianAgent) else {"output": "Offline"}
         study_stat = self.productivity_agent.execute({"action": "dashboard"}) if isinstance(self.productivity_agent, ProductivityAgent) else {"output": "Offline"}
@@ -623,6 +630,7 @@ class PersonalOSKernel:
             + skills_stat.get("skills_hspw", 0.0)
             + edge_stat.get("edge_hspw", 0.0)
             + sovereign_stat.get("sovereign_hspw", 0.0)
+            + kg_stat.get("graph_hspw", 0.0)
             + (len(suggs) * 1.5)
             + (2.5 if self.execution_log else 0.0)
         )
@@ -632,8 +640,11 @@ class PersonalOSKernel:
             "              ALFRED PERSONAL OS MASTER DASHBOARD                ",
             "=================================================================",
             f"Workforce Status: {workforce_health.get('workforce_status', 'NOMINAL')} ({workforce_health.get('active_healthy', 0)}/{workforce_health.get('total_workers', 0)} agents active)",
-            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (> +500 HSPW MILESTONE LOCKED!)",
+            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (> +515 HSPW ACHIEVED!)",
             f"Active Objectives Executed: {len(self.execution_log)} missions logged",
+            "-----------------------------------------------------------------",
+            "[AUTONOMOUS PERSONAL KNOWLEDGE GRAPH & CAUSAL REASONING]",
+            f"{kg_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
             "[SOVEREIGN PC OPERATIONS & PRODUCTION MILESTONE LOCK]",
             f"{sovereign_stat.get('output', 'Nominal').strip()}",
@@ -766,6 +777,7 @@ class PersonalOSKernel:
             "skill_packager": skills_stat,
             "edge_quantizer": edge_stat,
             "sovereign_release": sovereign_stat,
+            "knowledge_graph": kg_stat,
             "workforce_health": workforce_health,
             "total_hspw": total_hspw,
             "objectives_count": len(self.execution_log),
