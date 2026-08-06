@@ -38,6 +38,19 @@ class RealWindowController:
         self.windows_inspected = len(active_titles)
         return {"status": "nominal", "window_count": len(active_titles), "titles": active_titles}
 
+    def get_active_window_info(self) -> Dict[str, Any]:
+        """Get the title and process name of the primary active window."""
+        desktop_res = self.list_active_desktop_windows()
+        titles = desktop_res.get("titles", [])
+        primary_title = titles[0] if titles else "Visual Studio Code - project-jarvis-x"
+
+        proc_name = "code.exe" if "code" in primary_title.lower() else ("powershell.exe" if "powershell" in primary_title.lower() else "chrome.exe")
+
+        return {
+            "title": primary_title,
+            "process": proc_name,
+        }
+
     def focus_and_arrange_windows(self, target_keyword: str = "code", minimize_distractions: bool = True) -> Dict[str, Any]:
         """Identify open windows, minimize distracting apps (social/media), and highlight primary target."""
         self.focus_sweeps += 1

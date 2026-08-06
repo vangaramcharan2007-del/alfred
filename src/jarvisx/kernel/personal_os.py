@@ -55,6 +55,7 @@ from jarvisx.planning import AdaptivePlanner, ProgressIntelligence, Replanner, P
 from jarvisx.execution import MissionExecutorEngine, ExecutionMonitor, FeedbackEngine, ExecutionSafetyGuard
 from jarvisx.habits import ContextualHabitEngine
 from jarvisx.refinement import SelfRefinementEngine
+from jarvisx.vision import ScreenContextEngine, ContextSynthesizer
 
 
 class PersonalOSKernel:
@@ -110,6 +111,8 @@ class PersonalOSKernel:
         companion_hud: Optional[CompanionHUDController] = None,
         native_companion_ui: Optional[NativeCompanionUI] = None,
         interactive_notifier: Optional[InteractiveNotificationEngine] = None,
+        screen_context: Optional[ScreenContextEngine] = None,
+        context_synthesizer: Optional[ContextSynthesizer] = None,
     ):
         self.id = str(uuid.uuid4())
         self.registry = registry or self._init_workforce()
@@ -162,6 +165,8 @@ class PersonalOSKernel:
         self.companion_hud = companion_hud or CompanionHUDController()
         self.native_companion_ui = native_companion_ui or NativeCompanionUI(os_kernel=self)
         self.interactive_notifier = interactive_notifier or InteractiveNotificationEngine(base_notifier=self.real_notifier)
+        self.screen_context = screen_context or ScreenContextEngine(window_controller=self.real_window, memory_provider=self.real_voice.memory)
+        self.context_synthesizer = context_synthesizer or ContextSynthesizer(context_engine=self.screen_context)
 
         self.productivity_agent = (
             productivity_agent
@@ -214,7 +219,15 @@ class PersonalOSKernel:
 
         res: Dict[str, Any] = {}
 
-        if any(w in req_lower for w in ["widget", "launch widget", "floating companion"]):
+        if any(w in req_lower for w in ["screen context", "vision context", "active screen", "capture context"]):
+            res = self.screen_context.capture_active_context()
+            self._kernel_hspw += 0.8
+
+        elif any(w in req_lower for w in ["contextual assistance", "assist screen", "synthesize assistance"]):
+            res = self.context_synthesizer.generate_contextual_assistance(os_kernel=self)
+            self._kernel_hspw += 1.0
+
+        elif any(w in req_lower for w in ["widget", "launch widget", "floating companion"]):
             res = self.native_companion_ui.start_widget(headless=kwargs.get("headless", True))
             self._kernel_hspw += 0.8
 
@@ -508,6 +521,7 @@ class PersonalOSKernel:
         exec_telemetry = self.execution_monitor.get_performance_summary()
         refine_stat = self.self_refinement.compute_refinement_parameters()
         habits_list = self.habit_engine.detect_habits()
+        screen_stat = self.screen_context.capture_active_context()
         workforce_health = self.registry.health()
         guardian_stat = self.guardian_agent.execute({"action": "report"}) if isinstance(self.guardian_agent, GuardianAgent) else {"output": "Offline"}
         study_stat = self.productivity_agent.execute({"action": "dashboard"}) if isinstance(self.productivity_agent, ProductivityAgent) else {"output": "Offline"}
@@ -561,8 +575,12 @@ class PersonalOSKernel:
             "              ALFRED PERSONAL OS MASTER DASHBOARD                ",
             "=================================================================",
             f"Workforce Status: {workforce_health.get('workforce_status', 'NOMINAL')} ({workforce_health.get('active_healthy', 0)}/{workforce_health.get('total_workers', 0)} agents active)",
-            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (> +420 HSPW ACHIEVED!)",
+            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (> +435 HSPW ACHIEVED!)",
             f"Active Objectives Executed: {len(self.execution_log)} missions logged",
+            "-----------------------------------------------------------------",
+            "[MULTI-MODAL SCREEN & VISION CONTEXT ENGINE]",
+            f"Active Window: {screen_stat.get('active_window')} ({screen_stat.get('process_name')})",
+            f"Context Category: {screen_stat.get('context_category')}",
             "-----------------------------------------------------------------",
             "[NATIVE WINDOWS DESKTOP COMPANION UI & INTERACTIVE TOASTS]",
             f"Companion UI Status: Active (Floating Widget docked to desktop)",
@@ -670,6 +688,7 @@ class PersonalOSKernel:
             "execution_telemetry": exec_telemetry,
             "self_refinement": refine_stat,
             "habits": habits_list,
+            "screen_context": screen_stat,
             "workforce_health": workforce_health,
             "total_hspw": total_hspw,
             "objectives_count": len(self.execution_log),

@@ -37,6 +37,8 @@ class CapabilityRealityRegistry:
             {"name": "companion hud", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["filesystem"], "requires_confirmation": False},
             {"name": "native companion ui", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["tkinter", "win32"], "requires_confirmation": False},
             {"name": "interactive notification", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["powershell", "dotnet"], "requires_confirmation": False},
+            {"name": "screen context", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["win32", "sqlite"], "requires_confirmation": False},
+            {"name": "contextual assistance", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "inbox triage", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "lecture synthesizer", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "finops optimizer", "execution_type": "SIMULATED", "confidence": 0.6, "dependencies": ["cloud_adapter"], "requires_confirmation": False},
@@ -71,7 +73,11 @@ class CapabilityRealityRegistry:
         name_clean = name.lower()
 
         # Intent mapping for kernel requests
-        if any(k in name_clean for k in ["widget", "launch widget", "floating companion"]):
+        if any(k in name_clean for k in ["screen context", "vision context", "active screen", "capture context"]):
+            name_clean = "screen context"
+        elif any(k in name_clean for k in ["contextual assistance", "assist screen", "synthesize assistance"]):
+            name_clean = "contextual assistance"
+        elif any(k in name_clean for k in ["widget", "launch widget", "floating companion"]):
             name_clean = "native companion ui"
         elif any(k in name_clean for k in ["interactive alert", "confirm prompt", "toast prompt"]):
             name_clean = "interactive notification"
