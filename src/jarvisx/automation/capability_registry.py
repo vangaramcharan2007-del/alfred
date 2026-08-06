@@ -44,6 +44,7 @@ class CapabilityRealityRegistry:
             {"name": "dispatch remote autopilot", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["network", "os_kernel"], "requires_confirmation": False},
             {"name": "package skill", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["filesystem", "sqlite"], "requires_confirmation": False},
             {"name": "edge model", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["npu", "gpu", "vram"], "requires_confirmation": False},
+            {"name": "sovereign audit", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["filesystem", "os_kernel"], "requires_confirmation": False},
             {"name": "inbox triage", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "lecture synthesizer", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "finops optimizer", "execution_type": "SIMULATED", "confidence": 0.6, "dependencies": ["cloud_adapter"], "requires_confirmation": False},
@@ -78,7 +79,9 @@ class CapabilityRealityRegistry:
         name_clean = name.lower()
 
         # Intent mapping for kernel requests
-        if any(k in name_clean for k in ["edge model", "quantize model", "model acceleration", "inference latency"]):
+        if any(k in name_clean for k in ["sovereign audit", "release manifest", "milestone lock"]):
+            name_clean = "sovereign audit"
+        elif any(k in name_clean for k in ["edge model", "quantize model", "model acceleration", "inference latency"]):
             name_clean = "edge model"
         elif any(k in name_clean for k in ["package skill", "auto package", "distill workflow"]):
             name_clean = "package skill"

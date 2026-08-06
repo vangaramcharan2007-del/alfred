@@ -15,6 +15,7 @@ __all__ = [
     "RecoveryManager",
     "MissionExecutor",
     "EdgeQuantizationManager",
+    "SovereignReleaseManager",
 ]
 
 def __getattr__(name: str) -> Any:
@@ -52,4 +53,7 @@ def __getattr__(name: str) -> Any:
     elif name == "EdgeQuantizationManager":
         from jarvisx.runtime.edge_quantization_manager import EdgeQuantizationManager
         return EdgeQuantizationManager
+    elif name == "SovereignReleaseManager":
+        from jarvisx.runtime.sovereign_release_manager import SovereignReleaseManager
+        return SovereignReleaseManager
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
