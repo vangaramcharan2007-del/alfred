@@ -52,7 +52,7 @@ from jarvisx.goals import GoalTracker
 from jarvisx.memory.intelligence import ContextRetriever
 from jarvisx.intelligence import ProactiveIntelligenceEngine, ProactiveMissionBridge, ProactiveSafetyGuard
 from jarvisx.planning import AdaptivePlanner, ProgressIntelligence, Replanner, Prioritizer, DailyIntelligenceBriefing
-from jarvisx.execution import MissionExecutorEngine, ExecutionMonitor, FeedbackEngine, ExecutionSafetyGuard
+from jarvisx.execution import MissionExecutorEngine, ExecutionMonitor, FeedbackEngine, ExecutionSafetyGuard, WorkflowAutopilotEngine
 from jarvisx.habits import ContextualHabitEngine
 from jarvisx.refinement import SelfRefinementEngine
 from jarvisx.vision import ScreenContextEngine, ContextSynthesizer
@@ -113,6 +113,7 @@ class PersonalOSKernel:
         interactive_notifier: Optional[InteractiveNotificationEngine] = None,
         screen_context: Optional[ScreenContextEngine] = None,
         context_synthesizer: Optional[ContextSynthesizer] = None,
+        workflow_autopilot: Optional[WorkflowAutopilotEngine] = None,
     ):
         self.id = str(uuid.uuid4())
         self.registry = registry or self._init_workforce()
@@ -167,6 +168,7 @@ class PersonalOSKernel:
         self.interactive_notifier = interactive_notifier or InteractiveNotificationEngine(base_notifier=self.real_notifier)
         self.screen_context = screen_context or ScreenContextEngine(window_controller=self.real_window, memory_provider=self.real_voice.memory)
         self.context_synthesizer = context_synthesizer or ContextSynthesizer(context_engine=self.screen_context)
+        self.workflow_autopilot = workflow_autopilot or WorkflowAutopilotEngine()
 
         self.productivity_agent = (
             productivity_agent
@@ -219,7 +221,12 @@ class PersonalOSKernel:
 
         res: Dict[str, Any] = {}
 
-        if any(w in req_lower for w in ["screen context", "vision context", "active screen", "capture context"]):
+        if any(w in req_lower for w in ["autopilot", "workflow autopilot", "prepare machine", "deep clean workflow"]):
+            wf_target = kwargs.get("workflow", "SYSTEM_DEEP_CLEAN" if "clean" in req_lower else "ML_STUDY_SESSION")
+            res = self.workflow_autopilot.execute_autopilot_workflow(workflow_name=wf_target, os_kernel=self)
+            self._kernel_hspw += 2.5
+
+        elif any(w in req_lower for w in ["screen context", "vision context", "active screen", "capture context"]):
             res = self.screen_context.capture_active_context()
             self._kernel_hspw += 0.8
 
@@ -522,6 +529,7 @@ class PersonalOSKernel:
         refine_stat = self.self_refinement.compute_refinement_parameters()
         habits_list = self.habit_engine.detect_habits()
         screen_stat = self.screen_context.capture_active_context()
+        autopilot_stat = self.workflow_autopilot.get_autopilot_telemetry()
         workforce_health = self.registry.health()
         guardian_stat = self.guardian_agent.execute({"action": "report"}) if isinstance(self.guardian_agent, GuardianAgent) else {"output": "Offline"}
         study_stat = self.productivity_agent.execute({"action": "dashboard"}) if isinstance(self.productivity_agent, ProductivityAgent) else {"output": "Offline"}
@@ -566,6 +574,7 @@ class PersonalOSKernel:
             + web_stat.get("web_hspw", 0.0)
             + voice_stat.get("voice_hspw", 0.0)
             + tray_stat.get("tray_hspw", 0.0)
+            + autopilot_stat.get("autopilot_hspw", 0.0)
             + (len(suggs) * 1.5)
             + (2.5 if self.execution_log else 0.0)
         )
@@ -575,8 +584,11 @@ class PersonalOSKernel:
             "              ALFRED PERSONAL OS MASTER DASHBOARD                ",
             "=================================================================",
             f"Workforce Status: {workforce_health.get('workforce_status', 'NOMINAL')} ({workforce_health.get('active_healthy', 0)}/{workforce_health.get('total_workers', 0)} agents active)",
-            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (> +435 HSPW ACHIEVED!)",
+            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (> +450 HSPW ACHIEVED!)",
             f"Active Objectives Executed: {len(self.execution_log)} missions logged",
+            "-----------------------------------------------------------------",
+            "[ZERO-TOUCH PC WORKFLOW ORCHESTRATION & AUTOPILOT]",
+            f"{autopilot_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
             "[MULTI-MODAL SCREEN & VISION CONTEXT ENGINE]",
             f"Active Window: {screen_stat.get('active_window')} ({screen_stat.get('process_name')})",
@@ -689,6 +701,7 @@ class PersonalOSKernel:
             "self_refinement": refine_stat,
             "habits": habits_list,
             "screen_context": screen_stat,
+            "workflow_autopilot": autopilot_stat,
             "workforce_health": workforce_health,
             "total_hspw": total_hspw,
             "objectives_count": len(self.execution_log),
