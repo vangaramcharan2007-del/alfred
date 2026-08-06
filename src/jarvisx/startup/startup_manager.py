@@ -58,6 +58,16 @@ class StartupManager:
         try:
             with open(startup_bat, "w", encoding="utf-8") as f:
                 f.write(f'@echo off\ncd /d "{os.getcwd()}"\npython -m jarvisx daemon --start\n')
+
+            if is_win:
+                appdata = os.environ.get("APPDATA", "")
+                if appdata:
+                    win_startup_folder = os.path.join(appdata, r"Microsoft\Windows\Start Menu\Programs\Startup")
+                    if os.path.exists(win_startup_folder):
+                        win_bat = os.path.join(win_startup_folder, "AlfredOS.bat")
+                        with open(win_bat, "w", encoding="utf-8") as f2:
+                            f2.write(f'@echo off\ncd /d "{os.getcwd()}"\npython -m jarvisx daemon --start\n')
+
             self.is_registered = True
         except Exception as e:
             self.crash_logger.log_crash("startup_manager", str(e))
