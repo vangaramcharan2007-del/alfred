@@ -47,6 +47,7 @@ class CapabilityRealityRegistry:
             {"name": "sovereign audit", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["filesystem", "os_kernel"], "requires_confirmation": False},
             {"name": "knowledge graph", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "agent swarm", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["os_kernel"], "requires_confirmation": False},
+            {"name": "grand finale", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["filesystem", "os_kernel"], "requires_confirmation": False},
             {"name": "inbox triage", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "lecture synthesizer", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "finops optimizer", "execution_type": "SIMULATED", "confidence": 0.6, "dependencies": ["cloud_adapter"], "requires_confirmation": False},
@@ -81,7 +82,9 @@ class CapabilityRealityRegistry:
         name_clean = name.lower()
 
         # Intent mapping for kernel requests
-        if any(k in name_clean for k in ["agent swarm", "swarm dispatch", "micro worker", "parallel swarm"]):
+        if any(k in name_clean for k in ["grand finale", "master release", "v100 release", "sovereign finale"]):
+            name_clean = "grand finale"
+        elif any(k in name_clean for k in ["agent swarm", "swarm dispatch", "micro worker", "parallel swarm"]):
             name_clean = "agent swarm"
         elif any(k in name_clean for k in ["knowledge graph", "causal graph", "graph reasoning", "infer causality"]):
             name_clean = "knowledge graph"

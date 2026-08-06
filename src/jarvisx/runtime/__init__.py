@@ -1,6 +1,10 @@
 from __future__ import annotations
 from typing import Any
 
+from jarvisx.runtime.edge_quantization_manager import EdgeQuantizationManager
+from jarvisx.runtime.sovereign_release_manager import SovereignReleaseManager
+from jarvisx.runtime.grand_finale_release import GrandFinaleReleaseEngine
+
 __all__ = [
     "JarvisRuntime",
     "create_default_runtime",
@@ -16,6 +20,7 @@ __all__ = [
     "MissionExecutor",
     "EdgeQuantizationManager",
     "SovereignReleaseManager",
+    "GrandFinaleReleaseEngine",
 ]
 
 def __getattr__(name: str) -> Any:

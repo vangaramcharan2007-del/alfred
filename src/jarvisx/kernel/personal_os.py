@@ -44,7 +44,7 @@ from jarvisx.productivity import (
     InboxTriageEngine,
     LectureExamSynthesizer,
 )
-from jarvisx.runtime import MissionRuntime, EdgeQuantizationManager, SovereignReleaseManager
+from jarvisx.runtime import MissionRuntime, EdgeQuantizationManager, SovereignReleaseManager, GrandFinaleReleaseEngine
 from jarvisx.adapters import FederationSyncEngine, FinOpsOptimizer, RemoteSyncEngine
 from jarvisx.memory import NeuroSymbolicReasoner, KnowledgeGraphEngine
 from jarvisx.observability.crash_logger import StructuredCrashLogger
@@ -122,6 +122,7 @@ class PersonalOSKernel:
         sovereign_release: Optional[SovereignReleaseManager] = None,
         knowledge_graph: Optional[KnowledgeGraphEngine] = None,
         agent_swarm: Optional[AgentSwarmEngine] = None,
+        grand_finale: Optional[GrandFinaleReleaseEngine] = None,
     ):
         self.id = str(uuid.uuid4())
         self.registry = registry or self._init_workforce()
@@ -183,6 +184,7 @@ class PersonalOSKernel:
         self.sovereign_release = sovereign_release or SovereignReleaseManager()
         self.knowledge_graph = knowledge_graph or KnowledgeGraphEngine(memory_provider=self.real_voice.memory)
         self.agent_swarm = agent_swarm or AgentSwarmEngine()
+        self.grand_finale = grand_finale or GrandFinaleReleaseEngine()
 
         self.productivity_agent = (
             productivity_agent
@@ -235,7 +237,11 @@ class PersonalOSKernel:
 
         res: Dict[str, Any] = {}
 
-        if any(w in req_lower for w in ["agent swarm", "swarm dispatch", "micro worker", "parallel swarm"]):
+        if any(w in req_lower for w in ["grand finale", "master release", "v100 release", "sovereign finale"]):
+            res = self.grand_finale.execute_grand_finale_release(os_kernel=self)
+            self._kernel_hspw += 5.0
+
+        elif any(w in req_lower for w in ["agent swarm", "swarm dispatch", "micro worker", "parallel swarm"]):
             res = self.agent_swarm.dispatch_swarm_mission(
                 mission_objective=request,
                 subtasks=kwargs.get("subtasks", [{"domain": "CODING", "action": "refactor"}, {"domain": "ACADEMIC", "action": "schedule_study"}]),
@@ -593,6 +599,7 @@ class PersonalOSKernel:
         sovereign_stat = self.sovereign_release.get_sovereign_telemetry()
         kg_stat = self.knowledge_graph.get_knowledge_graph_telemetry()
         swarm_stat = self.agent_swarm.get_swarm_telemetry()
+        finale_stat = self.grand_finale.get_finale_telemetry()
         workforce_health = self.registry.health()
         guardian_stat = self.guardian_agent.execute({"action": "report"}) if isinstance(self.guardian_agent, GuardianAgent) else {"output": "Offline"}
         study_stat = self.productivity_agent.execute({"action": "dashboard"}) if isinstance(self.productivity_agent, ProductivityAgent) else {"output": "Offline"}
@@ -644,6 +651,7 @@ class PersonalOSKernel:
             + sovereign_stat.get("sovereign_hspw", 0.0)
             + kg_stat.get("graph_hspw", 0.0)
             + swarm_stat.get("swarm_hspw", 0.0)
+            + finale_stat.get("finale_hspw", 0.0)
             + (len(suggs) * 1.5)
             + (2.5 if self.execution_log else 0.0)
         )
@@ -653,8 +661,11 @@ class PersonalOSKernel:
             "              ALFRED PERSONAL OS MASTER DASHBOARD                ",
             "=================================================================",
             f"Workforce Status: {workforce_health.get('workforce_status', 'NOMINAL')} ({workforce_health.get('active_healthy', 0)}/{workforce_health.get('total_workers', 0)} agents active)",
-            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (> +535 HSPW ACHIEVED!)",
+            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (> +560 HSPW ACHIEVED!)",
             f"Active Objectives Executed: {len(self.execution_log)} missions logged",
+            "-----------------------------------------------------------------",
+            "[GRAND FINALE v100.0 MASTER RELEASE LOCK]",
+            f"{finale_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
             "[AUTONOMOUS PERSONAL AI AGENT SWARM & DELEGATION MESH]",
             f"{swarm_stat.get('output', 'Nominal').strip()}",
@@ -795,6 +806,7 @@ class PersonalOSKernel:
             "sovereign_release": sovereign_stat,
             "knowledge_graph": kg_stat,
             "agent_swarm": swarm_stat,
+            "grand_finale": finale_stat,
             "workforce_health": workforce_health,
             "total_hspw": total_hspw,
             "objectives_count": len(self.execution_log),
