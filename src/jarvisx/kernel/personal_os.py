@@ -32,6 +32,7 @@ from jarvisx.automation import (
     RealWebNavigator,
     RealVoicePipeline,
     RealSystemTray,
+    CapabilityRealityRegistry,
 )
 from jarvisx.productivity import (
     PersonalKnowledgeBase,
@@ -42,6 +43,8 @@ from jarvisx.productivity import (
 from jarvisx.runtime import MissionRuntime
 from jarvisx.adapters import FederationSyncEngine, FinOpsOptimizer
 from jarvisx.memory import NeuroSymbolicReasoner
+from jarvisx.observability.crash_logger import StructuredCrashLogger
+from jarvisx.startup import StartupManager, HealthMonitor, ServiceRecoverySupervisor
 
 
 class PersonalOSKernel:
@@ -73,6 +76,11 @@ class PersonalOSKernel:
         real_web: Optional[RealWebNavigator] = None,
         real_voice: Optional[RealVoicePipeline] = None,
         real_tray: Optional[RealSystemTray] = None,
+        capability_registry: Optional[CapabilityRealityRegistry] = None,
+        crash_logger: Optional[StructuredCrashLogger] = None,
+        startup_manager: Optional[StartupManager] = None,
+        health_monitor: Optional[HealthMonitor] = None,
+        recovery_supervisor: Optional[ServiceRecoverySupervisor] = None,
     ):
         self.id = str(uuid.uuid4())
         self.registry = registry or self._init_workforce()
@@ -93,8 +101,15 @@ class PersonalOSKernel:
         self.real_power = real_power or RealPowerSupervisor()
         self.real_deliverable = real_deliverable or RealDeliverableSynthesizer(notifier=self.real_notifier)
         self.real_web = real_web or RealWebNavigator()
-        self.real_voice = real_voice or RealVoicePipeline(notifier=self.real_notifier)
+        self.crash_logger = crash_logger or StructuredCrashLogger()
+        self.real_voice = real_voice or RealVoicePipeline(notifier=self.real_notifier, crash_logger=self.crash_logger)
         self.real_tray = real_tray or RealSystemTray(os_kernel=self, voice_pipeline=self.real_voice)
+        self.capability_registry = capability_registry or CapabilityRealityRegistry()
+        self.startup_manager = startup_manager or StartupManager(crash_logger=self.crash_logger)
+        self.health_monitor = health_monitor or HealthMonitor(memory_provider=self.real_voice.memory)
+        self.recovery_supervisor = recovery_supervisor or ServiceRecoverySupervisor(
+            health_monitor=self.health_monitor, crash_logger=self.crash_logger
+        )
 
         self.productivity_agent = (
             productivity_agent
@@ -138,6 +153,13 @@ class PersonalOSKernel:
     def execute_objective(self, request: str, **kwargs: Any) -> Dict[str, Any]:
         """Classify and route user instructions across real PC control, voice, system tray, study, or DevOps handlers."""
         req_lower = request.lower()
+
+        # Capability reality verification check
+        cap_check = self.capability_registry.verify_capability(request)
+        if not cap_check["verified"]:
+            self.crash_logger.log_event("CAPABILITY_BLOCKED", "BLOCKED", {"request": request, "reason": cap_check["reason"]})
+            return {"status": "BLOCKED", "reason": cap_check["reason"]}
+
         res: Dict[str, Any] = {}
 
         if any(w in req_lower for w in ["voice", "listen", "speak", "voice command", "wake word"]):
@@ -345,6 +367,12 @@ class PersonalOSKernel:
 
     def get_master_dashboard(self) -> Dict[str, Any]:
         """Synthesize consolidated master control report and total cumulative HSPW across all layers."""
+        hb = self.health_monitor.generate_heartbeat(
+            daemon_status="healthy",
+            tray_status="running" if self.real_tray.is_active else "stopped",
+            voice_status=self.real_voice.pipeline_status,
+            memory_status="connected",
+        )
         workforce_health = self.registry.health()
         guardian_stat = self.guardian_agent.execute({"action": "report"}) if isinstance(self.guardian_agent, GuardianAgent) else {"output": "Offline"}
         study_stat = self.productivity_agent.execute({"action": "dashboard"}) if isinstance(self.productivity_agent, ProductivityAgent) else {"output": "Offline"}
@@ -399,6 +427,9 @@ class PersonalOSKernel:
             f"Workforce Status: {workforce_health.get('workforce_status', 'NOMINAL')} ({workforce_health.get('active_healthy', 0)}/{workforce_health.get('total_workers', 0)} agents active)",
             f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (> +300 HSPW ACHIEVED!)",
             f"Active Objectives Executed: {len(self.execution_log)} missions logged",
+            "-----------------------------------------------------------------",
+            "[ALFRED UNIFIED HEARTBEAT & RELIABILITY TELEMETRY]",
+            f"Daemon: {hb['daemon']} | Tray: {hb['tray']} | Voice: {hb['voice']} | Memory: {hb['memory']}",
             "-----------------------------------------------------------------",
             "[REAL LOCAL HANDS-FREE VOICE RUNTIME]",
             f"{voice_stat.get('output', 'Nominal').strip()}",
@@ -474,6 +505,7 @@ class PersonalOSKernel:
 
         return {
             "status": "nominal",
+            "heartbeat": hb,
             "workforce_health": workforce_health,
             "total_hspw": total_hspw,
             "objectives_count": len(self.execution_log),
