@@ -22,6 +22,7 @@ from jarvisx.automation.capability_registry import CapabilityRealityRegistry
 from jarvisx.automation.companion_hud import CompanionHUDController
 from jarvisx.automation.native_companion_ui import NativeCompanionUI
 from jarvisx.automation.interactive_notifications import InteractiveNotificationEngine
+from jarvisx.automation.friday_tactical_mode import FridayTacticalMode
 
 __all__ = [
     "DesktopController",
@@ -54,4 +55,5 @@ __all__ = [
     "CompanionHUDController",
     "NativeCompanionUI",
     "InteractiveNotificationEngine",
+    "FridayTacticalMode",
 ]

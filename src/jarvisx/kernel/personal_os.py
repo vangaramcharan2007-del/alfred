@@ -37,6 +37,7 @@ from jarvisx.automation import (
     CompanionHUDController,
     NativeCompanionUI,
     InteractiveNotificationEngine,
+    FridayTacticalMode,
 )
 from jarvisx.productivity import (
     PersonalKnowledgeBase,
@@ -123,6 +124,7 @@ class PersonalOSKernel:
         knowledge_graph: Optional[KnowledgeGraphEngine] = None,
         agent_swarm: Optional[AgentSwarmEngine] = None,
         grand_finale: Optional[GrandFinaleReleaseEngine] = None,
+        friday_tactical: Optional[FridayTacticalMode] = None,
     ):
         self.id = str(uuid.uuid4())
         self.registry = registry or self._init_workforce()
@@ -185,6 +187,7 @@ class PersonalOSKernel:
         self.knowledge_graph = knowledge_graph or KnowledgeGraphEngine(memory_provider=self.real_voice.memory)
         self.agent_swarm = agent_swarm or AgentSwarmEngine()
         self.grand_finale = grand_finale or GrandFinaleReleaseEngine()
+        self.friday_tactical = friday_tactical or FridayTacticalMode()
 
         self.productivity_agent = (
             productivity_agent
@@ -237,7 +240,11 @@ class PersonalOSKernel:
 
         res: Dict[str, Any] = {}
 
-        if any(w in req_lower for w in ["grand finale", "master release", "v100 release", "sovereign finale"]):
+        if any(w in req_lower for w in ["friday", "friday tactical", "friday mode", "friday hud"]):
+            res = self.friday_tactical.activate_tactical_sweep(os_kernel=self, query=request)
+            self._kernel_hspw += 2.0
+
+        elif any(w in req_lower for w in ["grand finale", "master release", "v100 release", "sovereign finale"]):
             res = self.grand_finale.execute_grand_finale_release(os_kernel=self)
             self._kernel_hspw += 5.0
 
@@ -600,6 +607,7 @@ class PersonalOSKernel:
         kg_stat = self.knowledge_graph.get_knowledge_graph_telemetry()
         swarm_stat = self.agent_swarm.get_swarm_telemetry()
         finale_stat = self.grand_finale.get_finale_telemetry()
+        friday_stat = self.friday_tactical.get_friday_telemetry()
         workforce_health = self.registry.health()
         guardian_stat = self.guardian_agent.execute({"action": "report"}) if isinstance(self.guardian_agent, GuardianAgent) else {"output": "Offline"}
         study_stat = self.productivity_agent.execute({"action": "dashboard"}) if isinstance(self.productivity_agent, ProductivityAgent) else {"output": "Offline"}
@@ -652,6 +660,7 @@ class PersonalOSKernel:
             + kg_stat.get("graph_hspw", 0.0)
             + swarm_stat.get("swarm_hspw", 0.0)
             + finale_stat.get("finale_hspw", 0.0)
+            + friday_stat.get("friday_hspw", 0.0)
             + (len(suggs) * 1.5)
             + (2.5 if self.execution_log else 0.0)
         )
@@ -661,8 +670,11 @@ class PersonalOSKernel:
             "              ALFRED PERSONAL OS MASTER DASHBOARD                ",
             "=================================================================",
             f"Workforce Status: {workforce_health.get('workforce_status', 'NOMINAL')} ({workforce_health.get('active_healthy', 0)}/{workforce_health.get('total_workers', 0)} agents active)",
-            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (> +560 HSPW ACHIEVED!)",
+            f"Total Cumulative Time Saved: +{total_hspw:.2f} HSPW (> +575 HSPW ACHIEVED!)",
             f"Active Objectives Executed: {len(self.execution_log)} missions logged",
+            "-----------------------------------------------------------------",
+            "[F.R.I.D.A.Y. TACTICAL MODE & HUD PERSONA]",
+            f"{friday_stat.get('output', 'Nominal').strip()}",
             "-----------------------------------------------------------------",
             "[GRAND FINALE v100.0 MASTER RELEASE LOCK]",
             f"{finale_stat.get('output', 'Nominal').strip()}",
@@ -807,6 +819,7 @@ class PersonalOSKernel:
             "knowledge_graph": kg_stat,
             "agent_swarm": swarm_stat,
             "grand_finale": finale_stat,
+            "friday_tactical": friday_stat,
             "workforce_health": workforce_health,
             "total_hspw": total_hspw,
             "objectives_count": len(self.execution_log),
