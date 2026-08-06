@@ -13,6 +13,7 @@ from jarvisx.agents.guardian import GuardianAgent
 from jarvisx.agents.devops import DevOpsAgent
 from jarvisx.agents.synthesizer import SynthesizerAgent
 from jarvisx.agents.red_team import RedTeamVerifier
+from jarvisx.agents.agent_swarm_engine import AgentSwarmEngine, MicroAgentWorker
 
 __all__ = [
     "OperationalAgent",
@@ -25,4 +26,6 @@ __all__ = [
     "DevOpsAgent",
     "SynthesizerAgent",
     "RedTeamVerifier",
+    "AgentSwarmEngine",
+    "MicroAgentWorker",
 ]

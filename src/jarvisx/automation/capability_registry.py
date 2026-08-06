@@ -46,6 +46,7 @@ class CapabilityRealityRegistry:
             {"name": "edge model", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["npu", "gpu", "vram"], "requires_confirmation": False},
             {"name": "sovereign audit", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["filesystem", "os_kernel"], "requires_confirmation": False},
             {"name": "knowledge graph", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["sqlite"], "requires_confirmation": False},
+            {"name": "agent swarm", "execution_type": "PHYSICAL", "confidence": 1.0, "dependencies": ["os_kernel"], "requires_confirmation": False},
             {"name": "inbox triage", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "lecture synthesizer", "execution_type": "SIMULATED", "confidence": 0.7, "dependencies": ["sqlite"], "requires_confirmation": False},
             {"name": "finops optimizer", "execution_type": "SIMULATED", "confidence": 0.6, "dependencies": ["cloud_adapter"], "requires_confirmation": False},
@@ -80,7 +81,9 @@ class CapabilityRealityRegistry:
         name_clean = name.lower()
 
         # Intent mapping for kernel requests
-        if any(k in name_clean for k in ["knowledge graph", "causal graph", "graph reasoning", "infer causality"]):
+        if any(k in name_clean for k in ["agent swarm", "swarm dispatch", "micro worker", "parallel swarm"]):
+            name_clean = "agent swarm"
+        elif any(k in name_clean for k in ["knowledge graph", "causal graph", "graph reasoning", "infer causality"]):
             name_clean = "knowledge graph"
         elif any(k in name_clean for k in ["sovereign audit", "release manifest", "milestone lock"]):
             name_clean = "sovereign audit"
