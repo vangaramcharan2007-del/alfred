@@ -143,6 +143,18 @@ class JarvisCLI:
             return {"action": "friday", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # PHASE 93: COMPUTER USE & VISION LAYER (Screen, UI Detector, Actuation)
+        # ----------------------------------------------------------
+        elif command in ("vision", "screen", "see", "computer-use"):
+            from jarvisx.vision.vision_engine import VisionEngine
+            ve = VisionEngine()
+            if not args or "describe" in args.lower():
+                res = ve.describe_current_screen()
+            else:
+                res = ve.execute_visual_task(args)
+            return {"action": "vision", "status": res.get("status", "SUCCESS"), "result": res}
+
+        # ----------------------------------------------------------
         # VOICE PIPELINE & WAKEWORD
         # ----------------------------------------------------------
         elif command in ("voice", "assistant", "wake", "wakeword"):
