@@ -129,7 +129,7 @@ class JarvisCLI:
         elif command in ("models", "llm", "gateways"):
             from jarvisx.llm.llm_router import LLMRouter
             router = LLMRouter()
-            providers = [p.metadata() for p in router.registry.list_all()]
+            providers = [p.metadata() for p in router.registry.list_providers()]
             print(f"\n[CONNECTED LLM GATEWAYS & PROVIDERS]\nActive Providers: {len(providers)}")
             for p in providers:
                 print(f"  • {p['name']} ({p['provider_id']}): {', '.join(p.get('available_models', []))}")
@@ -444,7 +444,7 @@ class JarvisCLI:
     def _handle_models(self) -> Dict[str, Any]:
         from jarvisx.llm.llm_router import LLMRouter
         router = LLMRouter()
-        providers = [p.metadata() for p in router.registry.list_all()]
+        providers = [p.metadata() for p in router.registry.list_providers()]
 
         print("\n==========================================")
         print("  CONNECTED LLM GATEWAYS & PROVIDERS")
