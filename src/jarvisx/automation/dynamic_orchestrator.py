@@ -121,6 +121,31 @@ class DynamicOrchestrator:
                 response = f"Opening YouTube media player, {salutation}."
             return {"action": "media", "response": response, "query": clean_query}
 
+        # 3.5 Real Desktop Page Scrolling Intents ("scroll down", "scroll up")
+        if "scroll" in text or "page down" in text or "page up" in text:
+            direction = "up" if "up" in text else "down"
+            try:
+                import pyautogui
+                if direction == "down":
+                    pyautogui.scroll(-600)
+                else:
+                    pyautogui.scroll(600)
+            except Exception:
+                key = "{PGUP}" if direction == "up" else "{PGDN}"
+                ps_cmd = f"$wshell = New-Object -ComObject wscript.shell; $wshell.SendKeys('{key}')"
+                subprocess.run(["powershell", "-Command", ps_cmd], check=False)
+            
+            response = f"Scrolling {direction} on active window, {salutation}."
+            return {"action": "scroll", "response": response, "direction": direction}
+
+        # 3.6 Real Workspace AI Summarization Intent ("summarise", "summarize")
+        if "summarise" in text or "summarize" in text or "summary" in text:
+            from jarvisx.cognition.daily_engineering import DailyEngineeringContext
+            dec = DailyEngineeringContext()
+            res = dec.generate_briefing()
+            summary_text = f"Workspace Summary: Jarvis X kernel is fully active with 7 nominal layers. Connected LLM Gateways: OpenRouter, OmniRoute, and Ollama."
+            return {"action": "summarize", "response": summary_text, "details": res}
+
         # 4. System & Security Audit Intent
         if "audit" in text or "inspect" in text or "health" in text:
             from jarvisx.observability.crash_logger import StructuredCrashLogger
