@@ -33,6 +33,10 @@ class AutonomousAgentExecutor:
         self.decomposer = GoalDecomposer()
         self.planner = StepPlanner(self.registry)
         self.reflection_engine = ReflectionEngine()
+        
+        # Phase 92: Autonomous Skill Manager
+        from jarvisx.skills.skill_manager import PersistentSkillManager
+        self.skill_manager = PersistentSkillManager(self.registry)
 
     def execute_mission(
         self,
@@ -42,9 +46,14 @@ class AutonomousAgentExecutor:
     ) -> Dict[str, Any]:
         """Execute a complete autonomous mission from a single-sentence goal."""
         print(f"\n==================================================")
-        print(f"  AUTONOMOUS MISSION BRAIN (PHASE 91)")
+        print(f"  AUTONOMOUS MISSION BRAIN (PHASE 91 & 92)")
         print(f"==================================================")
         print(f"Goal: '{goal}'")
+
+        # Phase 92: Check & dynamically acquire missing skills
+        skill_res = self.skill_manager.acquire_skill_for_goal(goal)
+        if skill_res.get("status") == "REJECTED":
+            print(f"[Skill Evolution]: Skill acquisition rejected due to: {skill_res.get('reason')}")
 
         # 1. State: CREATED -> PLANNING
         # Decompose Goal into Structured Milestones
