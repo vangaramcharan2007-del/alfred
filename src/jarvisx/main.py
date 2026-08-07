@@ -81,6 +81,10 @@ async def async_main():
         first_word = sys.argv[1].lower()
         if first_word in {"analyze", "explain", "improve", "debug", "engineer"}:
             sys.exit(_handle_engineering_command(first_word, sys.argv[2:]))
+        elif first_word in {"desktop", "app", "widget"}:
+            from jarvisx.automation.desktop_app_launcher import launch_desktop_hud_and_voice
+            launch_desktop_hud_and_voice()
+            sys.exit(0)
 
     runtime = JarvisRuntime()
     await runtime.start(print_banner=True)
