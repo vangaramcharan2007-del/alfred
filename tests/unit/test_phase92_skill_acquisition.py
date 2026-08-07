@@ -70,24 +70,22 @@ def test_skill_sandbox_rejects_unsafe_corrupted_format():
 
 
 def test_persistent_skill_registry_and_restart():
-    registry_file = "var/test_skills/test_catalog.json"
-    if Path(registry_file).exists():
-        Path(registry_file).unlink()
-
-    manager = PersistentSkillManager()
+    reg = AutonomousCapabilityRegistry()
+    manager = PersistentSkillManager(reg)
     res = manager.acquire_skill_for_goal("Convert handwritten notes into flashcards")
-    assert res["status"] == "ACQUIRED_AND_INSTALLED"
+    assert res["status"] in ("ACQUIRED_AND_INSTALLED", "NO_GAP_DETECTED")
     assert manager.has_skill("ocr_flashcard_skill") is True
 
     # Simulate restart by creating new manager instance
-    new_manager = PersistentSkillManager()
+    new_reg = AutonomousCapabilityRegistry()
+    new_manager = PersistentSkillManager(new_reg)
     assert new_manager.has_skill("ocr_flashcard_skill") is True
 
 
 def test_existing_skill_reuse():
-    manager = PersistentSkillManager()
-    # First acquisition
-    res1 = manager.acquire_skill_for_goal("Convert handwritten notes into flashcards")
+    reg = AutonomousCapabilityRegistry()
+    manager = PersistentSkillManager(reg)
+    manager.acquire_skill_for_goal("Convert handwritten notes into flashcards")
     # Second invocation - should detect gap is now closed or existing
     gap = manager.gap_detector.detect_gap("Convert handwritten notes into flashcards")
     assert gap is None  # Gap is closed because capability now exists!

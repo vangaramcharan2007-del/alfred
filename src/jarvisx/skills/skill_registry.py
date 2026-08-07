@@ -32,7 +32,8 @@ class PersistentSkillRegistry:
 
     def register_installed_skill(self, metadata: SkillMetadata) -> None:
         """Register or update a validated installed skill."""
-        metadata.status = SkillStatus.INSTALLED
+        if metadata.status in (SkillStatus.DISCOVERED, SkillStatus.GENERATED, SkillStatus.VALIDATED):
+            metadata.status = SkillStatus.INSTALLED
         self.catalog[metadata.name] = metadata.to_dict()
         self.save_catalog()
 
