@@ -58,12 +58,12 @@ Available Tools:
 
         # 1. Attempt Local Ollama / OpenRouter Free Tier LLM Call
         try:
-            llm_res = self.router.route_prompt(
-                prompt=system_prompt,
-                task_type="intent_parsing",
-                temperature=0.1
-            )
-            raw_text = llm_res.get("response", "").strip()
+            provider = self.router.registry.get("openrouter.gateway") or self.router.registry.get("ollama.local")
+            if provider:
+                llm_res = provider.generate(prompt=system_prompt)
+                raw_text = llm_res.get("response", "").strip() if isinstance(llm_res, dict) else str(llm_res).strip()
+            else:
+                raw_text = ""
             
             # Extract JSON block
             if "{" in raw_text and "}" in raw_text:
