@@ -124,12 +124,23 @@ class JarvisCLI:
             return {"action": "report", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
-        # VOICE PIPELINE
+        # F.R.I.D.A.Y. TACTICAL MODE & HUD OVERLAY
         # ----------------------------------------------------------
-        elif command in ("voice", "assistant"):
-            from jarvisx.presence.voice.voice_assistant import VoiceAssistant
-            va = VoiceAssistant(use_tts=False)
-            res = va.process_voice_command(audio_override=args if args else None)
+        elif command in ("friday", "friday-tactical", "hud", "tactical"):
+            from jarvisx.automation import FridayTacticalMode
+            friday = FridayTacticalMode(theme="CYAN_HOLOGRAPHIC_TACTICAL")
+            res = friday.activate_tactical_sweep()
+            print(f"\n[F.R.I.D.A.Y. TACTICAL HUD ACTIVE]\nPersona: {res['persona']}\nSweep Result: {res['tactical_response']}\nReclaimed: +{res['friday_hspw']} HSPW\n")
+            return {"action": "friday", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
+        # VOICE PIPELINE & WAKEWORD
+        # ----------------------------------------------------------
+        elif command in ("voice", "assistant", "wake", "wakeword"):
+            from jarvisx.automation.real_voice_runtime import RealVoiceRuntime
+            vr = RealVoiceRuntime()
+            res = vr.process_voice_intent(args if args else "hey jarvis status check")
+            print(f"\n[VOICE PIPELINE & WAKEWORD ACTIVE]\nIntent: {res['transcript']}\nResponse: {res['response_speech']}\nStatus: {res['status']}\n")
             return {"action": "voice", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------

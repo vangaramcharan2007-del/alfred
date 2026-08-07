@@ -90,7 +90,7 @@ async def async_main():
 
         top_commands = {
             "status", "health", "history", "help", "--help", "-h", "doctor", "chat", "models",
-            "briefing", "context", "daily",
+            "briefing", "context", "daily", "friday", "hud", "wake", "wakeword", "tactical",
             "daemon", "report", "time-saved", "metrics", "voice", "assistant",
             "benchmark", "autonomy", "eval"
         }

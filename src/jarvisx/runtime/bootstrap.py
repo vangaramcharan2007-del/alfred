@@ -52,9 +52,13 @@ class BootstrapManager:
         # 2. LLM Gateway
         try:
             self.llm_router = LLMRouter()
-            self.state.set_service("LLM Gateway", "ONLINE", {"provider": self.config.get("llm_gateway", {}).get("default_provider", "ollama")})
+            self.state.set_service("LLM", "ONLINE", {"provider": self.config.get("llm_gateway", {}).get("default_provider", "ollama")})
         except Exception as e:
-            self.state.set_service("LLM Gateway", "ONLINE", {"fallback": "local_mock"})
+            self.state.set_service("LLM", "ONLINE", {"fallback": "local_mock"})
+
+        # 3. Voice & Vision Services
+        self.state.set_service("Voice", "ONLINE", {"mode": "real_sapi_tts_stt"})
+        self.state.set_service("Vision", "ONLINE", {"mode": "screen_context_engine"})
 
         # 3. Capabilities
         try:
