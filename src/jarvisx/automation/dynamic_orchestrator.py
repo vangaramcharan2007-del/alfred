@@ -99,7 +99,43 @@ class DynamicOrchestrator:
         text = raw_text.lower().strip()
         salutation = "Sir" if persona == "ALFRED" else "Boss"
 
-        # 1. Real PC Storage & Cache Cleaning Work
+        # 1. Download & Install Application Work
+        if "download" in text or "install app" in text or "get app" in text:
+            from jarvisx.automation.super_stark_automation import SuperStarkAutomation
+            stark = SuperStarkAutomation()
+            res = stark.download_and_install_app(text)
+            response = f"Initiated package installation for application, {salutation}."
+            return {"action": "download", "response": response, "details": res}
+
+        # 2. GCR Notes & Lecture Memory Ingestion Work
+        if "gcr" in text or "notes" in text or "teacher" in text or "lecture" in text:
+            from jarvisx.automation.super_stark_automation import SuperStarkAutomation
+            stark = SuperStarkAutomation()
+            res = stark.ingest_gcr_notes()
+            count = res.get("ingested_count", 0)
+            response = f"Ingested {count} Google Classroom lecture notes into Knowledge Graph memory, {salutation}."
+            return {"action": "gcr_notes", "response": response, "details": res}
+
+        # 3. Important Priority Notifications Reader Work
+        if "notification" in text or "important" in text or "updates" in text:
+            from jarvisx.automation.super_stark_automation import SuperStarkAutomation
+            stark = SuperStarkAutomation()
+            alerts = stark.fetch_important_notifications()
+            msg = alerts[0]["message"] if alerts else "No critical unread notifications."
+            response = f"Important notification: {msg}, {salutation}."
+            return {"action": "notification", "response": response, "alerts": alerts}
+
+        # 4. Calls & Text Messages Work
+        if "call" in text or "text" in text or "message" in text:
+            from jarvisx.automation.super_stark_automation import SuperStarkAutomation
+            stark = SuperStarkAutomation()
+            contact = text.replace("call", "").replace("text", "").replace("message", "").replace("whatsapp", "").strip() or "contact"
+            msg = "Hello, contacting you via Alfred OS." if "text" in text or "message" in text else None
+            res = stark.dispatch_call_or_text(contact, message=msg)
+            response = f"Dispatched communication request for {contact}, {salutation}."
+            return {"action": "call_text", "response": response, "details": res}
+
+        # 5. Real PC Storage & Cache Cleaning Work
         if "clean" in text or "storage" in text or "temp" in text:
             res = self.cleaner.scan_and_clean_temp_bloat(".", delete=True)
             mb = round(res.get("reclaimed_bytes", 0) / (1024 * 1024), 2)

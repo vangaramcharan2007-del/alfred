@@ -54,14 +54,17 @@ class SovereignWaveformOverlay:
             return {"primary": "#00f0ff", "glow": "#004455", "bg": "#020a0f", "title": "🎩 ALFRED BUTLER OS"}
 
     def speak(self, text: str):
-        """Execute real Windows TTS voice speech synthesis and animate waveform."""
+        """Execute real Windows TTS voice speech synthesis (Male for Alfred, Female for F.R.I.D.A.Y.)."""
         previous_state = self.state
         self.state = "SPEAKING"
         print(f"[{self.persona} TTS]: {text}")
 
         try:
             escaped_text = text.replace("'", "''").replace('"', '')
-            ps_cmd = f"Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Volume = 100; $s.Speak('{escaped_text}')"
+            if self.persona == "FRIDAY":
+                ps_cmd = f"Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.SelectVoiceByHints([System.Speech.Synthesis.VoiceGender]::Female); $s.Volume = 100; $s.Speak('{escaped_text}')"
+            else:
+                ps_cmd = f"Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Volume = 100; $s.Speak('{escaped_text}')"
             subprocess.run(["powershell", "-Command", ps_cmd], check=False)
         except Exception as e:
             print(f"[TTS Error]: {e}")
@@ -72,10 +75,10 @@ class SovereignWaveformOverlay:
         """Toggle between Alfred Butler Mode and F.R.I.D.A.Y. Tactical Mode."""
         if self.persona == "ALFRED":
             self.persona = "FRIDAY"
-            threading.Thread(target=lambda: self.speak("F.R.I.D.A.Y. Tactical Mode Engaged, Boss."), daemon=True).start()
+            threading.Thread(target=lambda: self.speak("F.R.I.D.A.Y. Tactical Agent active under Alfred, Boss."), daemon=True).start()
         else:
             self.persona = "ALFRED"
-            threading.Thread(target=lambda: self.speak("Very good, Sir. Alfred at your service."), daemon=True).start()
+            threading.Thread(target=lambda: self.speak("Very good, Sir. Alfred Butler at your service."), daemon=True).start()
 
     def handle_voice_intent(self, text: str):
         """Parse voice intent dynamically via DynamicOrchestrator."""
@@ -111,7 +114,7 @@ class SovereignWaveformOverlay:
         t.start()
 
     def launch_overlay(self):
-        """Launch top-most glowing waveform UI on desktop."""
+        """Launch ultra-minimalist top-most glowing neon arc status pill on desktop."""
         if not tk:
             print("[WaveformOverlay] Tkinter not available.")
             return
@@ -120,48 +123,38 @@ class SovereignWaveformOverlay:
         self.start_microphone_listener()
 
         self.root = tk.Tk()
-        self.root.title("Alfred Sovereign Waveform")
+        self.root.title("Alfred Sovereign Overlay")
 
         sw = self.root.winfo_screenwidth()
-        w = 440
-        h = 80
+        w = 260
+        h = 30
         x = (sw - w) // 2
-        y = 15
+        y = 8
 
         self.root.geometry(f"{w}x{h}+{x}+{y}")
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
-        self.root.attributes("-alpha", 0.94)
+        self.root.attributes("-alpha", 0.90)
 
         colors = self.get_theme_colors()
         self.root.configure(bg=colors["bg"])
 
-        # Main Frame
+        # Minimal Border Pill Frame
         self.border_frame = tk.Frame(self.root, bg=colors["primary"], bd=1)
         self.border_frame.pack(fill="both", expand=True)
 
         self.inner_frame = tk.Frame(self.border_frame, bg=colors["bg"])
-        self.inner_frame.pack(fill="both", expand=True, padx=2, pady=2)
+        self.inner_frame.pack(fill="both", expand=True, padx=1, pady=1)
 
-        # Title Label
-        self.title_label = tk.Label(
-            self.inner_frame,
-            text=colors["title"],
-            font=("Segoe UI", 9, "bold"),
-            fg=colors["primary"],
-            bg=colors["bg"],
-        )
-        self.title_label.pack(pady=(4, 0))
-
-        # Canvas Waveform
+        # Canvas Waveform Minimalist Line
         self.canvas = tk.Canvas(
             self.inner_frame,
-            width=420,
-            height=36,
+            width=256,
+            height=26,
             bg=colors["bg"],
             highlightthickness=0,
         )
-        self.canvas.pack()
+        self.canvas.pack(expand=True)
 
         # Footer Buttons Frame
         btn_frame = tk.Frame(self.inner_frame, bg=colors["bg"])
