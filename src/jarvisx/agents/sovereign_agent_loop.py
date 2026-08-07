@@ -102,7 +102,12 @@ class SovereignAgentLoop:
             else:
                 res = self.orchestrator.execute_voice_command(user_goal, persona=persona)
 
-            # Observe Result
+            # Observe Result & Speak Step Output Out Loud
+            if isinstance(res, dict) and "response" in res and res["response"]:
+                if speak_callback:
+                    speak_callback(res["response"])
+                    time.sleep(1.0)
+
             results.append({"step": step_num, "description": desc, "result": res})
             time.sleep(0.5)
 
