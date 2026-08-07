@@ -384,6 +384,9 @@ class JarvisCLI:
             result = disk_usage(path)
             return {"action": "disk", "status": result["status"], "result": result}
 
+        if command in ("models", "llm", "gateways") or cmd in ("models", "llm", "gateways"):
+            return self._handle_models()
+
         print("\nAlfred: Mission accepted.\n")
         mission_res = await self.mission_mgr.create_and_execute_mission(args)
         res = mission_res["result"]
