@@ -133,6 +133,15 @@ async def async_main():
 
 
 def main():
+    if len(sys.argv) > 1:
+        first_word = sys.argv[1].lower()
+        if first_word in {"desktop", "app", "widget", "waveform", "overlay"}:
+            from jarvisx.automation.glowing_waveform_overlay import launch_sovereign_waveform
+            try:
+                launch_sovereign_waveform()
+            except KeyboardInterrupt:
+                print("\n[Alfred Overlay]: Closed cleanly.")
+            return 0
     asyncio.run(async_main())
 
 

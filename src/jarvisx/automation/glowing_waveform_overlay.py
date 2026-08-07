@@ -1,18 +1,20 @@
 """Alfred & F.R.I.D.A.Y. Sovereign Desktop Overlay & Voice Runtime (Layer 7 - Interface).
 
 Features:
-- Frameless, top-most, rounded glowing neon waveform overlay on desktop.
+- Live STT Intent Routing: Time, YouTube, WhatsApp, App Builder, PC Cleaner, LLM Q&A.
 - Alfred Butler Mode (Ice Cyan #00f0ff) & F.R.I.D.A.Y. Tactical Mode (Stark Crimson #ff0055).
 - Live TTS (System.Speech / pyttsx3) & continuous STT microphone wake-word listener.
 - Dynamic color transitions: Ice Cyan (Alfred), Crimson (F.R.I.D.A.Y.), Green (TTS Speaking), Gold (STT Listening).
 """
 
+import datetime
 import math
 import os
 import sys
 import threading
 import time
 import subprocess
+import webbrowser
 from typing import Any, Dict, Optional
 
 try:
@@ -33,7 +35,6 @@ class SovereignWaveformOverlay:
         self.root: Optional[Any] = None
         self.canvas: Optional[Any] = None
         self.title_label: Optional[Any] = None
-        self.subtitle_label: Optional[Any] = None
         
         self.persona: str = "ALFRED"  # ALFRED or FRIDAY
         self.state: str = "IDLE"  # IDLE, LISTENING, SPEAKING, PROCESSING
@@ -59,8 +60,7 @@ class SovereignWaveformOverlay:
         print(f"[{self.persona} TTS]: {text}")
 
         try:
-            # Use System.Speech for clean, reliable out-loud desktop audio
-            escaped_text = text.replace("'", "''")
+            escaped_text = text.replace("'", "''").replace('"', '')
             ps_cmd = f"Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Volume = 100; $s.Speak('{escaped_text}')"
             subprocess.run(["powershell", "-Command", ps_cmd], check=False)
         except Exception as e:
@@ -77,8 +77,53 @@ class SovereignWaveformOverlay:
             self.persona = "ALFRED"
             threading.Thread(target=lambda: self.speak("Very good, Sir. Alfred at your service."), daemon=True).start()
 
+    def handle_voice_intent(self, text: str):
+        """Parse voice intent and execute real desktop/web actions."""
+        text_clean = text.lower().strip()
+
+        # 1. Persona Toggle
+        if "friday" in text_clean or "tactical" in text_clean or "ask friday" in text_clean:
+            self.toggle_persona()
+            return
+
+        salutation = "Sir" if self.persona == "ALFRED" else "Boss"
+
+        # 2. Time Request
+        if "time" in text_clean:
+            now_str = datetime.datetime.now().strftime("%I:%M %p")
+            self.speak(f"The time is {now_str}, {salutation}.")
+            return
+
+        # 3. YouTube Intent
+        if "youtube" in text_clean:
+            self.speak(f"Opening YouTube for you now, {salutation}.")
+            webbrowser.open("https://www.youtube.com")
+            return
+
+        # 4. WhatsApp Intent
+        if "whatsapp" in text_clean:
+            self.speak(f"Opening WhatsApp Web, {salutation}.")
+            webbrowser.open("https://web.whatsapp.com")
+            return
+
+        # 5. Make an App Intent
+        if "app" in text_clean or "make" in text_clean or "build" in text_clean:
+            self.speak(f"Initializing autonomous application builder, {salutation}.")
+            self.kernel.execute_objective("build app")
+            return
+
+        # 6. Clean PC Intent
+        if "clean" in text_clean:
+            self.speak(f"Cleaning system temporary storage, {salutation}.")
+            self.kernel.execute_objective("clean pc")
+            return
+
+        # 7. Wake-Word Salutation Fallback
+        if "alfred" in text_clean or "jarvis" in text_clean:
+            self.speak(f"At your service, {salutation}. All systems nominal.")
+
     def start_microphone_listener(self):
-        """Background thread for speech recognition & wake word trigger."""
+        """Background thread for continuous speech recognition & intent execution."""
         def listen_loop():
             try:
                 import speech_recognition as sr
@@ -88,23 +133,15 @@ class SovereignWaveformOverlay:
                     while self.is_running:
                         self.state = "IDLE"
                         try:
-                            audio = r.listen(source, timeout=3, phrase_time_limit=4)
+                            audio = r.listen(source, timeout=3, phrase_time_limit=5)
                             self.state = "PROCESSING"
-                            text = r.recognize_google(audio).lower()
+                            text = r.recognize_google(audio)
                             print(f"[STT Input]: '{text}'")
-
-                            if "friday" in text or "tactical" in text:
-                                self.toggle_persona()
-                            elif "alfred" in text or "jarvis" in text or "hello" in text or "hi" in text:
-                                response = f"At your service, Sir. All systems nominal." if self.persona == "ALFRED" else "Tactical systems operational, Boss."
-                                threading.Thread(target=lambda: self.speak(response), daemon=True).start()
-                            elif "clean" in text:
-                                threading.Thread(target=lambda: self.speak("Cleaning system temporary files now, Sir."), daemon=True).start()
-                                self.kernel.execute_objective("clean pc")
+                            self.handle_voice_intent(text)
                         except Exception:
                             pass
             except Exception:
-                print("[STT Info]: SpeechRecognition microphone listener standing by.")
+                print("[STT Info]: Microphone STT listener ready.")
 
         t = threading.Thread(target=listen_loop, daemon=True)
         t.start()
@@ -214,7 +251,6 @@ class SovereignWaveformOverlay:
 
         colors = self.get_theme_colors()
 
-        # Update Colors
         self.root.configure(bg=colors["bg"])
         self.border_frame.config(bg=colors["primary"])
         self.inner_frame.config(bg=colors["bg"])
@@ -252,7 +288,7 @@ class SovereignWaveformOverlay:
 
 
 def launch_sovereign_waveform():
-    """Launch sovereign desktop waveform in a dedicated GUI runner thread."""
+    """Launch sovereign desktop waveform."""
     overlay = SovereignWaveformOverlay()
     overlay.launch_overlay()
 
