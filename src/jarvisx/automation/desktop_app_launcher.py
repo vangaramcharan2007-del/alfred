@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 from jarvisx.kernel.personal_os import PersonalOSKernel
 from jarvisx.automation.native_companion_ui import NativeCompanionUI
 from jarvisx.automation.friday_tactical_mode import FridayTacticalMode
-from jarvisx.automation.real_voice_runtime import RealVoiceRuntime
+from jarvisx.automation.real_voice_runtime import RealVoicePipeline
 
 
 def launch_desktop_hud_and_voice():
@@ -26,7 +26,7 @@ def launch_desktop_hud_and_voice():
 
     kernel = PersonalOSKernel()
     friday = FridayTacticalMode(theme="CYAN_HOLOGRAPHIC_TACTICAL")
-    voice = RealVoiceRuntime()
+    voice = RealVoicePipeline()
 
     # 1. Activate F.R.I.D.A.Y. tactical sweep
     sweep_res = friday.activate_tactical_sweep(os_kernel=kernel)

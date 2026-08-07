@@ -146,8 +146,8 @@ class JarvisCLI:
         # VOICE PIPELINE & WAKEWORD
         # ----------------------------------------------------------
         elif command in ("voice", "assistant", "wake", "wakeword"):
-            from jarvisx.automation.real_voice_runtime import RealVoiceRuntime
-            vr = RealVoiceRuntime()
+            from jarvisx.automation.real_voice_runtime import RealVoicePipeline
+            vr = RealVoicePipeline()
             res = vr.process_voice_intent(args if args else "hey jarvis status check")
             print(f"\n[VOICE PIPELINE & WAKEWORD ACTIVE]\nIntent: {res['transcript']}\nResponse: {res['response_speech']}\nStatus: {res['status']}\n")
             return {"action": "voice", "status": "SUCCESS", "result": res}
