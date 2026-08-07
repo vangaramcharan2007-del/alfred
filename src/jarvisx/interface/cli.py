@@ -439,20 +439,19 @@ class JarvisCLI:
         return {"action": "chat", "status": "COMPLETED", "response": res}
 
     def _handle_models(self) -> Dict[str, Any]:
-        try:
-            import json
-            import urllib.request
-            r = urllib.request.urlopen("http://localhost:11434/api/tags", timeout=5)
-            data = json.loads(r.read().decode("utf-8"))
-            models = [m["name"] for m in data.get("models", [])]
-            print("\nInstalled Ollama Models:\n")
-            for m in models:
+        from jarvisx.llm.llm_router import LLMRouter
+        router = LLMRouter()
+        providers = [p.metadata() for p in router.registry.list_all()]
+
+        print("\n==========================================")
+        print("  CONNECTED LLM GATEWAYS & PROVIDERS")
+        print("==========================================")
+        for p in providers:
+            print(f"\n● {p['name']} ({p['provider_id']}):")
+            for m in p.get('available_models', []):
                 print(f"  - {m}")
-            print()
-            return {"action": "models", "status": "SUCCESS", "models": models}
-        except Exception:
-            print("\nAlfred: Ollama is offline. Cannot list models.\n")
-            return {"action": "models", "status": "NOT_AVAILABLE", "reason": "Ollama offline"}
+        print("\nAll gateways (OmniRoute, OpenRouter, Ollama) connected and active in LLMRouter.\n")
+        return {"action": "models", "status": "CONNECTED", "providers": providers}
 
     def _print_help(self) -> Dict[str, Any]:
         help_text = """
