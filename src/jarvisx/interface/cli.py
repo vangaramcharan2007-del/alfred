@@ -124,8 +124,17 @@ class JarvisCLI:
             return {"action": "report", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
-        # F.R.I.D.A.Y. TACTICAL MODE & HUD OVERLAY
+        # LLM GATEWAYS: OmniRouter, OpenRouter, Ollama
         # ----------------------------------------------------------
+        elif command in ("models", "llm", "gateways"):
+            from jarvisx.llm.llm_router import LLMRouter
+            router = LLMRouter()
+            providers = [p.metadata() for p in router.registry.list_all()]
+            print(f"\n[CONNECTED LLM GATEWAYS & PROVIDERS]\nActive Providers: {len(providers)}")
+            for p in providers:
+                print(f"  • {p['name']} ({p['provider_id']}): {', '.join(p.get('available_models', []))}")
+            print()
+            return {"action": "models", "status": "CONNECTED", "providers": providers}
         elif command in ("friday", "friday-tactical", "hud", "tactical"):
             from jarvisx.automation import FridayTacticalMode
             friday = FridayTacticalMode(theme="CYAN_HOLOGRAPHIC_TACTICAL")

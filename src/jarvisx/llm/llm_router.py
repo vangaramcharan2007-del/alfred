@@ -7,6 +7,7 @@ from jarvisx.llm.llm_history import LLMHistoryManager
 from jarvisx.llm.llm_registry import LLMRegistry
 from jarvisx.llm.ollama_provider import OllamaLLMProvider
 from jarvisx.llm.omniroute_provider import OmniRouteLLMProvider
+from jarvisx.llm.openrouter_provider import OpenRouterLLMProvider
 
 class LLMRouter:
     def __init__(
@@ -28,6 +29,8 @@ class LLMRouter:
             self.registry.register(OllamaLLMProvider())
         if not self.registry.get("omniroute.gateway"):
             self.registry.register(OmniRouteLLMProvider())
+        if not self.registry.get("openrouter.gateway"):
+            self.registry.register(OpenRouterLLMProvider())
 
     def _populate_profiles(self):
         self.profiles = [
