@@ -106,6 +106,26 @@ async def async_main():
 
         if first_word in {"status", "history"}:
             print(json.dumps(res, indent=2))
+    else:
+        print("\nType your commands at the 'alfred >' prompt. Type 'exit' or 'quit' to exit.\n")
+        while True:
+            try:
+                user_input = input("alfred > ").strip()
+                if not user_input:
+                    continue
+                if user_input.lower() in {"exit", "quit"}:
+                    print("Exiting Alfred interactive session. Goodbye, Boss.")
+                    break
+                res = await runtime.cli.handle_command_async(user_input)
+                if isinstance(res, dict) and "output" in res:
+                    print(res["output"])
+                elif isinstance(res, str):
+                    print(res)
+                else:
+                    print(json.dumps(res, indent=2, default=str))
+            except (KeyboardInterrupt, EOFError):
+                print("\nExiting Alfred interactive session. Goodbye, Boss.")
+                break
 
 
 def main():
