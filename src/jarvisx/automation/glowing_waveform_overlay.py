@@ -81,11 +81,20 @@ class SovereignWaveformOverlay:
             threading.Thread(target=lambda: self.speak("Very good, Sir. Alfred Butler at your service."), daemon=True).start()
 
     def handle_voice_intent(self, text: str):
-        """Parse voice intent dynamically via DynamicOrchestrator."""
-        from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
-        orchestrator = DynamicOrchestrator()
+        """Parse voice intent dynamically via FreeLLMIntentOrchestrator (100% Free / ₹0)."""
+        clean = text.lower().strip()
+        if "friday" in clean or "tactical" in clean:
+            self.toggle_persona()
+            return
+        elif "alfred" in clean:
+            self.persona = "ALFRED"
+            self.speak("Alfred Butler OS active, Sir.")
+            return
 
-        res = orchestrator.execute_voice_command(text, persona=self.persona)
+        from jarvisx.llm.free_llm_intent_orchestrator import FreeLLMIntentOrchestrator
+        orchestrator = FreeLLMIntentOrchestrator()
+
+        res = orchestrator.process_intent_with_llm(text, persona=self.persona)
         if "response" in res and res["response"]:
             self.speak(res["response"])
 
