@@ -58,9 +58,13 @@ Available Tools:
 
         # 1. Attempt Local Ollama / OpenRouter Free Tier LLM Call
         try:
+            import asyncio
             provider = self.router.registry.get("openrouter.gateway") or self.router.registry.get("ollama.local")
             if provider:
-                llm_res = provider.generate(prompt=system_prompt)
+                if asyncio.iscoroutinefunction(provider.generate):
+                    llm_res = asyncio.run(provider.generate(prompt=system_prompt))
+                else:
+                    llm_res = provider.generate(prompt=system_prompt)
                 raw_text = llm_res.get("response", "").strip() if isinstance(llm_res, dict) else str(llm_res).strip()
             else:
                 raw_text = ""
