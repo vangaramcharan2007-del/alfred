@@ -128,3 +128,21 @@ class OpenRouterLLMProvider(LLMProvider):
             "cost": 0.0,
             "tokens_generated": len(json_text.split())
         }
+
+    async def stream(self, prompt: str, model: Optional[str] = None, **kwargs) -> AsyncGenerator[str, None]:
+        chosen_model = model or "openrouter/google/gemini-2.0-flash-001"
+        tokens = [f"[OpenRouter {chosen_model}] ", "Streaming ", "response: ", prompt[:50], "..."]
+        for token in tokens:
+            yield token
+
+    def metadata(self) -> Dict[str, Any]:
+        return {
+            "provider_id": "openrouter.gateway",
+            "name": "OpenRouter Gateway",
+            "version": "1.0.0",
+            "type": "external_gateway",
+            "available_models": self.available_models
+        }
+
+    def capabilities(self) -> List[str]:
+        return ["chat", "coding", "streaming", "reasoning", "multi_model"]
