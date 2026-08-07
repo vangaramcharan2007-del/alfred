@@ -81,7 +81,7 @@ class SovereignWaveformOverlay:
             threading.Thread(target=lambda: self.speak("Very good, Sir. Alfred Butler at your service."), daemon=True).start()
 
     def handle_voice_intent(self, text: str):
-        """Parse voice intent dynamically via FreeLLMIntentOrchestrator (100% Free / ₹0)."""
+        """Parse voice intent and execute Goal-Driven ReAct Agent Loop."""
         clean = text.lower().strip()
         if "friday" in clean or "tactical" in clean:
             self.toggle_persona()
@@ -91,12 +91,14 @@ class SovereignWaveformOverlay:
             self.speak("Alfred Butler OS active, Sir.")
             return
 
-        from jarvisx.llm.free_llm_intent_orchestrator import FreeLLMIntentOrchestrator
-        orchestrator = FreeLLMIntentOrchestrator()
+        from jarvisx.agents.sovereign_agent_loop import SovereignAgentLoop
+        agent_loop = SovereignAgentLoop()
 
-        res = orchestrator.process_intent_with_llm(text, persona=self.persona)
-        if "response" in res and res["response"]:
-            self.speak(res["response"])
+        # Run multi-step agent mission loop with real-time speech feedback
+        threading.Thread(
+            target=lambda: agent_loop.run_agent_loop(text, persona=self.persona, speak_callback=self.speak),
+            daemon=True
+        ).start()
 
     def start_microphone_listener(self):
         """Background thread for continuous speech recognition & intent execution."""
