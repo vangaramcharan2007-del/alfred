@@ -35,9 +35,10 @@ class DynamicOrchestrator:
         if not clean_name:
             return {"status": "FAILED", "reason": "Empty app name"}
 
-        # Common Web Applications Fallback
+        # Common Web Applications & Social Services
         web_apps = {
             "youtube": "https://www.youtube.com",
+            "instagram": "https://www.instagram.com",
             "whatsapp": "https://web.whatsapp.com",
             "spotify": "https://open.spotify.com",
             "github": "https://github.com",
@@ -46,6 +47,10 @@ class DynamicOrchestrator:
             "twitter": "https://twitter.com",
             "x": "https://x.com",
             "chatgpt": "https://chatgpt.com",
+            "facebook": "https://www.facebook.com",
+            "reddit": "https://www.reddit.com",
+            "linkedin": "https://www.linkedin.com",
+            "netflix": "https://www.netflix.com",
         }
 
         for key, url in web_apps.items():
@@ -84,15 +89,15 @@ class DynamicOrchestrator:
             except Exception:
                 pass
 
+        # Fallback to direct Web URL opening
+        target_url = f"https://www.{clean_name}.com" if not clean_name.startswith("http") else clean_name
         try:
-            subprocess.Popen([clean_name], shell=True)
-            return {"status": "LAUNCHED_SHELL", "target": clean_name}
+            webbrowser.open(target_url)
+            return {"status": "LAUNCHED_WEB_DIRECT", "target": clean_name, "url": target_url}
         except Exception:
-            pass
-
-        search_url = f"https://www.google.com/search?q={clean_name}"
-        webbrowser.open(search_url)
-        return {"status": "SEARCHED_WEB", "target": clean_name, "url": search_url}
+            search_url = f"https://www.google.com/search?q={clean_name}"
+            webbrowser.open(search_url)
+            return {"status": "SEARCHED_WEB", "target": clean_name, "url": search_url}
 
     def execute_voice_command(self, raw_text: str, persona: str = "ALFRED") -> Dict[str, Any]:
         """Dynamically execute real work automation tasks with robust intent parsing."""
@@ -108,6 +113,13 @@ class DynamicOrchestrator:
         # 2. Exit / Close Intent
         if "exit" in text or "quit" in text or "close" in text or "dismiss" in text:
             return {"action": "exit", "response": f"Shutting down overlay. Goodbye, {salutation}."}
+
+        # 3. Direct Search Intent ("search dream", "search X", "find X")
+        if text.startswith("search ") or text.startswith("find "):
+            query = text.replace("search", "").replace("find", "").replace("for", "").strip()
+            url = f"https://www.youtube.com/results?search_query={query}"
+            webbrowser.open(url)
+            return {"action": "search", "response": f"Searching '{query}' for you on YouTube, {salutation}."}
 
         # 3. Media & Video Playback Intents ("play X", "could you play X", "play video")
         if "play" in text or "watch" in text:
@@ -232,9 +244,9 @@ class DynamicOrchestrator:
             response = f"The time is {now_str}, {salutation}."
             return {"action": "speak", "response": response, "type": "time"}
 
-        # 15. Dynamic App Launching ("open X", "launch X", "start X")
-        if text.startswith("open ") or text.startswith("launch ") or text.startswith("start "):
-            app_target = text.split(maxsplit=1)[-1]
+        # 15. Dynamic App Launching ("open X", "launch X", "start X", or single-word app names)
+        app_target = text.replace("open ", "").replace("launch ", "").replace("start ", "").strip()
+        if text.startswith(("open", "launch", "start")) or app_target in {"youtube", "instagram", "whatsapp", "spotify", "github", "gmail", "google", "twitter", "x", "chatgpt", "facebook", "reddit", "linkedin", "netflix"}:
             res = self.find_and_launch_app(app_target)
             response = f"Opening {app_target} for you now, {salutation}."
             return {"action": "launch", "response": response, "target": app_target, "details": res}
