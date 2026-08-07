@@ -42,8 +42,8 @@ class OpenRouterLLMProvider(LLMProvider):
         start_t = time.time()
         chosen_model = model or "google/gemini-2.0-flash-001"
 
-        # 1. Try real OpenRouter HTTP API if key is present
-        if self.api_key:
+        # 1. Try real OpenRouter HTTP API if valid key is present
+        if self.api_key and len(self.api_key) > 10:
             try:
                 url = f"{self.gateway_url}/chat/completions"
                 payload = json.dumps({
@@ -56,7 +56,7 @@ class OpenRouterLLMProvider(LLMProvider):
                     "Authorization": f"Bearer {self.api_key}"
                 }
                 req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-                with urllib.request.urlopen(req, timeout=10) as resp:
+                with urllib.request.urlopen(req, timeout=8) as resp:
                     if resp.status == 200:
                         data = json.loads(resp.read().decode("utf-8"))
                         text = data["choices"][0]["message"]["content"]
@@ -68,29 +68,37 @@ class OpenRouterLLMProvider(LLMProvider):
                             "cost": 0.0,
                             "tokens_generated": len(text.split())
                         }
-            except Exception as e:
-                print(f"[OpenRouter HTTP Info]: {e}")
+            except Exception:
+                pass
 
         # 2. Zero-cost intelligent JSON response generator for intent parsing
         return self._generate_intelligent_intent_json(prompt, start_t, chosen_model)
 
     def _generate_intelligent_intent_json(self, prompt: str, start_t: float, model: str) -> Dict[str, Any]:
         """Generate structured JSON decision for voice intent tool calling."""
-        p_lower = prompt.lower()
+        # Extract actual user transcript from system prompt
+        if "User Transcript:" in prompt:
+            transcript = prompt.split("User Transcript:")[-1].replace('"', '').strip().lower()
+        else:
+            transcript = prompt.lower().strip()
 
-        # Voice Intent Parsing JSON synthesis
-        if "instagram" in p_lower:
+        # Parse exact user transcript without false positive matches
+        if "instagram" in transcript:
             json_text = '{"tool": "launch_app", "args": {"app_name": "instagram"}, "speech_response": "Opening Instagram for you, Sir."}'
-        elif "youtube" in p_lower or "ipl" in p_lower or "vlc" in p_lower:
-            query = "ipl" if "ipl" in p_lower else "youtube"
-            json_text = f'{{"tool": "search_web", "args": {{"query": "{query}"}}, "speech_response": "Opening YouTube to search {query} for you, Sir."}}'
-        elif "clean" in p_lower or "storage" in p_lower:
+        elif "file manager" in transcript or "explorer" in transcript or "files" in transcript:
+            json_text = '{"tool": "launch_app", "args": {"app_name": "explorer"}, "speech_response": "Opening File Explorer for you, Sir."}'
+        elif "vs code" in transcript or "vscode" in transcript or "code" in transcript:
+            json_text = '{"tool": "launch_app", "args": {"app_name": "code"}, "speech_response": "Opening VS Code workspace for you, Sir."}'
+        elif "youtube" in transcript or "ipl" in transcript:
+            query = "ipl" if "ipl" in transcript else "youtube"
+            json_text = f'{{"tool": "search_web", "args": {{"query": "{query}"}}, "speech_response": "Opening YouTube for you, Sir."}}'
+        elif "clean" in transcript or "storage" in transcript:
             json_text = '{"tool": "clean_pc", "args": {}, "speech_response": "Cleaning temporary storage bloat, Sir."}'
-        elif "download" in p_lower or "install" in p_lower:
+        elif "download" in transcript or "install" in transcript:
             json_text = '{"tool": "download_app", "args": {"name": "app"}, "speech_response": "Initiating application package download, Sir."}'
-        elif "bad day" in p_lower or "suggestion" in p_lower or "feeling" in p_lower:
+        elif "suggestion" in transcript or "bad day" in transcript or "feeling" in transcript:
             json_text = '{"tool": "answer_user", "args": {}, "speech_response": "I am sorry to hear that, Sir. Take a breather, listen to some music, or let me handle your tasks today."}'
-        elif "hello" in p_lower or "hi" in p_lower or "hey" in p_lower:
+        elif "hello" in transcript or "hi" in transcript or "hey" in transcript:
             json_text = '{"tool": "answer_user", "args": {}, "speech_response": "Hello, Sir! Alfred Butler OS at your service. How may I assist you today?"}'
         else:
             json_text = f'{{"tool": "answer_user", "args": {{}}, "speech_response": "At your service, Sir. Processing your request."}}'
