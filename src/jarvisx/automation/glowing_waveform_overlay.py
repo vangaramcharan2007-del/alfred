@@ -78,49 +78,13 @@ class SovereignWaveformOverlay:
             threading.Thread(target=lambda: self.speak("Very good, Sir. Alfred at your service."), daemon=True).start()
 
     def handle_voice_intent(self, text: str):
-        """Parse voice intent and execute real desktop/web actions."""
-        text_clean = text.lower().strip()
+        """Parse voice intent dynamically via DynamicOrchestrator."""
+        from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+        orchestrator = DynamicOrchestrator()
 
-        # 1. Persona Toggle
-        if "friday" in text_clean or "tactical" in text_clean or "ask friday" in text_clean:
-            self.toggle_persona()
-            return
-
-        salutation = "Sir" if self.persona == "ALFRED" else "Boss"
-
-        # 2. Time Request
-        if "time" in text_clean:
-            now_str = datetime.datetime.now().strftime("%I:%M %p")
-            self.speak(f"The time is {now_str}, {salutation}.")
-            return
-
-        # 3. YouTube Intent
-        if "youtube" in text_clean:
-            self.speak(f"Opening YouTube for you now, {salutation}.")
-            webbrowser.open("https://www.youtube.com")
-            return
-
-        # 4. WhatsApp Intent
-        if "whatsapp" in text_clean:
-            self.speak(f"Opening WhatsApp Web, {salutation}.")
-            webbrowser.open("https://web.whatsapp.com")
-            return
-
-        # 5. Make an App Intent
-        if "app" in text_clean or "make" in text_clean or "build" in text_clean:
-            self.speak(f"Initializing autonomous application builder, {salutation}.")
-            self.kernel.execute_objective("build app")
-            return
-
-        # 6. Clean PC Intent
-        if "clean" in text_clean:
-            self.speak(f"Cleaning system temporary storage, {salutation}.")
-            self.kernel.execute_objective("clean pc")
-            return
-
-        # 7. Wake-Word Salutation Fallback
-        if "alfred" in text_clean or "jarvis" in text_clean:
-            self.speak(f"At your service, {salutation}. All systems nominal.")
+        res = orchestrator.execute_voice_command(text, persona=self.persona)
+        if "response" in res and res["response"]:
+            self.speak(res["response"])
 
     def start_microphone_listener(self):
         """Background thread for continuous speech recognition & intent execution."""
