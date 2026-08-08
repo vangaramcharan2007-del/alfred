@@ -143,6 +143,22 @@ class JarvisCLI:
             return {"action": "friday", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # PHASE 96: MULTI-AGENT OS (Alfred Master, Friday, Coder, Researcher)
+        # ----------------------------------------------------------
+        elif command in ("team", "multi-agent", "agents", "swarm"):
+            from jarvisx.multi_agent.multi_agent_orchestrator import MultiAgentOrchestrator
+            orch = MultiAgentOrchestrator()
+            sub = args.lower().strip() if args else ""
+            if "status" in sub:
+                res = orch.get_team_status()
+            elif "explain" in sub or "audit" in sub:
+                res = orch.explain_mission()
+            else:
+                mission_obj = args if args else "Build a microservice with tests"
+                res = orch.run_team_mission(mission_obj).to_dict()
+            return {"action": "team", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # PHASE 95: PROACTIVE INTELLIGENCE ENGINE (Initiative, Monitor, Prediction)
         # ----------------------------------------------------------
         elif command in ("proactive", "initiative", "predict", "briefing"):

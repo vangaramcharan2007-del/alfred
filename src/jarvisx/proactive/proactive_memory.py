@@ -82,7 +82,60 @@ class ProactiveMemory:
                     timestamp REAL
                 )
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS initiative_outcomes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    initiative_id TEXT,
+                    outcome TEXT,
+                    before_mastery REAL,
+                    after_mastery REAL,
+                    improvement_delta REAL,
+                    confidence_accuracy REAL,
+                    timestamp REAL
+                )
+            """)
             conn.commit()
+
+    def record_initiative_outcome(
+        self,
+        initiative_id: str,
+        outcome: str,
+        before_mastery: float,
+        after_mastery: float,
+        confidence_accuracy: float = 0.95
+    ) -> Dict[str, Any]:
+        """Record before/after mastery improvement to measure proactive intervention efficacy."""
+        delta = round(after_mastery - before_mastery, 2)
+        with self._get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO initiative_outcomes (initiative_id, outcome, before_mastery, after_mastery, improvement_delta, confidence_accuracy, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (initiative_id, outcome, before_mastery, after_mastery, delta, confidence_accuracy, time.time()))
+            conn.commit()
+        return {
+            "initiative_id": initiative_id,
+            "outcome": outcome,
+            "before_mastery": before_mastery,
+            "after_mastery": after_mastery,
+            "improvement_delta": delta,
+        }
+
+    def list_initiative_outcomes(self) -> List[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT initiative_id, outcome, before_mastery, after_mastery, improvement_delta, confidence_accuracy FROM initiative_outcomes")
+            return [
+                {
+                    "initiative_id": r[0],
+                    "outcome": r[1],
+                    "before_mastery": r[2],
+                    "after_mastery": r[3],
+                    "improvement_delta": r[4],
+                    "confidence_accuracy": r[5],
+                }
+                for r in cur.fetchall()
+            ]
 
     def save_event(self, event_id: str, event_type: str, payload: Dict[str, Any]) -> None:
         with self._get_conn() as conn:
