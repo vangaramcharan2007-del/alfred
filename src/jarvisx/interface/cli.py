@@ -143,6 +143,25 @@ class JarvisCLI:
             return {"action": "friday", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # PHASE 97: SELF-IMPROVEMENT LOOP (Metrics, Root-Cause, Upgrades)
+        # ----------------------------------------------------------
+        elif command in ("improve", "self-improve", "performance", "upgrades"):
+            from jarvisx.self_improvement.self_improvement_engine import SelfImprovementEngine
+            sie = SelfImprovementEngine()
+            sub = args.lower().strip() if args else ""
+            if "status" in sub or "metric" in sub:
+                res = sie.status()
+            elif "fail" in sub or "root" in sub:
+                res = sie.failures()
+            elif "pattern" in sub or "playbook" in sub:
+                res = sie.patterns()
+            elif "upgrade" in sub or "loop" in sub:
+                res = sie.run_self_upgrade_cycle()
+            else:
+                res = sie.status()
+            return {"action": "improve", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # PHASE 96: MULTI-AGENT OS (Alfred Master, Friday, Coder, Researcher)
         # ----------------------------------------------------------
         elif command in ("team", "multi-agent", "agents", "swarm"):

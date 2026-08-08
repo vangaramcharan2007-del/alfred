@@ -79,7 +79,7 @@ def _handle_engineering_command(cmd: str, args_list: list[str]) -> int:
 async def async_main():
     if len(sys.argv) > 1:
         first_word = sys.argv[1].lower()
-        if first_word in {"analyze", "explain", "improve", "debug", "engineer"}:
+        if first_word in {"analyze", "explain", "debug", "engineer"}:
             sys.exit(_handle_engineering_command(first_word, sys.argv[2:]))
         elif first_word in {"desktop", "app", "widget", "waveform", "overlay"}:
             from jarvisx.automation.glowing_waveform_overlay import launch_sovereign_waveform
