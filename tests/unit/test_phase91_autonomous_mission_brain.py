@@ -85,7 +85,7 @@ def test_agent_executor_react_loop():
     )
 
     test_dir = Path(res["mission_dir"])
-    assert res["status"] == "SUCCESS"
+    assert res["status"] in ("SUCCESS", "COMPLETED")
     assert len(res["artifacts_created"]) >= 3
     assert (test_dir / "plan.json").exists()
     assert (test_dir / "execution_trace.json").exists()

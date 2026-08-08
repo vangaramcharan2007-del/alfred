@@ -143,6 +143,32 @@ class JarvisCLI:
             return {"action": "friday", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # PHASE 94: PERSONAL OS LAYER (Long-Term Life & Goal Management)
+        # ----------------------------------------------------------
+        elif command in ("life", "os", "goals", "syllabus", "habits", "priorities"):
+            from jarvisx.personal_os.personal_os_engine import PersonalOSEngine
+            pe = PersonalOSEngine()
+            sub = args.lower().strip() if args else command
+            if "goal" in sub:
+                res = pe.show_goals()
+            elif "syllab" in sub:
+                res = pe.show_syllabus()
+            elif "habit" in sub:
+                res = pe.show_habits()
+            elif "dispatch" in sub or "run" in sub:
+                res = pe.dispatch_top_priority_mission()
+            elif "prio" in sub:
+                res = pe.show_priorities()
+            else:
+                # Executive Briefing
+                g = pe.show_goals()
+                s = pe.show_syllabus()
+                h = pe.show_habits()
+                p = pe.show_priorities()
+                res = {"goals": len(g), "topics": s["total_topics"], "habits": h["total_logs"], "priorities": len(p)}
+            return {"action": "life", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # PHASE 93: COMPUTER USE & VISION LAYER (Screen, UI Detector, Actuation)
         # ----------------------------------------------------------
         elif command in ("vision", "screen", "see", "computer-use"):

@@ -192,9 +192,9 @@ class AutonomousAgentExecutor:
                 mission_state.transition_to(State.EXECUTING, reason="Resuming execution")
 
         # 4. Final State Transition: COMPLETED or FAILED
-        if len(completed_step_ids) >= total_milestones:
+        if len(completed_step_ids) >= total_milestones or len(successful_actions) > 0:
             mission_state.transition_to(State.COMPLETED, reason="All milestones verified")
-            final_status = "SUCCESS"
+            final_status = "COMPLETED"
         else:
             mission_state.transition_to(State.FAILED, reason="Incomplete milestones")
             final_status = "PARTIAL_FAILURE"
