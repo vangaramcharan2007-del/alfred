@@ -143,6 +143,41 @@ class JarvisCLI:
             return {"action": "friday", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # PHASE 98: RELIABILITY KERNEL & EVOLUTION LEDGER
+        # ----------------------------------------------------------
+        elif command in ("doctor", "diagnostics", "checkup"):
+            from jarvisx.reliability.reliability_engine import ReliabilityEngine
+            re = ReliabilityEngine()
+            res = re.doctor()
+            return {"action": "doctor", "status": "SUCCESS", "result": res}
+
+        elif command in ("health", "uptime", "heartbeat"):
+            from jarvisx.reliability.reliability_engine import ReliabilityEngine
+            re = ReliabilityEngine()
+            res = re.health()
+            print(f"\n[HEALTH PROBE]: {res['status']} | RAM: {res['memory_rss_mb']}MB | Latency: {res['latency_ms']}ms | Uptime: {res['uptime_seconds']}s\n")
+            return {"action": "health", "status": "SUCCESS", "result": res}
+
+        elif command in ("backup", "snapshot"):
+            from jarvisx.reliability.reliability_engine import ReliabilityEngine
+            re = ReliabilityEngine()
+            sub = args.lower().strip() if args else ""
+            if "list" in sub:
+                res = re.backup_list()
+            elif "restore" in sub:
+                snap_id = args.split()[-1] if len(args.split()) > 1 else "latest"
+                res = re.backup_restore(snap_id)
+            else:
+                res = re.backup_create()
+            return {"action": "backup", "status": "SUCCESS", "result": res}
+
+        elif command in ("evolution", "ledger", "history-ledger"):
+            from jarvisx.reliability.reliability_engine import ReliabilityEngine
+            re = ReliabilityEngine()
+            res = re.evolution_list()
+            return {"action": "evolution", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # PHASE 97: SELF-IMPROVEMENT LOOP (Metrics, Root-Cause, Upgrades)
         # ----------------------------------------------------------
         elif command in ("improve", "self-improve", "performance", "upgrades"):
