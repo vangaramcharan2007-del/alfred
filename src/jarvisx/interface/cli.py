@@ -143,6 +143,27 @@ class JarvisCLI:
             return {"action": "friday", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # PHASE 95: PROACTIVE INTELLIGENCE ENGINE (Initiative, Monitor, Prediction)
+        # ----------------------------------------------------------
+        elif command in ("proactive", "initiative", "predict", "briefing"):
+            from jarvisx.proactive.proactive_engine import ProactiveEngine
+            pro = ProactiveEngine()
+            sub = args.lower().strip() if args else command
+            if "status" in sub or "signal" in sub:
+                res = pro.status()
+            elif "predict" in sub:
+                res = pro.predict()
+            elif "morning" in sub or "brief" in sub:
+                res = pro.morning()
+            elif "explain" in sub or "why" in sub:
+                res = pro.explain()
+            elif "sweep" in sub or "dispatch" in sub:
+                res = pro.sweep_and_dispatch()
+            else:
+                res = pro.morning()
+            return {"action": "proactive", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # PHASE 94: PERSONAL OS LAYER (Long-Term Life & Goal Management)
         # ----------------------------------------------------------
         elif command in ("life", "os", "goals", "syllabus", "habits", "priorities"):
