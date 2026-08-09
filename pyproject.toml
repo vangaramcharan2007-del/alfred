@@ -1,7 +1,7 @@
 [project]
 name = "project-jarvis-x"
-version = "1.4.0"
-description = "Jarvis X v1.4.0 Production Autonomous Personal OS with Always-On Sovereign Daemon, Low-Latency IPC Gateway & Event Nervous System."
+version = "1.4.5"
+description = "Jarvis X v1.4.5 Production Autonomous Personal OS with Presence State Machine, Resource Governor & Always-On Daemon."
 requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.9.0",

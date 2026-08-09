@@ -4,6 +4,13 @@ All notable architectural milestones of Project Jarvis X across 100 phases.
 
 ---
 
+## [1.4.5] - 2026-08-09 (Presence State Machine & Resource Governor Hardening)
+### Phase 104.5 — Strict State Transition Enforcement & RAM Optimization
+- Implemented **Presence State Machine** (`PresenceStateMachine`) enforcing strict transitions across `OFFLINE`, `BOOTING`, `READY`, `LISTENING`, `PROCESSING`, `EXECUTING`, `SLEEPING`, `ERROR_RECOVERY`, and `STOPPING`.
+- Prevents illegal states (e.g., executing tools during recovery, listening while stopping).
+- Built **Resource Governor** (`ResourceGovernor`) with lazy-loading for heavy models (Whisper, embeddings, LLMs, vision framebuffers), keeping idle daemon RAM **< 100MB**.
+- Added automated idle eviction unloading unused models after 15 minutes of inactivity.
+
 ## [1.4.0] - 2026-08-09 (Always-On Sovereign Daemon & Event Nervous System)
 ### Phase 104 — Daemon Lifecycle, High-Speed IPC Gateway & Ambient Event Bus
 - Implemented **Atomic PID Locking & Process Liveness Manager** (`PIDLockManager`) preventing multi-instance collisions with stale lockfile recovery.

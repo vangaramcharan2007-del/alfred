@@ -15,6 +15,8 @@ from jarvisx.runtime.heartbeat import DaemonHeartbeatMonitor
 from jarvisx.runtime.ipc_server import IPCServer
 from jarvisx.runtime.lifecycle import DaemonLifecycleManager
 from jarvisx.runtime.pid_lock import PIDLockManager
+from jarvisx.runtime.presence_state_machine import PresenceState, PresenceStateMachine
+from jarvisx.runtime.resource_governor import ResourceGovernor
 from jarvisx.runtime.service_manager import WindowsServiceManager
 from jarvisx.runtime.state import DaemonRuntimeState, RuntimeStateManager
 
@@ -22,7 +24,7 @@ logger = logging.getLogger("jarvisx.daemon")
 
 
 class JarvisDaemon:
-    """Master Always-On Background Daemon orchestrating PID locking, IPC server, event bus, proactive scheduler, and health heartbeat."""
+    """Master Always-On Background Daemon orchestrating PID locking, IPC server, event bus, proactive scheduler, presence states, and health heartbeat."""
 
     def __init__(
         self,
@@ -38,6 +40,9 @@ class JarvisDaemon:
         self.pid_manager = PIDLockManager(str(self.var_dir / "runtime" / "jarvisd.pid"))
         self.state_manager = RuntimeStateManager(str(self.var_dir / "runtime" / "state.json"))
         self.lifecycle_manager = DaemonLifecycleManager(self.pid_manager, self.state_manager)
+
+        self.presence = PresenceStateMachine(PresenceState.OFFLINE)
+        self.governor = ResourceGovernor()
 
         self.event_bus = EventBus()
         self.scheduler = ProactiveScheduler(self.event_bus)
@@ -80,6 +85,7 @@ class JarvisDaemon:
         if not ok:
             return {"status": "ALREADY_RUNNING", "error": reason}
 
+        self.presence.transition_to(PresenceState.BOOTING, reason="Acquired PID lock")
         pid = os.getpid()
         self.log(f"Starting Jarvis X Daemon (PID: {pid})...")
 
@@ -90,6 +96,8 @@ class JarvisDaemon:
             started_at=time.time(),
             active_services=[
                 "PIDLockManager",
+                "PresenceStateMachine",
+                "ResourceGovernor",
                 "IPCServer",
                 "EventBus",
                 "ProactiveScheduler",
@@ -116,12 +124,14 @@ class JarvisDaemon:
         )
         self.event_bus.publish(boot_event)
 
+        self.presence.transition_to(PresenceState.READY, reason="All subsystems initialized")
         self.log("All daemon subsystems successfully initialized and running.")
 
         res = {
             "status": "STARTED",
             "pid": pid,
             "port": self.ipc_server.port,
+            "presence": self.presence.current_state.value,
             "log_file": str(self.log_file),
             "state_file": str(self.state_manager.state_file),
         }
@@ -138,7 +148,11 @@ class JarvisDaemon:
     def stop(self) -> Dict[str, Any]:
         """Initiate graceful shutdown of all workers and release lock."""
         self.log("Stopping Jarvis X Daemon...")
+        if self.presence.can_transition_to(PresenceState.STOPPING):
+            self.presence.transition_to(PresenceState.STOPPING, reason="Shutdown requested")
         self.lifecycle_manager.shutdown()
+        if self.presence.can_transition_to(PresenceState.OFFLINE):
+            self.presence.transition_to(PresenceState.OFFLINE, reason="Shutdown completed")
         return {"status": "STOPPED"}
 
     def get_status(self) -> DaemonRuntimeState:
