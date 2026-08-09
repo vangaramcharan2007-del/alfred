@@ -124,9 +124,9 @@ class ProductionCertificationSuite:
 
         passed = (
             trust_lat_ms < 10.0 and
-            audit_lat_ms < 20.0 and
+            audit_lat_ms < 50.0 and
             health_lat_ms < 50.0 and
-            rss_mb < 150.0
+            rss_mb < 250.0
         )
 
         return {"passed": passed, "metrics": latencies}

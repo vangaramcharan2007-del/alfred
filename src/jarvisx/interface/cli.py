@@ -199,6 +199,83 @@ class JarvisCLI:
             return {"action": "knowledge", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # PHASE 102: EVIDENCE-BASED INTELLIGENCE EVALUATION LAYER
+        # ----------------------------------------------------------
+        elif command in ("evaluate", "evaluation", "eval"):
+            from jarvisx.evaluation.evaluation_engine import EvaluationEngine
+            from jarvisx.evaluation.reports import EvaluationReportFormatter
+            ee = EvaluationEngine()
+            sub_cmd = args.strip().lower() if args else "report"
+
+            if sub_cmd in ("last", "recent", "latest"):
+                last_eval = ee.get_last_evaluation()
+                if last_eval:
+                    print(f"\n{EvaluationReportFormatter.format_evaluation(last_eval)}\n")
+                    res = {"status": "SUCCESS", "evaluation": last_eval.__dict__}
+                else:
+                    print("\n[EVALUATION]: No response evaluations recorded yet.\n")
+                    res = {"status": "EMPTY"}
+            else:
+                scorecard = ee.get_scorecard()
+                print(f"\n{EvaluationReportFormatter.format_scorecard(scorecard)}\n")
+                res = {"status": "SUCCESS", "scorecard": scorecard.__dict__}
+
+            return {"action": "evaluate", "status": "SUCCESS", "result": res}
+
+        elif command in ("feedback", "correct", "correction"):
+            from jarvisx.evaluation.evaluation_engine import EvaluationEngine
+            from jarvisx.evaluation.reports import EvaluationReportFormatter
+            ee = EvaluationEngine()
+            parts = args.split(maxsplit=2) if args else []
+            sub_cmd = parts[0].lower() if parts else "list"
+
+            if sub_cmd in ("correct", "penalty", "fail") and len(parts) >= 2:
+                resp_id = parts[1]
+                corr_text = parts[2] if len(parts) > 2 else "User flagged incorrect response."
+                updated = ee.record_user_correction(response_id=resp_id, user_correction=corr_text)
+                if updated:
+                    print(f"\n[USER CORRECTION LOGGED FOR {resp_id}]:")
+                    print(f"  Penalty Applied: -{int(updated.user_correction_penalty * 100)}%")
+                    print(f"  Updated Quality: {int(updated.final_quality_score * 100)}%\n")
+                    res = {"status": "SUCCESS", "evaluation": updated.__dict__}
+                else:
+                    print(f"\n[ERROR]: Response ID '{resp_id}' not found in evaluation database.\n")
+                    res = {"status": "NOT_FOUND"}
+            elif sub_cmd in ("accept", "pass", "ok") and len(parts) >= 2:
+                resp_id = parts[1]
+                feedback_text = parts[2] if len(parts) > 2 else "Accepted."
+                updated = ee.record_user_acceptance(response_id=resp_id, feedback=feedback_text)
+                if updated:
+                    print(f"\n[USER ACCEPTANCE LOGGED FOR {resp_id}]: Quality {int(updated.final_quality_score * 100)}%\n")
+                    res = {"status": "SUCCESS", "evaluation": updated.__dict__}
+                else:
+                    print(f"\n[ERROR]: Response ID '{resp_id}' not found in evaluation database.\n")
+                    res = {"status": "NOT_FOUND"}
+            else:
+                history = ee.list_history(limit=10)
+                print(f"\n{EvaluationReportFormatter.format_history(history)}\n")
+                res = {"status": "SUCCESS", "history": [h.__dict__ for h in history]}
+
+            return {"action": "feedback", "status": "SUCCESS", "result": res}
+
+        elif command in ("intelligence", "scorecard", "score"):
+            from jarvisx.evaluation.evaluation_engine import EvaluationEngine
+            from jarvisx.evaluation.reports import EvaluationReportFormatter
+            ee = EvaluationEngine()
+            sub_cmd = args.strip().lower() if args else "score"
+
+            if sub_cmd in ("history", "log", "recent"):
+                history = ee.list_history(limit=20)
+                print(f"\n{EvaluationReportFormatter.format_history(history)}\n")
+                res = {"status": "SUCCESS", "history": [h.__dict__ for h in history]}
+            else:
+                scorecard = ee.get_scorecard()
+                print(f"\n{EvaluationReportFormatter.format_scorecard(scorecard)}\n")
+                res = {"status": "SUCCESS", "scorecard": scorecard.__dict__}
+
+            return {"action": "intelligence", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # PHASE 100: PRODUCTION READINESS CERTIFICATION & BENCHMARK
         # ----------------------------------------------------------
         elif command in ("cert", "certification", "certify"):

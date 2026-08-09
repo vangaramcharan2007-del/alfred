@@ -4,6 +4,17 @@ All notable architectural milestones of Project Jarvis X across 100 phases.
 
 ---
 
+## [1.2.0] - 2026-08-09 (Evidence-Based Intelligence Evaluation Layer)
+### Phase 102 — Intelligence Evaluation, Evidence Tracing & Knowledge Utility
+- Implemented `EvidenceTracker` constructing cryptographic `EvidenceTrace` linking response claims to vault chunks (`SUPPORTED`, `PARTIALLY_SUPPORTED`, `UNKNOWN_FROM_VAULT`, `UNSUPPORTED`).
+- Implemented `RetrievalEvaluator` assessing pre-generation retrieval relevance, confidence depth, and source quality.
+- Implemented `ResponseScorer` computing composite deterministic quality scores with user correction and failure penalty deductions.
+- Implemented `FeedbackMemory` (`var/db/evaluation.db`) for response evaluations, structured failure root causes, and long-term source utility tracking.
+- Implemented `QualityMetricsAggregator` computing rolling intelligence scorecards and user satisfaction metrics.
+- Added input sanitization preventing instruction injection via feedback and user corrections.
+- Integrated `var/db/evaluation.db` into `BackupManager` snapshot manifest.
+- Added CLI commands: `evaluate last`, `evaluate report`, `feedback correct <id> "<correction>"`, `feedback accept <id>`, `intelligence score`, `intelligence history`.
+
 ## [1.1.0] - 2026-08-09 (Knowledge Acquisition & Obsidian Vault Subsystem)
 ### Phase 101 — Obsidian Knowledge Vault & Local Semantic RAG
 - Implemented `ObsidianVaultManager` supporting PARA folder hierarchy (`00_Inbox`, `01_Goals`, `02_Learning`, `03_Projects`, `04_References`, `05_Memory`).
