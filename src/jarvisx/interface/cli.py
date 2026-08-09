@@ -280,6 +280,65 @@ class JarvisCLI:
             return {"action": "intelligence", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # PHASE 103: MEMORY INTELLIGENCE LAYER
+        # ----------------------------------------------------------
+        elif command in ("memory", "mem", "remember", "profile"):
+            from jarvisx.memory_intelligence.memory_engine import MemoryIntelligenceEngine
+            from jarvisx.memory_intelligence.models import MemoryType
+            from jarvisx.memory_intelligence.reports import MemoryReportFormatter
+            engine = MemoryIntelligenceEngine()
+            parts = args.split(maxsplit=1) if args else []
+            sub_cmd = parts[0].lower() if parts else "audit"
+
+            if command == "remember" or sub_cmd in ("remember", "add", "store"):
+                text_to_save = parts[1] if (len(parts) > 1 and command != "remember") else (args or "")
+                success, record, reason = engine.remember(text_to_save)
+                if success and record:
+                    print(f"\n[MEMORY STORED]: [{record.id}] {record.content} (Type: {record.memory_type.value}, Importance: {record.importance_score})\n")
+                    res = {"status": "SUCCESS", "memory": record.__dict__}
+                else:
+                    print(f"\n[REJECTED]: {reason or 'Failed to validate memory.'}\n")
+                    res = {"status": "REJECTED", "reason": reason}
+
+            elif command == "profile" or sub_cmd in ("profile", "persona"):
+                prof = engine.get_user_profile()
+                print(f"\n{MemoryReportFormatter.format_user_profile(prof)}\n")
+                res = {"status": "SUCCESS", "profile": prof.__dict__}
+
+            elif sub_cmd in ("list", "all", "records"):
+                mem_type = None
+                if len(parts) > 1:
+                    t_str = parts[1].upper()
+                    if t_str in MemoryType.__members__:
+                        mem_type = MemoryType(t_str)
+                memories = engine.recall(limit=30, memory_type=mem_type)
+                print(f"\n{MemoryReportFormatter.format_memory_list(memories)}\n")
+                res = {"status": "SUCCESS", "count": len(memories)}
+
+            elif sub_cmd in ("context", "prompt"):
+                q = parts[1] if len(parts) > 1 else ""
+                ctx = engine.get_personal_context(query=q)
+                print(f"\n{ctx.prompt_block}\n")
+                res = {"status": "SUCCESS", "context": ctx.__dict__}
+
+            elif sub_cmd in ("forget", "archive", "delete") and len(parts) > 1:
+                mem_id = parts[1].strip()
+                ok = engine.store.archive_memory(mem_id)
+                if ok:
+                    print(f"\n[MEMORY ARCHIVED]: Successfully archived memory '{mem_id}'.\n")
+                    res = {"status": "SUCCESS", "id": mem_id}
+                else:
+                    print(f"\n[ERROR]: Memory ID '{mem_id}' not found.\n")
+                    res = {"status": "NOT_FOUND"}
+
+            else:  # audit
+                audit_data = engine.audit_memory_health()
+                print(f"\n{MemoryReportFormatter.format_audit_report(audit_data['counts'], audit_data['decay_candidates_count'], audit_data['missing_provenance'])}\n")
+                res = {"status": "SUCCESS", "audit": audit_data}
+
+            return {"action": "memory", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # PHASE 100: PRODUCTION READINESS CERTIFICATION & BENCHMARK
         # ----------------------------------------------------------
         elif command in ("cert", "certification", "certify"):

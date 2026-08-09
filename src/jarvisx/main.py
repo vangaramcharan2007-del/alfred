@@ -99,7 +99,8 @@ async def async_main():
             "benchmark", "autonomy", "eval", "cert", "certify", "certification",
             "security", "trust", "audit", "vault", "backup", "snapshot", "evolution", "improve", "team",
             "knowledge", "obsidian", "rag",
-            "evaluate", "evaluation", "feedback", "intelligence"
+            "evaluate", "evaluation", "feedback", "intelligence",
+            "memory", "mem", "remember", "profile"
         }
         first_word = sys.argv[1].lower()
 

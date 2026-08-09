@@ -4,6 +4,22 @@ All notable architectural milestones of Project Jarvis X across 100 phases.
 
 ---
 
+## [1.3.0] - 2026-08-09 (Memory Intelligence Layer & Cognitive Persona)
+### Phase 103 — Tripartite Memory Intelligence, Relation Graph & Personal Adaptation
+- Implemented **Tripartite Memory Typology**:
+  - `EPISODIC` (Specific interactions, milestone accomplishments, test runs)
+  - `SEMANTIC` (Stable facts, personal goals, tech stack, preferences)
+  - `PROCEDURAL` (Learned patterns, study styles, recurring habits, cognitive workflows)
+- Built **Strict Provenance Tracking**: Every memory traces to `USER_EXPLICIT`, `CONVERSATION`, `MISSION_RESULT`, `CORRECTION`, or `INFERENCE` with timestamp and evidence snippet.
+- Created **Deterministic Importance Ranker**: Calculates priority via `(Goal Rel * 0.35) + (Rep * 0.25) + (Explicit * 0.20) + (Future * 0.20)`.
+- Designed **Exponential Decay & Forgetting Engine**: Computes \(S(t) = S_0 \cdot e^{-\lambda t} \cdot (1 + \text{repetition})\), automatically archiving decaying ephemeral notes while preserving reinforced knowledge.
+- Engineered **Memory Relation Graph**: Relational edges (`SUPPORTS`, `CONFLICTS_WITH`, `DERIVED_FROM`, `CAUSED_BY`) with automated contradiction detection that supersedes conflicting older memories.
+- Implemented **User Profile Synthesizer**: Distills active memories into an actionable user persona (Academic Track, CGPA goals, learning style, project focus).
+- Developed **Alfred Personal Context Builder**: Retrieves top-ranked role-permitted memories and composes a concise prompt block for LLM inference.
+- Implemented **Memory Security Guard & RBAC**: Aggressively rejects API keys, passwords, and tokens, while restricting worker subagents to public/authorized memories.
+- Integrated `var/db/memory_intelligence.db` into `BackupManager` snapshot verification.
+- Added comprehensive CLI interface: `memory audit`, `memory profile`, `memory remember`, `memory list`, `memory context`.
+
 ## [1.2.7] - 2026-08-09 (Evaluation Drift Detection & Quality Trend Analyzer)
 ### Phase 102.7 — Long-Term Quality Drift Monitoring & Self-Improvement Bridge
 - Implemented `EvaluationDriftDetector` comparing rolling recent evaluation windows against historical baselines.
