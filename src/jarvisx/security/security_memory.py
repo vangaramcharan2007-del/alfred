@@ -63,6 +63,25 @@ class SecurityMemory:
                     current_hash TEXT
                 )
             """)
+
+            # Ensure permanent Genesis Root Anchor is present
+            cur.execute("SELECT COUNT(*) FROM audit_events")
+            if cur.fetchone()[0] == 0:
+                gen_id = "audit_genesis_0"
+                gen_ts = 1770000000.0
+                gen_actor = "SYSTEM_INITIALIZER"
+                gen_act = "GENESIS_ROOT_INITIALIZED"
+                gen_risk = 0
+                gen_dec = "INITIALIZED"
+                gen_prev = "0" * 64
+                import hashlib
+                gen_payload = f"{gen_id}|{gen_ts}|{gen_actor}|{gen_act}|{gen_risk}|{gen_dec}|{gen_prev}"
+                gen_hash = hashlib.sha256(gen_payload.encode("utf-8")).hexdigest()
+                cur.execute("""
+                    INSERT INTO audit_events (id, timestamp, actor, action, risk_score, decision, previous_hash, current_hash)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (gen_id, gen_ts, gen_actor, gen_act, gen_risk, gen_dec, gen_prev, gen_hash))
+
             conn.commit()
 
     def save_permission(self, perm_id: str, agent: str, capability: str, scope: str, expires: float) -> None:

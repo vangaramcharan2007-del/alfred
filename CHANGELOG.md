@@ -4,6 +4,10 @@ All notable architectural milestones of Project Jarvis X across 100 phases.
 
 ---
 
+## [1.0.1] - 2026-08-09 (Security Patch: Audit Genesis Anchor & Wipe Detection)
+- Fixed audit availability gap by introducing immutable Genesis Root Anchor (`audit_genesis_0`) at block 0 in `var/db/security.db`.
+- Enhanced `AuditLogger.verify_chain_integrity()` to detect and reject total audit history destruction attacks (`AUDIT_DESTRUCTION_DETECTED`).
+
 ## [1.0.0] - 2026-08-09 (Production Release Freeze)
 
 ### Phase 100 — Production Readiness Certification & Release Freeze

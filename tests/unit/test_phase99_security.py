@@ -63,10 +63,10 @@ def test_audit_hash_chain_and_tamper_detection():
     e2 = logger.log_event("Coder", "synthesize_app", 45, "ALLOWED")
     e3 = logger.log_event("Friday", "verify_sandbox", 20, "ALLOWED")
 
-    # 2. Verify chain is pristine
+    # 2. Verify chain is pristine (1 Genesis Anchor + 3 logged events = 4 entries)
     check1 = logger.verify_chain_integrity()
     assert check1["valid"] is True
-    assert check1["total_entries"] == 3
+    assert check1["total_entries"] == 4
 
     # 3. Adversarial Attack: Modify row in SQLite
     conn = sqlite3.connect(db_file)
@@ -79,6 +79,18 @@ def test_audit_hash_chain_and_tamper_detection():
     check2 = logger.verify_chain_integrity()
     assert check2["valid"] is False
     assert "tampering detected" in check2["reason"].lower()
+
+    # 5. Adversarial Attack: Wipe complete audit table
+    conn = sqlite3.connect(db_file)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM audit_events")
+    conn.commit()
+    conn.close()
+
+    # 6. Chain check must detect audit history destruction
+    check3 = logger.verify_chain_integrity()
+    assert check3["valid"] is False
+    assert check3["status"] == "AUDIT_DESTRUCTION_DETECTED"
 
 
 def test_sandbox_path_clamping_and_destructive_command_blocking():

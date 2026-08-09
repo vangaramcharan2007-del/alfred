@@ -42,10 +42,24 @@ class AuditLogger:
         return entry
 
     def verify_chain_integrity(self) -> Dict[str, Any]:
-        """Verify the cryptographic integrity of the entire audit chain."""
+        """Verify the cryptographic integrity of the entire audit chain including the Genesis Anchor."""
         entries = self.memory.list_audit_entries()
         if not entries:
-            return {"valid": True, "total_entries": 0, "status": "EMPTY_CHAIN"}
+            return {
+                "valid": False,
+                "total_entries": 0,
+                "status": "AUDIT_DESTRUCTION_DETECTED",
+                "reason": "Missing genesis anchor: Complete audit history wipe detected."
+            }
+
+        # Verify Genesis Anchor existence at block 0
+        if entries[0].id != "audit_genesis_0" or entries[0].previous_hash != ("0" * 64):
+            return {
+                "valid": False,
+                "total_entries": len(entries),
+                "status": "AUDIT_DESTRUCTION_DETECTED",
+                "reason": "Genesis root anchor has been compromised or modified."
+            }
 
         expected_prev = "0" * 64
         for idx, e in enumerate(entries):

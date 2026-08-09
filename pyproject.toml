@@ -1,6 +1,6 @@
 [project]
 name = "project-jarvis-x"
-version = "1.0.0"
+version = "1.0.1"
 description = "Jarvis X v1.0 Production Autonomous Personal Operating System."
 requires-python = ">=3.11"
 dependencies = [
