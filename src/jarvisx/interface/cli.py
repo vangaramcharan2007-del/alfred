@@ -143,6 +143,33 @@ class JarvisCLI:
             return {"action": "friday", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # PHASE 99: SECURITY & TRUST LAYER (Permissions, Vault, Hash-Audit)
+        # ----------------------------------------------------------
+        elif command in ("security", "trust", "audit", "vault"):
+            from jarvisx.security.trust_engine import TrustEngine
+            te = TrustEngine()
+            sub = args.lower().strip() if args else ""
+            if "audit" in sub or command == "audit":
+                res = te.audit_logger.verify_chain_integrity()
+                print(f"\n[AUDIT INTEGRITY]: {res['status']} ({res['total_entries']} entries verified)\n")
+            elif "vault" in sub or command == "vault":
+                parts = args.split()
+                if len(parts) >= 3 and parts[0].lower() == "set":
+                    item = te.vault.set_secret(parts[1], parts[2])
+                    res = item.to_dict()
+                elif len(parts) >= 2 and parts[0].lower() == "get":
+                    val = te.vault.get_secret(parts[1])
+                    res = {"key": parts[1], "value": te.vault.mask_token(val or "")}
+                else:
+                    res = te.vault.list_secrets_masked()
+            elif "explain" in sub:
+                action_target = args.replace("explain", "").strip() or "system.mutation"
+                res = te.explain(action_target)
+            else:
+                res = te.status()
+            return {"action": "security", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # PHASE 98: RELIABILITY KERNEL & EVOLUTION LEDGER
         # ----------------------------------------------------------
         elif command in ("doctor", "diagnostics", "checkup"):
