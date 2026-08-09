@@ -4,6 +4,18 @@ All notable architectural milestones of Project Jarvis X across 100 phases.
 
 ---
 
+## [1.1.0] - 2026-08-09 (Knowledge Acquisition & Obsidian Vault Subsystem)
+### Phase 101 — Obsidian Knowledge Vault & Local Semantic RAG
+- Implemented `ObsidianVaultManager` supporting PARA folder hierarchy (`00_Inbox`, `01_Goals`, `02_Learning`, `03_Projects`, `04_References`, `05_Memory`).
+- Implemented `ObsidianMarkdownParser` extracting YAML frontmatter, `#tags`, section headers, and `[[wikilinks]]`.
+- Implemented multi-format `DocumentLoader` (.md, .pdf, .txt, .py, .json).
+- Implemented `KnowledgeMetadataIndex` (`var/db/knowledge.db`) with provenance tracking and security sensitivity levels.
+- Implemented `LocalVectorStore` (`var/knowledge/vectors/vector_index.json`) for offline-first dense cosine semantic retrieval.
+- Implemented `VaultSyncManager` with hash-checked incremental synchronization and deleted file purging.
+- Implemented `KnowledgeRetriever` with hybrid dense+lexical fusion and role-based security boundaries.
+- Connected grounded knowledge context composer to `AlfredMasterCoordinator`.
+- Added CLI commands: `knowledge init`, `knowledge sync`, `knowledge rebuild`, `knowledge ingest`, `knowledge search`, `knowledge status`.
+
 ## [1.0.1] - 2026-08-09 (Security Patch: Audit Genesis Anchor & Wipe Detection)
 - Fixed audit availability gap by introducing immutable Genesis Root Anchor (`audit_genesis_0`) at block 0 in `var/db/security.db`.
 - Enhanced `AuditLogger.verify_chain_integrity()` to detect and reject total audit history destruction attacks (`AUDIT_DESTRUCTION_DETECTED`).

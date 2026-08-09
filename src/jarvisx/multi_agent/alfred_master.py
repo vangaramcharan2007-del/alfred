@@ -52,7 +52,15 @@ class AlfredMasterCoordinator:
         print(f"\n==================================================")
         print(f"  ALFRED MULTI-AGENT OS (PHASE 96)")
         print(f"==================================================")
-        print(f"Objective: '{objective}'\n")
+        # Optional Knowledge Vault Context Injection
+        try:
+            from jarvisx.knowledge.knowledge_engine import KnowledgeEngine
+            ke = KnowledgeEngine()
+            k_context = ke.get_context_for_prompt(objective, top_k=3)
+            if k_context:
+                print(f"[Alfred Coordinator]: Retrieved Knowledge Vault Grounding:\n{k_context[:300]}...\n")
+        except Exception:
+            k_context = ""
 
         # 1. Alfred Decomposes into Specialized Subtasks
         subtasks = [

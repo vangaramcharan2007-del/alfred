@@ -143,6 +143,62 @@ class JarvisCLI:
             return {"action": "friday", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # PHASE 101 / v1.1: KNOWLEDGE ACQUISITION & OBSIDIAN VAULT
+        # ----------------------------------------------------------
+        elif command in ("knowledge", "vault", "obsidian", "rag"):
+            from jarvisx.knowledge.knowledge_engine import KnowledgeEngine
+            ke = KnowledgeEngine()
+            sub_parts = args.split(maxsplit=1) if args else []
+            sub_cmd = sub_parts[0].lower() if sub_parts else "status"
+            sub_arg = sub_parts[1] if len(sub_parts) > 1 else ""
+
+            if sub_cmd in ("init", "setup", "scaffold"):
+                res = ke.init_vault()
+                print(f"\n[OBSIDIAN VAULT INITIALIZED]: {res['vault_path']}")
+                for f in res["folders_created"]:
+                    print(f"  [+] {f}")
+                print()
+            elif sub_cmd in ("sync", "update"):
+                res = ke.sync()
+                print(f"\n[VAULT SYNC COMPLETED in {res.duration_sec}s]:")
+                print(f"  Indexed: {res.files_indexed} | Unchanged: {res.files_skipped_unchanged} | Purged: {res.files_deleted_purged}")
+                print(f"  Chunks Created: {res.total_chunks_created}\n")
+                res = res.to_dict()
+            elif sub_cmd in ("rebuild", "reindex"):
+                res = ke.sync(force_rebuild=True)
+                print(f"\n[VAULT REBUILD COMPLETED in {res.duration_sec}s]:")
+                print(f"  Indexed: {res.files_indexed} | Chunks: {res.total_chunks_created}\n")
+                res = res.to_dict()
+            elif sub_cmd in ("ingest", "add", "load"):
+                if not sub_arg:
+                    print("\n[Usage]: jarvis knowledge ingest <file_or_directory_path>\n")
+                    res = {"status": "ERROR", "reason": "Missing path argument"}
+                else:
+                    res = ke.ingest_path(sub_arg)
+                    print(f"\n[INGESTION SUCCESSFUL]: {sub_arg} ({res.total_chunks_created} chunks indexed)\n")
+                    res = res.to_dict()
+            elif sub_cmd in ("search", "find", "query", "ask"):
+                query_str = sub_arg or (args if command != "knowledge" else "")
+                results = ke.search(query_str, top_k=5)
+                print(f"\n[KNOWLEDGE SEARCH RESULTS for '{query_str}'] ({len(results)} matches):")
+                for r in results:
+                    print(f"\n* [Score: {r.score}] {r.source_file} ({r.heading_path})")
+                    print(f"  Reason: {r.relevance_reason}")
+                    print(f"  Excerpt: {r.content[:160]}...")
+                print()
+                res = [r.to_dict() for r in results]
+            else:
+                res = ke.status()
+                print(f"\n[JARVIS X KNOWLEDGE VAULT STATUS]:")
+                print(f"  Vault Path:      {res['vault_path']}")
+                print(f"  Total Documents: {res['total_documents']}")
+                print(f"  Total Chunks:    {res['total_chunks']}")
+                print(f"  Vector Index:    {res['vector_index_count']} embeddings")
+                print(f"  Categories:      {res['categories']}\n")
+
+            return {"action": "knowledge", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # PHASE 100: PRODUCTION READINESS CERTIFICATION & BENCHMARK
         # ----------------------------------------------------------
         elif command in ("cert", "certification", "certify"):

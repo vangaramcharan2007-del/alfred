@@ -97,7 +97,8 @@ async def async_main():
             "briefing", "context", "daily", "friday", "hud", "wake", "wakeword", "tactical",
             "daemon", "report", "time-saved", "metrics", "voice", "assistant",
             "benchmark", "autonomy", "eval", "cert", "certify", "certification",
-            "security", "trust", "audit", "vault", "backup", "snapshot", "evolution", "improve", "team"
+            "security", "trust", "audit", "vault", "backup", "snapshot", "evolution", "improve", "team",
+            "knowledge", "obsidian", "rag"
         }
         first_word = sys.argv[1].lower()
 
