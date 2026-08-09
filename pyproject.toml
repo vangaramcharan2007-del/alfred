@@ -1,7 +1,7 @@
 [project]
 name = "project-jarvis-x"
-version = "0.1.0"
-description = "Offline-first modular personal AI operating system scaffold."
+version = "1.0.0"
+description = "Jarvis X v1.0 Production Autonomous Personal Operating System."
 requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.9.0",

@@ -143,6 +143,25 @@ class JarvisCLI:
             return {"action": "friday", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # PHASE 100: PRODUCTION READINESS CERTIFICATION & BENCHMARK
+        # ----------------------------------------------------------
+        elif command in ("cert", "certification", "certify"):
+            from jarvisx.core.certification_suite import ProductionCertificationSuite
+            suite = ProductionCertificationSuite()
+            res = suite.execute_full_certification()
+            return {"action": "cert", "status": "SUCCESS", "result": res}
+
+        elif command in ("benchmark", "bench", "perf"):
+            from jarvisx.core.certification_suite import ProductionCertificationSuite
+            suite = ProductionCertificationSuite()
+            res = suite.run_benchmarks()
+            print(f"\n[INTERNAL RUNTIME BENCHMARKS]:")
+            for k, v in res["metrics"].items():
+                print(f"  {k}: {v}")
+            print(f"Passed: {res['passed']}\n")
+            return {"action": "benchmark", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # PHASE 99: SECURITY & TRUST LAYER (Permissions, Vault, Hash-Audit)
         # ----------------------------------------------------------
         elif command in ("security", "trust", "audit", "vault"):
