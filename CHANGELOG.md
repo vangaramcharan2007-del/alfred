@@ -4,6 +4,18 @@ All notable architectural milestones of Project Jarvis X across 100 phases.
 
 ---
 
+## [1.4.0] - 2026-08-09 (Always-On Sovereign Daemon & Event Nervous System)
+### Phase 104 — Daemon Lifecycle, High-Speed IPC Gateway & Ambient Event Bus
+- Implemented **Atomic PID Locking & Process Liveness Manager** (`PIDLockManager`) preventing multi-instance collisions with stale lockfile recovery.
+- Developed **Persistent Runtime State Tracker** (`RuntimeStateManager`) storing real-time health, memory RSS, CPU usage, command counters, and uptime.
+- Built **Background Health Heartbeat** (`DaemonHeartbeatMonitor`) logging health probes every 30s with zero-LLM polling.
+- Engineered **Microsecond-Latency IPC Gateway** (`IPCServer` & `IPCClient`) over localhost TCP loopback (`localhost:10404`), achieving **< 2ms** latency for warm command execution.
+- Created **Asynchronous Event Nervous System** (`EventBus`) with priority queue dispatch (1-10) for `SYSTEM_BOOT`, `DEADLINE_APPROACHING`, `HABIT_MISSED`, and `MEMORY_DECAY_CYCLE`.
+- Implemented **Proactive Background Scheduler** (`ProactiveScheduler`) generating daily 08:00 AM morning briefings and deadline tracking without tight-loop LLM querying.
+- Developed **Sandboxed Hands-Free Voice Gateway** (`SecureVoiceGateway`) enforcing Zero-Trust security rules on speech intents.
+- Integrated **Windows Startup & Service Manager** (`WindowsServiceManager`) generating `.bat`, `.ps1`, and Windows Task Scheduler XML artifacts.
+- Added CLI commands: `daemon start`, `daemon stop`, `daemon status`, `daemon ping`, `daemon brief`, `daemon event`, `daemon install`, `alfred "<query>"`.
+
 ## [1.3.0] - 2026-08-09 (Memory Intelligence Layer & Cognitive Persona)
 ### Phase 103 — Tripartite Memory Intelligence, Relation Graph & Personal Adaptation
 - Implemented **Tripartite Memory Typology**:

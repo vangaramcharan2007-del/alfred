@@ -93,22 +93,113 @@ class JarvisCLI:
             return {"action": "briefing", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
-        # DAEMON: Background service management
+        # PHASE 104: PERSISTENT SOVEREIGN DAEMON & IPC PRESENCE
         # ----------------------------------------------------------
-        elif command == "daemon":
+        elif command in ("daemon", "jarvisd"):
             from jarvisx.runtime.daemon import JarvisDaemon
+            from jarvisx.runtime.ipc_client import IPCClient
+            client = IPCClient()
             daemon = JarvisDaemon()
-            if "--start" in args or "start" in args:
+            args_clean = args.lower().strip() if args else ""
+
+            if "--start" in args_clean or "start" in args_clean:
                 res = daemon.start()
-            elif "--stop" in args or "stop" in args:
-                res = daemon.stop()
-            elif "--startup" in args or "startup" in args:
+                print(f"\n=== [JARVIS X DAEMON LAUNCH] ===")
+                print(f"  Status   : {res.get('status')}")
+                print(f"  PID      : {res.get('pid')}")
+                print(f"  IPC Port : {res.get('port', 10404)}")
+                print(f"  Log File : {res.get('log_file')}")
+                print("=================================\n")
+
+            elif "--stop" in args_clean or "stop" in args_clean or "shutdown" in args_clean:
+                ok, lat = client.shutdown()
+                if not ok:
+                    res = daemon.stop()
+                else:
+                    res = {"status": "STOPPED_VIA_IPC", "latency_ms": round(lat, 2)}
+                print(f"\n[DAEMON STOPPED]: {res}\n")
+
+            elif "ping" in args_clean:
+                ok, lat = client.ping()
+                res = {"alive": ok, "ipc_latency_ms": round(lat, 2)}
+                print(f"\n=== [IPC PING CHECK] ===")
+                print(f"  Daemon Alive : {'YES' if ok else 'NO (Offline)'}")
+                print(f"  IPC Latency  : {res['ipc_latency_ms']} ms")
+                print("========================\n")
+
+            elif "brief" in args_clean or "morning" in args_clean:
+                ok, briefing, lat = client.get_briefing()
+                if ok:
+                    print(f"\n{briefing}\n(Fetched via IPC in {lat:.2f}ms)\n")
+                    res = {"status": "SUCCESS", "briefing": briefing, "latency_ms": lat}
+                else:
+                    briefing = daemon.scheduler.synthesize_morning_briefing()
+                    print(f"\n{briefing}\n")
+                    res = {"status": "SUCCESS", "briefing": briefing}
+
+            elif "event" in args_clean:
+                parts = args.split(maxsplit=1)
+                evt_name = parts[1] if len(parts) > 1 else "CUSTOM"
+                ok, resp, lat = client.trigger_event(evt_name)
+                if ok:
+                    print(f"\n[EVENT TRIGGERED VIA IPC]: {evt_name} ({lat:.2f}ms)\n")
+                    res = resp
+                else:
+                    evt_id = daemon._handle_ipc_event(evt_name, {})
+                    print(f"\n[EVENT TRIGGERED IN-PROCESS]: {evt_id}\n")
+                    res = {"status": "TRIGGERED", "event_id": evt_id}
+
+            elif "--startup" in args_clean or "startup" in args_clean or "install" in args_clean:
                 res = daemon.generate_startup_script()
-            else:
-                running = daemon.is_running()
-                res = {"status": "RUNNING" if running else "STOPPED", "pid_file": str(daemon.pid_file)}
-            print(f"\nJarvis Daemon: {res}\n")
+                print(f"\n=== [WINDOWS STARTUP SERVICE GENERATED] ===")
+                print(f"  Batch Script  : {res.get('bat_script')}")
+                print(f"  PowerShell    : {res.get('ps1_script')}")
+                print(f"  Task XML      : {res.get('task_scheduler_xml')}")
+                print(f"  Instructions  : {res.get('instructions')}")
+                print("===========================================\n")
+
+            else:  # status
+                ok, status_data, lat = client.get_status()
+                if ok:
+                    print(f"\n=== [JARVIS X DAEMON STATUS (IPC Active)] ===")
+                    print(f"  Status       : {status_data.get('status')}")
+                    print(f"  PID          : {status_data.get('pid')}")
+                    print(f"  Health       : {status_data.get('health')}")
+                    print(f"  Uptime       : {status_data.get('uptime_seconds', 0.0):.1f}s")
+                    print(f"  Memory RSS   : {status_data.get('memory_rss_mb')} MB")
+                    print(f"  CPU Usage    : {status_data.get('cpu_percent')}%")
+                    print(f"  Commands Run : {status_data.get('total_commands_executed')}")
+                    print(f"  Events Run   : {status_data.get('total_events_processed')}")
+                    print(f"  Last Event   : {status_data.get('last_event')}")
+                    print(f"  IPC Latency  : {lat:.2f} ms")
+                    print("=============================================\n")
+                    res = status_data
+                else:
+                    state = daemon.get_status()
+                    print(f"\n=== [JARVIS X DAEMON STATUS (Offline)] ===")
+                    print(f"  Status       : {state.status}")
+                    print(f"  PID File     : {daemon.pid_manager.pid_file}")
+                    print("==========================================\n")
+                    res = state.__dict__
+
             return {"action": "daemon", "status": "COMPLETED", "result": res}
+
+        # ----------------------------------------------------------
+        # FAST IPC ALFRED COMMAND DISPATCH
+        # ----------------------------------------------------------
+        elif command in ("alfred", "ask", "q"):
+            from jarvisx.runtime.ipc_client import IPCClient
+            client = IPCClient()
+            query_text = args or "status"
+            # Try warm IPC query first
+            ok, resp, lat = client.execute_command(query_text)
+            if ok:
+                print(f"[Alfred IPC ({lat:.2f}ms)]: {resp.get('output', resp)}")
+                return {"action": "alfred_ipc", "status": "SUCCESS", "result": resp}
+            else:
+                # Fallback to local mission execution
+                res = await self.handle_command_async(f"mission {query_text}")
+                return {"action": "alfred_local", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
         # REPORT / TIME SAVED
