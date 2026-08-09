@@ -150,5 +150,6 @@ class EvaluationEngine:
         """Get light, conservative utility multiplier (0.95 - 1.05) for knowledge ranking."""
         records = {r.source_file: r.utility_score for r in self.memory.get_all_source_utilities()}
         score = records.get(source_file, 1.0)
-        # Conservative scaling: +/- 5% max impact
-        return 1.0 + ((score - 0.5) * 0.1)
+        # Conservative scaling: strictly clamped between 0.95 and 1.05
+        raw_boost = 1.0 + ((score - 0.5) * 0.1)
+        return max(0.95, min(1.05, round(raw_boost, 4)))

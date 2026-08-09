@@ -4,6 +4,14 @@ All notable architectural milestones of Project Jarvis X across 100 phases.
 
 ---
 
+## [1.2.5] - 2026-08-09 (Evaluation Adversarial Audit & Anti-Spoofing Hardening)
+### Phase 102.5 — Evaluation Layer Hostile Stress Testing & Defense Hardening
+- Validated Citation Hallucination Defense: Evaluator strictly flags ungrounded claims as `UNSUPPORTED` / `UNKNOWN_FROM_VAULT` when retrieved evidence is irrelevant.
+- Validated Evidence Divergence & Conflict Attribution: Verified cryptographic source separation across contradictory and fictional lore notes.
+- Hardened Feedback Injection Safety: User feedback and corrections are HTML-escaped and SQL-parameterized; injection payloads cannot execute commands or modify tables.
+- Hardened Utility Boost Clamping: Hard-clamped source utility ranking multipliers strictly within $[0.95, 1.05]$ ($\pm 5\%$), preventing manipulation via high-frequency retrieval spam.
+- Connected Failure Pattern Mining into Phase 97 Self-Improvement loop with categorized root cause attribution.
+
 ## [1.2.0] - 2026-08-09 (Evidence-Based Intelligence Evaluation Layer)
 ### Phase 102 — Intelligence Evaluation, Evidence Tracing & Knowledge Utility
 - Implemented `EvidenceTracker` constructing cryptographic `EvidenceTrace` linking response claims to vault chunks (`SUPPORTED`, `PARTIALLY_SUPPORTED`, `UNKNOWN_FROM_VAULT`, `UNSUPPORTED`).
