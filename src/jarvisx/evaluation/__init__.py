@@ -13,6 +13,9 @@ from jarvisx.evaluation.models import (
     SourceUtilityRecord,
 )
 
+from jarvisx.evaluation.drift_detector import DriftReport, DriftSeverity, EvaluationDriftDetector
+from jarvisx.evaluation.evaluation_engine import EvaluationEngine
+
 __all__ = [
     "EvidenceSupportState",
     "FailureCategory",
@@ -24,4 +27,8 @@ __all__ = [
     "FailureRecord",
     "SourceUtilityRecord",
     "IntelligenceScorecard",
+    "DriftReport",
+    "DriftSeverity",
+    "EvaluationDriftDetector",
+    "EvaluationEngine",
 ]

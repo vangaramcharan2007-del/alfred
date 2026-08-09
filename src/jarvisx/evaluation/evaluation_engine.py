@@ -7,6 +7,7 @@ import time
 from typing import Any, Dict, List, Optional
 import uuid
 
+from jarvisx.evaluation.drift_detector import EvaluationDriftDetector, DriftReport
 from jarvisx.evaluation.evidence.evidence_tracker import EvidenceTracker
 from jarvisx.evaluation.models import (
     FailureCategory,
@@ -31,6 +32,7 @@ class EvaluationEngine:
         self.retrieval_evaluator = RetrievalEvaluator()
         self.response_scorer = ResponseScorer()
         self.metrics_aggregator = QualityMetricsAggregator(self.memory)
+        self.drift_detector = EvaluationDriftDetector(self.memory)
 
     def evaluate_response(
         self,
@@ -145,6 +147,10 @@ class EvaluationEngine:
     def list_history(self, limit: int = 20) -> List[ResponseEvaluation]:
         """List historical evaluations."""
         return self.memory.list_recent_evaluations(limit=limit)
+
+    def check_drift(self, window_size: int = 20, min_evals: int = 10) -> DriftReport:
+        """Analyze evaluation history for slow quality degradation or drift."""
+        return self.drift_detector.analyze_drift(window_size=window_size, min_evals=min_evals)
 
     def get_source_utility_boost(self, source_file: str) -> float:
         """Get light, conservative utility multiplier (0.95 - 1.05) for knowledge ranking."""

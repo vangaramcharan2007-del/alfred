@@ -4,6 +4,14 @@ All notable architectural milestones of Project Jarvis X across 100 phases.
 
 ---
 
+## [1.2.7] - 2026-08-09 (Evaluation Drift Detection & Quality Trend Analyzer)
+### Phase 102.7 — Long-Term Quality Drift Monitoring & Self-Improvement Bridge
+- Implemented `EvaluationDriftDetector` comparing rolling recent evaluation windows against historical baselines.
+- Analyzes grounding degradation drops, user correction frequency spikes, and isolated degraded source notes.
+- Categorizes drift severity into `STABLE`, `WARNING`, and `CRITICAL`.
+- Outputs actionable diagnostics and remediation recommendations directly connected to Phase 97 Self-Improvement triggers (`rebuild_embeddings`, `retire_outdated_notes`).
+- Added CLI command: `intelligence drift` with cross-platform ASCII formatting.
+
 ## [1.2.5] - 2026-08-09 (Evaluation Adversarial Audit & Anti-Spoofing Hardening)
 ### Phase 102.5 — Evaluation Layer Hostile Stress Testing & Defense Hardening
 - Validated Citation Hallucination Defense: Evaluator strictly flags ungrounded claims as `UNSUPPORTED` / `UNKNOWN_FROM_VAULT` when retrieved evidence is irrelevant.

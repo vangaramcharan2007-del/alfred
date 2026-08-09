@@ -1,7 +1,7 @@
 [project]
 name = "project-jarvis-x"
-version = "1.2.5"
-description = "Jarvis X v1.2.5 Production Autonomous Personal OS with Adversarially Audited Intelligence Evaluation & Obsidian Knowledge Vault."
+version = "1.2.7"
+description = "Jarvis X v1.2.7 Production Autonomous Personal OS with Drift-Aware Intelligence Evaluation & Obsidian Knowledge Vault."
 requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.9.0",

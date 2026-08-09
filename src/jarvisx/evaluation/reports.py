@@ -79,9 +79,35 @@ class EvaluationReportFormatter:
             return "\n".join(lines)
 
         for e in evaluations[:15]:
-            status_char = "✓" if e.is_user_accepted is True else ("✗" if e.is_user_accepted is False else "•")
+            status_char = "+" if e.is_user_accepted is True else ("-" if e.is_user_accepted is False else "*")
             lines.append(
                 f"  [{status_char}] {e.response_id} | Q: '{e.query[:35]}...' | Grounding: {int(e.grounding_score * 100)}% | Quality: {int(e.final_quality_score * 100)}%"
             )
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def format_drift_report(drift: Any) -> str:
+        """Format an evaluation drift report."""
+        status_icon = "[OK]" if drift.severity.value == "STABLE" else ("[WARN]" if drift.severity.value == "WARNING" else "[CRITICAL]")
+        lines = [
+            f"=== JARVIS X INTELLIGENCE DRIFT REPORT {status_icon} ===",
+            f"  Status / Severity     : {drift.severity.value}",
+            f"  Drift Detected        : {'YES' if drift.is_drift_detected else 'NO'}",
+            f"  Evaluations Analyzed  : {drift.total_evaluations_analyzed}",
+            f"  Baseline Grounding    : {int(drift.baseline_grounding * 100)}%",
+            f"  Recent Grounding      : {int(drift.current_grounding * 100)}% (Drop: {drift.grounding_drop_pct}%)",
+            f"  Baseline Corrections  : {int(drift.baseline_correction_rate * 100)}%",
+            f"  Recent Corrections    : {int(drift.current_correction_rate * 100)}% (Rise: {drift.correction_increase_pct}%)",
+            "",
+            "--- Diagnostics ---",
+        ]
+        for d in drift.diagnostics:
+            lines.append(f"  * {d}")
+
+        lines.append("")
+        lines.append("--- Recommended Actions ---")
+        for a in drift.recommended_actions:
+            lines.append(f"  -> {a}")
 
         return "\n".join(lines)

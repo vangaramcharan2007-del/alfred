@@ -268,6 +268,10 @@ class JarvisCLI:
                 history = ee.list_history(limit=20)
                 print(f"\n{EvaluationReportFormatter.format_history(history)}\n")
                 res = {"status": "SUCCESS", "history": [h.__dict__ for h in history]}
+            elif sub_cmd in ("drift", "decay", "trends", "degradation"):
+                drift = ee.check_drift()
+                print(f"\n{EvaluationReportFormatter.format_drift_report(drift)}\n")
+                res = {"status": "SUCCESS", "drift": drift.__dict__}
             else:
                 scorecard = ee.get_scorecard()
                 print(f"\n{EvaluationReportFormatter.format_scorecard(scorecard)}\n")
