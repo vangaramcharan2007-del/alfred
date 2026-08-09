@@ -117,14 +117,30 @@ class KnowledgeEngine:
         )
         return self.context_composer.compose_context(query=query, results=results)
 
+    def heal(self) -> IngestionReport:
+        """Heal corrupted or missing knowledge index by force-resynchronizing from the Obsidian vault."""
+        return self.sync(force_rebuild=True)
+
     def status(self) -> Dict[str, Any]:
         """Return knowledge engine status, document counts, and vector index size."""
         stats = self.metadata_index.get_stats()
+        vault_files = self.vault_manager.list_all_files()
+
+        # Integrity & Corruption Check
+        is_corrupted = False
+        health_status = "HEALTHY"
+
+        if vault_files and (stats["total_documents"] == 0 or len(self.vector_store.vectors) == 0):
+            health_status = "RECOVERY_REQUIRED"
+            is_corrupted = True
+
         return {
             "vault_path": str(self.vault_manager.vault_path),
             "total_documents": stats["total_documents"],
             "total_chunks": stats["total_chunks"],
             "categories": stats["categories"],
             "vector_index_count": len(self.vector_store.vectors),
-            "status": "HEALTHY",
+            "vault_files_on_disk": len(vault_files),
+            "status": health_status,
+            "is_corrupted": is_corrupted,
         }
