@@ -218,9 +218,11 @@ class BenchmarkRunner:
             command=cmd,
             reason="Organize sandbox files into category subdirectories",
             risk_level=risk,
-            auto_approve_non_interactive=True
         )
-        assert approved is True
+        if not approved:
+            res.logs.append("Step 3: Safety approval denied; no desktop action executed.")
+            res.error_message = "Safety approval required for desktop action."
+            return
         res.steps_completed += 1
 
         res.logs.append("Step 4: Executing approved desktop action...")

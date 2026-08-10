@@ -192,12 +192,15 @@ class UnknownMissionEngine:
         for task in plan.tasks:
             report.capabilities_used.append(task.capability_matched.name)
             if task.requires_approval:
-                ProductionSafetyGate.request_approval(
+                approved = ProductionSafetyGate.request_approval(
                     command=task.description,
                     reason=f"Execute step {task.task_id}",
                     risk_level=task.risk_level,
-                    auto_approve_non_interactive=True
                 )
+                if not approved:
+                    report.execution_logs.append(f"Skipped {task.task_id}: approval denied.")
+                    report.verification_results.append(f"[{task.task_id}]: BLOCKED by safety gate")
+                    continue
             report.execution_logs.append(f"Executing {task.task_id}: {task.description}...")
             report.verification_results.append(f"[{task.task_id}]: PASSED verification")
             executed_tasks += 1

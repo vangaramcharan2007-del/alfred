@@ -9,6 +9,8 @@ class SandboxSecurityError(PermissionError):
     pass
 
 class SandboxManager:
+    _SHELL_CONTROL_TOKENS = {"&&", "||", ";", "|", ">", ">>", "<", "2>", "2>>"}
+
     def __init__(
         self,
         allowed_commands: Optional[List[str]] = None,
@@ -21,10 +23,14 @@ class SandboxManager:
         self.default_timeout_seconds = default_timeout_seconds
         self.max_output_length = max_output_length
 
-    def validate_command(self, command: str) -> str:
-        tokens = shlex.split(command, posix=False)
+    def parse_command(self, command: str) -> List[str]:
+        """Parse one command invocation without granting shell interpretation."""
+        tokens = [self._strip_wrapping_quotes(token) for token in shlex.split(command, posix=False)]
         if not tokens:
             raise SandboxSecurityError("Empty command passed to sandbox.")
+
+        if any(token in self._SHELL_CONTROL_TOKENS for token in tokens):
+            raise SandboxSecurityError("Shell control operators are not allowed in sandbox commands.")
         
         base_cmd = Path(tokens[0]).name.lower()
         if base_cmd.endswith(".exe") or base_cmd.endswith(".bat") or base_cmd.endswith(".cmd"):
@@ -32,8 +38,22 @@ class SandboxManager:
 
         if base_cmd not in self.allowed_commands:
             raise SandboxSecurityError(f"Command '{base_cmd}' is not allowed in sandbox allowlist: {sorted(self.allowed_commands)}")
-        
+
+        return tokens
+
+    def validate_command(self, command: str) -> str:
+        """Legacy validation API returning the normalized executable name."""
+        tokens = self.parse_command(command)
+        base_cmd = Path(tokens[0]).name.lower()
+        if base_cmd.endswith(".exe") or base_cmd.endswith(".bat") or base_cmd.endswith(".cmd"):
+            base_cmd = base_cmd.rsplit(".", 1)[0]
         return base_cmd
+
+    @staticmethod
+    def _strip_wrapping_quotes(token: str) -> str:
+        if len(token) >= 2 and token[0] == token[-1] and token[0] in {"'", '"'}:
+            return token[1:-1]
+        return token
 
     async def execute_command(
         self,
@@ -41,11 +61,11 @@ class SandboxManager:
         cwd: Optional[str] = None,
         timeout: Optional[float] = None
     ) -> Dict[str, Any]:
-        self.validate_command(command)
+        tokens = self.parse_command(command)
         timeout_val = timeout or self.default_timeout_seconds
 
-        process = await asyncio.create_subprocess_shell(
-            command,
+        process = await asyncio.create_subprocess_exec(
+            *tokens,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd

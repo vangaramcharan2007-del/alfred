@@ -2,10 +2,19 @@ import subprocess
 import os
 import sqlite3
 
+from jarvisx.capabilities.permission_manager import PermissionLevel, PermissionManager
+
 class GitSyncAgent:
-    def __init__(self, repo_dir: str = "C:\\Users\\vanga\\Documents\\Codex\\2026-07-11\\files-mentioned-by-the-user-you\\outputs\\project-jarvis-x"):
+    def __init__(
+        self,
+        repo_dir: str = "C:\\Users\\vanga\\Documents\\Codex\\2026-07-11\\files-mentioned-by-the-user-you\\outputs\\project-jarvis-x",
+        permission_manager: PermissionManager | None = None,
+        capability_name: str = "git_sync",
+    ):
         self.repo_dir = repo_dir
         self.db_path = "E:\\Jarvis\\cache.db"
+        self.permission_manager = permission_manager or PermissionManager()
+        self.capability_name = capability_name
 
     def log_to_sqlite(self, stage: str, error_message: str):
         try:
@@ -27,6 +36,18 @@ class GitSyncAgent:
             pass
 
     def execute_secure_push(self, commit_message: str = "Auto-sync") -> dict:
+        missing = [
+            permission.value
+            for permission in (PermissionLevel.WRITE, PermissionLevel.EXECUTE, PermissionLevel.NETWORK)
+            if not self.permission_manager.check_permission(self.capability_name, permission)
+        ]
+        if missing:
+            return {
+                "status": "denied",
+                "message": "Git sync requires explicit WRITE, EXECUTE, and NETWORK permissions.",
+                "missing_permissions": missing,
+            }
+
         if not os.path.exists(self.repo_dir):
             return {"status": "error", "message": f"Repo dir {self.repo_dir} not found."}
             

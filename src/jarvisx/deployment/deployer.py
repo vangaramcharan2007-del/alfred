@@ -67,7 +67,6 @@ class DeploymentEngine:
             command=cmd,
             reason=f"Deploy containerized {framework} application",
             risk_level=RiskLevel.HIGH,
-            auto_approve_non_interactive=True
         )
 
         if approved and res.config_generated and res.env_valid:

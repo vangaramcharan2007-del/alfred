@@ -4,7 +4,6 @@ Protects against high-risk and destructive actions by classifying operations
 and requiring explicit user authorization.
 """
 from __future__ import annotations
-import os
 import sys
 from enum import Enum
 from typing import Dict, Any, Optional
@@ -35,7 +34,7 @@ class ProductionSafetyGate:
         command: str,
         reason: str,
         risk_level: Optional[RiskLevel] = None,
-        auto_approve_non_interactive: bool = True
+        auto_approve_non_interactive: bool = False,
     ) -> bool:
         if risk_level is None:
             risk_level = cls.classify_risk(command)
@@ -51,16 +50,11 @@ User approval required:
 
         print(formatted_request)
 
-        # In non-interactive mode, auto-approve low/medium or environment override
-        is_non_interactive = (
-            auto_approve_non_interactive or 
-            os.environ.get("JARVIS_NON_INTERACTIVE", "").lower() in ("1", "true", "yes") or
-            not sys.stdin.isatty()
-        )
-
-        if is_non_interactive:
-            print("[Safety Gate]: Auto-approved in non-interactive environment.")
-            return True
+        if auto_approve_non_interactive:
+            print("[Safety Gate]: Legacy non-interactive auto-approval is disabled.")
+        if not sys.stdin.isatty():
+            print("[Safety Gate]: Rejected because explicit approval is unavailable.")
+            return False
 
         try:
             choice = input("Approve action? [Y/n]: ").strip().lower()
