@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Computer System Architecture — OS Presentation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #080c14;
+      --bg-slate: #0d1322;
+      --card-bg: rgba(21, 28, 44, 0.75);
+      --card-border: rgba(56, 189, 248, 0.2);
+      --card-hover: rgba(56, 189, 248, 0.35);
+      --text-white: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-cyan: #38bdf8;
+      --accent-indigo: #818cf8;
+      --accent-emerald: #34d399;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --pill-bg: rgba(30, 41, 59, 0.85);
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-white);
+      font-family: var(--font-body);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    /* Ambient Background Glow */
+    .ambient-glow {
+      position: fixed;
+      top: -20%;
+      left: -10%;
+      width: 60vw;
+      height: 60vh;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.08) 0%, rgba(129, 140, 248, 0.04) 50%, transparent 80%);
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .ambient-glow-2 {
+      position: fixed;
+      bottom: -20%;
+      right: -10%;
+      width: 60vw;
+      height: 60vh;
+      background: radial-gradient(circle, rgba(129, 140, 248, 0.08) 0%, rgba(52, 211, 153, 0.04) 50%, transparent 80%);
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Top Control Bar */
+    header.control-bar {
+      position: relative;
+      z-index: 100;
+      height: 52px;
+      background: rgba(13, 19, 34, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: 0.5px;
+      color: var(--accent-cyan);
+    }
+
+    .brand span {
+      color: var(--text-white);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      background: var(--pill-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-white);
+      padding: 0.35rem 0.85rem;
+      border-radius: 8px;
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent-cyan);
+      transform: translateY(-1px);
+    }
+
+    .btn-active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    .timer-badge {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--accent-amber);
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 0.3rem 0.65rem;
+      border-radius: 6px;
+    }
+
+    /* Main Presentation Stage */
+    main.stage {
+      position: relative;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      z-index: 10;
+    }
+
+    .slide-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 1400px;
+      aspect-ratio: 16 / 9;
+      background: var(--bg-slate);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 40px rgba(56, 189, 248, 0.05);
+      display: flex;
+      flex-direction: column;
+      padding: 2.2rem 2.8rem;
+      overflow: hidden;
+    }
+
+    /* Slide Header */
+    .slide-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.8rem;
+    }
+
+    .header-pills {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .pill {
+      font-family: var(--font-heading);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 0.3rem 0.75rem;
+      border-radius: 9999px;
+      background: var(--pill-bg);
+      border: 1px solid var(--card-border);
+    }
+
+    .pill-act {
+      color: var(--accent-cyan);
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    .pill-speaker {
+      color: var(--accent-indigo);
+      border-color: rgba(129, 140, 248, 0.4);
+      background: rgba(129, 140, 248, 0.1);
+    }
+
+    .slide-counter {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--pill-bg);
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .slide-titles {
+      margin-bottom: 1.2rem;
+    }
+
+    .slide-titles h1 {
+      font-family: var(--font-heading);
+      font-size: 1.95rem;
+      font-weight: 800;
+      color: var(--text-white);
+      letter-spacing: -0.5px;
+      line-height: 1.15;
+    }
+
+    .slide-titles p {
+      font-size: 0.95rem;
+      color: var(--accent-cyan);
+      font-weight: 500;
+      margin-top: 0.25rem;
+    }
+
+    /* Slide Content Grid Layouts */
+    .slide-body {
+      flex: 1;
+      display: grid;
+      gap: 1.25rem;
+      align-items: stretch;
+    }
+
+    .grid-2-col {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .grid-3-col {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .grid-split-img {
+      grid-template-columns: 1.15fr 1fr;
+    }
+
+    /* Card Component */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: var(--card-hover);
+    }
+
+    .card-accent-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--accent-cyan);
+    }
+
+    .card-title {
+      font-family: var(--font-heading);
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-white);
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-text {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .card-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .card-list li {
+      font-size: 0.86rem;
+      line-height: 1.45;
+      color: var(--text-muted);
+      position: relative;
+      padding-left: 1.1rem;
+    }
+
+    .card-list li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--accent-cyan);
+      font-weight: bold;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .card-list li strong {
+      color: var(--text-white);
+      font-weight: 600;
+    }
+
+    /* Diagram Containers */
+    .diagram-container {
+      background: rgba(11, 15, 25, 0.7);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 12px;
+      padding: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .diagram-img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    /* Flow Step Visualizer */
+    .flow-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--pill-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 0.65rem 1rem;
+      margin-bottom: 0.8rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .flow-step {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--accent-cyan);
+    }
+
+    .flow-step span {
+      color: var(--text-white);
+      font-weight: 500;
+    }
+
+    .flow-arrow {
+      color: var(--accent-amber);
+      font-weight: bold;
+    }
+
+    /* Slide Footer */
+    .slide-footer {
+      margin-top: 0.8rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    /* Notes Drawer */
+    .notes-drawer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(13, 19, 34, 0.95);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 1.25rem 2rem;
+      z-index: 200;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      max-height: 35vh;
+      overflow-y: auto;
+      box-shadow: 0 -15px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .notes-drawer.open {
+      transform: translateY(0);
+    }
+
+    .notes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .notes-title {
+      font-family: var(--font-heading);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .notes-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 1.25rem;
+    }
+
+    .note-block {
+      background: var(--pill-bg);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+    }
+
+    .note-block h4 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accent-indigo);
+      margin-bottom: 0.35rem;
+    }
+
+    .note-block p {
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: var(--text-white);
+    }
+
+    /* Overview Modal */
+    .overview-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 12, 20, 0.92);
+      backdrop-filter: blur(20px);
+      z-index: 300;
+      padding: 3rem;
+      display: none;
+      flex-direction: column;
+    }
+
+    .overview-modal.open {
+      display: flex;
+    }
+
+    .overview-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1rem;
+      overflow-y: auto;
+      padding: 1rem 0;
+    }
+
+    .thumb-card {
+      background: var(--bg-slate);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 120px;
+    }
+
+    .thumb-card:hover, .thumb-card.active {
+      border-color: var(--accent-cyan);
+      transform: scale(1.03);
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+    }
+
+    .thumb-num {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--accent-cyan);
+      font-weight: bold;
+    }
+
+    .thumb-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-white);
+      line-height: 1.2;
+    }
+
+    .thumb-speaker {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    /* Comparison Table */
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+
+    .compare-table th {
+      background: var(--pill-bg);
+      color: var(--accent-cyan);
+      font-family: var(--font-heading);
+      font-weight: 700;
+      text-align: left;
+      padding: 0.6rem 0.85rem;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .compare-table td {
+      padding: 0.55rem 0.85rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+    }
+
+    .compare-table tr:hover td {
+      background: rgba(56, 189, 248, 0.04);
+    }
+
+    .compare-table td strong {
+      color: var(--text-white);
+    }
+
+    /* Animations */
+    .fade-in {
+      animation: fadeIn 0.35s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient-glow"></div>
+  <div class="ambient-glow-2"></div>
+
+  <!-- Top Control Bar -->
+  <header class="control-bar">
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z"/><path d="M10 4v4"/><path d="M14 4v4"/><path d="M4 10h16"/><path d="M10 14h4"/></svg>
+      <span>SILBERSCHATZ OS</span> / CHAPTER 1
+    </div>
+
+    <div class="nav-actions">
+      <div class="timer-badge" id="slideTimer" title="Current slide rehearsal timer">00:00</div>
+      <button class="btn" id="prevBtn" title="Previous Slide (Left Arrow)">◀ Prev</button>
+      <button class="btn" id="nextBtn" title="Next Slide (Right Arrow / Space)">Next ▶</button>
+      <button class="btn" id="notesBtn" title="Toggle Presenter Notes (N)">📝 Notes</button>
+      <button class="btn" id="gridBtn" title="Slide Overview Grid (O)">☷ Grid</button>
+      <button class="btn" id="fullscreenBtn" title="Toggle Fullscreen (F)">⛶ Fullscreen</button>
+    </div>
+  </header>
+
+  <!-- Slide Presentation Stage -->
+  <main class="stage">
+    <div class="slide-wrapper fade-in" id="slideContainer">
+      <!-- Injected by Javascript -->
+    </div>
+  </main>
+
+  <!-- Presenter Notes Drawer -->
+  <div class="notes-drawer" id="notesDrawer">
+    <div class="notes-header">
+      <div class="notes-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        PRESENTER NOTES — <span id="notesSpeaker">V. RAM CHARAN</span>
+      </div>
+      <button class="btn" id="closeNotesBtn">✕ Close</button>
+    </div>
+    <div class="notes-grid">
+      <div class="note-block">
+        <h4>1. What to Say (Spoken Script)</h4>
+        <p id="noteSpeech">Script text here...</p>
+      </div>
+      <div class="note-block">
+        <h4>2. Key Concept</h4>
+        <p id="noteConcept">Core concept...</p>
+      </div>
+      <div class="note-block">
+        <h4>3. Transition & Cue</h4>
+        <p id="noteTransition">Transition...</p>
+        <p style="margin-top: 0.35rem; color: var(--accent-amber);" id="noteCue">Cue...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overview Modal -->
+  <div class="overview-modal" id="overviewModal">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h2 style="font-family: var(--font-heading); color: var(--accent-cyan);">15-Slide Presentation Overview</h2>
+      <button class="btn" id="closeGridBtn">✕ Close Overview</button>
+    </div>
+    <div class="overview-grid" id="overviewGrid">
+      <!-- Injected by Javascript -->
+    </div>
+  </div>
+
+  <script>
+    const slidesData = [
+      {
+        id: 1,
+        act: "Act I: Foundations",
+        speaker: "V. Ram Charan",
+        title: "Computer System Architecture",
+        subtitle: "Understanding the Hardware Foundation of Operating Systems",
+        render: () => `
+          <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 1.25rem;">
+            <div class="pill pill-act" style="padding: 0.4rem 1.2rem; font-size: 0.85rem;">OPERATING SYSTEMS • CHAPTER 1 INTRODUCTION</div>
+            <h1 style="font-size: 3rem; font-weight: 800; line-height: 1.1; letter-spacing: -1px; max-width: 900px;">Computer System Architecture</h1>
+            <p style="font-size: 1.25rem; color: var(--accent-cyan); font-weight: 600;">Understanding the Hardware Foundation of Operating Systems</p>
+            
+            <div class="card" style="max-width: 850px; padding: 1rem 1.5rem; border-color: rgba(129, 140, 248, 0.4); background: rgba(30, 41, 59, 0.5);">
+              <p style="font-size: 1.05rem; font-style: italic; color: #fff; line-height: 1.5;">"The operating system is the software most intimately involved with computer hardware."</p>
+              <span style="font-size: 0.8rem; color: var(--accent-cyan); margin-top: 0.4rem; display: block;">— Silberschatz, Galvin & Gagne (Operating System Concepts, 10th Edition)</span>
+            </div>
+
+            <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem;">
+              <div class="card" style="width: 240px; padding: 0.75rem 1rem; border-color: var(--accent-cyan);">
+                <div style="font-weight: 800; color: #fff;">V. RAM CHARAN</div>
+                <div style="font-size: 0.75rem; color: var(--accent-cyan);">Speaker 1 (Act I Lead)</div>
+              </div>
+              <div class="card" style="width: 240px; padding: 0.75rem 1rem; border-color: var(--accent-indigo);">
+                <div style="font-weight: 800; color: #fff;">VEDHANTH</div>
+                <div style="font-size: 0.75rem; color: var(--accent-indigo);">Speaker 2 (Act II Lead)</div>
+              </div>
+              <div class="card" style="width: 240px; padding: 0.75rem 1rem; border-color: var(--accent-emerald);">
+                <div style="font-weight: 800; color: #fff;">LOCHAN</div>
+                <div style="font-size: 0.75rem; color: var(--accent-emerald);">Speaker 3 (Act III Lead)</div>
+              </div>
+            </div>
+          </div>
+        `,
+        speech: "Good morning everyone. Welcome to our presentation on Computer System Architecture. I am Ram Charan, and along with my co-presenters Vedhanth and Lochan, we will walk you through how computer hardware and the operating system interact, based on Chapter 1 of Silberschatz's Operating System Concepts 10th Edition. The OS is the critical layer that transforms raw silicon, memory, and devices into a cohesive, secure platform.",
+        concept: "The Operating System as the software most intimately involved with computer hardware, balancing resource allocation and control.",
+        transition: "Let us begin with Slide 2 by looking at the four fundamental components that make up any computer system.",
+        cue: "Stand center, acknowledge professors and classmates, gesture to team member names."
+      },
+      {
+        id: 2,
+        act: "Act I: Foundations",
+        speaker: "V. Ram Charan",
+        title: "What is a Computer System?",
+        subtitle: "Four Major Components & The Role of the Operating System (Silberschatz Figure 1.1)",
+        render: () => `
+          <div class="slide-body grid-split-img">
+            <div class="diagram-container">
+              <img src="assets/presentation/system_components.png" class="diagram-img" alt="Abstract View of System Components">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="card">
+                <div class="card-accent-bar"></div>
+                <div class="card-title">1. Resource Allocator Role</div>
+                <ul class="card-list">
+                  <li><strong>CPU Time & Memory:</strong> Manages CPU cycles, memory allocation, and storage space.</li>
+                  <li><strong>Fair Resolution:</strong> Resolves conflicting resource requests from multiple users and programs fairly and efficiently.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-emerald);"></div>
+                <div class="card-title" style="color: var(--accent-emerald);">2. Control Program Role</div>
+                <ul class="card-list">
+                  <li><strong>Execution Supervision:</strong> Controls execution of user programs to prevent errors.</li>
+                  <li><strong>Improper Operation Prevention:</strong> Protects against unauthorized hardware manipulation and system crashes.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-indigo);"></div>
+                <div class="card-title" style="color: var(--accent-indigo);">Hardware & Applications</div>
+                <p class="card-text">Hardware provides basic computing resources (CPU, Memory, I/O). Applications define how resources solve user problems. The OS coordinates both.</p>
+              </div>
+            </div>
+          </div>
+        `,
+        speech: "Silberschatz breaks a computer system into four components: Users, Application Programs, the Operating System, and Computer Hardware. Hardware supplies raw computational power—the CPU, main memory, and I/O devices. Applications want to use those resources. Sitting right between them is the Operating System. The textbook emphasizes that the OS acts as both a Resource Allocator—deciding how CPU time and memory are shared among competing requests—and as a Control Program—preventing bugs and illegal operations from crashing the machine.",
+        concept: "Four-component computer system model & OS duality as Resource Allocator and Control Program.",
+        transition: "Now let's examine how computer system architectures have evolved from single-processor systems to modern multi-core chips.",
+        cue: "Point to the vertical diagram showing the OS buffering applications from raw hardware."
+      },
+      {
+        id: 3,
+        act: "Act I: Foundations",
+        speaker: "V. Ram Charan",
+        title: "Computer-System Architecture",
+        subtitle: "Evolution: Single-Processor, Multiprocessor, and Multicore Systems",
+        render: () => `
+          <div class="slide-body" style="grid-template-rows: 1fr auto; gap: 1rem;">
+            <div class="grid-3-col" style="display: grid; gap: 1rem;">
+              <div class="card">
+                <div class="card-accent-bar"></div>
+                <div class="card-title">Single-Processor Systems</div>
+                <ul class="card-list">
+                  <li><strong>One Main CPU:</strong> Capable of executing general-purpose instruction sets.</li>
+                  <li><strong>Specialized Processors:</strong> Disk and keyboard controllers run limited, dedicated instruction sets.</li>
+                  <li><strong>OS Scheduling:</strong> All processes compete for execution on the single general CPU.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-indigo);"></div>
+                <div class="card-title" style="color: var(--accent-indigo);">Multiprocessor Systems</div>
+                <ul class="card-list">
+                  <li><strong>Parallel / Tightly Coupled:</strong> 2+ processors sharing bus, clock, and memory.</li>
+                  <li><strong>Three Core Benefits:</strong>
+                    <br>1. Increased Throughput
+                    <br>2. Economy of Scale
+                    <br>3. Graceful Degradation / Reliability</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-emerald);"></div>
+                <div class="card-title" style="color: var(--accent-emerald);">Multicore Systems</div>
+                <ul class="card-list">
+                  <li><strong>Multiple Cores on 1 Chip:</strong> Modern design integrating computation cores on a single silicon die.</li>
+                  <li><strong>High Speed Interconnect:</strong> On-chip communication is much faster than external buses.</li>
+                  <li><strong>Power Efficiency:</strong> Significantly lower energy footprint than multiple separate chips.</li>
+                </ul>
+              </div>
+            </div>
+            <div class="card" style="padding: 0.85rem 1.2rem; background: rgba(30, 41, 59, 0.6); border-color: var(--accent-amber);">
+              <div style="font-family: var(--font-heading); font-size: 0.85rem; font-weight: 700; color: var(--accent-amber); margin-bottom: 0.25rem;">TEXTBOOK TERMINOLOGY DEFINITIONS:</div>
+              <div style="font-size: 0.82rem; color: #fff; display: flex; flex-wrap: wrap; gap: 1rem;">
+                <span><strong style="color: var(--accent-amber);">CPU:</strong> Hardware executing instructions.</span>
+                <span><strong style="color: var(--accent-amber);">Processor:</strong> Physical chip containing 1+ CPUs.</span>
+                <span><strong style="color: var(--accent-amber);">Core:</strong> Basic computation unit.</span>
+                <span><strong style="color: var(--accent-amber);">Multicore:</strong> Multiple cores on one CPU chip.</span>
+                <span><strong style="color: var(--accent-amber);">Multiprocessor:</strong> Multiple physical chips.</span>
+              </div>
+            </div>
+          </div>
+        `,
+        speech: "The textbook traces the progression of computer architecture from Single-Processor systems to Multiprocessor and Multicore designs. Single-processor systems have one main general-purpose CPU. Multiprocessor systems add multiple processors sharing buses and memory, providing three major advantages: increased throughput, economy of scale, and graceful degradation—which means if one processor fails, the system continues running. Finally, multicore technology puts multiple computing cores on a single physical chip.",
+        concept: "Definitions of CPU, Processor, Core, Multicore, Multiprocessor, and the 3 advantages of multiprocessor systems.",
+        transition: "Let's look more closely at multicore chips and how Symmetric Multiprocessing operates.",
+        cue: "Emphasize the precise textbook definitions in the bottom callout bar."
+      },
+      {
+        id: 4,
+        act: "Act I: Foundations",
+        speaker: "V. Ram Charan",
+        title: "Multicore & Symmetric Multiprocessing (SMP)",
+        subtitle: "On-Chip Parallelism & Resource Sharing (Silberschatz Figure 1.8)",
+        render: () => `
+          <div class="slide-body grid-split-img">
+            <div class="diagram-container">
+              <img src="assets/presentation/multicore_chip.png" class="diagram-img" alt="Multicore SMP Chip Architecture">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="card">
+                <div class="card-accent-bar"></div>
+                <div class="card-title">Why Modern Systems Use Multicore</div>
+                <ul class="card-list">
+                  <li><strong>Fast On-Chip Buses:</strong> Communication across on-chip channels is vastly faster than traversing motherboard buses.</li>
+                  <li><strong>Power & Thermal Advantages:</strong> Consumes substantially less electrical power than multiple discrete single-core chips.</li>
+                  <li><strong>SMP Peer Relationship:</strong> All cores act as peers; each core runs both user processes and OS kernel functions.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-indigo);"></div>
+                <div class="card-title" style="color: var(--accent-indigo);">Core Memory Organization & OS View</div>
+                <ul class="card-list">
+                  <li><strong>Private vs Shared Caches:</strong> Each core contains private registers and L1 cache, sharing L2/L3 cache and main DRAM.</li>
+                  <li><strong>OS Logical CPUs:</strong> The operating system views each individual core as a separate processing unit, scheduling threads dynamically.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        `,
+        speech: "Why has the computing industry transitioned entirely to multicore? As Silberschatz points out, on-chip communication between cores on the same silicon die is vastly faster and consumes far less power than broadcasting signals across motherboard buses. In a multicore SMP system, each core has its own private registers and L1 cache, while sharing lower-level caches and main memory. The operating system views each core as an independent logical CPU, scheduling threads across all cores simultaneously.",
+        concept: "Multicore chip organization, private L1 vs shared cache, and Symmetric Multiprocessing (SMP) peer scheduling.",
+        transition: "However, as we keep adding more processors to a single shared bus, we hit a major bottleneck. Let's see how NUMA architecture solves this.",
+        cue: "Point to the private core caches versus the shared interconnect on the diagram."
+      },
+      {
+        id: 5,
+        act: "Act I: Foundations",
+        speaker: "V. Ram Charan",
+        title: "Multiprocessor & NUMA Architecture",
+        subtitle: "Non-Uniform Memory Access for Highly Scalable Multiprocessing (Silberschatz Figure 1.9)",
+        render: () => `
+          <div class="slide-body grid-split-img">
+            <div class="diagram-container">
+              <img src="assets/presentation/numa_architecture.png" class="diagram-img" alt="NUMA Architecture Diagram">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-rose);"></div>
+                <div class="card-title" style="color: var(--accent-rose);">The Scaling Limit & Bus Bottleneck</div>
+                <ul class="card-list">
+                  <li><strong>Memory Bus Contention:</strong> As processor count increases on a shared bus, CPUs stall waiting for memory bandwidth.</li>
+                  <li><strong>Diminishing Returns:</strong> Adding more CPUs to a single bus yields decreasing performance gains.</li>
+                  <li><strong>The NUMA Solution:</strong> Distributes physical memory locally across CPU clusters while maintaining a single shared address space.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-amber);"></div>
+                <div class="card-title" style="color: var(--accent-amber);">Local vs Remote Memory & OS Role</div>
+                <ul class="card-list">
+                  <li><strong>Local Memory:</strong> Minimum latency, direct CPU memory channel.</li>
+                  <li><strong>Remote Memory:</strong> Traverses system interconnect; incurs higher access latency.</li>
+                  <li><strong>OS Scheduling:</strong> NUMA-aware OS allocates memory on the local node executing the process.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        `,
+        speech: "When we scale to dozens of processors, connecting them all to a single shared bus causes severe contention. Silberschatz explains that NUMA—Non-Uniform Memory Access—overcomes this by giving each CPU its own local memory bank while still presenting a single unified address space. Local memory access is very fast; accessing remote memory over the system interconnect takes longer. The OS must be NUMA-aware to schedule threads near their allocated memory. That concludes Act I. I will now hand over to Vedhanth for Act II.",
+        concept: "NUMA architecture, bus contention bottleneck, local vs remote latency trade-off, and OS locality management.",
+        transition: "I will now pass the presentation to Vedhanth, who will explain how the operating system maintains hardware control through interrupts and dual-mode execution.",
+        cue: "Conclude Act I, hand presentation clicker/focus over to Vedhanth."
+      },
+      {
+        id: 6,
+        act: "Act II: OS Control & Memory",
+        speaker: "Vedhanth",
+        title: "How the OS Operates with Hardware",
+        subtitle: "Maintaining Control via the Interrupt Mechanism (Silberschatz Principle)",
+        render: () => `
+          <div class="slide-body" style="grid-template-rows: auto 1fr; gap: 1rem;">
+            <div class="flow-bar">
+              <div class="flow-step"><span>1. Device Event</span></div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step"><span>2. CPU Interrupted</span></div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step"><span>3. State Saved (PC/Regs)</span></div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step"><span>4. IVT Lookup</span></div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step"><span>5. ISR Executes</span></div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step"><span>6. Return to Program</span></div>
+            </div>
+            <div class="grid-2-col" style="display: grid; gap: 1rem;">
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-indigo);"></div>
+                <div class="card-title" style="color: var(--accent-indigo);">Event-Driven OS Operation</div>
+                <ul class="card-list">
+                  <li><strong>The Control Challenge:</strong> The OS must control hardware without wasting CPU cycles continuously polling devices.</li>
+                  <li><strong>Interrupt-Driven Nature:</strong> If there are no processes to run, no I/O, and no user input, the OS sits idle awaiting events.</li>
+                  <li><strong>Asynchronous Signal:</strong> Hardware device controllers signal the CPU via bus interrupt lines whenever an operation finishes.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-emerald);"></div>
+                <div class="card-title" style="color: var(--accent-emerald);">Interrupt Handling & Vector Table</div>
+                <ul class="card-list">
+                  <li><strong>Interrupt Vector Table (IVT):</strong> An array of handler addresses in low memory providing fast, deterministic dispatch.</li>
+                  <li><strong>Context Preservation:</strong> Hardware pushes Program Counter (PC) and CPU state to the kernel stack before branching.</li>
+                  <li><strong>Seamless Return:</strong> After servicing the device, a return-from-interrupt instruction restores saved user context.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        `,
+        speech: "Thank you Ram Charan. Hello everyone, I am Vedhanth, and in Act II we will look at how the Operating System controls and protects hardware. Silberschatz emphasizes that modern operating systems are completely interrupt-driven. When an I/O device finishes an operation, its controller asserts an interrupt signal. The CPU detects this, saves the current Program Counter and registers, looks up the corresponding service routine in the Interrupt Vector Table, executes the handler, and then resumes the user program.",
+        concept: "Interrupt mechanism as the core foundation of event-driven OS control and the role of the Interrupt Vector Table.",
+        transition: "Now let's distinguish between hardware interrupts, software exceptions, and system calls.",
+        cue: "Walk the audience step-by-step through the horizontal flow diagram at the top."
+      },
+      {
+        id: 7,
+        act: "Act II: OS Control & Memory",
+        speaker: "Vedhanth",
+        title: "Interrupts, Traps & System Calls",
+        subtitle: "Distinguishing Hardware Signals, Software Exceptions, and Kernel Requests",
+        render: () => `
+          <div class="slide-body" style="grid-template-rows: 1fr auto; gap: 1rem;">
+            <div class="grid-3-col" style="display: grid; gap: 1rem;">
+              <div class="card">
+                <div class="card-accent-bar"></div>
+                <div class="card-title">Hardware Interrupt</div>
+                <ul class="card-list">
+                  <li><strong>Origin:</strong> Generated by physical hardware devices.</li>
+                  <li><strong>Timing:</strong> Asynchronous (can occur at any instruction cycle).</li>
+                  <li><strong>Examples:</strong> Keyboard press, timer tick, network packet arrival, disk transfer completion.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-amber);"></div>
+                <div class="card-title" style="color: var(--accent-amber);">Trap / Exception</div>
+                <ul class="card-list">
+                  <li><strong>Origin:</strong> Generated by the CPU during software execution.</li>
+                  <li><strong>Timing:</strong> Synchronous (caused by a specific instruction).</li>
+                  <li><strong>Examples:</strong> Division by zero, invalid memory access (page fault), deliberate trap instruction.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-emerald);"></div>
+                <div class="card-title" style="color: var(--accent-emerald);">System Call</div>
+                <ul class="card-list">
+                  <li><strong>Origin:</strong> Programmatic request by user software.</li>
+                  <li><strong>Purpose:</strong> Requests privileged OS services (I/O, process management, memory allocation).</li>
+                  <li><strong>Examples:</strong> read(), write(), open(), fork(), exec().</li>
+                </ul>
+              </div>
+            </div>
+            <div class="card" style="padding: 0.85rem 1.2rem; background: var(--pill-bg); border-color: var(--accent-indigo);">
+              <div style="font-family: var(--font-heading); font-size: 0.85rem; font-weight: 700; color: var(--accent-indigo); margin-bottom: 0.35rem;">THE SYSTEM-CALL DISPATCH PIPELINE:</div>
+              <div style="font-size: 0.82rem; color: #fff; line-height: 1.4;">
+                USER PROGRAM executes wrapper  →  TRAP INSTRUCTION triggers mode switch  →  KERNEL INDEXES Vector Table  →  KERNEL SERVICE ROUTINE executes  →  RETURN-FROM-TRAP restores User Mode
+              </div>
+            </div>
+          </div>
+        `,
+        speech: "It is crucial to distinguish between three terms that students often confuse: Hardware Interrupts, Traps, and System Calls. Hardware interrupts are asynchronous signals from physical devices. A Trap or exception is synchronous, triggered directly by an instruction—like a divide-by-zero error or a software-generated trap. A System Call is the official programmatic interface user applications use to request services reserved for the OS kernel, executing a trap that safely crosses the user-kernel boundary.",
+        concept: "Distinction between asynchronous hardware interrupts and synchronous software traps/syscalls, plus the system call execution sequence.",
+        transition: "To ensure user programs cannot bypass this boundary, the hardware enforces Dual-Mode Operation.",
+        cue: "Highlight the transition from user mode to kernel mode during a system call."
+      },
+      {
+        id: 8,
+        act: "Act II: OS Control & Memory",
+        speaker: "Vedhanth",
+        title: "Dual-Mode CPU Operation",
+        subtitle: "Hardware-Enforced Protection via the Mode Bit (Silberschatz Figure 1.14)",
+        render: () => `
+          <div class="slide-body grid-split-img">
+            <div class="diagram-container">
+              <img src="assets/presentation/dual_mode.png" class="diagram-img" alt="Dual-Mode State Transition">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="card">
+                <div class="card-accent-bar"></div>
+                <div class="card-title">The Mode Bit Architecture</div>
+                <ul class="card-list">
+                  <li><strong>Hardware Status Register:</strong> CPU contains a mode bit indicating current privilege level.</li>
+                  <li><strong>User Mode (Mode Bit = 1):</strong> User applications execute here. Direct access to hardware or privileged instructions is blocked by silicon.</li>
+                  <li><strong>Kernel Mode (Mode Bit = 0):</strong> Also called Supervisor or Privileged Mode. Operating system kernel has unrestricted hardware and memory access.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-rose);"></div>
+                <div class="card-title" style="color: var(--accent-rose);">Fault Isolation & Boot Transition</div>
+                <ul class="card-list">
+                  <li><strong>Protection:</strong> Prevents rogue programs from corrupting kernel structures or reading private data of other processes.</li>
+                  <li><strong>Boot Sequence:</strong> Machine boots in Kernel Mode (0), loads OS, sets Mode Bit = 1, and switches to User Mode to execute user applications.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        `,
+        speech: "Dual-mode operation is one of the most fundamental concepts in computer science. The CPU hardware contains a Mode Bit: when Mode Bit equals 1, the CPU is in User Mode; when Mode Bit equals 0, it is in Kernel Mode. Why is this necessary? If user applications could directly alter hardware registers or halt the processor, one buggy program could crash the entire computer. By enforcing dual modes in hardware, privileged instructions can only execute when the mode bit is zero.",
+        concept: "Dual-mode operation, the hardware Mode Bit (0=Kernel, 1=User), privileged instructions, and fault isolation.",
+        transition: "Let's look at exactly what constitutes a privileged instruction and what happens when an illegal operation occurs.",
+        cue: "Point to the mode bit toggling between 0 and 1 in the diagram."
+      },
+      {
+        id: 9,
+        act: "Act II: OS Control & Memory",
+        speaker: "Vedhanth",
+        title: "Protection & Privileged Instructions",
+        subtitle: "Hardware-Enforced Safeguards Against Illegal Operations",
+        render: () => `
+          <div class="slide-body" style="grid-template-rows: 1fr auto; gap: 1rem;">
+            <div class="grid-3-col" style="display: grid; gap: 1rem;">
+              <div class="card">
+                <div class="card-accent-bar"></div>
+                <div class="card-title">I/O Control Instructions</div>
+                <ul class="card-list">
+                  <li><strong>Direct Device Commands:</strong> Instructions communicating directly with device controller registers.</li>
+                  <li><strong>Protection:</strong> Prevents unauthorized reading of raw disk sectors or network tampering.</li>
+                  <li><strong>Enforcement:</strong> All I/O must go through kernel system calls.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-amber);"></div>
+                <div class="card-title" style="color: var(--accent-amber);">Timer & Clock Control</div>
+                <ul class="card-list">
+                  <li><strong>Configuring Timers:</strong> Loading, modifying, or halting the hardware interval timer.</li>
+                  <li><strong>Protection:</strong> Prevents user programs from disabling preemption and hogging the CPU.</li>
+                  <li><strong>Enforcement:</strong> Only the OS scheduler can modify timer registers.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-rose);"></div>
+                <div class="card-title" style="color: var(--accent-rose);">Interrupt & Memory Setup</div>
+                <ul class="card-list">
+                  <li><strong>Disabling Interrupts:</strong> Instructions like CLI/STI or modifying the Interrupt Vector Table.</li>
+                  <li><strong>Base & Limit Registers:</strong> Modifying memory management boundary registers.</li>
+                  <li><strong>Enforcement:</strong> Attempting in User Mode fires an immediate Trap.</li>
+                </ul>
+              </div>
+            </div>
+            <div class="card" style="padding: 0.85rem 1.2rem; background: var(--pill-bg); border-color: var(--accent-rose);">
+              <div style="font-family: var(--font-heading); font-size: 0.85rem; font-weight: 700; color: var(--accent-rose); margin-bottom: 0.35rem;">ILLEGAL PRIVILEGED INSTRUCTION HANDLING:</div>
+              <div style="font-size: 0.82rem; color: #fff; line-height: 1.4;">
+                USER PROGRAM executes privileged instruction  →  CPU detects Mode Bit == 1  →  CPU REFUSES execution  →  HARDWARE FIRES TRAP (Illegal Opcode)  →  OS TERMINATES process
+              </div>
+            </div>
+          </div>
+        `,
+        speech: "What instructions are strictly privileged? The textbook lists instructions that control I/O devices, modify timer registers, turn off interrupts, or change memory management registers. If a user program tries to execute any of these privileged instructions in User Mode, the hardware detects that the mode bit is 1, immediately blocks the instruction, and fires a trap to the OS. The operating system treats this as a fatal error and terminates the offending process, keeping the rest of the system safe.",
+        concept: "Privileged instruction categories (I/O, timer, interrupts, memory) and hardware trap generation on violation.",
+        transition: "Now, what happens if a user program enters an infinite loop and refuses to yield control? Let's look at the Timer mechanism.",
+        cue: "Emphasize that the hardware blocks the illegal instruction before it can cause harm."
+      },
+      {
+        id: 10,
+        act: "Act II: OS Control & Memory",
+        speaker: "Vedhanth",
+        title: "The Hardware Timer & OS Control",
+        subtitle: "Guaranteeing Operating System Preemption & Preventing CPU Monopolization",
+        render: () => `
+          <div class="slide-body grid-2-col">
+            <div class="card">
+              <div class="card-accent-bar" style="background: var(--accent-rose);"></div>
+              <div class="card-title" style="color: var(--accent-rose);">The Problem: Infinite Loop Dilemma</div>
+              <ul class="card-list">
+                <li><strong>The Monopolization Threat:</strong> Once the CPU enters User Mode, how does the OS guarantee it will ever regain control?</li>
+                <li><strong>Buggy or Malicious Programs:</strong> A process might enter an infinite loop (e.g. while(true){}) or simply refuse to invoke any system calls.</li>
+                <li><strong>Without a Timer:</strong> The CPU would remain trapped executing user code forever, locking up the entire computer.</li>
+                <li><strong>Silberschatz Rule:</strong> <em>"We must ensure that the operating system maintains control over the CPU."</em></li>
+              </ul>
+            </div>
+            <div class="card">
+              <div class="card-accent-bar" style="background: var(--accent-emerald);"></div>
+              <div class="card-title" style="color: var(--accent-emerald);">The Solution: Hardware Timer</div>
+              <ul class="card-list">
+                <li><strong>Interval Counter:</strong> Specialized hardware clock configured to decrement with each physical clock cycle.</li>
+                <li><strong>Preemption Interrupt:</strong> When the counter reaches 0, the timer generates a hardware interrupt, forcing CPU back into Kernel Mode (Mode Bit = 0).</li>
+                <li><strong>OS Scheduler Action:</strong> The OS scheduler regains execution, updates process time accounting, and schedules the next thread (Time Slicing).</li>
+                <li><strong>Guaranteed Fairness:</strong> Guarantees that no process can starve others or freeze the machine.</li>
+              </ul>
+            </div>
+          </div>
+        `,
+        speech: "Imagine what would happen if a user program entered an infinite loop. If the OS had no way to intervene, the whole computer would hang forever. Silberschatz explains that the **Hardware Timer** solves this problem. Before handing the CPU to a user process, the OS sets a timer. As the CPU executes, the timer decrements. When it hits zero, a hardware interrupt fires, forcing control back to the OS scheduler. This guarantees preemption and makes multitasking possible. That concludes Act II. I will now pass to Lochan for Act III.",
+        concept: "The hardware timer as the guarantor of OS CPU control, preemption, and time-sharing.",
+        transition: "I will now pass the presentation to Lochan, who will cover the Memory Hierarchy, I/O systems, Clustered systems, and our final synthesis.",
+        cue: "Conclude Act II and hand the presentation clicker/focus over to Lochan."
+      },
+      {
+        id: 11,
+        act: "Act III: Multiprocessors, I/O & Architecture",
+        speaker: "Lochan",
+        title: "Memory & Storage-Device Hierarchy",
+        subtitle: "Speed, Cost, and Volatility Trade-offs (Silberschatz Figure 1.10)",
+        render: () => `
+          <div class="slide-body grid-split-img">
+            <div class="diagram-container">
+              <img src="assets/presentation/storage_hierarchy.png" class="diagram-img" alt="Storage Hierarchy Pyramid">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="card">
+                <div class="card-accent-bar"></div>
+                <div class="card-title">Hierarchy Levels & Speed Gap</div>
+                <ul class="card-list">
+                  <li><strong>Registers & Caches:</strong> Fastest access, smallest size, highest cost per bit, volatile (loses data on power loss).</li>
+                  <li><strong>Main Memory (DRAM):</strong> The only large storage medium the CPU can directly address and execute instructions from. Volatile.</li>
+                  <li><strong>Nonvolatile Storage (NVM / Disks):</strong> Preserves data permanently; slower access times but massive capacity at low cost.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-amber);"></div>
+                <div class="card-title" style="color: var(--accent-amber);">Two Fundamental Storage Axioms</div>
+                <ul class="card-list">
+                  <li><strong>Axiom 1 (Execution):</strong> Programs must be brought into Main Memory to be executed by the CPU.</li>
+                  <li><strong>Axiom 2 (Trade-off):</strong> Higher levels are faster and more expensive; lower levels offer greater capacity at lower cost per bit.</li>
+                  <li><strong>Caching Principle:</strong> Data is temporarily copied to faster storage to accelerate access.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        `,
+        speech: "Thank you Vedhanth. Hello everyone, I am Lochan, and in Act III we will explore storage hierarchies, I/O systems, and clustered environments. As Silberschatz illustrates, memory is organized in a strict pyramid governed by speed, cost, and volatility. At the top, CPU registers and caches offer near-instant access but are small, expensive, and volatile. Main memory is the only large storage the CPU can directly address. Below that, nonvolatile SSDs and hard disks preserve data permanently. The OS must stage data across these tiers efficiently.",
+        concept: "Storage hierarchy trade-offs (speed, cost per bit, volatility) and the caching principle.",
+        transition: "Now let's examine how the operating system communicates with I/O devices.",
+        cue: "Trace the storage pyramid from top to bottom on the diagram."
+      },
+      {
+        id: 12,
+        act: "Act III: Multiprocessors, I/O & Architecture",
+        speaker: "Lochan",
+        title: "I/O Structure & Device Controllers",
+        subtitle: "Bridging the Speed Gap Between CPU and Peripherals (Silberschatz Model)",
+        render: () => `
+          <div class="slide-body" style="grid-template-rows: 1fr auto; gap: 1rem;">
+            <div class="grid-3-col" style="display: grid; gap: 1rem;">
+              <div class="card">
+                <div class="card-accent-bar"></div>
+                <div class="card-title">Device Controllers</div>
+                <ul class="card-list">
+                  <li><strong>Hardware Unit:</strong> Dedicated chip managing specific device types (disk, keyboard, network).</li>
+                  <li><strong>Local Buffers:</strong> Staging memory and control registers for data transfers.</li>
+                  <li><strong>Autonomous:</strong> Moves data between device and local buffer independently.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-indigo);"></div>
+                <div class="card-title" style="color: var(--accent-indigo);">Device Drivers</div>
+                <ul class="card-list">
+                  <li><strong>Software Component:</strong> OS module understanding controller register protocols.</li>
+                  <li><strong>Uniform Interface:</strong> Presents a clean, uniform I/O interface to the rest of the OS.</li>
+                  <li><strong>Register Dispatch:</strong> Writes command registers to initiate I/O.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-emerald);"></div>
+                <div class="card-title" style="color: var(--accent-emerald);">Direct Memory Access (DMA)</div>
+                <ul class="card-list">
+                  <li><strong>High-Speed Devices:</strong> Essential for high-throughput disk and network interfaces.</li>
+                  <li><strong>CPU Bypass:</strong> Transfers whole data blocks directly between buffer and RAM.</li>
+                  <li><strong>One Interrupt per Block:</strong> Generates only one interrupt per block instead of one per byte.</li>
+                </ul>
+              </div>
+            </div>
+            <div class="card" style="padding: 0.85rem 1.2rem; background: var(--pill-bg); border-color: var(--accent-cyan);">
+              <div style="font-family: var(--font-heading); font-size: 0.85rem; font-weight: 700; color: var(--accent-cyan); margin-bottom: 0.35rem;">THE COMPLETE I/O CYCLE:</div>
+              <div style="font-size: 0.82rem; color: #fff; line-height: 1.4;">
+                APP requests I/O  →  DRIVER loads controller registers  →  CONTROLLER transfers to local buffer  →  DMA transfers block to RAM  →  INTERRUPT signals completion to OS
+              </div>
+            </div>
+          </div>
+        `,
+        speech: "How does the operating system coordinate with I/O devices? Each physical device is managed by a hardware **Device Controller** with its own local buffer storage. In the OS kernel, a corresponding **Device Driver** speaks the controller's language. For high-speed block devices like SSDs and network cards, transferring data byte-by-byte through the CPU would cause massive overhead. Silberschatz explains that **Direct Memory Access (DMA)** transfers entire blocks directly between the controller buffer and RAM, generating only one interrupt per block.",
+        concept: "Device Controller, Device Driver, local buffer storage, interrupt-driven I/O, and Direct Memory Access (DMA).",
+        transition: "Let's revisit multiprocessor systems and compare Symmetric Multiprocessing with NUMA in depth.",
+        cue: "Explain how DMA frees the CPU from byte-by-byte transfer duties."
+      },
+      {
+        id: 13,
+        act: "Act III: Multiprocessors, I/O & Architecture",
+        speaker: "Lochan",
+        title: "Multiprocessor Systems: SMP vs NUMA",
+        subtitle: "Architectural Trade-offs in Shared-Memory Multiprocessing (Silberschatz Comparison)",
+        render: () => `
+          <div class="slide-body" style="grid-template-rows: auto 1fr; gap: 1rem;">
+            <div class="card" style="padding: 0.75rem;">
+              <table class="compare-table">
+                <thead>
+                  <tr>
+                    <th>Architectural Feature</th>
+                    <th>Symmetric Multiprocessing (SMP / UMA)</th>
+                    <th>Non-Uniform Memory Access (NUMA)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Memory Access Time</strong></td>
+                    <td>Uniform access latency across all CPUs / cores.</td>
+                    <td>Non-uniform: Local memory is fast; remote memory is slower.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>System Interconnect</strong></td>
+                    <td>Single shared central bus connecting all CPUs to RAM.</td>
+                    <td>Point-to-point interconnect linking distributed nodes.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Scalability & OS Role</strong></td>
+                    <td>Limited by shared bus contention at higher core counts.</td>
+                    <td>Highly scalable; OS must optimize thread memory locality.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="grid-2-col" style="display: grid; gap: 1rem;">
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-amber);"></div>
+                <div class="card-title" style="color: var(--accent-amber);">The NUMA Latency Trade-Off</div>
+                <ul class="card-list">
+                  <li><strong>Local Access:</strong> CPU accesses attached local DRAM channel with zero bus contention.</li>
+                  <li><strong>Remote Access:</strong> Incurs interconnect traversal penalty and latency overhead.</li>
+                </ul>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-emerald);"></div>
+                <div class="card-title" style="color: var(--accent-emerald);">OS NUMA Scheduling & Allocation</div>
+                <ul class="card-list">
+                  <li><strong>Thread Affinity:</strong> Schedulers bind threads to CPU cores physically near the thread's memory.</li>
+                  <li><strong>Locality Allocation:</strong> Memory managers prioritize allocating frames from the local NUMA node.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        `,
+        speech: "Comparing SMP and NUMA side-by-side reveals a fundamental engineering trade-off. In pure Symmetric Multiprocessing, all CPUs share a single memory bus. While simple, bus contention caps scalability as processor counts increase. In NUMA, memory is partitioned across processor nodes. While this solves the bus bottleneck, it introduces variable latency: local access is fast, while remote access across the interconnect is slower. The operating system must be NUMA-aware to schedule threads on the same node where their memory lives.",
+        concept: "SMP vs NUMA comparison, uniform vs non-uniform memory access, and OS locality-aware scheduling.",
+        transition: "Beyond single machines, what happens when we connect independent computer systems together? This brings us to Clustered Systems.",
+        cue: "Guide the audience through the comparison table columns."
+      },
+      {
+        id: 14,
+        act: "Act III: Multiprocessors, I/O & Architecture",
+        speaker: "Lochan",
+        title: "Clustered Systems & Computing Environments",
+        subtitle: "Loosely Coupled Systems & Operating System Environments (Silberschatz Overview)",
+        render: () => `
+          <div class="slide-body grid-2-col">
+            <div class="card">
+              <div class="card-accent-bar"></div>
+              <div class="card-title">Clustered Systems (Textbook Definition)</div>
+              <ul class="card-list">
+                <li><strong>Loosely Coupled Nodes:</strong> 2+ independent computer systems connected via high-speed LAN or SAN interconnect.</li>
+                <li><strong>Shared Storage (SAN):</strong> Nodes share a Storage Area Network, providing uniform data access across all machines.</li>
+                <li><strong>High Availability & Fault Tolerance:</strong> If any node fails, remaining nodes seamlessly take over the workload.</li>
+                <li><strong>Asymmetric Clustering:</strong> One machine runs apps while another stands by as hot-spare monitoring the host.</li>
+                <li><strong>Symmetric Clustering:</strong> Multiple nodes run apps concurrently while monitoring each other.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <div class="card-accent-bar" style="background: var(--accent-indigo);"></div>
+              <div class="card-title" style="color: var(--accent-indigo);">Diverse Computing Environments</div>
+              <ul class="card-list">
+                <li><strong>Traditional / Desktop:</strong> Standard PCs, workstations, and file servers running multitasking OSes.</li>
+                <li><strong>Mobile Computing:</strong> Power-constrained smartphones and tablets with wireless connectivity (iOS/Android).</li>
+                <li><strong>Distributed Systems:</strong> Networked collection of physically separate nodes presenting a single unified system.</li>
+                <li><strong>Cloud Computing:</strong> Virtualized compute, storage, and networking delivered on-demand.</li>
+                <li><strong>Embedded / Real-Time:</strong> Specialized appliances with rigid deadline constraints.</li>
+              </ul>
+            </div>
+          </div>
+        `,
+        speech: "While multiprocessor systems share a single chassis, **Clustered Systems** connect two or more independent computers together across a network, typically sharing a Storage Area Network (SAN). The textbook distinguishes asymmetric clustering—where one node acts as a hot-standby—and symmetric clustering—where all nodes run applications concurrently while monitoring each other for high availability. Silberschatz also outlines the spectrum of computing environments: traditional desktops, mobile systems, cloud infrastructures, and embedded real-time systems.",
+        concept: "Clustered systems (loosely coupled nodes, shared SAN, asymmetric vs symmetric) and computing environment categories.",
+        transition: "Now let's bring our entire presentation together into a final synthesis and open the floor for questions.",
+        cue: "Contrast clustered scale-out architecture with single-system multi-core scale-up architecture."
+      },
+      {
+        id: 15,
+        act: "Synthesis & Conclusion",
+        speaker: "V. Ram Charan · Vedhanth · Lochan",
+        title: "Complete Architecture & Key Takeaways",
+        subtitle: "The Grand Synthesis & Interactive Discussion (Silberschatz Chapter 1 Summary)",
+        render: () => `
+          <div class="slide-body grid-2-col">
+            <div class="card">
+              <div class="card-accent-bar"></div>
+              <div class="card-title">The Complete System Architecture Stack</div>
+              <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.25rem;">
+                <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid var(--accent-cyan); padding: 0.5rem 0.75rem; border-radius: 8px;">
+                  <strong style="color: var(--accent-cyan); font-size: 0.85rem;">▼ USERS:</strong>
+                  <div style="font-size: 0.78rem; color: var(--text-muted);">People, machines, and remote programs requesting computation.</div>
+                </div>
+                <div style="background: rgba(129, 140, 248, 0.1); border: 1px solid var(--accent-indigo); padding: 0.5rem 0.75rem; border-radius: 8px;">
+                  <strong style="color: var(--accent-indigo); font-size: 0.85rem;">▼ APPLICATION PROGRAMS:</strong>
+                  <div style="font-size: 0.78rem; color: var(--text-muted);">Compilers, DBMS, Browsers defining resource usage.</div>
+                </div>
+                <div style="background: rgba(52, 211, 153, 0.1); border: 1px solid var(--accent-emerald); padding: 0.5rem 0.75rem; border-radius: 8px;">
+                  <strong style="color: var(--accent-emerald); font-size: 0.85rem;">▼ OPERATING SYSTEM:</strong>
+                  <div style="font-size: 0.78rem; color: var(--text-muted);">Process & Memory Management | I/O Subsystem | Resource Allocation & Control Program.</div>
+                </div>
+                <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--accent-amber); padding: 0.5rem 0.75rem; border-radius: 8px;">
+                  <strong style="color: var(--accent-amber); font-size: 0.85rem;">▼ COMPUTER HARDWARE:</strong>
+                  <div style="font-size: 0.78rem; color: var(--text-muted);">CPU / Multicore | Main Memory (RAM) | Storage | I/O Controllers & Buses.</div>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+              <div class="card" style="flex: 1;">
+                <div class="card-accent-bar" style="background: var(--accent-emerald);"></div>
+                <div class="card-title" style="color: var(--accent-emerald);">Four Fundamental Takeaways</div>
+                <ul class="card-list" style="gap: 0.4rem;">
+                  <li><strong>1. Hardware Provides Resources:</strong> CPU executes, RAM holds state, I/O bridges devices.</li>
+                  <li><strong>2. OS Coordinates & Controls:</strong> Dual identity as Resource Allocator and Control Program.</li>
+                  <li><strong>3. Interrupts & Syscalls Bridge Layers:</strong> Event-driven communication across hardware and apps.</li>
+                  <li><strong>4. Dual-Mode Protects System:</strong> Mode Bit (0/1) safeguards kernel from user errors.</li>
+                </ul>
+              </div>
+              <div class="card" style="padding: 0.75rem 1rem; border-color: var(--accent-indigo); background: var(--pill-bg);">
+                <div style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">PRESENTED BY:</div>
+                <div style="font-size: 0.95rem; font-weight: 800; color: #fff;">V. RAM CHARAN   •   VEDHANTH   •   LOCHAN</div>
+                <div style="font-size: 0.8rem; color: var(--accent-emerald); font-style: italic; margin-top: 0.2rem;">Thank you! We now welcome your questions.</div>
+              </div>
+            </div>
+          </div>
+        `,
+        speech: "To summarize our presentation: Users execute applications; applications request operating system services; the OS manages memory, processes, and I/O; and underlying hardware executes instructions under dual-mode protection. The four fundamental takeaways from Chapter 1 are: hardware provides resources, the OS coordinates them, interrupts link the software and hardware stacks, and dual-mode execution guarantees system protection. On behalf of Ram Charan, Vedhanth, and myself, thank you for your attention. We are now open for questions.",
+        concept: "Complete Chapter 1 synthesis: hardware resources, OS dual role, interrupt-driven operation, and hardware protection.",
+        transition: "End of presentation — open floor for Q&A.",
+        cue: "All three presenters step forward together, smile, and invite questions from the professor and classmates."
+      }
+    ];
+
+    let currentSlideIdx = 0;
+    let timerSeconds = 0;
+    let timerInterval = null;
+
+    function renderSlide(idx) {
+      if (idx < 0 || idx >= slidesData.length) return;
+      currentSlideIdx = idx;
+      const slide = slidesData[idx];
+      const container = document.getElementById("slideContainer");
+
+      container.className = "slide-wrapper fade-in";
+      container.innerHTML = `
+        <div class="slide-header">
+          <div class="header-pills">
+            <div class="pill pill-act">${slide.act}</div>
+            <div class="pill pill-speaker">SPEAKER: ${slide.speaker}</div>
+          </div>
+          <div class="slide-counter">${String(slide.id).padStart(2, '0')} / 15</div>
+        </div>
+        <div class="slide-titles">
+          <h1>${slide.title}</h1>
+          <p>${slide.subtitle}</p>
+        </div>
+        ${slide.render()}
+        <div class="slide-footer">
+          <span>Primary Reference: Silberschatz, Galvin & Gagne — Operating System Concepts, 10th Edition (2018), Chapter 1</span>
+          <span>CS University Course Presentation</span>
+        </div>
+      `;
+
+      // Update Notes Drawer
+      document.getElementById("notesSpeaker").textContent = slide.speaker.toUpperCase();
+      document.getElementById("noteSpeech").textContent = slide.speech;
+      document.getElementById("noteConcept").textContent = slide.concept;
+      document.getElementById("noteTransition").textContent = slide.transition;
+      document.getElementById("noteCue").textContent = "Cue: " + slide.cue;
+
+      // Update Grid thumbnails active state
+      document.querySelectorAll(".thumb-card").forEach((card, i) => {
+        card.classList.toggle("active", i === idx);
+      });
+
+      // Reset slide timer
+      resetTimer();
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      timerSeconds = 0;
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        timerSeconds++;
+        updateTimerDisplay();
+      }, 1000);
+    }
+
+    function updateTimerDisplay() {
+      const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+      const secs = String(timerSeconds % 60).padStart(2, '0');
+      document.getElementById("slideTimer").textContent = `${mins}:${secs}`;
+    }
+
+    function buildOverviewGrid() {
+      const grid = document.getElementById("overviewGrid");
+      grid.innerHTML = "";
+      slidesData.forEach((s, i) => {
+        const card = document.createElement("div");
+        card.className = `thumb-card ${i === currentSlideIdx ? 'active' : ''}`;
+        card.innerHTML = `
+          <div class="thumb-num">${String(s.id).padStart(2, '0')}</div>
+          <div class="thumb-title">${s.title}</div>
+          <div class="thumb-speaker">${s.speaker}</div>
+        `;
+        card.onclick = () => {
+          renderSlide(i);
+          document.getElementById("overviewModal").classList.remove("open");
+        };
+        grid.appendChild(card);
+      });
+    }
+
+    // Navigation Handlers
+    document.getElementById("prevBtn").onclick = () => {
+      if (currentSlideIdx > 0) renderSlide(currentSlideIdx - 1);
+    };
+
+    document.getElementById("nextBtn").onclick = () => {
+      if (currentSlideIdx < slidesData.length - 1) renderSlide(currentSlideIdx + 1);
+    };
+
+    document.getElementById("notesBtn").onclick = () => {
+      const drawer = document.getElementById("notesDrawer");
+      drawer.classList.toggle("open");
+      document.getElementById("notesBtn").classList.toggle("btn-active", drawer.classList.contains("open"));
+    };
+
+    document.getElementById("closeNotesBtn").onclick = () => {
+      document.getElementById("notesDrawer").classList.remove("open");
+      document.getElementById("notesBtn").classList.remove("btn-active");
+    };
+
+    document.getElementById("gridBtn").onclick = () => {
+      buildOverviewGrid();
+      document.getElementById("overviewModal").classList.add("open");
+    };
+
+    document.getElementById("closeGridBtn").onclick = () => {
+      document.getElementById("overviewModal").classList.remove("open");
+    };
+
+    document.getElementById("fullscreenBtn").onclick = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    };
+
+    // Keyboard Shortcuts
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
+        if (currentSlideIdx < slidesData.length - 1) renderSlide(currentSlideIdx + 1);
+      } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+        if (currentSlideIdx > 0) renderSlide(currentSlideIdx - 1);
+      } else if (e.key === "Home") {
+        renderSlide(0);
+      } else if (e.key === "End") {
+        renderSlide(slidesData.length - 1);
+      } else if (e.key.toLowerCase() === "n") {
+        document.getElementById("notesBtn").click();
+      } else if (e.key.toLowerCase() === "o" || e.key.toLowerCase() === "g") {
+        document.getElementById("gridBtn").click();
+      } else if (e.key.toLowerCase() === "f") {
+        document.getElementById("fullscreenBtn").click();
+      } else if (e.key === "Escape") {
+        document.getElementById("overviewModal").classList.remove("open");
+        document.getElementById("notesDrawer").classList.remove("open");
+      }
+    });
+
+    // Initialize
+    renderSlide(0);
+  </script>
+</body>
+</html>
