@@ -59,7 +59,7 @@ def add_transition(slide):
     try:
         slide_element = slide._element
         transition_xml = parse_xml(f'<p:transition {nsdecls("p")} spd="med"><p:push dir="l"/></p:transition>')
-        slide_element.insert(0, transition_xml)
+        slide_element.append(transition_xml)
     except Exception:
         pass
 
