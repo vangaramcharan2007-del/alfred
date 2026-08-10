@@ -166,7 +166,8 @@ class JarvisCLI:
             args_clean = args.lower().strip() if args else ""
 
             if "--start" in args_clean or "start" in args_clean:
-                res = daemon.start()
+                is_block = "--block" in args_clean or "-b" in args_clean
+                res = daemon.start(block=is_block)
                 print(f"\n=== [JARVIS X DAEMON LAUNCH] ===")
                 print(f"  Status   : {res.get('status')}")
                 print(f"  PID      : {res.get('pid')}")
