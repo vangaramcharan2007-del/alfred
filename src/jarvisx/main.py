@@ -101,7 +101,8 @@ async def async_main():
             "knowledge", "obsidian", "rag",
             "evaluate", "evaluation", "feedback", "intelligence",
             "memory", "mem", "remember", "profile",
-            "jarvisd", "alfred", "ask", "q"
+            "daemon", "jarvisd", "alfred", "ask", "q",
+            "coach", "study", "syllabus", "loop", "operate", "cycle"
         }
         first_word = sys.argv[1].lower()
 

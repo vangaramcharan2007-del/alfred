@@ -4,6 +4,18 @@ All notable architectural milestones of Project Jarvis X across 100 phases.
 
 ---
 
+## [1.5.0] - 2026-08-10 (Autonomous Personal Operating Loop & Academic Coach Engine)
+### Phase 105 — 8-Stage Executive Loop, Initiative Arbiter & 10 CGPA Study Coach
+- Implemented **8-Stage Autonomous Operating Loop** (`AutonomousOperatingLoop`):
+  $$\text{Observe} \to \text{Understand} \to \text{Decide} \to \text{Plan} \to \text{Execute} \to \text{Evaluate} \to \text{Remember} \to \text{Improve}$$
+  producing comprehensive structured telemetry traces (`OperatingCycleResult`).
+- Developed **Academic & Engineering Coach Engine** (`AcademicCoachEngine`) with dynamic `LearningProfile` tracking syllabus, topic mastery matrix (DSA, OS, DBMS, CN), and exam proximity.
+- Engineered **Mathematical Initiative Arbiter** (`InitiativeArbiter`):
+  $$\text{Initiative Score} = (\text{Goal Impact} \times 0.35) + (\text{Urgency} \times 0.25) + (\text{Confidence} \times 0.20) + (\text{Availability} \times 0.20)$$
+  enforcing a $\ge 0.75$ confidence threshold and cooldown throttles to prevent intrusive notifications.
+- Added **Closed-Loop Memory & Telemetry Persistence**: Saves cycle traces and topic states in `var/db/operating_loop.db` integrated into `BackupManager`.
+- Added CLI commands: `coach status`, `coach plan`, `coach topic <name>`, `loop run`, `loop status`.
+
 ## [1.4.5] - 2026-08-09 (Presence State Machine & Resource Governor Hardening)
 ### Phase 104.5 — Strict State Transition Enforcement & RAM Optimization
 - Implemented **Presence State Machine** (`PresenceStateMachine`) enforcing strict transitions across `OFFLINE`, `BOOTING`, `READY`, `LISTENING`, `PROCESSING`, `EXECUTING`, `SLEEPING`, `ERROR_RECOVERY`, and `STOPPING`.

@@ -102,6 +102,59 @@ class JarvisCLI:
             return {"action": "briefing", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # PHASE 105: ACADEMIC COACH & 10 CGPA STUDY ENGINE
+        # ----------------------------------------------------------
+        elif command in ("coach", "study", "syllabus"):
+            from jarvisx.operating_loop.academic_coach import AcademicCoachEngine
+            from jarvisx.operating_loop.reports import format_coach_status, format_study_plan
+            coach = AcademicCoachEngine()
+            args_clean = args.strip() if args else "status"
+
+            if "plan" in args_clean:
+                missions = coach.generate_daily_study_missions(max_missions=3)
+                output = format_study_plan(missions)
+                print(f"\n{output}\n")
+                return {"action": "coach_plan", "status": "SUCCESS", "missions": [m.__dict__ for m in missions]}
+            elif "topic" in args_clean:
+                parts = args_clean.split(maxsplit=2)
+                t_name = parts[1] if len(parts) > 1 else "General"
+                score_str = parts[2] if len(parts) > 2 else "0.0"
+                try:
+                    score_delta = float(score_str)
+                except ValueError:
+                    score_delta = 0.05
+                updated = coach.update_topic_mastery(t_name, score_delta)
+                print(f"\n[COACH TOPIC UPDATED]: {updated.topic_name} -> Mastery: {int(updated.mastery_level*100)}%\n")
+                return {"action": "coach_topic", "status": "SUCCESS", "topic": updated.__dict__}
+            else:
+                output = format_coach_status(coach.profile)
+                print(f"\n{output}\n")
+                return {"action": "coach_status", "status": "SUCCESS", "profile": coach.profile.__dict__}
+
+        # ----------------------------------------------------------
+        # PHASE 105: AUTONOMOUS OPERATING LOOP (8 STAGES)
+        # ----------------------------------------------------------
+        elif command in ("loop", "operate", "cycle"):
+            from jarvisx.operating_loop.loop_engine import AutonomousOperatingLoop
+            from jarvisx.operating_loop.reports import format_loop_trace
+            loop = AutonomousOperatingLoop()
+            args_clean = args.lower().strip() if args else "run"
+
+            if "status" in args_clean or "history" in args_clean:
+                recent = loop.get_recent_cycles(limit=3)
+                if not recent:
+                    print("\n[OPERATING LOOP]: No recent cycles recorded. Run 'jarvisx loop run' to initiate.\n")
+                    return {"action": "loop_status", "status": "EMPTY"}
+                for c in recent:
+                    print(f"\n{format_loop_trace(c)}\n")
+                return {"action": "loop_status", "status": "SUCCESS", "count": len(recent)}
+            else:
+                cycle = loop.run_cycle(trigger_event="CLI_USER_TRIGGER", override_cooldown=True)
+                output = format_loop_trace(cycle)
+                print(f"\n{output}\n")
+                return {"action": "loop_run", "status": "SUCCESS", "cycle": cycle.to_dict()}
+
+        # ----------------------------------------------------------
         # PHASE 104: PERSISTENT SOVEREIGN DAEMON & IPC PRESENCE
         # ----------------------------------------------------------
         elif command in ("daemon", "jarvisd"):

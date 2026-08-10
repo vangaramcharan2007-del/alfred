@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 from jarvisx.events.event_bus import EventBus
 from jarvisx.events.models import EventType, SystemEvent
 from jarvisx.events.proactive_scheduler import ProactiveScheduler
+from jarvisx.operating_loop.academic_coach import AcademicCoachEngine
+from jarvisx.operating_loop.loop_engine import AutonomousOperatingLoop
 from jarvisx.runtime.heartbeat import DaemonHeartbeatMonitor
 from jarvisx.runtime.ipc_server import IPCServer
 from jarvisx.runtime.lifecycle import DaemonLifecycleManager
@@ -27,14 +29,14 @@ logger = logging.getLogger("jarvisx.daemon")
 
 
 class JarvisDaemon:
-    """Master Always-On Background Daemon orchestrating PID locking, IPC server, event bus, proactive scheduler, presence states, and health heartbeat."""
+    """Master Always-On Background Daemon orchestrating PID locking, IPC server, event bus, proactive scheduler, presence states, health heartbeat, and autonomous operating loop."""
 
     def __init__(
         self,
         var_dir: Optional[str] = None,
         ipc_port: int = 10404,
         command_handler: Optional[Callable[[str], Dict[str, Any]]] = None,
-        context: Optional["RuntimeContext"] = None,
+        context: Optional[Any] = None,
     ):
         self.context = context
         self.config = context.config if context else {}
@@ -53,6 +55,9 @@ class JarvisDaemon:
 
         self.presence = PresenceStateMachine(PresenceState.OFFLINE)
         self.governor = ResourceGovernor()
+
+        self.coach = AcademicCoachEngine(str(self.var_dir / "db" / "operating_loop.db"))
+        self.operating_loop = AutonomousOperatingLoop(coach=self.coach, db_path=str(self.var_dir / "db" / "operating_loop.db"))
 
         self.event_bus = context.event_bus if context else EventBus()
         self.scheduler = ProactiveScheduler(self.event_bus)

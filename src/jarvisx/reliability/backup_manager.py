@@ -28,6 +28,7 @@ class BackupManager:
             "var/db/knowledge.db",
             "var/db/evaluation.db",
             "var/db/memory_intelligence.db",
+            "var/db/operating_loop.db",
         ]
 
     def _compute_sha256(self, file_path: Path) -> str:
