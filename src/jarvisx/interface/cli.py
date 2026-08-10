@@ -7,13 +7,17 @@ import sys
 import subprocess
 import time
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import TYPE_CHECKING, Dict, Any, Optional
 
 from jarvisx.interface.command_parser import CommandParser
 from jarvisx.kernel.runtime_kernel import RuntimeKernel
 from jarvisx.missions.mission_manager import MissionManager
-from jarvisx.evolution.evolution_engine import AutonomousEvolutionEngine
 from jarvisx.missions.persistence import MissionPersistenceManager
+
+if TYPE_CHECKING:
+    from jarvisx.evolution.evolution_engine import AutonomousEvolutionEngine
+    from jarvisx.runtime.context import RuntimeContext
+    from jarvisx.runtime.daemon import JarvisDaemon
 
 
 class JarvisCLI:
@@ -22,13 +26,18 @@ class JarvisCLI:
         self,
         kernel: Optional[RuntimeKernel] = None,
         mission_manager: Optional[MissionManager] = None,
-        evolution_engine: Optional[AutonomousEvolutionEngine] = None,
-        persistence: Optional[MissionPersistenceManager] = None
+        evolution_engine: Optional["AutonomousEvolutionEngine"] = None,
+        persistence: Optional[MissionPersistenceManager] = None,
+        runtime_context: Optional["RuntimeContext"] = None,
+        daemon: Optional["JarvisDaemon"] = None,
     ):
         self.kernel = kernel or RuntimeKernel()
         self.mission_mgr = mission_manager or MissionManager()
-        self.evolution_engine = evolution_engine or AutonomousEvolutionEngine()
+        # Evolution is optional and must not make the base CLI import LLM dependencies.
+        self.evolution_engine = evolution_engine
         self.persistence = persistence or MissionPersistenceManager()
+        self.context = runtime_context
+        self.daemon = daemon
         self.parser = CommandParser()
 
     def get_status(self) -> Dict[str, Any]:
@@ -99,7 +108,8 @@ class JarvisCLI:
             from jarvisx.runtime.daemon import JarvisDaemon
             from jarvisx.runtime.ipc_client import IPCClient
             client = IPCClient()
-            daemon = JarvisDaemon()
+            daemon = self.daemon or JarvisDaemon(context=self.context)
+            self.daemon = daemon
             args_clean = args.lower().strip() if args else ""
 
             if "--start" in args_clean or "start" in args_clean:

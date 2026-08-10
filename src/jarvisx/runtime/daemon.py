@@ -6,7 +6,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from jarvisx.events.event_bus import EventBus
 from jarvisx.events.models import EventType, SystemEvent
@@ -20,6 +20,9 @@ from jarvisx.runtime.resource_governor import ResourceGovernor
 from jarvisx.runtime.service_manager import WindowsServiceManager
 from jarvisx.runtime.state import DaemonRuntimeState, RuntimeStateManager
 
+if TYPE_CHECKING:
+    from jarvisx.runtime.context import RuntimeContext
+
 logger = logging.getLogger("jarvisx.daemon")
 
 
@@ -31,7 +34,14 @@ class JarvisDaemon:
         var_dir: Optional[str] = None,
         ipc_port: int = 10404,
         command_handler: Optional[Callable[[str], Dict[str, Any]]] = None,
+        context: Optional["RuntimeContext"] = None,
     ):
+        self.context = context
+        self.config = context.config if context else {}
+        self.capability_registry = context.capability_registry if context else None
+        self.memory = context.memory if context else None
+        self.security = context.security if context else None
+        self.health_manager = context.health_manager if context else None
         self.var_dir = Path(var_dir or "var")
         self.var_dir.mkdir(parents=True, exist_ok=True)
         self.log_file = self.var_dir / "logs" / "daemon.log"
@@ -44,7 +54,7 @@ class JarvisDaemon:
         self.presence = PresenceStateMachine(PresenceState.OFFLINE)
         self.governor = ResourceGovernor()
 
-        self.event_bus = EventBus()
+        self.event_bus = context.event_bus if context else EventBus()
         self.scheduler = ProactiveScheduler(self.event_bus)
         self.service_manager = WindowsServiceManager(str(self.var_dir / "scripts"))
 

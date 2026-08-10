@@ -1,6 +1,6 @@
 from __future__ import annotations
 import time
-from typing import Dict, Any, List, Optional
+from typing import TYPE_CHECKING, Dict, Any, List, Optional
 from jarvisx.kernel.subsystem_manager import SubsystemManager
 from jarvisx.kernel.lifecycle_manager import LifecycleManager
 from jarvisx.kernel.event_orchestrator import EventOrchestrator
@@ -9,6 +9,9 @@ from jarvisx.core.hermes import HermesBus
 from jarvisx.capabilities.core.capability_registry import CapabilityRegistry
 from jarvisx.capabilities.core.capability_descriptor import CapabilityDescriptor
 from jarvisx.capabilities.coding.metrics import CodingMetrics
+
+if TYPE_CHECKING:
+    from jarvisx.runtime.context import RuntimeContext
 
 KERNEL_SUBSYSTEMS = [
     "capability_registry",
@@ -35,16 +38,23 @@ class RuntimeKernel:
         self,
         registry: Optional[CapabilityRegistry] = None,
         bus: Optional[HermesBus] = None,
-        metrics: Optional[CodingMetrics] = None
+        metrics: Optional[CodingMetrics] = None,
+        context: Optional[RuntimeContext] = None,
+        subsystem_manager: Optional[SubsystemManager] = None,
+        health_manager: Optional[HealthCoordinator] = None,
     ):
-        self.registry = registry or CapabilityRegistry()
-        self.bus = bus or HermesBus()
+        self.context = context
+        self.config = context.config if context else {}
+        self.memory = context.memory if context else None
+        self.security = context.security if context else None
+        self.registry = registry or (context.capability_registry if context else CapabilityRegistry())
+        self.bus = bus or (context.event_bus if context else HermesBus())
         self.metrics = metrics or CodingMetrics()
 
-        self.subsystem_mgr = SubsystemManager()
+        self.subsystem_mgr = subsystem_manager or (context.subsystem_manager if context else SubsystemManager())
         self.lifecycle = LifecycleManager(subsystem_manager=self.subsystem_mgr)
         self.event_orchestrator = EventOrchestrator(bus=self.bus)
-        self.health_coordinator = HealthCoordinator(subsystem_manager=self.subsystem_mgr)
+        self.health_coordinator = health_manager or (context.health_manager if context else HealthCoordinator(subsystem_manager=self.subsystem_mgr))
 
         # Register all subsystems
         for name in KERNEL_SUBSYSTEMS:
@@ -114,4 +124,3 @@ class RuntimeKernel:
         elif action == "recover":
             return self.recover_components()
         raise NotImplementedError(f"Action '{action}' not supported by RuntimeKernel.")
-

@@ -3,26 +3,42 @@ import asyncio
 from typing import Dict, Any, Optional
 
 from jarvisx.runtime.bootstrap import BootstrapManager
+from jarvisx.runtime.context import RuntimeContext
+from jarvisx.runtime.daemon import JarvisDaemon
 from jarvisx.runtime.shutdown import ShutdownManager
 from jarvisx.runtime.state import RuntimeState
 from jarvisx.kernel.runtime_kernel import RuntimeKernel
 from jarvisx.interface.cli import JarvisCLI
 
 class JarvisRuntime:
-    def __init__(self, config_path: Optional[str] = None):
-        self.bootstrap = BootstrapManager(config_path=config_path)
-        self.kernel = RuntimeKernel()
+    def __init__(self, config_path: Optional[str] = None, context: Optional[RuntimeContext] = None):
+        self.context = context or RuntimeContext.create(config_path)
+        self.bootstrap = BootstrapManager(config_path=config_path, context=self.context)
+        self.kernel = RuntimeKernel(context=self.context)
+        self.daemon = JarvisDaemon(context=self.context)
+        # Compatibility aliases for legacy callers that accessed runtime internals.
+        self.config = self.context.config
+        self.bus = self.context.event_bus
+        self.registry = self.context.capability_registry
+        self.memory = self.context.memory
+        self.security = self.context.security
+        self.health_manager = self.context.health_manager
         self.shutdown_mgr: Optional[ShutdownManager] = None
         self.cli: Optional[JarvisCLI] = None
+        self.alfred = None
 
     async def start(self, print_banner: bool = True) -> RuntimeState:
+        self.context.bind_event_loop()
         state = await self.bootstrap.initialize()
         await self.kernel.boot()
         self.shutdown_mgr = ShutdownManager(state)
+        self.alfred = self.bootstrap.brain
         self.cli = JarvisCLI(
             kernel=self.kernel,
             mission_manager=getattr(self.bootstrap, "mission_mgr", None),
-            evolution_engine=None
+            evolution_engine=None,
+            runtime_context=self.context,
+            daemon=self.daemon,
         )
 
         if print_banner:
@@ -52,14 +68,5 @@ class JarvisRuntime:
 
 
 def create_default_runtime(*args, **kwargs) -> JarvisRuntime:
-    runtime = JarvisRuntime()
-    try:
-        from jarvisx.capabilities.capability_registry import CapabilityRegistry
-        from jarvisx.capabilities.capability_loader import CapabilityLoader
-        reg = CapabilityRegistry()
-        loader = CapabilityLoader(reg)
-        loader.load_built_in_sync()
-        setattr(runtime, "new_capability_registry", reg)
-    except Exception:
-        pass
-    return runtime
+    """Legacy factory retained as the single RuntimeContext construction path."""
+    return JarvisRuntime(*args, **kwargs)

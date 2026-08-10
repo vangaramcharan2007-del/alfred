@@ -9,6 +9,7 @@ __all__ = [
     "JarvisRuntime",
     "create_default_runtime",
     "RuntimeState",
+    "RuntimeContext",
     "BootstrapManager",
     "ShutdownManager",
     "MissionRuntime",
@@ -30,6 +31,9 @@ def __getattr__(name: str) -> Any:
     elif name == "RuntimeState":
         from jarvisx.runtime.state import RuntimeState
         return RuntimeState
+    elif name == "RuntimeContext":
+        from jarvisx.runtime.context import RuntimeContext
+        return RuntimeContext
     elif name == "BootstrapManager":
         from jarvisx.runtime.bootstrap import BootstrapManager
         return BootstrapManager

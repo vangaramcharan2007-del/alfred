@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time
 import uuid
-from typing import Dict, Any, List, Optional
+from typing import TYPE_CHECKING, Dict, Any, List, Optional
 from jarvisx.multi_agent.agent_bus import AgentCommunicationBus
 from jarvisx.multi_agent.models import (
     AgentCapability,
@@ -14,14 +14,24 @@ from jarvisx.multi_agent.models import (
     TeamMissionResult,
 )
 
+if TYPE_CHECKING:
+    from jarvisx.runtime.context import RuntimeContext
+
 
 class AlfredMasterCoordinator:
     """Master Multi-Agent Coordinator.
     Strictly coordinates and plans; delegates specialized subtasks to Researcher, Coder, and Friday.
     """
 
-    def __init__(self, bus: AgentCommunicationBus):
-        self.bus = bus
+    def __init__(self, bus: Optional[AgentCommunicationBus] = None, context: Optional["RuntimeContext"] = None):
+        self.context = context
+        self.config = context.config if context else {}
+        self.event_bus = context.event_bus if context else None
+        self.registry = context.capability_registry if context else None
+        self.memory = context.memory if context else None
+        self.security = context.security if context else None
+        self.health_manager = context.health_manager if context else None
+        self.bus = bus or AgentCommunicationBus()
         self.capability = AgentCapability(
             name="AlfredMaster",
             role=AgentRole.COORDINATOR,

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Dict, Any, List, Optional
+from typing import TYPE_CHECKING, Dict, Any, List, Optional
 from jarvisx.brain.intent_understanding import IntentUnderstanding
 from jarvisx.brain.mission_router import MissionRouter
 from jarvisx.brain.context_manager import ContextManager
@@ -8,14 +8,23 @@ from jarvisx.core.events import Event
 from jarvisx.capabilities.core.capability_registry import CapabilityRegistry
 from jarvisx.capabilities.core.capability_descriptor import CapabilityDescriptor
 
+if TYPE_CHECKING:
+    from jarvisx.runtime.context import RuntimeContext
+
 class BrainController:
     def __init__(
         self,
         registry: Optional[CapabilityRegistry] = None,
-        bus: Optional[HermesBus] = None
+        bus: Optional[HermesBus] = None,
+        context: Optional[RuntimeContext] = None,
     ):
-        self.registry = registry or CapabilityRegistry()
-        self.bus = bus or HermesBus()
+        self.context = context
+        self.config = context.config if context else {}
+        self.memory = context.memory if context else None
+        self.security = context.security if context else None
+        self.health_manager = context.health_manager if context else None
+        self.registry = registry or (context.capability_registry if context else CapabilityRegistry())
+        self.bus = bus or (context.event_bus if context else HermesBus())
         self.intent_engine = IntentUnderstanding()
         self.mission_router = MissionRouter()
         self.context_mgr = ContextManager()
