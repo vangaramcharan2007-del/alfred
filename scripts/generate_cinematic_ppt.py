@@ -48,20 +48,24 @@ FONT_HEADING = "Segoe UI"
 FONT_BODY = "Segoe UI"
 
 def set_slide_background(slide, color=BG_DARK):
-    """Sets a solid dark background for the slide."""
-    background = slide.background
-    fill = background.fill
-    fill.solid()
-    fill.fore_color.rgb = color
-
-def add_transition(slide):
-    """Adds a smooth Push / Fade transition to the slide via XML."""
+    """Sets a solid dark background for the slide both via slide background and a full-bleed backdrop shape."""
     try:
-        slide_element = slide._element
-        transition_xml = parse_xml(f'<p:transition {nsdecls("p")} spd="med"><p:push dir="l"/></p:transition>')
-        slide_element.append(transition_xml)
+        background = slide.background
+        fill = background.fill
+        fill.solid()
+        fill.fore_color.rgb = color
     except Exception:
         pass
+    
+    # Full-bleed dark background shape to ensure dark theme in all PPTX viewers
+    bg_shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, Inches(13.333), Inches(7.5))
+    bg_shape.fill.solid()
+    bg_shape.fill.fore_color.rgb = color
+    bg_shape.line.fill.background()
+
+def add_transition(slide):
+    """Clean standard slide without raw XML modification."""
+    pass
 
 def add_header(slide, slide_num, total_slides, act_title, speaker_name, title, subtitle):
     """Creates a consistent cinematic header with Act Pill, Speaker Badge, Slide Counter, Title & Subtitle."""
@@ -1456,10 +1460,12 @@ def build_presentation():
         "All three presenters step forward together, smile, and invite questions from the professor and classmates."
     )
 
-    # Save PPTX Output
+    # Save PPTX Output to multiple clean filenames
     out_pptx = os.path.join(ROOT_DIR, "computer_system_architecture.pptx")
     prs.save(out_pptx)
-    print(f"Successfully generated 15-slide presentation: {out_pptx}")
+    out_pptx_clean = os.path.join(ROOT_DIR, "Computer_System_Architecture_OS.pptx")
+    prs.save(out_pptx_clean)
+    print(f"Successfully generated 15-slide presentation: {out_pptx} and {out_pptx_clean}")
     return out_pptx
 
 if __name__ == "__main__":
