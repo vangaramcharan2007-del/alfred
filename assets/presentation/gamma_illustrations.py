@@ -1,12 +1,12 @@
 """
 assets/presentation/gamma_illustrations.py
-Generates clean, isometric 3D vector-style hardware illustrations matching
-the Envato Elements / Gamma luxury tech template aesthetic.
+Generates clean, isometric 3D vector-style hardware illustrations with
+cinematic ambient glow orbs, frosted glass reflection effects, and tech accents.
 """
 
 import os
 import math
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 ILLUST_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gamma_assets")
 os.makedirs(ILLUST_DIR, exist_ok=True)
@@ -23,7 +23,6 @@ def get_font(size=20, bold=False):
 
 def iso_point(x, y, z, cx=400, cy=350, scale=1.0):
     """Transforms 3D (x,y,z) to 2D isometric projection (cx, cy)."""
-    # 30 degree isometric angle
     rad = math.radians(30)
     cos30 = math.cos(rad)
     sin30 = math.sin(rad)
@@ -34,21 +33,18 @@ def iso_point(x, y, z, cx=400, cy=350, scale=1.0):
 
 def draw_iso_box(draw, x, y, z, dx, dy, dz, top_col, left_col, right_col, outline_col=None, cx=400, cy=350, scale=1.0):
     """Draws a 3D isometric box."""
-    # Top face vertices: (x,y,z+dz), (x+dx,y,z+dz), (x+dx,y+dy,z+dz), (x,y+dy,z+dz)
     p_top = [
         iso_point(x, y, z+dz, cx, cy, scale),
         iso_point(x+dx, y, z+dz, cx, cy, scale),
         iso_point(x+dx, y+dy, z+dz, cx, cy, scale),
         iso_point(x, y+dy, z+dz, cx, cy, scale)
     ]
-    # Left face vertices: (x,y,z), (x,y+dy,z), (x,y+dy,z+dz), (x,y,z+dz)
     p_left = [
         iso_point(x, y, z, cx, cy, scale),
         iso_point(x, y+dy, z, cx, cy, scale),
         iso_point(x, y+dy, z+dz, cx, cy, scale),
         iso_point(x, y, z+dz, cx, cy, scale)
     ]
-    # Right face vertices: (x,y+dy,z), (x+dx,y+dy,z), (x+dx,y+dy,z+dz), (x,y+dy,z+dz)
     p_right = [
         iso_point(x+dx, y, z, cx, cy, scale),
         iso_point(x+dx, y+dy, z, cx, cy, scale),
@@ -60,8 +56,16 @@ def draw_iso_box(draw, x, y, z, dx, dy, dz, top_col, left_col, right_col, outlin
     draw.polygon(p_right, fill=right_col, outline=outline_col)
     draw.polygon(p_top, fill=top_col, outline=outline_col)
 
+def add_ambient_glow(img, cx, cy, radius, color=(56, 189, 248, 80)):
+    """Draws a soft ambient glow aura behind the object."""
+    glow = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    draw_g = ImageDraw.Draw(glow)
+    draw_g.ellipse([cx - radius, cy - radius, cx + radius, cy + radius], fill=color)
+    glow = glow.filter(ImageFilter.GaussianBlur(radius // 2))
+    return Image.alpha_composite(glow, img)
+
 def create_motherboard_illustration():
-    """Slide 1 & Theme Hero: Isometric Dark Motherboard illustration."""
+    """Slide 1 & Theme Hero: Isometric Dark Motherboard with Cyan Ambient Glow."""
     w, h = 800, 800
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -77,10 +81,10 @@ def create_motherboard_illustration():
     draw_iso_box(draw, -60, -60, 15, 120, 120, 10,
                  top_col=(50, 55, 68), left_col=(30, 34, 44), right_col=(40, 45, 56),
                  outline_col=(90, 100, 125), cx=cx, cy=cy, scale=scale)
-    # CPU Core Die
+    # CPU Core Die with glowing cyan border
     draw_iso_box(draw, -35, -35, 25, 70, 70, 8,
                  top_col=(25, 30, 42), left_col=(18, 22, 32), right_col=(22, 26, 36),
-                 outline_col=(0, 240, 255), cx=cx, cy=cy, scale=scale)
+                 outline_col=(56, 189, 248), cx=cx, cy=cy, scale=scale)
 
     # 3. RAM Slots (4 tall narrow boxes on the right)
     for i in range(4):
@@ -117,14 +121,17 @@ def create_motherboard_illustration():
     for r in range(4):
         p1 = iso_point(-140 + r*20, -50, 16, cx, cy, scale)
         p2 = iso_point(-60, -50 + r*20, 16, cx, cy, scale)
-        draw.line([p1, p2], fill=(0, 240, 255, 140), width=2)
+        draw.line([p1, p2], fill=(56, 189, 248, 160), width=2)
+
+    # Add soft ambient glow overlay
+    final_img = add_ambient_glow(img, cx, cy, 260, (56, 189, 248, 70))
         
     out_path = os.path.join(ILLUST_DIR, "iso_motherboard.png")
-    img.save(out_path, "PNG")
+    final_img.save(out_path, "PNG")
     return out_path
 
 def create_stacked_layers_illustration():
-    """Slide 2: Isometric 4-Tier Stacked Architecture Tower."""
+    """Slide 2: Isometric 4-Tier Stacked Architecture Tower with Indigo Glow."""
     w, h = 800, 800
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -132,7 +139,7 @@ def create_stacked_layers_illustration():
     cx, cy, scale = 400, 360, 1.2
     
     layers = [
-        {"name": "APPLICATION", "z": 240, "size": 150, "h": 40, "col": (0, 240, 255), "top": (35, 55, 80)},
+        {"name": "APPLICATION", "z": 240, "size": 150, "h": 40, "col": (56, 189, 248), "top": (35, 55, 80)},
         {"name": "SERVICES", "z": 160, "size": 220, "h": 45, "col": (129, 140, 248), "top": (30, 42, 70)},
         {"name": "PLATFORM / OS", "z": 80, "size": 290, "h": 50, "col": (52, 211, 153), "top": (25, 45, 55)},
         {"name": "INFRASTRUCTURE", "z": 0, "size": 360, "h": 55, "col": (245, 158, 11), "top": (38, 38, 48)}
@@ -148,17 +155,18 @@ def create_stacked_layers_illustration():
                      top_col=layer["top"], left_col=(18, 22, 32), right_col=(25, 30, 42),
                      outline_col=layer["col"], cx=cx, cy=cy, scale=scale)
         
-        # Draw label on the front left face
         p_label = iso_point(-half + 10, half - 10, z + dz/2, cx, cy, scale)
         font = get_font(16, bold=True)
         draw.text(p_label, layer["name"], fill=(248, 250, 252), font=font)
+
+    final_img = add_ambient_glow(img, cx, cy, 250, (129, 140, 248, 65))
         
     out_path = os.path.join(ILLUST_DIR, "iso_stacked_layers.png")
-    img.save(out_path, "PNG")
+    final_img.save(out_path, "PNG")
     return out_path
 
 def create_system_bus_illustration():
-    """Slide 3: Isometric Computer System Bus & Interconnected Hardware."""
+    """Slide 3: Isometric Computer System Bus & Interconnected Hardware with Cyan Glow."""
     w, h = 850, 800
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -168,18 +176,18 @@ def create_system_bus_illustration():
     # Central Bus Spine (Highway)
     draw_iso_box(draw, -220, -20, 0, 440, 40, 10,
                  top_col=(40, 48, 64), left_col=(22, 26, 36), right_col=(30, 36, 48),
-                 outline_col=(0, 240, 255), cx=cx, cy=cy, scale=scale)
+                 outline_col=(56, 189, 248), cx=cx, cy=cy, scale=scale)
     
     # 1. CPU Node (Top Left)
     draw_iso_box(draw, -180, -180, 0, 100, 100, 30,
                  top_col=(30, 45, 65), left_col=(18, 26, 38), right_col=(24, 34, 48),
-                 outline_col=(0, 240, 255), cx=cx, cy=cy, scale=scale)
+                 outline_col=(56, 189, 248), cx=cx, cy=cy, scale=scale)
     p_cpu = iso_point(-150, -130, 35, cx, cy, scale)
-    draw.text(p_cpu, "CPU", fill=(0, 240, 255), font=get_font(20, True))
+    draw.text(p_cpu, "CPU", fill=(56, 189, 248), font=get_font(20, True))
     
     # Connecting Bus Link
     draw_iso_box(draw, -140, -80, 0, 20, 60, 6,
-                 top_col=(0, 240, 255), left_col=(0, 180, 200), right_col=(0, 200, 220),
+                 top_col=(56, 189, 248), left_col=(0, 180, 200), right_col=(0, 200, 220),
                  cx=cx, cy=cy, scale=scale)
 
     # 2. RAM Memory Node (Top Right)
@@ -215,14 +223,16 @@ def create_system_bus_illustration():
     p_io = iso_point(-40, 190, 22, cx, cy, scale)
     draw.text(p_io, "I/O DEVICES", fill=(248, 250, 252), font=get_font(15, True))
 
+    final_img = add_ambient_glow(img, cx, cy, 260, (56, 189, 248, 60))
+
     out_path = os.path.join(ILLUST_DIR, "iso_system_bus.png")
-    img.save(out_path, "PNG")
+    final_img.save(out_path, "PNG")
     return out_path
 
 def create_single_vs_multi_illustration():
-    """Slide 4: High-contrast single-processor vs multiprocessor tree comparison card."""
+    """Slide 4: High-contrast single-processor vs multiprocessor tree comparison card with rounded glass border."""
     w, h = 800, 600
-    img = Image.new("RGBA", (w, h), (255, 255, 255, 255)) # Clean white card matching template!
+    img = Image.new("RGBA", (w, h), (255, 255, 255, 255))
     draw = ImageDraw.Draw(img)
     
     font_head = get_font(20, True)
@@ -288,7 +298,7 @@ def create_single_vs_multi_illustration():
     return out_path
 
 def create_multicore_chip_3d():
-    """Slide 5: Isometric 3D Multicore CPU package with socket grid."""
+    """Slide 5: Isometric 3D Multicore CPU package with socket grid and emerald/cyan ambient glow."""
     w, h = 800, 800
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -305,7 +315,7 @@ def create_multicore_chip_3d():
                  top_col=(30, 34, 44), left_col=(18, 20, 28), right_col=(24, 28, 38),
                  outline_col=(90, 105, 130), cx=cx, cy=cy, scale=scale)
     
-    # Silicon Die Grid (4x4 or 3x3 Cores Matrix)
+    # Silicon Die Grid
     grid_size = 3
     block_sz = 60
     gap = 12
@@ -317,7 +327,7 @@ def create_multicore_chip_3d():
             by = start + row * (block_sz + gap)
             is_core = (row + col) % 2 == 0
             
-            top_c = (0, 240, 255) if is_core else (129, 140, 248)
+            top_c = (56, 189, 248) if is_core else (129, 140, 248)
             draw_iso_box(draw, bx, by, 35, block_sz, block_sz, 10,
                          top_col=(25, 35, 50), left_col=(15, 22, 32), right_col=(20, 28, 40),
                          outline_col=top_c, cx=cx, cy=cy, scale=scale)
@@ -329,8 +339,10 @@ def create_multicore_chip_3d():
                      top_col=(245, 158, 11), left_col=(180, 115, 10), right_col=(210, 135, 10),
                      cx=cx, cy=cy, scale=scale)
 
+    final_img = add_ambient_glow(img, cx, cy, 260, (56, 189, 248, 70))
+
     out_path = os.path.join(ILLUST_DIR, "iso_multicore_chip.png")
-    img.save(out_path, "PNG")
+    final_img.save(out_path, "PNG")
     return out_path
 
 def generate_all_gamma_assets():

@@ -1,17 +1,12 @@
 """
 scripts/generate_cinematic_ppt.py
-Generates the 15-slide Luxury Minimalist Tech PowerPoint presentation:
-'computer_system_architecture.pptx' for an Operating Systems university course.
-
-Design Aesthetic:
-- Matching Envato Elements / Gamma / One Skill luxury dark presentation standards
-- Deep Carbon Charcoal background (#12141C / #161822)
-- High-contrast pure white typography (#FFFFFF) & soft slate accents (#94A3B8 / #38BDF8)
-- Translucent dark glass cards with subtle 1px border outlines
-- Custom 3D isometric hardware illustrations (Motherboard, Stacked Layers, Bus, Multicore Chip)
-- Circular step nodes and numbered timeline capsules
-- Equal 3-speaker distribution: V. Ram Charan (1-5), Vedhanth (6-10), Lochan (11-15)
-- NO book titles or author names mentioned anywhere on the slides
+Generates the 15-slide Luxury Minimalist Tech PowerPoint presentation with:
+- Native OpenXML Morph & Smooth Transitions on all slides
+- Cinematic Ambient Lighting & Glow Overlays
+- Frosted Glass Cards with High-Tech Corner Framing Accents
+- 3D Isometric Hardware Artworks (Motherboard, Stacked Layers, Bus, Multicore Chip)
+- Equal 3-Speaker structure: V. Ram Charan (1-5), Vedhanth (6-10), Lochan (11-15)
+- Zero textbook or author citations
 """
 
 import os
@@ -21,6 +16,7 @@ from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
+from pptx.oxml import parse_xml
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS_DIR = os.path.join(ROOT_DIR, "assets", "presentation")
@@ -53,6 +49,16 @@ def set_slide_backdrop(slide, color=BG_CARBON):
     bg_shape.fill.solid()
     bg_shape.fill.fore_color.rgb = color
     bg_shape.line.fill.background()
+
+def apply_slide_morph_transition(slide):
+    """Applies valid OpenXML Morph & Smooth Slide Transition."""
+    tr_xml = parse_xml(
+        '<p:transition xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+        'xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" spd="med" dur="1500">'
+        '<p14:morph option="byObject"/>'
+        '</p:transition>'
+    )
+    slide._element.append(tr_xml)
 
 def add_header(slide, slide_num, total_slides, act_title, speaker_name, title, subtitle=None):
     """Creates a clean Gamma-style header with subtle pill tags."""
@@ -124,19 +130,27 @@ def add_header(slide, slide_num, total_slides, act_title, speaker_name, title, s
         p_sub.font.color.rgb = TEXT_MUTED
         p_sub.space_before = Pt(2)
 
-def add_card(slide, left, top, width, height, title=None, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=None):
-    """Creates a minimalist card with optional thin side accent line."""
+def add_card(slide, left, top, width, height, title=None, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=None, corner_accent=True):
+    """Creates a minimalist glass card with high-tech corner framing and glowing accents."""
     card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(left), Inches(top), Inches(width), Inches(height))
     card.fill.solid()
     card.fill.fore_color.rgb = bg_color
     card.line.color.rgb = border_color
     card.line.width = Pt(1)
 
+    # Optional side accent bar
     if accent_bar:
         bar = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(left), Inches(top), Inches(0.08), Inches(height))
         bar.fill.solid()
         bar.fill.fore_color.rgb = accent_bar
         bar.line.fill.background()
+
+    # Optional high-tech corner tick mark (Top-Right)
+    if corner_accent:
+        c_tick = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(left + width - 0.25), Inches(top + 0.08), Inches(0.15), Inches(0.02))
+        c_tick.fill.solid()
+        c_tick.fill.fore_color.rgb = accent_bar if accent_bar else CARD_BORDER
+        c_tick.line.fill.background()
 
     if title:
         tb = slide.shapes.add_textbox(Inches(left + (0.24 if accent_bar else 0.2)), Inches(top + 0.15), Inches(width - 0.4), Inches(0.35))
@@ -177,14 +191,14 @@ def add_bottom_banner(slide, text, tag="Speed-up Rule:", tag_color=ACCENT_CYAN):
 def add_circular_step(slide, cx, cy, radius, label, sublabel=None, number=None, border_color=ACCENT_CYAN):
     """Draws sleek circular process step nodes matching Gamma template Slide 6 & 9."""
     r_inch = Inches(radius)
-    # Circle shape
+    # Circle shape with glowing border
     circle = slide.shapes.add_shape(MSO_SHAPE.OVAL, Inches(cx - radius), Inches(cy - radius), Inches(radius * 2), Inches(radius * 2))
     circle.fill.solid()
     circle.fill.fore_color.rgb = PILL_BG
     circle.line.color.rgb = border_color
     circle.line.width = Pt(2)
 
-    # Text inside or under circle
+    # Text inside circle
     tb = slide.shapes.add_textbox(Inches(cx - radius - 0.2), Inches(cy - 0.2), Inches(radius * 2 + 0.4), Inches(0.4))
     tf = tb.text_frame
     tf.word_wrap = True
@@ -226,7 +240,7 @@ def set_speaker_notes(slide, what_to_say, concept, transition, cue):
                       f"4. PRESENTATION CUE:\n{cue}"
 
 def build_presentation():
-    # 1. Generate all isometric assets
+    # 1. Generate all isometric assets with ambient lighting
     generate_all_gamma_assets()
     
     prs = Presentation()
@@ -239,6 +253,7 @@ def build_presentation():
     # =========================================================================
     s1 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s1)
+    apply_slide_morph_transition(s1)
 
     # Left Column Text & Presenters
     tb_t = s1.shapes.add_textbox(Inches(0.8), Inches(1.0), Inches(7.0), Inches(2.2))
@@ -301,10 +316,10 @@ def build_presentation():
         p_pr.font.size = Pt(10)
         p_pr.font.color.rgb = col
 
-    # Bottom Quote Line
+    # Bottom Quote Line with vertical cyan accent
     q_bar = s1.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.8), Inches(6.3), Inches(0.06), Inches(0.65))
     q_bar.fill.solid()
-    q_bar.fill.fore_color.rgb = TEXT_WHITE
+    q_bar.fill.fore_color.rgb = ACCENT_CYAN
     q_bar.line.fill.background()
     tb_q = s1.shapes.add_textbox(Inches(0.95), Inches(6.3), Inches(6.8), Inches(0.65))
     tf_q = tb_q.text_frame
@@ -316,7 +331,7 @@ def build_presentation():
     pq.font.italic = True
     pq.font.color.rgb = TEXT_MUTED
 
-    # Right Side Isometric Motherboard Art
+    # Right Side Isometric Motherboard Art with Ambient Glow
     mb_img = os.path.join(GAMMA_DIR, "iso_motherboard.png")
     if os.path.exists(mb_img):
         s1.shapes.add_picture(mb_img, Inches(7.5), Inches(0.8), width=Inches(5.2))
@@ -334,6 +349,7 @@ def build_presentation():
     # =========================================================================
     s2 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s2)
+    apply_slide_morph_transition(s2)
     add_header(s2, 2, 15, "Act I: Foundations", "V. Ram Charan", "What is a Computer System?")
 
     # Left: 3D Stacked Layers Tower
@@ -406,6 +422,7 @@ def build_presentation():
     # =========================================================================
     s3 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s3)
+    apply_slide_morph_transition(s3)
     add_header(s3, 3, 15, "Act I: Foundations", "V. Ram Charan", "Computer-System Organization")
 
     # Left: Isometric System Bus Topology
@@ -469,6 +486,7 @@ def build_presentation():
     # =========================================================================
     s4 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s4)
+    apply_slide_morph_transition(s4)
     add_header(s4, 4, 15, "Act I: Foundations", "V. Ram Charan", "Single-Processor vs. Multiprocessor Systems")
 
     # Left: Text Descriptions
@@ -538,9 +556,10 @@ def build_presentation():
     # =========================================================================
     s5 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s5)
+    apply_slide_morph_transition(s5)
     add_header(s5, 5, 15, "Act I: Foundations", "V. Ram Charan", "Multicore & Symmetric Multiprocessing (SMP)")
 
-    # Left: 4 Concept Cards matching Gamma Screenshot 5
+    # Left: 4 Concept Cards
     c_w = 6.2
     mc_cards = [
         ("⚙", "Multicore Architecture", "Multiple computing cores reside on a single processor chip, enabling faster on-chip communication than separate chips.", ACCENT_CYAN),
@@ -560,7 +579,7 @@ def build_presentation():
         p.font.size = Pt(10.5)
         p.font.color.rgb = TEXT_MUTED
 
-    # Right: 3D Multicore Chip Illustration
+    # Right: 3D Multicore Chip Illustration with Glow
     chip_img = os.path.join(GAMMA_DIR, "iso_multicore_chip.png")
     if os.path.exists(chip_img):
         s5.shapes.add_picture(chip_img, Inches(7.5), Inches(1.6), width=Inches(5.0))
@@ -578,9 +597,10 @@ def build_presentation():
     # =========================================================================
     s6 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s6)
+    apply_slide_morph_transition(s6)
     add_header(s6, 6, 15, "Act II: OS Control & Memory", "Vedhanth", "Interrupts: Hardware–OS Communication")
 
-    # Left: Circular Step Pipeline (Matching Gamma Screenshot 6)
+    # Left: Circular Step Pipeline
     tb_intro = s6.shapes.add_textbox(Inches(0.8), Inches(1.6), Inches(6.0), Inches(0.8))
     tf_in = tb_intro.text_frame
     tf_in.word_wrap = True
@@ -624,7 +644,7 @@ def build_presentation():
         p.font.color.rgb = TEXT_MUTED
         p.space_before = Pt(3)
 
-    # Right Column: 3 Numbered Cards (Matching Gamma Screenshot 6)
+    # Right Column: 3 Numbered Cards
     c_w = 5.7
     r_cards_s6 = [
         (1, "Interrupt Vector", "Table of pointers to interrupt service routines, indexed by unique interrupt number for deterministic lookup.", ACCENT_CYAN),
@@ -635,7 +655,6 @@ def build_presentation():
         cy = 1.6 + (num - 1) * 1.65
         add_card(s6, 6.8, cy, c_w, 1.5, ctitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ccol)
         
-        # Big Number Badge
         num_card = s6.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(7.05), Inches(cy + 0.4), Inches(0.55), Inches(0.55))
         num_card.fill.solid()
         num_card.fill.fore_color.rgb = PILL_BG
@@ -672,9 +691,10 @@ def build_presentation():
     # =========================================================================
     s7 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s7)
+    apply_slide_morph_transition(s7)
     add_header(s7, 7, 15, "Act II: OS Control & Memory", "Vedhanth", "Interrupts & System Calls")
 
-    # Left: Isometric Stack Flow
+    # Left: Isometric Stack Flow with Glow
     tower_img = os.path.join(GAMMA_DIR, "iso_stacked_layers.png")
     if os.path.exists(tower_img):
         s7.shapes.add_picture(tower_img, Inches(0.8), Inches(1.6), width=Inches(4.5))
@@ -683,7 +703,6 @@ def build_presentation():
     right_x = 5.6
     r_w = 6.9
     
-    # 2-col split for HW Interrupt & Trap
     add_card(s7, right_x, 1.6, 3.35, 1.8, "Hardware Interrupt", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
     tb_hw = s7.shapes.add_textbox(Inches(right_x + 0.2), Inches(2.05), Inches(3.0), Inches(1.2))
     tf_hw = tb_hw.text_frame
@@ -704,7 +723,6 @@ def build_presentation():
     p.font.size = Pt(10.5)
     p.font.color.rgb = TEXT_MUTED
 
-    # Full width card for System Call
     add_card(s7, right_x, 3.55, r_w, 1.1, "System Call Interface", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_EMERALD)
     tb_sc = s7.shapes.add_textbox(Inches(right_x + 0.2), Inches(3.95), Inches(r_w - 0.4), Inches(0.6))
     tf_sc = tb_sc.text_frame
@@ -742,6 +760,7 @@ def build_presentation():
     # =========================================================================
     s8 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s8)
+    apply_slide_morph_transition(s8)
     add_header(s8, 8, 15, "Act II: OS Control & Memory", "Vedhanth", "Dual-Mode Operation")
 
     # Top Left: Two Operating Modes
@@ -816,6 +835,7 @@ def build_presentation():
     # =========================================================================
     s9 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s9)
+    apply_slide_morph_transition(s9)
     add_header(s9, 9, 15, "Act II: OS Control & Memory", "Vedhanth", "Protection & Timer Control")
 
     # Left: Protection & Illegal Operation Flow
@@ -896,9 +916,10 @@ def build_presentation():
     # =========================================================================
     s10 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s10)
+    apply_slide_morph_transition(s10)
     add_header(s10, 10, 15, "Act III: Multiprocessors & I/O", "Lochan", "Storage Hierarchy")
 
-    # 3 Column Cards with Icons matching Gamma Screenshot 10
+    # 3 Column Cards with Icons
     col_w = 3.7
     storage_cards = [
         ("Registers & Cache", "Fastest, most expensive storage. CPU registers are directly inside the processor; L1/L2/L3 cache sits between registers and main memory.\n\nVolatile — data lost on power off.", ACCENT_CYAN, "CPU"),
@@ -948,6 +969,7 @@ def build_presentation():
     # =========================================================================
     s11 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s11)
+    apply_slide_morph_transition(s11)
     add_header(s11, 11, 15, "Act III: Multiprocessors & I/O", "Lochan", "I/O Structure & Direct Memory Access (DMA)")
 
     col_w = 3.7
@@ -1005,6 +1027,7 @@ def build_presentation():
     # =========================================================================
     s12 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s12)
+    apply_slide_morph_transition(s12)
     add_header(s12, 12, 15, "Act III: Multiprocessors & I/O", "Lochan", "Multiprocessor Systems: SMP vs NUMA")
 
     # Top Table Card
@@ -1098,6 +1121,7 @@ def build_presentation():
     # =========================================================================
     s13 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s13)
+    apply_slide_morph_transition(s13)
     add_header(s13, 13, 15, "Act III: Multiprocessors & I/O", "Lochan", "Clustered Systems Architecture")
 
     c_w = 5.7
@@ -1167,6 +1191,7 @@ def build_presentation():
     # =========================================================================
     s14 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s14)
+    apply_slide_morph_transition(s14)
     add_header(s14, 14, 15, "Act III: Multiprocessors & I/O", "Lochan", "Diverse Computing Environments")
 
     # 4 Card Grid (2x2)
@@ -1202,10 +1227,10 @@ def build_presentation():
     # =========================================================================
     s15 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s15)
+    apply_slide_morph_transition(s15)
     add_header(s15, 15, 15, "Synthesis & Conclusion", "V. Ram Charan · Vedhanth · Lochan", "Key Takeaways")
 
     # 5 Numbered Capsule Cards in a Grid matching Gamma Screenshot 11!
-    # Top Row: 4 Cards (1, 2, 3, 4)
     capsules_top = [
         (1, "System Organization", "CPUs, device controllers, and shared memory cooperate via a common bus — concurrency drives the need for OS coordination.", ACCENT_CYAN),
         (2, "Interrupts", "The fundamental mechanism for hardware–OS communication; interrupt vectors and priority levels enable efficient, ordered response.", ACCENT_INDIGO),
@@ -1217,7 +1242,6 @@ def build_presentation():
         cx = 0.8 + (num - 1) * 3.0
         add_card(s15, cx, 1.6, c_w4, 2.7, ctitle, border_color=CARD_BORDER, bg_color=CARD_BG)
         
-        # Number Capsule Badge on top border
         num_badge = s15.shapes.add_shape(MSO_SHAPE.OVAL, Inches(cx + c_w4/2 - 0.25), Inches(1.4), Inches(0.5), Inches(0.5))
         num_badge.fill.solid()
         num_badge.fill.fore_color.rgb = PILL_BG
@@ -1242,7 +1266,6 @@ def build_presentation():
 
     # Middle Row: 5th Wide Capsule Card (Storage Hierarchy)
     add_card(s15, 0.8, 4.6, 11.733, 1.0, "Storage Hierarchy", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_EMERALD)
-    # Number Badge for 5
     num_badge5 = s15.shapes.add_shape(MSO_SHAPE.OVAL, Inches(0.8 + 11.733/2 - 0.25), Inches(4.4), Inches(0.5), Inches(0.5))
     num_badge5.fill.solid()
     num_badge5.fill.fore_color.rgb = PILL_BG
@@ -1265,7 +1288,7 @@ def build_presentation():
     p5.font.size = Pt(10.5)
     p5.font.color.rgb = TEXT_MUTED
 
-    # Bottom Row: 3 Presenter Cards matching Gamma Screenshot 11!
+    # Bottom Row: 3 Presenter Cards
     pres_cards = [
         ("V. Ram Charan", "Slides 1–5 · Act I", ACCENT_CYAN),
         ("Vedhanth", "Slides 6–10 · Act II", ACCENT_INDIGO),
@@ -1291,14 +1314,13 @@ def build_presentation():
         "All three presenters step forward together, smile, and invite questions from the professor and classmates."
     )
 
-    # Save to clean outputs
     out_pptx = os.path.join(ROOT_DIR, "computer_system_architecture.pptx")
     prs.save(out_pptx)
     out_pptx_clean = os.path.join(ROOT_DIR, "Computer_System_Architecture_OS.pptx")
     prs.save(out_pptx_clean)
     out_pptx_cinematic = os.path.join(ROOT_DIR, "Computer_System_Architecture_Cinematic.pptx")
     prs.save(out_pptx_cinematic)
-    print(f"Successfully generated 15-slide Luxury Gamma/Envato-style presentation!")
+    print(f"Successfully generated 15-slide Luxury Gamma/Envato-style presentation with Morph transitions & lighting effects!")
     return out_pptx
 
 if __name__ == "__main__":
