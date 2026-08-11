@@ -133,7 +133,7 @@ foreach ($db in $DbFiles) {
 # ------------------------------------------------------------------------------
 Write-Host "`n[*] Checking Daemon & IPC Loopback Gateway..." -ForegroundColor Yellow
 
-$IpcCheckCode = "from jarvisx.runtime.ipc_client import IPCClient; c = IPCClient(); ok, lat = c.ping(); ok2, st, _ = c.get_status(); print('ONLINE:' + str(st.get('pid','UNKNOWN')) + ':' + str(st.get('presence_state','READY')) + ':' + str(round(lat,2)) if ok else 'OFFLINE')"
+$IpcCheckCode = "from jarvisx.runtime.ipc_client import IPCClient; c = IPCClient(); ok, lat = c.ping(); st = c.get_status()[1] if ok else {}; print(('ONLINE:' + str(st.get('pid', 'UNKNOWN')) + ':' + str(st.get('presence_state', 'READY')) + ':' + str(round(lat, 2))) if ok else 'OFFLINE')"
 $IpcResult = & python -c $IpcCheckCode 2>&1
 
 if ($IpcResult -like "ONLINE*") {

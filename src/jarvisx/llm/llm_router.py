@@ -160,8 +160,14 @@ class LLMRouter:
             # Fallback to local default
             provider = self.registry.get("ollama.local")
 
+        print(f"[LLM] Provider: {profile.provider_id}")
+        print(f"[LLM] Model: {profile.model_name}")
+
         await provider.connect()
         output = await provider.generate(prompt=prompt, model=profile.model_name)
+
+        resp_preview = output.get("response", "")[:60].replace("\n", " ")
+        print(f"[LLM] Response received: \"{resp_preview}...\" ({len(output.get('response', ''))} chars)")
 
         self.history.record_outcome(
             provider_id=profile.provider_id,
@@ -180,6 +186,27 @@ class LLMRouter:
             "task_category": task_cat,
             "result": output
         }
+
+    def route_request_sync(
+        self,
+        prompt: str,
+        require_offline: bool = False,
+        model_override: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Synchronously route request through the LLMRouter."""
+        import asyncio
+        import concurrent.futures
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(asyncio.run, self.route_request(prompt, require_offline, model_override))
+                    return future.result()
+            else:
+                return loop.run_until_complete(self.route_request(prompt, require_offline, model_override))
+        except RuntimeError:
+            return asyncio.run(self.route_request(prompt, require_offline, model_override))
 
     async def stream_request(
         self,

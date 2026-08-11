@@ -18,16 +18,18 @@ from typing import Dict, Any, Optional, List
 from jarvisx.kernel.personal_os import PersonalOSKernel
 from jarvisx.automation.real_system_cleaner import RealSystemCleaner
 from jarvisx.automation.real_project_builder import RealProjectBuilder
+from jarvisx.llm.llm_router import LLMRouter
 
 
 class DynamicOrchestrator:
     """Zero-hardcode dynamic Windows application & work execution orchestrator."""
 
-    def __init__(self, os_kernel: Optional[PersonalOSKernel] = None):
+    def __init__(self, os_kernel: Optional[PersonalOSKernel] = None, llm_router: Optional[LLMRouter] = None):
         self.user_name: str = "Charan"
         self.kernel = os_kernel or PersonalOSKernel()
         self.cleaner = RealSystemCleaner()
         self.builder = RealProjectBuilder()
+        self.llm_router = llm_router or LLMRouter()
 
     def find_and_launch_app(self, app_name: str) -> Dict[str, Any]:
         """Dynamically search Windows Start Menu, PATH, and Registry for any app name."""
@@ -59,10 +61,11 @@ class DynamicOrchestrator:
                 return {"status": "LAUNCHED_WEB", "target": key, "url": url}
 
         # Search Windows Start Menu Shortcuts (.lnk)
+        _home = os.path.expanduser("~")
         search_paths = [
             r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs",
-            r"C:\Users\vanga\AppData\Roaming\Microsoft\Windows\Start Menu\Programs",
-            r"C:\Users\vanga\AppData\Local\Programs",
+            os.path.join(_home, "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs"),
+            os.path.join(_home, "AppData", "Local", "Programs"),
             r"C:\Program Files",
             r"C:\Program Files (x86)",
         ]
@@ -251,6 +254,15 @@ class DynamicOrchestrator:
             response = f"Opening {app_target} for you now, {salutation}."
             return {"action": "launch", "response": response, "target": app_target, "details": res}
 
-        # 16. General LLM Query Response
-        response = f"Understood, {salutation}. Processing your query: {text}"
-        return {"action": "llm", "response": response, "text": text}
+        # 16. General LLM Query Response via LLMRouter
+        print(f"[VOICE] Routing general request to LLMRouter: '{raw_text}'")
+        try:
+            llm_res = self.llm_router.route_request_sync(prompt=raw_text)
+            out = llm_res.get("result", {})
+            response = out.get("response", "")
+            if not response or out.get("status") == "NOT_AVAILABLE":
+                response = f"I am unable to reach the LLM provider at this time, {salutation}."
+            return {"action": "llm", "response": response, "text": raw_text, "details": llm_res}
+        except Exception as e:
+            err_resp = f"LLM Routing Error: {str(e)}"
+            return {"action": "llm", "response": err_resp, "error": str(e), "text": raw_text}

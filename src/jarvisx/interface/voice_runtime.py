@@ -33,7 +33,7 @@ class VoiceRuntimeEngine:
         """
         prefix = f"[{persona.upper()}] "
         full_text = f"{prefix}{text}"
-        print(f"\n🔊 🗣️  {persona} (TTS Voice): \"{text}\"")
+        print(f"\n[TTS Voice] {persona}: \"{text}\"")
 
         # Publish event
         if self.bus:

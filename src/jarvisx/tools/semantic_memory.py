@@ -7,8 +7,8 @@ import time
 from typing import List, Tuple
 
 class SemanticMemory:
-    def __init__(self, db_path="E:\\Jarvis\\cache.db", root_dir="C:\\Users\\vanga\\Documents\\Codex\\2026-07-11\\files-mentioned-by-the-user-you\\outputs\\project-jarvis-x"):
-        self.db_path = db_path if os.path.exists("E:\\Jarvis") else "cache.db"
+    def __init__(self, db_path=os.path.join("var", "db", "semantic_cache.db"), root_dir="."):
+        self.db_path = db_path
         self.root_dir = root_dir
         self._init_db()
 

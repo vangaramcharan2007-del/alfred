@@ -37,7 +37,7 @@ if ($PingResult -like "ALIVE*") {
 
 # 3. Launch Daemon as Detached Background Process
 Write-Host "[*] Launching Jarvis X Daemon Subsystem in background..." -ForegroundColor Cyan
-$DaemonProcess = Start-Process -FilePath "python" -ArgumentList "-m jarvisx daemon start --block" -WindowStyle Hidden -PassThru
+$DaemonProcess = Start-Process -FilePath "python" -ArgumentList "-m jarvisx daemon start --block" -WorkingDirectory $ProjectRoot -WindowStyle Hidden -PassThru
 Write-Host "    Spawned Daemon Process (PID: $($DaemonProcess.Id))" -ForegroundColor Gray
 
 # 4. Wait & Verify Loopback IPC Connection

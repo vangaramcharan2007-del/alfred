@@ -69,10 +69,13 @@ class SovereignAgentLoop:
         plan = self.plan_mission(user_goal)
         total_steps = len(plan)
 
-        if speak_callback:
-            speak_callback(f"Mission acknowledged, {salutation}. Executing {total_steps}-step autonomous plan.")
-        elif speak_callback is None:
-            print(f"[Agent Speech]: Mission acknowledged, {salutation}. Executing {total_steps}-step autonomous plan.")
+        is_multi_step = total_steps > 1 or (total_steps == 1 and plan[0].get("tool") != "direct")
+
+        if is_multi_step:
+            if speak_callback:
+                speak_callback(f"Mission acknowledged, {salutation}. Executing {total_steps}-step autonomous plan.")
+            elif speak_callback is None:
+                print(f"[Agent Speech]: Mission acknowledged, {salutation}. Executing {total_steps}-step autonomous plan.")
 
         results = []
 
@@ -82,7 +85,8 @@ class SovereignAgentLoop:
             tool = step_info.get("tool")
             desc = step_info.get("description", "")
 
-            print(f"\n[Agent Step {step_num}/{total_steps}]: {desc}")
+            if is_multi_step:
+                print(f"\n[Agent Step {step_num}/{total_steps}]: {desc}")
 
             # Execute Step via Orchestrator / Capabilities
             if tool == "clean":
@@ -106,17 +110,19 @@ class SovereignAgentLoop:
             if isinstance(res, dict) and "response" in res and res["response"]:
                 if speak_callback:
                     speak_callback(res["response"])
-                    time.sleep(1.0)
+                    time.sleep(0.5)
 
             results.append({"step": step_num, "description": desc, "result": res})
-            time.sleep(0.5)
+            time.sleep(0.2)
 
         # 3. Mission Completion Synthesis
-        final_msg = f"Mission complete, {salutation}. All {total_steps} plan steps executed successfully."
-        print(f"\n[SovereignAgentLoop] {final_msg}\n")
-
-        if speak_callback:
-            speak_callback(final_msg)
+        if is_multi_step:
+            final_msg = f"Mission complete, {salutation}. All {total_steps} plan steps executed successfully."
+            print(f"\n[SovereignAgentLoop] {final_msg}\n")
+            if speak_callback:
+                speak_callback(final_msg)
+        else:
+            final_msg = results[0]["result"].get("response", "") if results and isinstance(results[0].get("result"), dict) else "Done."
 
         return {
             "status": "MISSION_COMPLETED",

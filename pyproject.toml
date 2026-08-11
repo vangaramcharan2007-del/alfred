@@ -4,7 +4,9 @@ version = "1.5.0"
 description = "Jarvis X v1.5.0 Production Autonomous Personal OS with 8-Stage Autonomous Operating Loop, Initiative Arbiter & Academic Coach Engine."
 requires-python = ">=3.11"
 dependencies = [
+    "aiofiles>=24.1",
     "aiohttp>=3.9.0",
+    "cryptography>=43.0",
     "fastapi>=0.111.0",
     "httpx>=0.27.0",
     "numpy>=1.26.0",
@@ -13,8 +15,7 @@ dependencies = [
     "PyYAML>=6.0.1",
     "requests>=2.31.0",
     "websockets>=12.0",
-    "psutil>=5.9.0",
-    "pyzmq>=25.1.2"
+    "psutil>=5.9.0"
 ]
 
 [project.optional-dependencies]

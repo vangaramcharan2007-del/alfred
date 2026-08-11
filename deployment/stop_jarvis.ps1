@@ -21,16 +21,7 @@ Write-Host "====================================================================
 # 1. Attempt Graceful IPC Shutdown
 Write-Host "[*] Sending graceful shutdown signal via IPC socket (localhost:10404)..." -ForegroundColor Yellow
 
-$StopScript = @'
-from jarvisx.runtime.ipc_client import IPCClient
-client = IPCClient()
-ok, lat = client.shutdown()
-if ok:
-    print(f'STOP_OK:{lat:.2f}')
-else:
-    print('STOP_FAILED')
-'@
-
+$StopScript = "from jarvisx.runtime.ipc_client import IPCClient; ok, lat = IPCClient().shutdown(); print('STOP_OK:' + str(round(lat,2)) if ok else 'STOP_FAILED')"
 $StopResult = & python -c $StopScript 2>&1
 
 if ($StopResult -like "STOP_OK*") {

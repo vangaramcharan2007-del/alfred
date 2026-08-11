@@ -69,7 +69,7 @@ class SuperStarkAutomation:
 
     def ingest_gcr_notes(self, source_path: Optional[str] = None) -> Dict[str, Any]:
         """Scan Downloads or GCR folder for new PDFs/notes and ingest into SQLite Knowledge Graph."""
-        target_dir = Path(source_path or r"C:\Users\vanga\Downloads")
+        target_dir = Path(source_path) if source_path else Path.home() / "Downloads"
         ingested = []
 
         if target_dir.exists():

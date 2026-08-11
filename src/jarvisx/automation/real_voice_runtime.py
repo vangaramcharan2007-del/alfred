@@ -115,6 +115,85 @@ class RealVoicePipeline:
             "message": "Alfred voice listener paused.",
         }
 
+    def speak_response(self, text: str, persona: str = "ALFRED"):
+        """Synthesize and speak text response using native Windows TTS."""
+        print(f"[TTS] Speaking response ({persona}): \"{text}\"")
+        try:
+            from jarvisx.interface.voice_runtime import VoiceRuntimeEngine
+            engine = VoiceRuntimeEngine()
+            engine.speak(text, persona=persona)
+        except Exception as e:
+            logger.warning(f"Voice synthesis fallback: {e}")
+
+    def process_voice_intent(
+        self,
+        text: str,
+        os_kernel: Optional[Any] = None,
+        persona: str = "ALFRED",
+        speak: bool = True
+    ) -> Dict[str, Any]:
+        """Process transcribed voice intent through the Sovereign Agent Loop and LLMRouter."""
+        clean_text = text.strip()
+        self.last_transcript = clean_text
+        self.commands_executed += 1
+
+        print(f"[VOICE] STT received: '{clean_text}'")
+        logger.info(f"[VOICE] STT received: '{clean_text}'")
+
+        try:
+            from jarvisx.agents.sovereign_agent_loop import SovereignAgentLoop
+            agent_loop = SovereignAgentLoop()
+
+            # Execute through agent loop with real-time speech callback if requested
+            speak_cb = (lambda t: self.speak_response(t, persona=persona)) if speak else None
+            res = agent_loop.run_agent_loop(clean_text, persona=persona, speak_callback=speak_cb)
+
+            # Extract final synthesized response text
+            response_text = ""
+            if isinstance(res, dict):
+                trace = res.get("execution_trace", [])
+                for step in reversed(trace):
+                    step_res = step.get("result", {})
+                    if isinstance(step_res, dict) and "response" in step_res:
+                        response_text = step_res["response"]
+                        break
+                if not response_text:
+                    response_text = res.get("final_summary", "")
+
+            # Save execution to SQLite persistent memory
+            self.memory.save_memory(
+                category="voice_intent",
+                key=str(uuid.uuid4())[:8],
+                value={"input": clean_text, "response": response_text, "status": "completed"},
+                context={"timestamp": time.time(), "persona": persona}
+            )
+
+            return {
+                "status": "completed",
+                "command": clean_text,
+                "transcript": clean_text,
+                "response": response_text,
+                "response_speech": response_text,
+                "pipeline_status": self.pipeline_status,
+                "persona": persona,
+                "agent_result": res,
+            }
+
+        except Exception as e:
+            self.failures_count += 1
+            logger.error(f"[VOICE] Intent processing failed: {e}")
+            self.crash_logger.log_crash("real_voice_runtime", str(e))
+            error_msg = f"Voice intent processing error: {str(e)}"
+            return {
+                "status": "failed",
+                "command": clean_text,
+                "transcript": clean_text,
+                "error": str(e),
+                "response": error_msg,
+                "response_speech": error_msg,
+                "pipeline_status": self.pipeline_status,
+            }
+
     def process_spoken_phrase(self, raw_audio_phrase: str, os_kernel: Any) -> Dict[str, Any]:
         """Process spoken or transcribed phrase through Wake Word Detection -> Intent Router -> PersonalOSKernel."""
         phrase_clean = raw_audio_phrase.strip().lower()

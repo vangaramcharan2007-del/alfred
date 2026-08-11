@@ -7,19 +7,19 @@ from jarvisx.capabilities.permission_manager import PermissionLevel, PermissionM
 class GitSyncAgent:
     def __init__(
         self,
-        repo_dir: str = "C:\\Users\\vanga\\Documents\\Codex\\2026-07-11\\files-mentioned-by-the-user-you\\outputs\\project-jarvis-x",
+        repo_dir: str = ".",
         permission_manager: PermissionManager | None = None,
         capability_name: str = "git_sync",
     ):
         self.repo_dir = repo_dir
-        self.db_path = "E:\\Jarvis\\cache.db"
+        self.db_path = os.path.join("var", "db", "cache.db")
         self.permission_manager = permission_manager or PermissionManager()
         self.capability_name = capability_name
 
     def log_to_sqlite(self, stage: str, error_message: str):
         try:
             # Fallback for E: drive missing, just use local
-            db_path = self.db_path if os.path.exists("E:\\Jarvis") else "cache.db"
+            db_path = self.db_path
             conn = sqlite3.connect(db_path, check_same_thread=False)
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS git_errors (

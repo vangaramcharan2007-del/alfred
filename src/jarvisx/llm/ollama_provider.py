@@ -14,6 +14,18 @@ class OllamaLLMProvider(LLMProvider):
     async def connect(self) -> bool:
         self.is_installed = (shutil.which("ollama") is not None) or self.config.get("mock_online", True)
         self.is_connected = True
+        try:
+            import urllib.request
+            import json
+            req = urllib.request.Request(f"{self.endpoint}/api/tags", method="GET")
+            with urllib.request.urlopen(req, timeout=3.0) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    live_models = [m.get("name") for m in data.get("models", []) if m.get("name")]
+                    if live_models:
+                        self.installed_models = live_models
+        except Exception:
+            pass
         return True
 
     async def disconnect(self) -> bool:
@@ -30,19 +42,31 @@ class OllamaLLMProvider(LLMProvider):
         }
 
     def select_model_for_prompt(self, prompt: str, requested_model: Optional[str] = None) -> str:
-        if requested_model and requested_model in self.installed_models:
-            return requested_model
+        if requested_model:
+            if requested_model in self.installed_models:
+                return requested_model
+            # Fuzzy match (e.g. llama3.2:3b -> llama3.2:latest)
+            req_prefix = requested_model.split(":")[0]
+            for m in self.installed_models:
+                if m.startswith(req_prefix):
+                    return m
+
         p_lower = prompt.lower()
-        if "arch" in p_lower or "design" in p_lower or "refactor" in p_lower:
+        if ("arch" in p_lower or "design" in p_lower or "refactor" in p_lower) and "deepseek-coder:6.7b" in self.installed_models:
             return "deepseek-coder:6.7b"
-        elif "chat" in p_lower or "hello" in p_lower or "speak" in p_lower:
-            return "llama3.2:3b"
-        return "qwen2.5-coder:7b"
+        elif ("chat" in p_lower or "hello" in p_lower or "speak" in p_lower):
+            for m in self.installed_models:
+                if "llama3" in m:
+                    return m
+
+        if "qwen2.5-coder:7b" in self.installed_models:
+            return "qwen2.5-coder:7b"
+        return self.installed_models[0] if self.installed_models else "qwen2.5-coder:7b"
 
     async def generate(self, prompt: str, model: Optional[str] = None, conversation: Optional[List[Dict[str, str]]] = None, **kwargs) -> Dict[str, Any]:
         start_t = time.time()
         chosen_model = self.select_model_for_prompt(prompt, model)
-        timeout_sec = kwargs.get("timeout", 5.0)
+        timeout_sec = kwargs.get("timeout", self.config.get("timeout_seconds", 60.0))
         max_retries = kwargs.get("retries", 2)
 
         # Attempt live connection to local Ollama API with retries
