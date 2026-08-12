@@ -60,7 +60,24 @@ class JarvisDaemon:
         self.operating_loop = AutonomousOperatingLoop(coach=self.coach, db_path=str(self.var_dir / "db" / "operating_loop.db"))
 
         self.event_bus = context.event_bus if context else EventBus()
-        self.scheduler = ProactiveScheduler(self.event_bus)
+        try:
+            from jarvisx.proactive.proactive_evaluator import ProactiveEvaluator
+            from jarvisx.proactive.proactive_memory import ProactiveMemory
+            from jarvisx.personal_os.goal_manager import GoalManager
+            from jarvisx.personal_os.life_memory import LifeMemory
+            proactive_mem = ProactiveMemory(str(self.var_dir / "db" / "proactive.db"))
+            life_mem = LifeMemory(str(self.var_dir / "db" / "life_memory.db"))
+            goal_mgr = GoalManager(memory=life_mem)
+            self.evaluator = ProactiveEvaluator(
+                proactive_memory=proactive_mem,
+                goal_manager=goal_mgr,
+                memory_engine=self.memory,
+            )
+        except Exception as e:
+            logger.warning(f"Could not initialize ProactiveEvaluator for daemon: {e}")
+            self.evaluator = None
+
+        self.scheduler = ProactiveScheduler(self.event_bus, evaluator=self.evaluator)
         self.service_manager = WindowsServiceManager(str(self.var_dir / "scripts"))
 
         self.command_handler = command_handler

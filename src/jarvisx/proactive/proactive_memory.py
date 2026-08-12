@@ -94,6 +94,25 @@ class ProactiveMemory:
                     timestamp REAL
                 )
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS interventions (
+                    id TEXT PRIMARY KEY,
+                    intervention_type TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    priority TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    action_json TEXT,
+                    outcome TEXT NOT NULL,
+                    timestamp REAL NOT NULL
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS intervention_cooldowns (
+                    intervention_type TEXT PRIMARY KEY,
+                    last_intervened_at REAL NOT NULL,
+                    last_message_hash TEXT NOT NULL
+                )
+            """)
             conn.commit()
 
     def record_initiative_outcome(
@@ -236,3 +255,64 @@ class ProactiveMemory:
                 )
                 for r in cur.fetchall()
             ]
+
+    def save_intervention(
+        self,
+        intervention_id: str,
+        intervention_type: str,
+        reason: str,
+        priority: str,
+        message: str,
+        action_json: str,
+        outcome: str,
+        timestamp: float,
+    ) -> None:
+        with self._get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT OR REPLACE INTO interventions (id, intervention_type, reason, priority, message, action_json, outcome, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (intervention_id, intervention_type, reason, priority, message, action_json, outcome, timestamp))
+            conn.commit()
+
+    def list_interventions(self, limit: int = 50) -> List[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT id, intervention_type, reason, priority, message, action_json, outcome, timestamp
+                FROM interventions
+                ORDER BY timestamp DESC
+                LIMIT ?
+            """, (limit,))
+            return [
+                {
+                    "id": r[0],
+                    "intervention_type": r[1],
+                    "reason": r[2],
+                    "priority": r[3],
+                    "message": r[4],
+                    "action_json": r[5],
+                    "outcome": r[6],
+                    "timestamp": r[7],
+                }
+                for r in cur.fetchall()
+            ]
+
+    def get_last_intervention_time(self, intervention_type: str) -> Optional[tuple[float, str]]:
+        with self._get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT last_intervened_at, last_message_hash FROM intervention_cooldowns WHERE intervention_type = ?", (intervention_type,))
+            row = cur.fetchone()
+            if row:
+                return (float(row[0]), str(row[1]))
+            return None
+
+    def update_intervention_cooldown(self, intervention_type: str, timestamp: float, message_hash: str) -> None:
+        with self._get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT OR REPLACE INTO intervention_cooldowns (intervention_type, last_intervened_at, last_message_hash)
+                VALUES (?, ?, ?)
+            """, (intervention_type, timestamp, message_hash))
+            conn.commit()
+

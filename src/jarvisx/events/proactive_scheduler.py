@@ -18,14 +18,17 @@ class ProactiveScheduler:
         self,
         event_bus: EventBus,
         check_interval_seconds: float = 60.0,
+        evaluator: Optional[Any] = None,
     ):
         self.event_bus = event_bus
         self.interval = check_interval_seconds
+        self.evaluator = evaluator
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self.last_decay_run = 0.0
         self.last_deadline_check = 0.0
         self.last_habit_check = 0.0
+        self.last_eval_run = 0.0
 
     def start(self):
         """Start the background scheduler thread."""
@@ -60,6 +63,22 @@ class ProactiveScheduler:
             if now - self.last_habit_check > 21600.0:
                 self.check_habits()
                 self.last_habit_check = now
+
+            # 4. Bounded Proactive Evaluator Cycle (every interval seconds)
+            if self.evaluator and (now - self.last_eval_run >= self.interval):
+                try:
+                    res = self.evaluator.evaluate_cycle(now=now)
+                    if res and res.should_intervene:
+                        event = SystemEvent(
+                            event_type=EventType.PROACTIVE_INTERVENTION,
+                            priority=8,
+                            origin="ProactiveEvaluator",
+                            payload=res.to_dict(),
+                        )
+                        self.event_bus.publish(event)
+                except Exception as ee:
+                    logger.warning(f"Proactive evaluation in scheduler loop failed safely: {ee}")
+                self.last_eval_run = now
 
             # Sleep in small increments
             for _ in range(int(self.interval * 2)):
