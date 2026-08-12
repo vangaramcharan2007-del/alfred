@@ -83,30 +83,29 @@ class ToolExecutor:
         Returns None if the response is a normal conversational answer.
         """
         text = llm_response.strip()
+        decoder = json.JSONDecoder()
 
-        # Try to find JSON block in the response
-        start = text.find("{")
-        end = text.rfind("}") + 1
-        if start < 0 or end <= start:
-            return None
+        # Scan for JSON objects starting from each '{'
+        idx = 0
+        while idx < len(text):
+            start = text.find("{", idx)
+            if start == -1:
+                break
+            try:
+                parsed, _ = decoder.raw_decode(text[start:])
+                if (
+                    isinstance(parsed, dict)
+                    and parsed.get("type") == "tool_call"
+                    and isinstance(parsed.get("tool"), str)
+                    and bool(parsed.get("tool"))
+                    and isinstance(parsed.get("arguments"), dict)
+                ):
+                    return parsed
+                idx = start + 1
+            except (json.JSONDecodeError, ValueError):
+                idx = start + 1
 
-        candidate = text[start:end]
-        try:
-            parsed = json.loads(candidate)
-        except (json.JSONDecodeError, ValueError):
-            return None
-
-        # Validate structure
-        if not isinstance(parsed, dict):
-            return None
-        if parsed.get("type") != "tool_call":
-            return None
-        if not isinstance(parsed.get("tool"), str) or not parsed.get("tool"):
-            return None
-        if "arguments" not in parsed or not isinstance(parsed.get("arguments"), dict):
-            return None
-
-        return parsed
+        return None
 
     def build_tool_system_prompt(self) -> str:
         """Build system prompt fragment describing available tools for LLM."""
@@ -117,9 +116,10 @@ class ToolExecutor:
         tools_desc = json.dumps(schemas, indent=2)
         return (
             "You have access to the following tools. "
-            "If the user's request requires a tool, respond ONLY with a JSON object:\n"
+            "If the user's request requires a tool, respond with ONLY ONE JSON tool call at a time:\n"
             '{"type": "tool_call", "tool": "<tool_name>", "arguments": {<args>}}\n\n'
             "If the request is a normal conversation or question, respond naturally with text.\n"
-            "Do NOT wrap tool calls in markdown code blocks.\n\n"
+            "Do NOT output multiple tool calls at once. Execute one step, and you will receive the result before making the next decision.\n\n"
             f"Available tools:\n{tools_desc}\n"
         )
+

@@ -257,11 +257,18 @@ class DynamicOrchestrator:
         # 16. LLM-Driven Tool Execution & General Response via LLMRouter
         return self.execute_llm_request(raw_text, persona=persona)
 
-    def execute_llm_request(self, raw_text: str, persona: str = "ALFRED", interactive: bool = True) -> Dict[str, Any]:
-        """Execute request through LLMRouter with structured tool kernel execution."""
+    def execute_llm_request(
+        self,
+        raw_text: str,
+        persona: str = "ALFRED",
+        interactive: bool = True,
+        max_tool_steps: int = 3,
+    ) -> Dict[str, Any]:
+        """Execute request through LLMRouter with bounded multi-step structured tool kernel execution."""
         salutation = "Sir" if persona == "ALFRED" else "Boss"
         print(f"[VOICE] Routing general request to LLMRouter: '{raw_text}'")
         try:
+            import json
             from jarvisx.tools.tool_executor import ToolExecutor
             from jarvisx.tools.tool_kernel import ToolRegistry
             from jarvisx.tools.builtin_tools import register_builtin_tools
@@ -274,54 +281,145 @@ class DynamicOrchestrator:
             executor = ToolExecutor(registry=registry)
             tool_system_prompt = executor.build_tool_system_prompt()
 
-            # Build tool-aware prompt
-            tool_prompt = f"{tool_system_prompt}\n\nUser request: {raw_text}"
-            llm_res = self.llm_router.route_request_sync(prompt=tool_prompt)
-            out = llm_res.get("result", {})
-            response = out.get("response", "")
+            executed_steps: List[Dict[str, Any]] = []
+            current_prompt = f"{tool_system_prompt}\n\nUser request: {raw_text}"
+            last_tool_result: Optional[Dict[str, Any]] = None
+            last_tool_name: Optional[str] = None
+            history_str = ""
 
-            if not response or out.get("status") != "AVAILABLE" or llm_res.get("status") == "provider_unavailable":
-                response = f"I am unable to reach the LLM provider at this time, {salutation}."
-                return {"action": "llm", "response": response, "text": raw_text, "details": llm_res}
+            for step_idx in range(max_tool_steps + 1):
+                llm_res = self.llm_router.route_request_sync(prompt=current_prompt)
+                out = llm_res.get("result", {})
+                response = out.get("response", "")
 
-            # Check if LLM returned a structured tool call
-            tool_call = executor.parse_tool_call(response)
-            if tool_call:
+                if not response or out.get("status") != "AVAILABLE" or llm_res.get("status") == "provider_unavailable":
+                    if executed_steps:
+                        response = f"Tool execution completed with {len(executed_steps)} step(s), {salutation}."
+                        return {
+                            "action": "tool_call",
+                            "response": response,
+                            "tool": last_tool_name,
+                            "tool_result": last_tool_result,
+                            "execution_steps": executed_steps,
+                            "text": raw_text,
+                        }
+                    else:
+                        response = f"I am unable to reach the LLM provider at this time, {salutation}."
+                        return {"action": "llm", "response": response, "text": raw_text, "details": llm_res}
+
+                tool_call = executor.parse_tool_call(response)
+
+                # Case 1: Normal conversational response (no tool requested)
+                if not tool_call:
+                    if not executed_steps:
+                        return {"action": "llm", "response": response, "text": raw_text, "details": llm_res}
+                    else:
+                        # LLM has provided the final summary after tools completed
+                        return {
+                            "action": "tool_call",
+                            "response": response,
+                            "tool": last_tool_name,
+                            "tool_result": last_tool_result,
+                            "execution_steps": executed_steps,
+                            "text": raw_text,
+                        }
+
+                # Case 2: LLM requested a tool
+                # Check max step guard: if already executed max_tool_steps, reject further tool calls
+                if len(executed_steps) >= max_tool_steps:
+                    print(f"[TOOL] Max tool steps ({max_tool_steps}) reached. Aborting further tool calls.")
+                    err_msg = f"Maximum tool execution limit ({max_tool_steps} steps) reached."
+                    response = f"Reached maximum action limit of {max_tool_steps} steps, {salutation}."
+                    return {
+                        "action": "tool_call",
+                        "response": response,
+                        "tool": tool_call.get("tool"),
+                        "tool_result": {"status": "failed", "tool": tool_call.get("tool"), "error": err_msg, "verified": False},
+                        "execution_steps": executed_steps,
+                        "error": err_msg,
+                        "text": raw_text,
+                    }
+
                 tool_name = tool_call["tool"]
                 tool_args = tool_call.get("arguments", {})
-                print(f"[TOOL] LLM requested tool: {tool_name} with args: {tool_args}")
+                last_tool_name = tool_name
+                print(f"[TOOL] Step {len(executed_steps) + 1}/{max_tool_steps}: Requested '{tool_name}' with args {tool_args}")
 
                 tool_result = executor.execute(tool_name, tool_args, interactive=interactive)
-                print(f"[TOOL] Result: status={tool_result.status}, verified={tool_result.verified}")
+                last_tool_result = tool_result.to_dict()
+                print(f"[TOOL] Step {len(executed_steps) + 1} Result: status={tool_result.status}, verified={tool_result.verified}")
 
-                if tool_result.status == "success":
-                    # Generate natural-language summary of tool result
-                    summary_prompt = (
-                        f"The user asked: \"{raw_text}\"\n"
-                        f"Tool '{tool_name}' returned: {tool_result.to_dict()}\n"
-                        f"Provide a brief, natural spoken response summarizing the result. "
-                        f"Address the user as '{salutation}'."
+                step_record = {
+                    "step": len(executed_steps) + 1,
+                    "tool": tool_name,
+                    "arguments": tool_args,
+                    "result": last_tool_result,
+                }
+                executed_steps.append(step_record)
+
+                # Check if tool execution or verification failed / was denied
+                if tool_result.status != "success" or not tool_result.verified:
+                    err_detail = tool_result.error or "Tool verification failed"
+                    response = f"Tool {tool_name} failed: {err_detail}, {salutation}."
+                    return {
+                        "action": "tool_call",
+                        "response": response,
+                        "tool": tool_name,
+                        "tool_result": last_tool_result,
+                        "execution_steps": executed_steps,
+                        "text": raw_text,
+                    }
+
+                # If successful and verified, build next prompt with execution history
+                history_lines = []
+                for s in executed_steps:
+                    history_lines.append(
+                        f"- Step {s['step']}: Tool '{s['tool']}' was called with {json.dumps(s['arguments'])} and returned:\n"
+                        f"  Status: {s['result'].get('status')}\n"
+                        f"  Verified: {s['result'].get('verified')}\n"
+                        f"  Result: {json.dumps(s['result'].get('result'))}"
                     )
-                    try:
-                        summary_res = self.llm_router.route_request_sync(prompt=summary_prompt)
-                        summary_out = summary_res.get("result", {})
-                        summary_text = summary_out.get("response", "")
-                        if summary_text and summary_out.get("status") == "AVAILABLE":
-                            response = summary_text
-                        else:
-                            response = f"Tool {tool_name} executed successfully, {salutation}. Result: {tool_result.result}"
-                    except Exception:
-                        response = f"Tool {tool_name} executed successfully, {salutation}. Result: {tool_result.result}"
+                history_str = "\n".join(history_lines)
+
+                current_prompt = (
+                    f"{tool_system_prompt}\n\n"
+                    f"User request: {raw_text}\n\n"
+                    f"Execution history so far:\n{history_str}\n\n"
+                    f"Based on the tool results above, if you need another tool to complete the request, respond with a JSON tool call:\n"
+                    f'{{"type": "tool_call", "tool": "<tool_name>", "arguments": {{<args>}}}}\n\n'
+                    f"If you have enough information to fulfill the user's request, provide your final natural spoken answer. Address the user as '{salutation}'."
+                )
+
+            # If loop exited after max steps without final natural response, generate final synthesis
+            summary_prompt = (
+                f"The user asked: \"{raw_text}\"\n\n"
+                f"Execution history:\n{history_str}\n\n"
+                f"Provide a brief, natural spoken response summarizing the completed actions and findings. "
+                f"Address the user as '{salutation}'."
+            )
+            try:
+                summary_res = self.llm_router.route_request_sync(prompt=summary_prompt)
+                summary_out = summary_res.get("result", {})
+                summary_text = summary_out.get("response", "")
+                if summary_text and summary_out.get("status") == "AVAILABLE":
+                    response = summary_text
                 else:
-                    response = f"Tool {tool_name} failed: {tool_result.error}, {salutation}."
+                    response = f"Executed {len(executed_steps)} tool step(s) successfully, {salutation}."
+            except Exception:
+                response = f"Executed {len(executed_steps)} tool step(s) successfully, {salutation}."
 
-                return {"action": "tool_call", "response": response, "tool": tool_name, "tool_result": tool_result.to_dict(), "text": raw_text}
-
-            # Normal conversational LLM response (no tool call)
-            return {"action": "llm", "response": response, "text": raw_text, "details": llm_res}
+            return {
+                "action": "tool_call",
+                "response": response,
+                "tool": last_tool_name,
+                "tool_result": last_tool_result,
+                "execution_steps": executed_steps,
+                "text": raw_text,
+            }
 
         except Exception as e:
             err_resp = f"LLM Routing Error: {str(e)}"
             return {"action": "llm", "response": err_resp, "error": str(e), "text": raw_text}
+
 
 

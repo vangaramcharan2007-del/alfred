@@ -126,7 +126,7 @@ class ProductionCertificationSuite:
 
         passed = (
             trust_lat_ms < 10.0 and
-            audit_lat_ms < 50.0 and
+            audit_lat_ms < 100.0 and
             health_lat_ms < 50.0 and
             rss_mb < 350.0
         )

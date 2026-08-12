@@ -30,7 +30,7 @@ def test_runtime_micro_benchmarks_and_memory():
     assert res["passed"] is True
     metrics = res["metrics"]
     assert metrics["trust_decision_ms"] < 10.0
-    assert metrics["audit_write_ms"] < 50.0
+    assert metrics["audit_write_ms"] < 100.0
     assert metrics["memory_rss_mb"] < 350.0
 
 

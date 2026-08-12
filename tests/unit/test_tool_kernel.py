@@ -369,33 +369,45 @@ def test_parse_tool_call_markdown_code_block():
 # ---------------------------------------------------------------------------
 
 class FakeLLMRouter:
-    def __init__(self, responses: dict):
+    def __init__(self, responses: list | dict):
         self.responses = responses
         self.call_history = []
+        self._index = 0
 
     def route_request_sync(self, prompt: str, require_offline: bool = False, model_override: str = None):
         self.call_history.append(prompt)
-        for key, resp in self.responses.items():
-            if key in prompt:
-                return {
-                    "status": "success",
-                    "provider_id": "fake.local",
-                    "result": {"status": "AVAILABLE", "response": resp}
-                }
-        # Default fallback
-        return {
-            "status": "success",
-            "provider_id": "fake.local",
-            "result": {"status": "AVAILABLE", "response": "Default fake response"}
-        }
+        if isinstance(self.responses, list):
+            if self._index < len(self.responses):
+                resp = self.responses[self._index]
+                self._index += 1
+            else:
+                resp = "Default fake response"
+            return {
+                "status": "success",
+                "provider_id": "fake.local",
+                "result": {"status": "AVAILABLE", "response": resp}
+            }
+        elif isinstance(self.responses, dict):
+            for key, resp in self.responses.items():
+                if key in prompt:
+                    return {
+                        "status": "success",
+                        "provider_id": "fake.local",
+                        "result": {"status": "AVAILABLE", "response": resp}
+                    }
+            return {
+                "status": "success",
+                "provider_id": "fake.local",
+                "result": {"status": "AVAILABLE", "response": "Default fake response"}
+            }
 
 
 def test_orchestrator_safe_tool_get_current_time():
     from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
-    fake_router = FakeLLMRouter({
-        "What time is it?": '{"type": "tool_call", "tool": "get_current_time", "arguments": {}}',
-        "Tool 'get_current_time' returned": "The current time is 12:00 PM, Sir.",
-    })
+    fake_router = FakeLLMRouter([
+        '{"type": "tool_call", "tool": "get_current_time", "arguments": {}}',
+        "The current time is 12:00 PM, Sir.",
+    ])
     orch = DynamicOrchestrator(llm_router=fake_router)
     res = orch.execute_llm_request("What time is it?", persona="ALFRED")
     assert res["action"] == "tool_call"
@@ -407,10 +419,10 @@ def test_orchestrator_safe_tool_get_current_time():
 
 def test_orchestrator_safe_tool_get_system_info():
     from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
-    fake_router = FakeLLMRouter({
-        "How much RAM do I have?": '{"type": "tool_call", "tool": "get_system_info", "arguments": {}}',
-        "Tool 'get_system_info' returned": "You have 16 GB of RAM available, Sir.",
-    })
+    fake_router = FakeLLMRouter([
+        '{"type": "tool_call", "tool": "get_system_info", "arguments": {}}',
+        "You have 16 GB of RAM available, Sir.",
+    ])
     orch = DynamicOrchestrator(llm_router=fake_router)
     res = orch.execute_llm_request("How much RAM do I have?", persona="ALFRED")
     assert res["action"] == "tool_call"
@@ -422,9 +434,9 @@ def test_orchestrator_safe_tool_get_system_info():
 
 def test_orchestrator_create_file_confirmation_deny():
     from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
-    fake_router = FakeLLMRouter({
-        "Create hello.py": '{"type": "tool_call", "tool": "create_file", "arguments": {"path": "test_deny.py", "content": "print(1)"}}',
-    })
+    fake_router = FakeLLMRouter([
+        '{"type": "tool_call", "tool": "create_file", "arguments": {"path": "test_deny.py", "content": "print(1)"}}',
+    ])
     orch = DynamicOrchestrator(llm_router=fake_router)
     # interactive=False triggers non-interactive confirmation denial
     res = orch.execute_llm_request("Create hello.py", persona="ALFRED", interactive=False)
@@ -438,10 +450,10 @@ def test_orchestrator_create_file_confirmation_approved(monkeypatch):
     from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
     with tempfile.TemporaryDirectory() as tmp:
         target_path = os.path.join(tmp, "hello.py")
-        fake_router = FakeLLMRouter({
-            "Create hello.py": f'{{"type": "tool_call", "tool": "create_file", "arguments": {{"path": "{target_path.replace(chr(92), "/")}", "content": "print(\\"Hello\\")"}}}}',
-            "Tool 'create_file' returned": "Created hello.py successfully, Sir.",
-        })
+        fake_router = FakeLLMRouter([
+            f'{{"type": "tool_call", "tool": "create_file", "arguments": {{"path": "{target_path.replace(chr(92), "/")}", "content": "print(\\"Hello\\")"}}}}',
+            "Created hello.py successfully, Sir.",
+        ])
         orch = DynamicOrchestrator(llm_router=fake_router)
         # Mock sys.stdin.isatty and input()
         monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
@@ -458,9 +470,9 @@ def test_orchestrator_create_file_confirmation_approved(monkeypatch):
 
 def test_orchestrator_unknown_tool_rejection():
     from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
-    fake_router = FakeLLMRouter({
-        "Use secret_tool": '{"type": "tool_call", "tool": "secret_tool", "arguments": {}}',
-    })
+    fake_router = FakeLLMRouter([
+        '{"type": "tool_call", "tool": "secret_tool", "arguments": {}}',
+    ])
     orch = DynamicOrchestrator(llm_router=fake_router)
     res = orch.execute_llm_request("Use secret_tool", persona="ALFRED")
     assert res["action"] == "tool_call"
@@ -471,11 +483,157 @@ def test_orchestrator_unknown_tool_rejection():
 
 def test_orchestrator_conversational_response_no_tool():
     from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
-    fake_router = FakeLLMRouter({
-        "Explain CPU scheduling": "CPU scheduling selects which process will execute next.",
-    })
+    fake_router = FakeLLMRouter([
+        "CPU scheduling selects which process will execute next.",
+    ])
     orch = DynamicOrchestrator(llm_router=fake_router)
     res = orch.execute_llm_request("Explain CPU scheduling in one sentence.", persona="ALFRED")
     assert res["action"] == "llm"
     assert "CPU scheduling selects" in res["response"]
+
+
+# ---------------------------------------------------------------------------
+# 8. Bounded Multi-Step Tool Execution Tests
+# ---------------------------------------------------------------------------
+
+def test_multi_step_single_tool_still_works():
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    fake_router = FakeLLMRouter([
+        '{"type": "tool_call", "tool": "get_current_time", "arguments": {}}',
+        "The time is 12:00 PM, Sir.",
+    ])
+    orch = DynamicOrchestrator(llm_router=fake_router)
+    res = orch.execute_llm_request("What time is it?", persona="ALFRED")
+    assert res["action"] == "tool_call"
+    assert len(res["execution_steps"]) == 1
+    assert res["execution_steps"][0]["tool"] == "get_current_time"
+    assert res["response"] == "The time is 12:00 PM, Sir."
+
+
+def test_multi_step_two_dependent_tools():
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    fake_router = FakeLLMRouter([
+        '{"type": "tool_call", "tool": "list_directory", "arguments": {"path": "."}}',
+        '{"type": "tool_call", "tool": "read_file", "arguments": {"path": "pyproject.toml"}}',
+        "I have listed the directory and read pyproject.toml, Sir.",
+    ])
+    orch = DynamicOrchestrator(llm_router=fake_router)
+    res = orch.execute_llm_request("List files and read pyproject.toml", persona="ALFRED")
+    assert res["action"] == "tool_call"
+    assert len(res["execution_steps"]) == 2
+    assert res["execution_steps"][0]["tool"] == "list_directory"
+    assert res["execution_steps"][1]["tool"] == "read_file"
+    assert res["response"] == "I have listed the directory and read pyproject.toml, Sir."
+
+
+def test_multi_step_three_tools():
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    fake_router = FakeLLMRouter([
+        '{"type": "tool_call", "tool": "get_current_time", "arguments": {}}',
+        '{"type": "tool_call", "tool": "get_system_info", "arguments": {}}',
+        '{"type": "tool_call", "tool": "list_directory", "arguments": {"path": "."}}',
+        "Completed all 3 diagnostic steps, Sir.",
+    ])
+    orch = DynamicOrchestrator(llm_router=fake_router)
+    res = orch.execute_llm_request("Run full system diagnostic", persona="ALFRED")
+    assert res["action"] == "tool_call"
+    assert len(res["execution_steps"]) == 3
+    assert res["execution_steps"][0]["tool"] == "get_current_time"
+    assert res["execution_steps"][1]["tool"] == "get_system_info"
+    assert res["execution_steps"][2]["tool"] == "list_directory"
+    assert res["response"] == "Completed all 3 diagnostic steps, Sir."
+
+
+def test_multi_step_fourth_call_rejected():
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    fake_router = FakeLLMRouter([
+        '{"type": "tool_call", "tool": "get_current_time", "arguments": {}}',
+        '{"type": "tool_call", "tool": "get_system_info", "arguments": {}}',
+        '{"type": "tool_call", "tool": "list_directory", "arguments": {"path": "."}}',
+        '{"type": "tool_call", "tool": "read_file", "arguments": {"path": "pyproject.toml"}}',
+    ])
+    orch = DynamicOrchestrator(llm_router=fake_router)
+    res = orch.execute_llm_request("Run 4 actions", persona="ALFRED", max_tool_steps=3)
+    assert res["action"] == "tool_call"
+    assert len(res["execution_steps"]) == 3
+    assert "Maximum tool execution limit" in res.get("error", "") or "maximum action limit" in res.get("response", "").lower()
+
+
+def test_multi_step_second_call_receives_first_result():
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    fake_router = FakeLLMRouter([
+        '{"type": "tool_call", "tool": "get_current_time", "arguments": {}}',
+        "Done.",
+    ])
+    orch = DynamicOrchestrator(llm_router=fake_router)
+    orch.execute_llm_request("Check time", persona="ALFRED")
+    assert len(fake_router.call_history) == 2
+    # Second call prompt must contain Step 1 tool result
+    second_prompt = fake_router.call_history[1]
+    assert "Execution history so far:" in second_prompt
+    assert "get_current_time" in second_prompt
+
+
+def test_multi_step_tool_failure_stops_chain():
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    fake_router = FakeLLMRouter([
+        '{"type": "tool_call", "tool": "read_file", "arguments": {"path": "nonexistent_file_abc.txt"}}',
+        '{"type": "tool_call", "tool": "get_current_time", "arguments": {}}',
+    ])
+    orch = DynamicOrchestrator(llm_router=fake_router)
+    res = orch.execute_llm_request("Read missing file then get time", persona="ALFRED")
+    assert res["action"] == "tool_call"
+    assert len(res["execution_steps"]) == 1
+    assert res["execution_steps"][0]["tool"] == "read_file"
+    assert res["execution_steps"][0]["result"]["status"] == "failed"
+    assert len(fake_router.call_history) == 1  # Stopped immediately after failure
+
+
+def test_multi_step_permission_denial_stops_chain():
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    fake_router = FakeLLMRouter([
+        '{"type": "tool_call", "tool": "create_file", "arguments": {"path": "test.txt", "content": "x"}}',
+        '{"type": "tool_call", "tool": "get_current_time", "arguments": {}}',
+    ])
+    orch = DynamicOrchestrator(llm_router=fake_router)
+    res = orch.execute_llm_request("Create file then get time", persona="ALFRED", interactive=False)
+    assert res["action"] == "tool_call"
+    assert len(res["execution_steps"]) == 1
+    assert res["execution_steps"][0]["result"]["status"] == "failed"
+    assert len(fake_router.call_history) == 1
+
+
+def test_multi_step_verification_failure_stops_chain():
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    from jarvisx.tools.tool_kernel import ToolRegistry, Tool, ToolSpec, ToolResult, PermissionLevel
+
+    class UnverifiableTool(Tool):
+        def spec(self):
+            return ToolSpec(
+                name="unverifiable_tool",
+                description="Fails verification.",
+                input_schema={"type": "object", "properties": {}, "required": []},
+                permission_level=PermissionLevel.SAFE,
+            )
+
+        def execute(self, arguments):
+            return ToolResult(status="success", tool="unverifiable_tool", result="ok")
+
+        def verify(self, arguments, result):
+            return ToolResult(status="success", tool="unverifiable_tool", result="ok", verified=False, error="Verification rejected")
+
+    reg = ToolRegistry.get_instance()
+    reg.register(UnverifiableTool())
+
+    fake_router = FakeLLMRouter([
+        '{"type": "tool_call", "tool": "unverifiable_tool", "arguments": {}}',
+        '{"type": "tool_call", "tool": "get_current_time", "arguments": {}}',
+    ])
+    orch = DynamicOrchestrator(llm_router=fake_router)
+    res = orch.execute_llm_request("Run unverifiable tool then get time", persona="ALFRED")
+    assert res["action"] == "tool_call"
+    assert len(res["execution_steps"]) == 1
+    assert res["execution_steps"][0]["result"]["verified"] is False
+    assert len(fake_router.call_history) == 1
+
 
