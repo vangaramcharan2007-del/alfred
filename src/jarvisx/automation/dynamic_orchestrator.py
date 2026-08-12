@@ -411,6 +411,9 @@ class DynamicOrchestrator:
                     "tool": tool_name,
                     "arguments": tool_args,
                     "result": last_tool_result,
+                    "status": tool_result.status,
+                    "verified": tool_result.verified,
+                    "error": tool_result.error,
                 }
                 executed_steps.append(step_record)
 

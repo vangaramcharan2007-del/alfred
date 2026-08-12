@@ -80,8 +80,8 @@ class FailureClassifier:
         if "permission" in err or "denied" in err or "unauthorized" in err or "confirmation" in err:
             return "PERMISSION_DENIED"
         if "timeout" in err or "timed out" in err or "connection" in err or "rate limit" in err or "temporary" in err:
-            return "TRANSIENT"
-        if "not found" in err or "404" in err or "missing" in err or "invalid url" in err or "fallback" in err:
+            return "RECOVERABLE_REPLAN"
+        if "not found" in err or "404" in err or "missing" in err or "invalid url" in err or "failed to resolve" in err or "failed to fetch" in err or "fallback" in err:
             return "RECOVERABLE_REPLAN"
         return "FATAL"
 

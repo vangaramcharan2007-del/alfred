@@ -66,6 +66,10 @@ class MissionPersistenceManager:
                     timestamp REAL
                 )
             """)
+            try:
+                conn.execute("ALTER TABLE failures ADD COLUMN failure_category TEXT")
+            except sqlite3.OperationalError:
+                pass
             conn.commit()
 
         # 4. mission_checkpoints table in missions.db
