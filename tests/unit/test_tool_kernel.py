@@ -355,3 +355,127 @@ def test_executor_system_prompt_generation(executor):
     assert "get_current_time" in prompt
     assert "get_system_info" in prompt
     assert "tool_call" in prompt
+
+
+def test_parse_tool_call_markdown_code_block():
+    text = '```json\n{\n  "type": "tool_call",\n  "tool": "get_system_info",\n  "arguments": {}\n}\n```'
+    result = ToolExecutor.parse_tool_call(text)
+    assert result is not None
+    assert result["tool"] == "get_system_info"
+
+
+# ---------------------------------------------------------------------------
+# 7. DynamicOrchestrator End-to-End Integration Tests
+# ---------------------------------------------------------------------------
+
+class FakeLLMRouter:
+    def __init__(self, responses: dict):
+        self.responses = responses
+        self.call_history = []
+
+    def route_request_sync(self, prompt: str, require_offline: bool = False, model_override: str = None):
+        self.call_history.append(prompt)
+        for key, resp in self.responses.items():
+            if key in prompt:
+                return {
+                    "status": "success",
+                    "provider_id": "fake.local",
+                    "result": {"status": "AVAILABLE", "response": resp}
+                }
+        # Default fallback
+        return {
+            "status": "success",
+            "provider_id": "fake.local",
+            "result": {"status": "AVAILABLE", "response": "Default fake response"}
+        }
+
+
+def test_orchestrator_safe_tool_get_current_time():
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    fake_router = FakeLLMRouter({
+        "What time is it?": '{"type": "tool_call", "tool": "get_current_time", "arguments": {}}',
+        "Tool 'get_current_time' returned": "The current time is 12:00 PM, Sir.",
+    })
+    orch = DynamicOrchestrator(llm_router=fake_router)
+    res = orch.execute_llm_request("What time is it?", persona="ALFRED")
+    assert res["action"] == "tool_call"
+    assert res["tool"] == "get_current_time"
+    assert res["tool_result"]["status"] == "success"
+    assert res["tool_result"]["verified"] is True
+    assert "response" in res
+
+
+def test_orchestrator_safe_tool_get_system_info():
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    fake_router = FakeLLMRouter({
+        "How much RAM do I have?": '{"type": "tool_call", "tool": "get_system_info", "arguments": {}}',
+        "Tool 'get_system_info' returned": "You have 16 GB of RAM available, Sir.",
+    })
+    orch = DynamicOrchestrator(llm_router=fake_router)
+    res = orch.execute_llm_request("How much RAM do I have?", persona="ALFRED")
+    assert res["action"] == "tool_call"
+    assert res["tool"] == "get_system_info"
+    assert res["tool_result"]["status"] == "success"
+    assert res["tool_result"]["verified"] is True
+    assert "response" in res
+
+
+def test_orchestrator_create_file_confirmation_deny():
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    fake_router = FakeLLMRouter({
+        "Create hello.py": '{"type": "tool_call", "tool": "create_file", "arguments": {"path": "test_deny.py", "content": "print(1)"}}',
+    })
+    orch = DynamicOrchestrator(llm_router=fake_router)
+    # interactive=False triggers non-interactive confirmation denial
+    res = orch.execute_llm_request("Create hello.py", persona="ALFRED", interactive=False)
+    assert res["action"] == "tool_call"
+    assert res["tool"] == "create_file"
+    assert res["tool_result"]["status"] == "failed"
+    assert "non-interactive" in res["tool_result"]["error"].lower() or "denied" in res["tool_result"]["error"].lower()
+
+
+def test_orchestrator_create_file_confirmation_approved(monkeypatch):
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    with tempfile.TemporaryDirectory() as tmp:
+        target_path = os.path.join(tmp, "hello.py")
+        fake_router = FakeLLMRouter({
+            "Create hello.py": f'{{"type": "tool_call", "tool": "create_file", "arguments": {{"path": "{target_path.replace(chr(92), "/")}", "content": "print(\\"Hello\\")"}}}}',
+            "Tool 'create_file' returned": "Created hello.py successfully, Sir.",
+        })
+        orch = DynamicOrchestrator(llm_router=fake_router)
+        # Mock sys.stdin.isatty and input()
+        monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+        monkeypatch.setattr("builtins.input", lambda prompt="": "y")
+
+        res = orch.execute_llm_request("Create hello.py", persona="ALFRED", interactive=True)
+        assert res["action"] == "tool_call"
+        assert res["tool"] == "create_file"
+        assert res["tool_result"]["status"] == "success"
+        assert res["tool_result"]["verified"] is True
+        assert Path(target_path).exists()
+        assert Path(target_path).read_text(encoding="utf-8") == 'print("Hello")'
+
+
+def test_orchestrator_unknown_tool_rejection():
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    fake_router = FakeLLMRouter({
+        "Use secret_tool": '{"type": "tool_call", "tool": "secret_tool", "arguments": {}}',
+    })
+    orch = DynamicOrchestrator(llm_router=fake_router)
+    res = orch.execute_llm_request("Use secret_tool", persona="ALFRED")
+    assert res["action"] == "tool_call"
+    assert res["tool"] == "secret_tool"
+    assert res["tool_result"]["status"] == "failed"
+    assert "Unknown tool" in res["tool_result"]["error"]
+
+
+def test_orchestrator_conversational_response_no_tool():
+    from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+    fake_router = FakeLLMRouter({
+        "Explain CPU scheduling": "CPU scheduling selects which process will execute next.",
+    })
+    orch = DynamicOrchestrator(llm_router=fake_router)
+    res = orch.execute_llm_request("Explain CPU scheduling in one sentence.", persona="ALFRED")
+    assert res["action"] == "llm"
+    assert "CPU scheduling selects" in res["response"]
+

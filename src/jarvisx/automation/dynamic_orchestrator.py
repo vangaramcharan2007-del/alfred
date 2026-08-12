@@ -255,6 +255,11 @@ class DynamicOrchestrator:
             return {"action": "launch", "response": response, "target": app_target, "details": res}
 
         # 16. LLM-Driven Tool Execution & General Response via LLMRouter
+        return self.execute_llm_request(raw_text, persona=persona)
+
+    def execute_llm_request(self, raw_text: str, persona: str = "ALFRED", interactive: bool = True) -> Dict[str, Any]:
+        """Execute request through LLMRouter with structured tool kernel execution."""
+        salutation = "Sir" if persona == "ALFRED" else "Boss"
         print(f"[VOICE] Routing general request to LLMRouter: '{raw_text}'")
         try:
             from jarvisx.tools.tool_executor import ToolExecutor
@@ -286,7 +291,7 @@ class DynamicOrchestrator:
                 tool_args = tool_call.get("arguments", {})
                 print(f"[TOOL] LLM requested tool: {tool_name} with args: {tool_args}")
 
-                tool_result = executor.execute(tool_name, tool_args, interactive=True)
+                tool_result = executor.execute(tool_name, tool_args, interactive=interactive)
                 print(f"[TOOL] Result: status={tool_result.status}, verified={tool_result.verified}")
 
                 if tool_result.status == "success":
@@ -318,4 +323,5 @@ class DynamicOrchestrator:
         except Exception as e:
             err_resp = f"LLM Routing Error: {str(e)}"
             return {"action": "llm", "response": err_resp, "error": str(e), "text": raw_text}
+
 
