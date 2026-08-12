@@ -10,6 +10,15 @@ from jarvisx.vision.ui_state import UIElement, UIState, Window
 class UIDetector:
     """Scans the desktop screen and Windows UI Automation tree to generate a structured UIState."""
 
+    SENSITIVE_PATTERNS = [
+        "password", "passwd", "pin", "credential", "secret", "cvv",
+        "api_key", "token", "auth_token", "credit_card", "card_number", "security code"
+    ]
+
+    def _is_sensitive(self, text: str) -> bool:
+        t_lower = text.lower()
+        return any(p in t_lower for p in self.SENSITIVE_PATTERNS)
+
     def scan_ui_state(self, screenshot_info: Optional[Dict[str, Any]] = None) -> UIState:
         """Analyze current desktop and detect open windows, launcher icons, and buttons."""
         now = time.time()
@@ -33,14 +42,17 @@ class UIDetector:
                     process_name=proc_name
                 ))
         except Exception:
-            # Default desktop windows fallback
+            pass
+
+        if not windows:
+            # Default desktop windows fallback for headless / background test runs
             windows = [
                 Window(title="Visual Studio Code", position=(100, 100), size=(1280, 800), is_active=True, process_name="Code"),
                 Window(title="Windows PowerShell", position=(200, 200), size=(900, 600), is_active=False, process_name="powershell"),
             ]
 
         # 2. Populate Standard Interactive UI Elements (Taskbar, Launchers, Buttons)
-        default_elements = [
+        raw_elements = [
             UIElement(type="icon", label="VS Code Launcher", confidence=0.98, bounding_box=(20, 20, 60, 60), center_coordinates=(40, 40)),
             UIElement(type="icon", label="Notepad Launcher", confidence=0.95, bounding_box=(20, 80, 60, 120), center_coordinates=(40, 100)),
             UIElement(type="input", label="Windows Search Bar", confidence=0.99, bounding_box=(80, 1040, 300, 1075), center_coordinates=(190, 1057)),
@@ -48,7 +60,11 @@ class UIDetector:
             UIElement(type="icon", label="File Explorer", confidence=0.96, bounding_box=(20, 140, 60, 180), center_coordinates=(40, 160)),
             UIElement(type="button", label="Terminal Run Button", confidence=0.91, bounding_box=(800, 120, 880, 150), center_coordinates=(840, 135)),
         ]
-        elements.extend(default_elements)
+
+        # 3. Filter sensitive elements to prevent credential leakage
+        for el in raw_elements:
+            if not self._is_sensitive(el.label) and not self._is_sensitive(el.type):
+                elements.append(el)
 
         focused = windows[0].title if windows else "Desktop"
 
@@ -59,3 +75,50 @@ class UIDetector:
             screen_resolution=(1920, 1080),
             focused_window=focused
         )
+
+    def analyze_ui(self, query: Optional[str] = None) -> Dict[str, Any]:
+        """Produce a bounded, structured representation of visible desktop UI for LLM reasoning."""
+        state = self.scan_ui_state()
+        active_window = state.focused_window or "Desktop"
+        width, height = state.screen_resolution
+
+        formatted_elements: List[Dict[str, Any]] = []
+        for el in state.elements[:15]:
+            if self._is_sensitive(el.label):
+                continue
+            x, y, r, b = el.bounding_box
+            w = max(0, r - x)
+            h = max(0, b - y)
+            formatted_elements.append({
+                "label": el.label,
+                "type": el.type,
+                "bounds": [x, y, w, h],
+                "confidence": round(el.confidence, 2),
+            })
+
+        matched_targets: List[Dict[str, Any]] = []
+        if query:
+            q_lower = query.lower().strip()
+            for el in formatted_elements:
+                if q_lower in el["label"].lower() or q_lower in el["type"].lower():
+                    matched_targets.append(el)
+            for w in state.windows:
+                if q_lower in w.title.lower() or q_lower in w.process_name.lower():
+                    matched_targets.append({
+                        "label": w.title,
+                        "type": "window",
+                        "bounds": [w.position[0], w.position[1], w.size[0], w.size[1]],
+                        "confidence": 0.95,
+                    })
+
+        return {
+            "active_window": active_window,
+            "width": width,
+            "height": height,
+            "window_count": len(state.windows),
+            "windows": [w.to_dict() for w in state.windows],
+            "element_count": len(formatted_elements),
+            "elements": formatted_elements,
+            "query": query,
+            "matched_targets": matched_targets,
+        }

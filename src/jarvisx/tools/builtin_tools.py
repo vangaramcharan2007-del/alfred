@@ -578,6 +578,50 @@ class PressKeyTool(Tool):
 
 
 # ---------------------------------------------------------------------------
+# Tool: analyze_screen
+# ---------------------------------------------------------------------------
+
+class AnalyzeScreenTool(Tool):
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="analyze_screen",
+            description="Analyzes visible desktop screen, open application windows, and UI elements with bounding boxes for reasoning.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Optional search query to match specific buttons, windows, or inputs."},
+                },
+                "required": [],
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="desktop.read",
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        query = arguments.get("query")
+        try:
+            from jarvisx.vision.ui_detector import UIDetector
+            detector = UIDetector()
+            analysis = detector.analyze_ui(query=query)
+            return ToolResult(
+                status="success",
+                tool="analyze_screen",
+                result=analysis,
+            )
+        except Exception as e:
+            return ToolResult(status="failed", tool="analyze_screen", error=str(e))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = (
+            result.status == "success"
+            and isinstance(result.result, dict)
+            and bool(result.result.get("active_window"))
+            and result.result.get("width", 0) > 0
+        )
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
 # Registry bootstrap
 # ---------------------------------------------------------------------------
 
@@ -596,4 +640,6 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(ClickTool())
     registry.register(TypeTextTool())
     registry.register(PressKeyTool())
+    registry.register(AnalyzeScreenTool())
+
 
