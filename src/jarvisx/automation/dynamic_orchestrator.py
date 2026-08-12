@@ -24,12 +24,29 @@ from jarvisx.llm.llm_router import LLMRouter
 class DynamicOrchestrator:
     """Zero-hardcode dynamic Windows application & work execution orchestrator."""
 
-    def __init__(self, os_kernel: Optional[PersonalOSKernel] = None, llm_router: Optional[LLMRouter] = None):
+    def __init__(
+        self,
+        os_kernel: Optional[PersonalOSKernel] = None,
+        llm_router: Optional[LLMRouter] = None,
+        memory_engine: Optional[Any] = None,
+    ):
         self.user_name: str = "Charan"
         self.kernel = os_kernel or PersonalOSKernel()
         self.cleaner = RealSystemCleaner()
         self.builder = RealProjectBuilder()
         self.llm_router = llm_router or LLMRouter()
+        self._memory_engine = memory_engine
+
+    @property
+    def memory_engine(self):
+        if self._memory_engine is None:
+            try:
+                from jarvisx.memory_intelligence.memory_engine import MemoryIntelligenceEngine
+                self._memory_engine = MemoryIntelligenceEngine()
+            except Exception as e:
+                print(f"[MEMORY] Memory engine initialization fallback: {e}")
+                self._memory_engine = None
+        return self._memory_engine
 
     def find_and_launch_app(self, app_name: str) -> Dict[str, Any]:
         """Dynamically search Windows Start Menu, PATH, and Registry for any app name."""
@@ -281,8 +298,21 @@ class DynamicOrchestrator:
             executor = ToolExecutor(registry=registry)
             tool_system_prompt = executor.build_tool_system_prompt()
 
+            # Retrieve relevant long-term memory
+            memory_block = ""
+            if self.memory_engine:
+                try:
+                    pcontext = self.memory_engine.get_personal_context(query=raw_text)
+                    if pcontext and pcontext.prompt_block:
+                        memory_block = (
+                            f"\n\n{pcontext.prompt_block}\n"
+                            f"*(Note: Retrieved memory is background context. Prioritize explicit instructions in the current user request if they contradict prior preferences.)*"
+                        )
+                except Exception as me:
+                    print(f"[MEMORY] Context retrieval warning: {me}")
+
             executed_steps: List[Dict[str, Any]] = []
-            current_prompt = f"{tool_system_prompt}\n\nUser request: {raw_text}"
+            current_prompt = f"{tool_system_prompt}{memory_block}\n\nUser request: {raw_text}"
             last_tool_result: Optional[Dict[str, Any]] = None
             last_tool_name: Optional[str] = None
             history_str = ""
@@ -295,6 +325,7 @@ class DynamicOrchestrator:
                 if not response or out.get("status") != "AVAILABLE" or llm_res.get("status") == "provider_unavailable":
                     if executed_steps:
                         response = f"Tool execution completed with {len(executed_steps)} step(s), {salutation}."
+                        self._persist_turn_memory(raw_text)
                         return {
                             "action": "tool_call",
                             "response": response,
@@ -311,6 +342,7 @@ class DynamicOrchestrator:
 
                 # Case 1: Normal conversational response (no tool requested)
                 if not tool_call:
+                    self._persist_turn_memory(raw_text)
                     if not executed_steps:
                         return {"action": "llm", "response": response, "text": raw_text, "details": llm_res}
                     else:
@@ -330,6 +362,7 @@ class DynamicOrchestrator:
                     print(f"[TOOL] Max tool steps ({max_tool_steps}) reached. Aborting further tool calls.")
                     err_msg = f"Maximum tool execution limit ({max_tool_steps} steps) reached."
                     response = f"Reached maximum action limit of {max_tool_steps} steps, {salutation}."
+                    self._persist_turn_memory(raw_text)
                     return {
                         "action": "tool_call",
                         "response": response,
@@ -361,6 +394,7 @@ class DynamicOrchestrator:
                 if tool_result.status != "success" or not tool_result.verified:
                     err_detail = tool_result.error or "Tool verification failed"
                     response = f"Tool {tool_name} failed: {err_detail}, {salutation}."
+                    self._persist_turn_memory(raw_text)
                     return {
                         "action": "tool_call",
                         "response": response,
@@ -382,7 +416,7 @@ class DynamicOrchestrator:
                 history_str = "\n".join(history_lines)
 
                 current_prompt = (
-                    f"{tool_system_prompt}\n\n"
+                    f"{tool_system_prompt}{memory_block}\n\n"
                     f"User request: {raw_text}\n\n"
                     f"Execution history so far:\n{history_str}\n\n"
                     f"Based on the tool results above, if you need another tool to complete the request, respond with a JSON tool call:\n"
@@ -408,6 +442,7 @@ class DynamicOrchestrator:
             except Exception:
                 response = f"Executed {len(executed_steps)} tool step(s) successfully, {salutation}."
 
+            self._persist_turn_memory(raw_text)
             return {
                 "action": "tool_call",
                 "response": response,
@@ -420,6 +455,15 @@ class DynamicOrchestrator:
         except Exception as e:
             err_resp = f"LLM Routing Error: {str(e)}"
             return {"action": "llm", "response": err_resp, "error": str(e), "text": raw_text}
+
+    def _persist_turn_memory(self, raw_text: str):
+        """Persist non-trivial facts, goals, and preferences from user turn into long-term memory."""
+        if self.memory_engine:
+            try:
+                self.memory_engine.extract_and_store_from_conversation(text=raw_text)
+            except Exception as me:
+                print(f"[MEMORY] Memory persistence warning: {me}")
+
 
 
 

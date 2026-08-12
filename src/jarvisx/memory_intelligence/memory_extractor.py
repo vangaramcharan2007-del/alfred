@@ -32,6 +32,9 @@ class MemoryExtractor:
         re.compile(r"(?i)i\s+prefer\s+(.*)"),
         re.compile(r"(?i)i\s+learn\s+better\s+by\s+(.*)"),
         re.compile(r"(?i)i\s+am\s+(?:targeting|preparing\s+for|studying)\s+(.*)"),
+        re.compile(r"(?i)(?:my\s+current\s+)?(?:project\s+)?goal\s+is\s+(.*)"),
+        re.compile(r"(?i)(?:jarvis|project)\s+(?:x\s+)?is\s+(?:currently\s+)?focused\s+on\s+(.*)"),
+        re.compile(r"(?i)my\s+(?:project|focus|target)\s+is\s+(.*)"),
     ]
 
     def __init__(self):

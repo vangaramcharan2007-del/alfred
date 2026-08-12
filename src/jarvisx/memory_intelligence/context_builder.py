@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import re
-from typing import List, Optional
+from typing import List, Optional, Set
 from jarvisx.memory_intelligence.memory_security import MemorySecurityGuard
 from jarvisx.memory_intelligence.memory_store import MemoryStore
 from jarvisx.memory_intelligence.models import (
@@ -14,6 +14,13 @@ from jarvisx.memory_intelligence.models import (
 
 class PersonalContextBuilder:
     """Retrieves relevant personal, episodic, and procedural memories and composes a clean prompt block for Alfred."""
+
+    STOP_WORDS: Set[str] = {
+        "what", "is", "a", "an", "the", "in", "on", "at", "to", "for", "of", "and",
+        "or", "it", "this", "that", "i", "my", "me", "you", "your", "do", "how",
+        "why", "can", "should", "tell", "explain", "give", "please", "be", "have",
+        "am", "about", "with", "by", "from"
+    }
 
     def __init__(self, store: MemoryStore):
         self.store = store
@@ -30,16 +37,43 @@ class PersonalContextBuilder:
         # Filter by role security
         accessible = [m for m in all_memories if MemorySecurityGuard.can_access_memory(m, actor_role=actor_role)]
 
-        # Score relevance to query tokens if query provided
         query_tokens = set(re.findall(r"\b\w+\b", query.lower())) if query else set()
+        meaningful_query_tokens = {t for t in query_tokens if t not in self.STOP_WORDS}
+
+        # Check if query is asking for personal/planning/work context
+        is_personal_query = not meaningful_query_tokens or any(
+            w in meaningful_query_tokens for w in (
+                "plan", "goal", "schedule", "work", "next", "jarvis", "project", "target",
+                "preference", "prefer", "study", "learning", "semester", "cgpa", "exam", "focus"
+            )
+        )
 
         def score_mem(m: MemoryRecord) -> float:
             content_tokens = set(re.findall(r"\b\w+\b", m.content.lower()))
-            overlap = len(query_tokens.intersection(content_tokens)) if query_tokens else 1
+            meaningful_content = {t for t in content_tokens if t not in self.STOP_WORDS}
+            overlap = len(meaningful_query_tokens.intersection(meaningful_content)) if meaningful_query_tokens else 1
             strength = m.compute_decayed_strength()
-            return (overlap * 2.0) + (strength * 1.5)
 
-        ranked = sorted(accessible, key=score_mem, reverse=True)[:max_items]
+            if meaningful_query_tokens:
+                if overlap == 0 and not is_personal_query:
+                    return 0.0
+                goal_boost = 3.0 if (is_personal_query and ("goal" in m.content.lower() or "cgpa" in m.content.lower() or m.memory_type == MemoryType.PROCEDURAL)) else 0.0
+                return (overlap * 4.0) + (strength * 1.5) + goal_boost
+            else:
+                return strength * 1.5
+
+        candidates = [m for m in accessible if score_mem(m) > 0.0] if (meaningful_query_tokens and not is_personal_query) else accessible
+        ranked = sorted(candidates, key=score_mem, reverse=True)[:max_items]
+
+        # If candidates are not relevant to non-personal query, return empty
+        if meaningful_query_tokens and not is_personal_query and not any(score_mem(m) > 1.0 for m in ranked):
+            return PersonalContextSummary(
+                episodic_highlights=[],
+                active_preferences=[],
+                learning_style="",
+                goal_alignment="",
+                prompt_block="",
+            )
 
         episodic: List[str] = []
         preferences: List[str] = []
@@ -58,6 +92,15 @@ class PersonalContextBuilder:
                     learning_style = m.content
 
         # Build prompt markdown block
+        if not (goal_alignment or learning_style or preferences or episodic):
+            return PersonalContextSummary(
+                episodic_highlights=[],
+                active_preferences=[],
+                learning_style="",
+                goal_alignment="",
+                prompt_block="",
+            )
+
         lines = [
             "### [PERSONAL MEMORY & USER CONTEXT]",
         ]
@@ -79,3 +122,4 @@ class PersonalContextBuilder:
             goal_alignment=goal_alignment,
             prompt_block=prompt_block,
         )
+
