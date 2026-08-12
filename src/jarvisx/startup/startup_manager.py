@@ -75,10 +75,14 @@ class StartupManager:
                         # Write silent VBScript background launcher
                         win_vbs = os.path.join(win_startup_folder, "AlfredOS.vbs")
                         cwd = os.getcwd().replace('"', '""')
+                        pythonw_exe = sys.executable.replace("python.exe", "pythonw.exe")
+                        if not os.path.exists(pythonw_exe):
+                            pythonw_exe = "pythonw"
+                        pythonw_esc = pythonw_exe.replace('"', '""')
                         vbs_content = (
                             'Set WshShell = CreateObject("WScript.Shell")\n'
                             f'WshShell.CurrentDirectory = "{cwd}"\n'
-                            'WshShell.Run "pythonw -m jarvisx daemon --start", 0, False\n'
+                            f'WshShell.Run """{pythonw_esc}"" -m jarvisx daemon --start --block", 0, False\n'
                         )
                         with open(win_vbs, "w", encoding="utf-8") as f2:
                             f2.write(vbs_content)

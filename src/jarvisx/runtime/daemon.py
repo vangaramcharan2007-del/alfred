@@ -92,7 +92,7 @@ class JarvisDaemon:
 
     def is_running(self) -> bool:
         """Check if daemon process is active."""
-        return self.pid_manager.get_running_pid() is not None
+        return self._running or (self.pid_manager.get_running_pid() is not None)
 
     def start(self, block: bool = False) -> Dict[str, Any]:
         """Acquire PID lock, boot subsystem threads, and transition state to RUNNING."""
@@ -100,6 +100,7 @@ class JarvisDaemon:
         if not ok:
             return {"status": "ALREADY_RUNNING", "error": reason}
 
+        self._running = True
         self.presence.transition_to(PresenceState.BOOTING, reason="Acquired PID lock")
         pid = os.getpid()
         self.log(f"Starting Jarvis X Daemon (PID: {pid})...")
@@ -153,7 +154,7 @@ class JarvisDaemon:
 
         if block:
             try:
-                while self.is_running():
+                while self._running:
                     time.sleep(1.0)
             except KeyboardInterrupt:
                 self.stop()
@@ -162,6 +163,7 @@ class JarvisDaemon:
 
     def stop(self) -> Dict[str, Any]:
         """Initiate graceful shutdown of all workers and release lock."""
+        self._running = False
         self.log("Stopping Jarvis X Daemon...")
         if self.presence.can_transition_to(PresenceState.STOPPING):
             self.presence.transition_to(PresenceState.STOPPING, reason="Shutdown requested")

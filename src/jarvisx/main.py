@@ -12,7 +12,14 @@ Usage:
   python -m jarvisx help                # Show all commands
 """
 import sys
+import io
 from pathlib import Path
+
+# Ensure standard streams exist when run via pythonw (windowless execution)
+if sys.stdout is None:
+    sys.stdout = io.StringIO()
+if sys.stderr is None:
+    sys.stderr = io.StringIO()
 
 # Ensure src directory is in sys.path
 src_dir = Path(__file__).resolve().parent.parent

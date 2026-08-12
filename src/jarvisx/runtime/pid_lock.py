@@ -18,25 +18,17 @@ class PIDLockManager:
         """Check if a process with given PID is actively running on Windows / Unix."""
         if pid <= 0:
             return False
-
-        if sys.platform == "win32":
-            import ctypes
-            kernel32 = ctypes.windll.kernel32
-            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-            STILL_ACTIVE = 259
-            h_proc = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-            if not h_proc:
+        try:
+            import psutil
+            if not psutil.pid_exists(pid):
                 return False
-            exit_code = ctypes.c_ulong()
-            kernel32.GetExitCodeProcess(h_proc, ctypes.byref(exit_code))
-            kernel32.CloseHandle(h_proc)
-            return exit_code.value == STILL_ACTIVE
-        else:
-            try:
-                os.kill(pid, 0)
-                return True
-            except OSError:
+            proc = psutil.Process(pid)
+            if not proc.is_running() or proc.status() == psutil.STATUS_ZOMBIE:
                 return False
+            p_name = proc.name().lower()
+            return "python" in p_name or "jarvis" in p_name
+        except Exception:
+            return False
 
     def acquire(self) -> Tuple[bool, Optional[str]]:
         """Attempt to acquire PID lock. Returns (True, None) if acquired, or (False, reason) if already running."""

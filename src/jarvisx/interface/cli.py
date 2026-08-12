@@ -4,6 +4,7 @@ Phase 50 production implementation.
 """
 import os
 import sys
+import asyncio
 import subprocess
 import time
 from pathlib import Path
@@ -155,29 +156,43 @@ class JarvisCLI:
                 return {"action": "loop_run", "status": "SUCCESS", "cycle": cycle.to_dict()}
 
         # ----------------------------------------------------------
-        # PHASE 104: PERSISTENT SOVEREIGN DAEMON & IPC PRESENCE
+        # BACKGROUND DAEMON & IPC GATEWAY (PHASE 104)
         # ----------------------------------------------------------
         elif command in ("daemon", "jarvisd"):
-            from jarvisx.runtime.daemon import JarvisDaemon
             from jarvisx.runtime.ipc_client import IPCClient
             client = IPCClient()
-            daemon = self.daemon or JarvisDaemon(context=self.context)
-            self.daemon = daemon
             args_clean = args.lower().strip() if args else ""
 
+            def _get_daemon():
+                if not self.daemon:
+                    from jarvisx.runtime.daemon import JarvisDaemon
+                    self.daemon = JarvisDaemon(context=self.context)
+                return self.daemon
+
             if "--start" in args_clean or "start" in args_clean:
-                is_block = "--block" in args_clean or "-b" in args_clean
-                res = daemon.start(block=is_block)
+                daemon = _get_daemon()
+                is_block = "--block" in args_clean or "-b" in args_clean or "--background" in args_clean or ("pythonw" in sys.executable.lower())
+                res = daemon.start(block=False)
                 print(f"\n=== [JARVIS X DAEMON LAUNCH] ===")
                 print(f"  Status   : {res.get('status')}")
                 print(f"  PID      : {res.get('pid')}")
                 print(f"  IPC Port : {res.get('port', 10404)}")
                 print(f"  Log File : {res.get('log_file')}")
                 print("=================================\n")
+                if is_block and res.get("status") == "STARTED":
+                    try:
+                        while daemon.is_running():
+                            await asyncio.sleep(1.0)
+                    except (asyncio.CancelledError, KeyboardInterrupt):
+                        daemon.stop()
+                    except Exception as e:
+                        daemon.log(f"Daemon loop exited due to exception: {e}")
+                        daemon.stop()
 
             elif "--stop" in args_clean or "stop" in args_clean or "shutdown" in args_clean:
                 ok, lat = client.shutdown()
                 if not ok:
+                    daemon = _get_daemon()
                     res = daemon.stop()
                 else:
                     res = {"status": "STOPPED_VIA_IPC", "latency_ms": round(lat, 2)}
@@ -197,6 +212,7 @@ class JarvisCLI:
                     print(f"\n{briefing}\n(Fetched via IPC in {lat:.2f}ms)\n")
                     res = {"status": "SUCCESS", "briefing": briefing, "latency_ms": lat}
                 else:
+                    daemon = _get_daemon()
                     briefing = daemon.scheduler.synthesize_morning_briefing()
                     print(f"\n{briefing}\n")
                     res = {"status": "SUCCESS", "briefing": briefing}
@@ -209,11 +225,13 @@ class JarvisCLI:
                     print(f"\n[EVENT TRIGGERED VIA IPC]: {evt_name} ({lat:.2f}ms)\n")
                     res = resp
                 else:
+                    daemon = _get_daemon()
                     evt_id = daemon._handle_ipc_event(evt_name, {})
                     print(f"\n[EVENT TRIGGERED IN-PROCESS]: {evt_id}\n")
                     res = {"status": "TRIGGERED", "event_id": evt_id}
 
             elif "--startup" in args_clean or "startup" in args_clean or "install" in args_clean:
+                daemon = _get_daemon()
                 res = daemon.generate_startup_script()
                 print(f"\n=== [WINDOWS STARTUP SERVICE GENERATED] ===")
                 print(f"  Batch Script  : {res.get('bat_script')}")
@@ -239,10 +257,14 @@ class JarvisCLI:
                     print("=============================================\n")
                     res = status_data
                 else:
-                    state = daemon.get_status()
+                    from jarvisx.runtime.state import RuntimeStateManager
+                    from jarvisx.runtime.pid_lock import PIDLockManager
+                    pid_mgr = PIDLockManager()
+                    state_mgr = RuntimeStateManager()
+                    state = state_mgr.load_state()
                     print(f"\n=== [JARVIS X DAEMON STATUS (Offline)] ===")
                     print(f"  Status       : {state.status}")
-                    print(f"  PID File     : {daemon.pid_manager.pid_file}")
+                    print(f"  PID File     : {pid_mgr.pid_file}")
                     print("==========================================\n")
                     res = state.__dict__
 
