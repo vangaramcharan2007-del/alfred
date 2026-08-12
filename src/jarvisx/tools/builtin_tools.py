@@ -622,6 +622,132 @@ class AnalyzeScreenTool(Tool):
 
 
 # ---------------------------------------------------------------------------
+# Tool: web_search
+# ---------------------------------------------------------------------------
+
+class WebSearchTool(Tool):
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="web_search",
+            description="Searches the web for queries and returns bounded, structured titles, URLs, and snippets.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query."}
+                },
+                "required": ["query"],
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="network.read",
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        query = arguments.get("query", "")
+        if not isinstance(query, str) or not query.strip():
+            return ToolResult(status="failed", tool="web_search", error="Search query must be a non-empty string.")
+
+        try:
+            from jarvisx.tools.web_research import WebSearchEngine
+            engine = WebSearchEngine()
+            res = engine.search(query)
+            return ToolResult(status="success", tool="web_search", result=res)
+        except Exception as e:
+            return ToolResult(status="failed", tool="web_search", error=f"Search failed: {e}")
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = (
+            result.status == "success"
+            and isinstance(result.result, dict)
+            and "results" in result.result
+        )
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tool: fetch_webpage
+# ---------------------------------------------------------------------------
+
+class FetchWebpageTool(Tool):
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="fetch_webpage",
+            description="Fetches an HTTP/HTTPS webpage and extracts bounded, clean text content without executing scripts.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "HTTP or HTTPS URL to fetch."}
+                },
+                "required": ["url"],
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="network.read",
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        url = arguments.get("url", "")
+        if not isinstance(url, str) or not url.strip():
+            return ToolResult(status="failed", tool="fetch_webpage", error="URL must be a non-empty string.")
+
+        try:
+            from jarvisx.tools.web_research import WebPageFetcher
+            fetcher = WebPageFetcher()
+            res = fetcher.fetch(url)
+            status = res.get("status", "failed")
+            error = res.get("error")
+            return ToolResult(status=status, tool="fetch_webpage", result=res if status == "success" else None, error=error)
+        except Exception as e:
+            return ToolResult(status="failed", tool="fetch_webpage", error=f"Fetch failed: {e}")
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = (
+            result.status == "success"
+            and isinstance(result.result, dict)
+            and bool(result.result.get("content") or result.result.get("title"))
+        )
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tool: browser_open
+# ---------------------------------------------------------------------------
+
+class BrowserOpenTool(Tool):
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="browser_open",
+            description="Opens a validated HTTP/HTTPS URL in the default web browser.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "HTTP or HTTPS URL to open."}
+                },
+                "required": ["url"],
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="network.read",
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        url = arguments.get("url", "")
+        if not isinstance(url, str) or not url.strip():
+            return ToolResult(status="failed", tool="browser_open", error="URL must be a non-empty string.")
+
+        from jarvisx.tools.web_research import WebPageFetcher
+        fetcher = WebPageFetcher()
+        val = fetcher.validate_url(url)
+        if not val["valid"]:
+            return ToolResult(status="failed", tool="browser_open", error=val["error"])
+
+        import webbrowser
+        webbrowser.open(val["url"])
+        return ToolResult(status="success", tool="browser_open", result={"status": "OPENED", "url": val["url"]})
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result) and result.result.get("status") == "OPENED"
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
 # Registry bootstrap
 # ---------------------------------------------------------------------------
 
@@ -641,5 +767,9 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(TypeTextTool())
     registry.register(PressKeyTool())
     registry.register(AnalyzeScreenTool())
+    registry.register(WebSearchTool())
+    registry.register(FetchWebpageTool())
+    registry.register(BrowserOpenTool())
+
 
 

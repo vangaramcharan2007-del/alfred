@@ -75,11 +75,14 @@ class ToolExecutor:
 
         return verified_result
 
-    @staticmethod
-    def parse_tool_call(llm_response: str) -> Optional[Dict[str, Any]]:
+    @classmethod
+    def parse_tool_call(cls, llm_response: str) -> Optional[Dict[str, Any]]:
         """Extract structured tool call from LLM response text.
 
-        Looks for JSON with: {"type": "tool_call", "tool": "...", "arguments": {...}}
+        Looks for JSON with:
+        {"type": "tool_call", "tool": "...", "arguments": {...}}
+        or {"name": "...", "arguments": {...}}
+        or {"type": "<tool_name>", "arguments": {...}}
         Returns None if the response is a normal conversational answer.
         """
         text = llm_response.strip()
@@ -93,15 +96,19 @@ class ToolExecutor:
                 break
             try:
                 parsed, _ = decoder.raw_decode(text[start:])
-                if (
-                    isinstance(parsed, dict)
-                    and parsed.get("type") == "tool_call"
-                    and isinstance(parsed.get("tool"), str)
-                    and bool(parsed.get("tool"))
-                    and "arguments" in parsed
-                    and isinstance(parsed.get("arguments"), dict)
-                ):
-                    return parsed
+                if isinstance(parsed, dict):
+                    t_type = parsed.get("type")
+                    t_tool = parsed.get("tool") or parsed.get("name")
+                    arguments = parsed.get("arguments")
+
+                    if isinstance(arguments, dict) and t_type is not None:
+                        if t_type == "tool_call" and isinstance(t_tool, str) and bool(t_tool):
+                            return {"type": "tool_call", "tool": t_tool, "arguments": arguments}
+                        elif isinstance(t_type, str) and t_type != "tool_call" and t_tool is None:
+                            from jarvisx.tools.tool_kernel import ToolRegistry
+                            reg = ToolRegistry.get_instance()
+                            if reg.get(t_type) is not None:
+                                return {"type": "tool_call", "tool": t_type, "arguments": arguments}
                 idx = start + 1
             except (json.JSONDecodeError, ValueError):
                 idx = start + 1
