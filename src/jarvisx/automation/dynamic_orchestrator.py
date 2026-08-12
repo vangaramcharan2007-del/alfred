@@ -271,8 +271,32 @@ class DynamicOrchestrator:
             response = f"Opening {app_target} for you now, {salutation}."
             return {"action": "launch", "response": response, "target": app_target, "details": res}
 
-        # 16. LLM-Driven Tool Execution & General Response via LLMRouter
+        # 16. Explicit Mission Execution Intent
+        if text.startswith(("mission ", "plan ", "execute mission ")):
+            mission_goal = text.replace("execute mission ", "").replace("mission ", "").replace("plan ", "").strip()
+            return self.execute_mission(mission_goal, persona=persona)
+
+        # 17. LLM-Driven Tool Execution & General Response via LLMRouter
         return self.execute_llm_request(raw_text, persona=persona)
+
+    def execute_mission(
+        self,
+        goal: str,
+        persona: str = "ALFRED",
+        interactive: bool = True,
+        max_steps: int = 10,
+        max_replans: int = 2,
+    ) -> Dict[str, Any]:
+        """Execute complex multi-step goal through UnifiedMissionPlanner."""
+        from jarvisx.missions.unified_mission_planner import UnifiedMissionPlanner
+        planner = UnifiedMissionPlanner(llm_router=self.llm_router, memory_engine=self.memory_engine)
+        return planner.execute_mission(
+            goal=goal,
+            persona=persona,
+            interactive=interactive,
+            max_steps=max_steps,
+            max_replans=max_replans,
+        )
 
     def execute_llm_request(
         self,
