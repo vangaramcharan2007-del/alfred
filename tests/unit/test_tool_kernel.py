@@ -68,7 +68,8 @@ def test_registry_list_tools(registry):
     assert "read_file" in names
     assert "create_file" in names
     assert "open_app" in names
-    assert len(names) == 6
+    assert "capture_screen" in names
+    assert len(names) >= 6
 
 
 def test_registry_get_known_tool(registry):

@@ -98,6 +98,7 @@ class ToolExecutor:
                     and parsed.get("type") == "tool_call"
                     and isinstance(parsed.get("tool"), str)
                     and bool(parsed.get("tool"))
+                    and "arguments" in parsed
                     and isinstance(parsed.get("arguments"), dict)
                 ):
                     return parsed

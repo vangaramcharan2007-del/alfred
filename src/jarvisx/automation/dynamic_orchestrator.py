@@ -279,7 +279,7 @@ class DynamicOrchestrator:
         raw_text: str,
         persona: str = "ALFRED",
         interactive: bool = True,
-        max_tool_steps: int = 3,
+        max_tool_steps: int = 5,
     ) -> Dict[str, Any]:
         """Execute request through LLMRouter with bounded multi-step structured tool kernel execution."""
         salutation = "Sir" if persona == "ALFRED" else "Boss"

@@ -291,10 +291,290 @@ class OpenAppTool(Tool):
             from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
             orch = DynamicOrchestrator()
             res = orch.find_and_launch_app(app_name)
-            status = "success" if res.get("status") in ("LAUNCHED_WEB", "LAUNCHED_DESKTOP") else "failed"
+            valid_statuses = ("LAUNCHED_LOCAL", "LAUNCHED_WEB", "LAUNCHED_WEB_DIRECT", "LAUNCHED_DESKTOP", "SEARCHED_WEB")
+            status = "success" if res.get("status") in valid_statuses else "failed"
             return ToolResult(status=status, tool="open_app", result=res)
         except Exception as e:
             return ToolResult(status="failed", tool="open_app", error=f"Launch error: {e}")
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        valid_statuses = ("LAUNCHED_LOCAL", "LAUNCHED_WEB", "LAUNCHED_WEB_DIRECT", "LAUNCHED_DESKTOP", "SEARCHED_WEB")
+        verified = result.status == "success" and bool(result.result) and result.result.get("status") in valid_statuses
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tool: capture_screen
+# ---------------------------------------------------------------------------
+
+class CaptureScreenTool(Tool):
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="capture_screen",
+            description="Captures the desktop screen and returns structured UI elements, open windows, and active window.",
+            input_schema={"type": "object", "properties": {}, "required": []},
+            permission_level=PermissionLevel.SAFE,
+            required_scope="desktop.read",
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        try:
+            from jarvisx.vision.ui_detector import UIDetector
+            detector = UIDetector()
+            ui_state = detector.scan_ui_state()
+            return ToolResult(
+                status="success",
+                tool="capture_screen",
+                result={
+                    "active_window": ui_state.focused_window or "Desktop",
+                    "width": ui_state.screen_resolution[0],
+                    "height": ui_state.screen_resolution[1],
+                    "window_count": len(ui_state.windows),
+                    "windows": [w.to_dict() for w in ui_state.windows],
+                    "element_count": len(ui_state.elements),
+                    "elements": [
+                        {
+                            "label": el.label,
+                            "type": el.type,
+                            "bounds": list(el.bounding_box),
+                            "center": list(el.center_coordinates),
+                        }
+                        for el in ui_state.elements[:15]
+                    ],
+                },
+            )
+        except Exception as e:
+            return ToolResult(status="failed", tool="capture_screen", error=str(e))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result) and result.result.get("width", 0) > 0
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tool: get_active_window
+# ---------------------------------------------------------------------------
+
+class GetActiveWindowTool(Tool):
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="get_active_window",
+            description="Returns the currently focused/active desktop window title and process name.",
+            input_schema={"type": "object", "properties": {}, "required": []},
+            permission_level=PermissionLevel.SAFE,
+            required_scope="desktop.read",
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        try:
+            from jarvisx.vision.ui_detector import UIDetector
+            detector = UIDetector()
+            ui_state = detector.scan_ui_state()
+            active_win = ui_state.windows[0] if ui_state.windows else None
+            return ToolResult(
+                status="success",
+                tool="get_active_window",
+                result={
+                    "title": active_win.title if active_win else (ui_state.focused_window or "Desktop"),
+                    "process_name": active_win.process_name if active_win else "explorer",
+                    "is_active": True,
+                    "size": active_win.size if active_win else (1920, 1080),
+                },
+            )
+        except Exception as e:
+            return ToolResult(status="failed", tool="get_active_window", error=str(e))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result) and bool(result.result.get("title"))
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tool: list_windows
+# ---------------------------------------------------------------------------
+
+class ListWindowsTool(Tool):
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="list_windows",
+            description="Lists open application windows on the desktop.",
+            input_schema={"type": "object", "properties": {}, "required": []},
+            permission_level=PermissionLevel.SAFE,
+            required_scope="desktop.read",
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        try:
+            from jarvisx.vision.ui_detector import UIDetector
+            detector = UIDetector()
+            ui_state = detector.scan_ui_state()
+            return ToolResult(
+                status="success",
+                tool="list_windows",
+                result={
+                    "count": len(ui_state.windows),
+                    "windows": [w.to_dict() for w in ui_state.windows],
+                },
+            )
+        except Exception as e:
+            return ToolResult(status="failed", tool="list_windows", error=str(e))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and isinstance(result.result, dict) and "windows" in result.result
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tool: click
+# ---------------------------------------------------------------------------
+
+class ClickTool(Tool):
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="click",
+            description="Clicks at the specified screen coordinates (x, y) after safety validation. Requires user confirmation.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "x": {"type": "integer", "description": "X pixel coordinate."},
+                    "y": {"type": "integer", "description": "Y pixel coordinate."},
+                    "button": {"type": "string", "enum": ["left", "right", "middle"], "default": "left"},
+                },
+                "required": ["x", "y"],
+            },
+            permission_level=PermissionLevel.CONFIRM,
+            required_scope="desktop.write",
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        x = arguments.get("x")
+        y = arguments.get("y")
+        button = arguments.get("button", "left")
+
+        if not isinstance(x, int) or not isinstance(y, int):
+            return ToolResult(status="failed", tool="click", error="Coordinates x and y must be integers.")
+
+        try:
+            from jarvisx.vision.action_validator import ActionSafetyValidator
+            from jarvisx.vision.mouse_controller import MouseController
+            from jarvisx.vision.ui_detector import UIDetector
+
+            detector = UIDetector()
+            ui_state = detector.scan_ui_state()
+            active_window = ui_state.focused_window or ""
+
+            validator = ActionSafetyValidator()
+            val_res = validator.validate_mouse_action("click", (x, y), active_window=active_window)
+            if val_res["decision"] == "BLOCK":
+                return ToolResult(status="failed", tool="click", error=val_res["reason"])
+
+            controller = MouseController()
+            click_res = controller.click(x=x, y=y, button=button)
+            return ToolResult(status="success", tool="click", result=click_res)
+        except Exception as e:
+            return ToolResult(status="failed", tool="click", error=str(e))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result)
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tool: type_text
+# ---------------------------------------------------------------------------
+
+class TypeTextTool(Tool):
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="type_text",
+            description="Types text into the active desktop window after safety validation. Requires user confirmation.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "Text to type into active window."}
+                },
+                "required": ["text"],
+            },
+            permission_level=PermissionLevel.CONFIRM,
+            required_scope="desktop.write",
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        text = arguments.get("text", "")
+        if not isinstance(text, str) or not text:
+            return ToolResult(status="failed", tool="type_text", error="Text must be a non-empty string.")
+
+        try:
+            from jarvisx.vision.action_validator import ActionSafetyValidator
+            from jarvisx.vision.keyboard_controller import KeyboardController
+            from jarvisx.vision.ui_detector import UIDetector
+
+            detector = UIDetector()
+            ui_state = detector.scan_ui_state()
+            active_window = ui_state.focused_window or ""
+
+            validator = ActionSafetyValidator()
+            val_res = validator.validate_keyboard_action(text, active_window=active_window)
+            if val_res["decision"] == "BLOCK":
+                return ToolResult(status="failed", tool="type_text", error=val_res["reason"])
+
+            controller = KeyboardController()
+            type_res = controller.type_text(text)
+            return ToolResult(status="success", tool="type_text", result=type_res)
+        except Exception as e:
+            return ToolResult(status="failed", tool="type_text", error=str(e))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result) and result.result.get("characters_typed", 0) > 0
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tool: press_key
+# ---------------------------------------------------------------------------
+
+class PressKeyTool(Tool):
+    ALLOWED_KEYS = {
+        "enter", "esc", "tab", "backspace", "delete", "up", "down", "left", "right",
+        "space", "home", "end", "pageup", "pagedown", "f1", "f2", "f3", "f4", "f5",
+        "ctrl+s", "ctrl+c", "ctrl+v", "ctrl+z", "ctrl+a", "alt+tab"
+    }
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="press_key",
+            description="Presses a keyboard key in the active window. Requires user confirmation.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "key": {"type": "string", "description": "Key name to press (e.g. 'enter', 'tab', 'esc', 'ctrl+s')."}
+                },
+                "required": ["key"],
+            },
+            permission_level=PermissionLevel.CONFIRM,
+            required_scope="desktop.write",
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        key = str(arguments.get("key", "")).lower().strip()
+        if not key or key not in self.ALLOWED_KEYS:
+            return ToolResult(status="failed", tool="press_key", error=f"Key '{key}' is not in the allowed safe keys set.")
+
+        try:
+            from jarvisx.vision.keyboard_controller import KeyboardController
+            controller = KeyboardController()
+            if "+" in key:
+                keys = [k.strip() for k in key.split("+")]
+                res = controller.press_hotkey(*keys)
+            else:
+                res = controller.press_key(key)
+            return ToolResult(status="success", tool="press_key", result=res)
+        except Exception as e:
+            return ToolResult(status="failed", tool="press_key", error=str(e))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result)
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
 
 
 # ---------------------------------------------------------------------------
@@ -310,3 +590,10 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(ReadFileTool())
     registry.register(CreateFileTool())
     registry.register(OpenAppTool())
+    registry.register(CaptureScreenTool())
+    registry.register(GetActiveWindowTool())
+    registry.register(ListWindowsTool())
+    registry.register(ClickTool())
+    registry.register(TypeTextTool())
+    registry.register(PressKeyTool())
+
