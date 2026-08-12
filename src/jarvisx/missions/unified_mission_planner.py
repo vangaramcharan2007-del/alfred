@@ -80,7 +80,7 @@ class FailureClassifier:
         if "permission" in err or "denied" in err or "unauthorized" in err or "confirmation" in err:
             return "PERMISSION_DENIED"
         if "timeout" in err or "timed out" in err or "connection" in err or "rate limit" in err or "temporary" in err:
-            return "RECOVERABLE_REPLAN"
+            return "TRANSIENT"
         if "not found" in err or "404" in err or "missing" in err or "invalid url" in err or "failed to resolve" in err or "failed to fetch" in err or "fallback" in err:
             return "RECOVERABLE_REPLAN"
         return "FATAL"
@@ -421,7 +421,7 @@ class UnifiedMissionPlanner:
                     )
 
                 # Check if replanning is possible
-                if plan.replan_count < max_replans and fail_cat == "RECOVERABLE_REPLAN":
+                if plan.replan_count < max_replans and fail_cat in ("RECOVERABLE_REPLAN", "TRANSIENT"):
                     plan.replan_count += 1
                     plan.status = "replanned"
                     # Attempt alternative step recovery
@@ -611,7 +611,7 @@ class UnifiedMissionPlanner:
                     "failure_category": fail_cat,
                 })
 
-                if plan.replan_count < max_replans and fail_cat == "RECOVERABLE_REPLAN":
+                if plan.replan_count < max_replans and fail_cat in ("RECOVERABLE_REPLAN", "TRANSIENT"):
                     plan.replan_count += 1
                     plan.status = "replanned"
                     alt_step = self._replan_step(step, t_res.error or "")
