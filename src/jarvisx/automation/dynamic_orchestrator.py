@@ -254,15 +254,68 @@ class DynamicOrchestrator:
             response = f"Opening {app_target} for you now, {salutation}."
             return {"action": "launch", "response": response, "target": app_target, "details": res}
 
-        # 16. General LLM Query Response via LLMRouter
+        # 16. LLM-Driven Tool Execution & General Response via LLMRouter
         print(f"[VOICE] Routing general request to LLMRouter: '{raw_text}'")
         try:
-            llm_res = self.llm_router.route_request_sync(prompt=raw_text)
+            from jarvisx.tools.tool_executor import ToolExecutor
+            from jarvisx.tools.tool_kernel import ToolRegistry
+            from jarvisx.tools.builtin_tools import register_builtin_tools
+
+            # Bootstrap tool registry (idempotent)
+            registry = ToolRegistry.get_instance()
+            if not registry.list_tools():
+                register_builtin_tools(registry)
+
+            executor = ToolExecutor(registry=registry)
+            tool_system_prompt = executor.build_tool_system_prompt()
+
+            # Build tool-aware prompt
+            tool_prompt = f"{tool_system_prompt}\n\nUser request: {raw_text}"
+            llm_res = self.llm_router.route_request_sync(prompt=tool_prompt)
             out = llm_res.get("result", {})
             response = out.get("response", "")
+
             if not response or out.get("status") != "AVAILABLE" or llm_res.get("status") == "provider_unavailable":
                 response = f"I am unable to reach the LLM provider at this time, {salutation}."
+                return {"action": "llm", "response": response, "text": raw_text, "details": llm_res}
+
+            # Check if LLM returned a structured tool call
+            tool_call = executor.parse_tool_call(response)
+            if tool_call:
+                tool_name = tool_call["tool"]
+                tool_args = tool_call.get("arguments", {})
+                print(f"[TOOL] LLM requested tool: {tool_name} with args: {tool_args}")
+
+                tool_result = executor.execute(tool_name, tool_args, interactive=True)
+                print(f"[TOOL] Result: status={tool_result.status}, verified={tool_result.verified}")
+
+                if tool_result.status == "success":
+                    # Generate natural-language summary of tool result
+                    summary_prompt = (
+                        f"The user asked: \"{raw_text}\"\n"
+                        f"Tool '{tool_name}' returned: {tool_result.to_dict()}\n"
+                        f"Provide a brief, natural spoken response summarizing the result. "
+                        f"Address the user as '{salutation}'."
+                    )
+                    try:
+                        summary_res = self.llm_router.route_request_sync(prompt=summary_prompt)
+                        summary_out = summary_res.get("result", {})
+                        summary_text = summary_out.get("response", "")
+                        if summary_text and summary_out.get("status") == "AVAILABLE":
+                            response = summary_text
+                        else:
+                            response = f"Tool {tool_name} executed successfully, {salutation}. Result: {tool_result.result}"
+                    except Exception:
+                        response = f"Tool {tool_name} executed successfully, {salutation}. Result: {tool_result.result}"
+                else:
+                    response = f"Tool {tool_name} failed: {tool_result.error}, {salutation}."
+
+                return {"action": "tool_call", "response": response, "tool": tool_name, "tool_result": tool_result.to_dict(), "text": raw_text}
+
+            # Normal conversational LLM response (no tool call)
             return {"action": "llm", "response": response, "text": raw_text, "details": llm_res}
+
         except Exception as e:
             err_resp = f"LLM Routing Error: {str(e)}"
             return {"action": "llm", "response": err_resp, "error": str(e), "text": raw_text}
+
