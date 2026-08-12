@@ -9,6 +9,7 @@ from jarvisx.llm.ollama_provider import OllamaLLMProvider
 from jarvisx.llm.omniroute_provider import OmniRouteLLMProvider
 from jarvisx.llm.openrouter_provider import OpenRouterLLMProvider
 
+
 class LLMRouter:
     def __init__(
         self,
@@ -78,6 +79,21 @@ class LLMRouter:
                 offline_support=True,
                 privacy_level="HIGH",
                 hardware_requirements={"ram_gb": 4, "vram_gb": 2}
+            ),
+            LLMProfile(
+                provider_id="openrouter.gateway",
+                model_name="nvidia/nemotron-3-nano-30b-a3b:free",
+                context_window=128000,
+                latency=0.5,
+                cost=0.0,
+                coding_score=0.95,
+                reasoning_score=0.94,
+                tool_support=True,
+                streaming_support=True,
+                vision_support=False,
+                offline_support=False,
+                privacy_level="MEDIUM",
+                hardware_requirements={"ram_gb": 0, "vram_gb": 0}
             ),
             LLMProfile(
                 provider_id="omniroute.gateway",
@@ -155,36 +171,146 @@ class LLMRouter:
         else:
             profile, score = self.select_model(prompt, require_offline=require_offline)
 
-        provider = self.registry.get(profile.provider_id)
-        if not provider:
-            # Fallback to local default
-            provider = self.registry.get("ollama.local")
+        # 1. Primary Route: Local Ollama
+        provider = self.registry.get(profile.provider_id) or self.registry.get("ollama.local")
+        chosen_model = profile.model_name
 
         print(f"[LLM] Provider: {profile.provider_id}")
-        print(f"[LLM] Model: {profile.model_name}")
+        print(f"[LLM] Model: {chosen_model}")
 
-        await provider.connect()
-        output = await provider.generate(prompt=prompt, model=profile.model_name)
+        try:
+            await provider.connect()
+            output = await provider.generate(prompt=prompt, model=chosen_model)
+        except Exception as e:
+            output = {
+                "status": "NOT_AVAILABLE",
+                "provider_id": profile.provider_id,
+                "model": chosen_model,
+                "response": "",
+                "error": str(e),
+                "fallback_used": True
+            }
 
-        resp_preview = output.get("response", "")[:60].replace("\n", " ")
-        print(f"[LLM] Response received: \"{resp_preview}...\" ({len(output.get('response', ''))} chars)")
+        # Check if local provider succeeded
+        is_success = (
+            output.get("status") == "AVAILABLE"
+            and bool(output.get("response"))
+            and not output.get("fallback_used", False)
+        )
+
+        if is_success:
+            resp_preview = output.get("response", "")[:60].replace("\n", " ")
+            print(f"[LLM] Response received: \"{resp_preview}...\" ({len(output.get('response', ''))} chars)")
+
+            self.history.record_outcome(
+                provider_id=profile.provider_id,
+                model_name=chosen_model,
+                task_category=task_cat,
+                success=True,
+                latency=output.get("latency", 0.1),
+                cost=output.get("cost", 0.0)
+            )
+
+            return {
+                "status": "success",
+                "selected_model": chosen_model,
+                "provider_id": profile.provider_id,
+                "score": score,
+                "task_category": task_cat,
+                "fallback_used": False,
+                "result": output
+            }
+
+        # 2. Local Provider Unavailable -> Fallback to Cloud (OpenRouter)
+        if require_offline:
+            print("[LLM] Ollama unavailable and offline required.")
+            return {
+                "status": "provider_unavailable",
+                "primary": profile.provider_id,
+                "fallback": None,
+                "error": "Local LLM provider is offline and offline operation is required.",
+                "result": output
+            }
+
+        print("[LLM] Ollama unavailable")
+        print("[LLM] Falling back to OpenRouter")
+
+        cloud_provider = self.registry.get("openrouter.gateway")
+        if not cloud_provider:
+            print("[LLM] OpenRouter provider not registered.")
+            return {
+                "status": "provider_unavailable",
+                "primary": profile.provider_id,
+                "fallback": "openrouter.gateway",
+                "error": "OpenRouter provider is not registered in LLMRegistry.",
+                "result": output
+            }
+
+        cloud_model = getattr(cloud_provider, "default_model", "nvidia/nemotron-3-nano-30b-a3b:free")
+        print(f"[LLM] Provider: openrouter.gateway")
+        print(f"[LLM] Model: {cloud_model}")
+
+        try:
+            await cloud_provider.connect()
+            cloud_output = await cloud_provider.generate(prompt=prompt, model=cloud_model)
+        except Exception as e:
+            cloud_output = {
+                "status": "NOT_AVAILABLE",
+                "provider_id": "openrouter.gateway",
+                "model": cloud_model,
+                "response": "",
+                "error": str(e),
+                "fallback_used": False
+            }
+
+        cloud_success = (
+            cloud_output.get("status") == "AVAILABLE"
+            and bool(cloud_output.get("response"))
+        )
+
+        if cloud_success:
+            resp_preview = cloud_output.get("response", "")[:60].replace("\n", " ")
+            print(f"[LLM] Response received: \"{resp_preview}...\" ({len(cloud_output.get('response', ''))} chars)")
+
+            self.history.record_outcome(
+                provider_id="openrouter.gateway",
+                model_name=cloud_model,
+                task_category=task_cat,
+                success=True,
+                latency=cloud_output.get("latency", 0.5),
+                cost=cloud_output.get("cost", 0.0)
+            )
+
+            return {
+                "status": "success",
+                "selected_model": cloud_model,
+                "provider_id": "openrouter.gateway",
+                "score": score,
+                "task_category": task_cat,
+                "fallback_used": True,
+                "result": cloud_output
+            }
+
+        # 3. Both Providers Failed
+        err_msg = cloud_output.get("error", "Cloud provider request failed")
+        print(f"[LLM] OpenRouter fallback failed: {err_msg}")
+        print("[LLM] Both local and cloud providers unavailable")
 
         self.history.record_outcome(
             provider_id=profile.provider_id,
-            model_name=profile.model_name,
+            model_name=chosen_model,
             task_category=task_cat,
-            success=True,
+            success=False,
             latency=output.get("latency", 0.1),
-            cost=output.get("cost", 0.0)
+            cost=0.0
         )
 
         return {
-            "status": "success",
-            "selected_model": profile.model_name,
-            "provider_id": profile.provider_id,
-            "score": score,
-            "task_category": task_cat,
-            "result": output
+            "status": "provider_unavailable",
+            "primary": profile.provider_id,
+            "fallback": "openrouter.gateway",
+            "error": f"Both local Ollama and cloud OpenRouter failed. Error: {err_msg}",
+            "result": cloud_output
         }
 
     def route_request_sync(

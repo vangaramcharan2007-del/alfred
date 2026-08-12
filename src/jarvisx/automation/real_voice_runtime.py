@@ -117,7 +117,11 @@ class RealVoicePipeline:
 
     def speak_response(self, text: str, persona: str = "ALFRED"):
         """Synthesize and speak text response using native Windows TTS."""
-        print(f"[TTS] Speaking response ({persona}): \"{text}\"")
+        try:
+            print(f"[TTS] Speaking response ({persona}): \"{text}\"")
+        except UnicodeEncodeError:
+            safe_text = text.encode("ascii", "replace").decode("ascii")
+            print(f"[TTS] Speaking response ({persona}): \"{safe_text}\"")
         try:
             from jarvisx.interface.voice_runtime import VoiceRuntimeEngine
             engine = VoiceRuntimeEngine()

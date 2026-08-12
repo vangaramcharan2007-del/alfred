@@ -260,7 +260,7 @@ class DynamicOrchestrator:
             llm_res = self.llm_router.route_request_sync(prompt=raw_text)
             out = llm_res.get("result", {})
             response = out.get("response", "")
-            if not response or out.get("status") == "NOT_AVAILABLE":
+            if not response or out.get("status") != "AVAILABLE" or llm_res.get("status") == "provider_unavailable":
                 response = f"I am unable to reach the LLM provider at this time, {salutation}."
             return {"action": "llm", "response": response, "text": raw_text, "details": llm_res}
         except Exception as e:
