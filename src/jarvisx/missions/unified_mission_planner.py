@@ -14,6 +14,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+import uuid
 
 from jarvisx.tools.tool_executor import ToolExecutor
 from jarvisx.tools.tool_kernel import ToolRegistry, ToolResult
@@ -54,12 +55,14 @@ class MissionPlan:
     """Structured mission plan containing goal and ordered dependency steps."""
     goal: str
     steps: List[MissionStep] = field(default_factory=list)
+    mission_id: str = field(default_factory=lambda: f"mission_{uuid.uuid4().hex[:8]}")
     status: str = "planned"  # planned, executing, completed, failed, replanned
     created_at: float = field(default_factory=time.time)
     replan_count: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "mission_id": self.mission_id,
             "goal": self.goal,
             "status": self.status,
             "created_at": self.created_at,
@@ -68,8 +71,23 @@ class MissionPlan:
         }
 
 
+class FailureClassifier:
+    """Classifies mission and tool failures to drive recovery and replanning policies."""
+
+    @staticmethod
+    def classify(error_msg: str, status: str = "failed") -> str:
+        err = error_msg.lower()
+        if "permission" in err or "denied" in err or "unauthorized" in err or "confirmation" in err:
+            return "PERMISSION_DENIED"
+        if "timeout" in err or "timed out" in err or "connection" in err or "rate limit" in err or "temporary" in err:
+            return "TRANSIENT"
+        if "not found" in err or "404" in err or "missing" in err or "invalid url" in err or "fallback" in err:
+            return "RECOVERABLE_REPLAN"
+        return "FATAL"
+
+
 class UnifiedMissionPlanner:
-    """Zero-fluff production unified mission planner and execution engine."""
+    """Zero-fluff production unified mission planner, checkpointing, and recovery engine."""
 
     MAX_STEPS_PER_MISSION = 10
     MAX_REPLANS_PER_MISSION = 2
@@ -80,6 +98,7 @@ class UnifiedMissionPlanner:
         tool_registry: Optional[ToolRegistry] = None,
         tool_executor: Optional[ToolExecutor] = None,
         memory_engine: Optional[Any] = None,
+        persistence: Optional[Any] = None,
     ):
         self.llm_router = llm_router
         self.registry = tool_registry or ToolRegistry.get_instance()
@@ -87,6 +106,17 @@ class UnifiedMissionPlanner:
             register_builtin_tools(self.registry)
         self.executor = tool_executor or ToolExecutor(registry=self.registry)
         self._memory_engine = memory_engine
+        self._persistence = persistence
+
+    @property
+    def persistence(self):
+        if self._persistence is None:
+            try:
+                from jarvisx.missions.persistence import MissionPersistenceManager
+                self._persistence = MissionPersistenceManager()
+            except Exception:
+                self._persistence = None
+        return self._persistence
 
     @property
     def router(self):
@@ -349,19 +379,49 @@ class UnifiedMissionPlanner:
                     "result": t_res.result,
                 })
                 step_idx += 1
+                # Save restart-safe checkpoint after step completion
+                if self.persistence:
+                    self.persistence.save_checkpoint(
+                        mission_id=plan.mission_id,
+                        goal=goal,
+                        current_step_index=step_idx,
+                        plan_data=plan.to_dict(),
+                        completed_results=completed_results,
+                        status="running",
+                    )
             else:
                 step.status = "failed"
                 step.error = t_res.error or "Step verification failed"
+                fail_cat = FailureClassifier.classify(step.error)
                 execution_trace.append({
                     "step": step.id,
                     "tool": step.tool,
                     "status": "failed",
                     "verified": False,
                     "error": step.error,
+                    "failure_category": fail_cat,
                 })
 
+                if self.persistence:
+                    self.persistence.record_failure({
+                        "mission_id": plan.mission_id,
+                        "step": step.id,
+                        "error_message": step.error,
+                        "failure_category": fail_cat,
+                        "details": {"arguments": step.arguments, "trace": execution_trace},
+                    })
+                    self.persistence.save_checkpoint(
+                        mission_id=plan.mission_id,
+                        goal=goal,
+                        current_step_index=step_idx,
+                        plan_data=plan.to_dict(),
+                        completed_results=completed_results,
+                        status="failed",
+                        failure_category=fail_cat,
+                    )
+
                 # Check if replanning is possible
-                if plan.replan_count < max_replans:
+                if plan.replan_count < max_replans and fail_cat == "RECOVERABLE_REPLAN":
                     plan.replan_count += 1
                     plan.status = "replanned"
                     # Attempt alternative step recovery
@@ -375,6 +435,15 @@ class UnifiedMissionPlanner:
 
         if all(s.status == "completed" for s in plan.steps):
             plan.status = "completed"
+            if self.persistence:
+                self.persistence.clear_checkpoint(plan.mission_id)
+                self.persistence.record_mission({
+                    "mission_id": plan.mission_id,
+                    "title": goal[:64],
+                    "user_request": goal,
+                    "status": "COMPLETED",
+                    "capability": "unified_mission_planner",
+                })
 
         # 3. Final Synthesis with LLMRouter
         synth_prompt = (
@@ -408,7 +477,186 @@ class UnifiedMissionPlanner:
 
         return {
             "status": plan.status,
+            "mission_id": plan.mission_id,
             "goal": goal,
+            "steps_count": len(plan.steps),
+            "completed_count": sum(1 for s in plan.steps if s.status == "completed"),
+            "execution_steps": execution_trace,
+            "response": final_answer,
+            "plan": plan.to_dict(),
+        }
+
+    def resume_mission(
+        self,
+        mission_id: str,
+        persona: str = "ALFRED",
+        interactive: bool = True,
+        max_steps: int = 10,
+        max_replans: int = 2,
+    ) -> Dict[str, Any]:
+        """Resume an in-flight or interrupted mission from its latest SQLite checkpoint."""
+        salutation = "Sir" if persona == "ALFRED" else "Boss"
+        if not self.persistence:
+            return {"status": "failed", "error": "No persistence manager configured for mission recovery."}
+
+        ckpt = self.persistence.load_checkpoint(mission_id)
+        if not ckpt:
+            return {"status": "failed", "error": f"No active checkpoint found for mission '{mission_id}'."}
+
+        goal = ckpt["goal"]
+        plan_data = ckpt["plan"]
+        completed_results = dict(ckpt.get("completed_results", {}))
+        start_step_idx = ckpt.get("current_step_index", 0)
+
+        # Rebuild MissionPlan
+        steps: List[MissionStep] = []
+        for s in plan_data.get("steps", []):
+            st = MissionStep(
+                id=s["id"],
+                description=s["description"],
+                tool=s["tool"],
+                arguments=s.get("arguments", {}),
+                depends_on=s.get("depends_on", []),
+                status=s.get("status", "pending"),
+                verified=s.get("verified", False),
+                error=s.get("error"),
+                result=s.get("result"),
+            )
+            steps.append(st)
+
+        plan = MissionPlan(
+            goal=goal,
+            steps=steps,
+            mission_id=mission_id,
+            status="executing",
+            replan_count=plan_data.get("replan_count", 0),
+        )
+
+        execution_trace: List[Dict[str, Any]] = []
+        # Pre-populate trace with already completed steps from checkpoint
+        for s in steps[:start_step_idx]:
+            if s.status == "completed":
+                execution_trace.append({
+                    "step": s.id,
+                    "tool": s.tool,
+                    "status": "success",
+                    "verified": True,
+                    "result": s.result,
+                    "recovered": True,
+                })
+
+        step_idx = start_step_idx
+        while step_idx < len(plan.steps):
+            if step_idx >= max_steps:
+                plan.status = "failed"
+                break
+
+            step = plan.steps[step_idx]
+            step.status = "running"
+
+            deps_ok = all(
+                plan.steps[i].status == "completed"
+                for i, s in enumerate(plan.steps)
+                if s.id in step.depends_on
+            )
+            if not deps_ok:
+                step.status = "failed"
+                step.error = f"Unsatisfied prerequisites: {step.depends_on}"
+                plan.status = "failed"
+                break
+
+            resolved_arguments = dict(step.arguments)
+            for k, v in resolved_arguments.items():
+                if isinstance(v, str) and "${" in v:
+                    for prev_id, prev_res in completed_results.items():
+                        if prev_id in v and isinstance(prev_res, dict):
+                            if "url" in prev_res:
+                                resolved_arguments[k] = prev_res["url"]
+                            elif "results" in prev_res and prev_res["results"]:
+                                resolved_arguments[k] = prev_res["results"][0].get("url", resolved_arguments[k])
+
+            t_res = self.executor.execute(step.tool, resolved_arguments, interactive=interactive)
+
+            if t_res.status == "success" and t_res.verified:
+                step.status = "completed"
+                step.verified = True
+                step.result = t_res.result
+                completed_results[step.id] = t_res.result
+                execution_trace.append({
+                    "step": step.id,
+                    "tool": step.tool,
+                    "status": "success",
+                    "verified": True,
+                    "result": t_res.result,
+                })
+                step_idx += 1
+                self.persistence.save_checkpoint(
+                    mission_id=plan.mission_id,
+                    goal=goal,
+                    current_step_index=step_idx,
+                    plan_data=plan.to_dict(),
+                    completed_results=completed_results,
+                    status="running",
+                )
+            else:
+                step.status = "failed"
+                step.error = t_res.error or "Step verification failed"
+                fail_cat = FailureClassifier.classify(step.error)
+                execution_trace.append({
+                    "step": step.id,
+                    "tool": step.tool,
+                    "status": "failed",
+                    "verified": False,
+                    "error": step.error,
+                    "failure_category": fail_cat,
+                })
+
+                if plan.replan_count < max_replans and fail_cat == "RECOVERABLE_REPLAN":
+                    plan.replan_count += 1
+                    plan.status = "replanned"
+                    alt_step = self._replan_step(step, t_res.error or "")
+                    if alt_step:
+                        plan.steps[step_idx] = alt_step
+                        continue
+
+                plan.status = "failed"
+                break
+
+        if all(s.status == "completed" for s in plan.steps):
+            plan.status = "completed"
+            self.persistence.clear_checkpoint(plan.mission_id)
+            self.persistence.record_mission({
+                "mission_id": plan.mission_id,
+                "title": goal[:64],
+                "user_request": goal,
+                "status": "COMPLETED",
+                "capability": "unified_mission_planner",
+            })
+
+        # Synthesis
+        synth_prompt = (
+            f"You are Alfred, a loyal AI assistant. Synthesize the findings of this resumed mission for the user.\n"
+            f"User Goal: {goal}\n\n"
+            f"Executed Mission Steps & Results:\n"
+            f"{json.dumps(execution_trace, indent=2)}\n\n"
+            f"Requirements:\n"
+            f"1. Accurately reflect the retrieved tool data.\n"
+            f"2. Distinguish factual data from reasoning.\n"
+            f"3. Address the user respectfully as '{salutation}'.\n"
+            f"4. Provide a clear, actionable conclusion.\n"
+        )
+        synth_resp = self.router.route_request_sync(synth_prompt, require_offline=False)
+        final_answer = ""
+        if isinstance(synth_resp, dict) and synth_resp.get("result", {}).get("response"):
+            final_answer = synth_resp["result"]["response"]
+        else:
+            final_answer = f"Mission resumed and completed with status '{plan.status}', {salutation}."
+
+        return {
+            "status": plan.status,
+            "mission_id": plan.mission_id,
+            "goal": goal,
+            "resumed": True,
             "steps_count": len(plan.steps),
             "completed_count": sum(1 for s in plan.steps if s.status == "completed"),
             "execution_steps": execution_trace,
@@ -419,7 +667,6 @@ class UnifiedMissionPlanner:
     def _replan_step(self, failed_step: MissionStep, error: str) -> Optional[MissionStep]:
         """Generate alternative step when a tool fails recoverably."""
         if failed_step.tool == "fetch_webpage":
-            # Fallback to web_search for the same topic
             return MissionStep(
                 id=failed_step.id,
                 description=f"Fallback search due to fetch error: {error}",
