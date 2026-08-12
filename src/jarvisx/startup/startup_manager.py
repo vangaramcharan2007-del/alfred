@@ -56,17 +56,32 @@ class StartupManager:
         startup_bat = os.path.join(self.config_dir, "alfred_startup.bat")
 
         try:
+            # Create local silent batch launcher
             with open(startup_bat, "w", encoding="utf-8") as f:
-                f.write(f'@echo off\ncd /d "{os.getcwd()}"\npython -m jarvisx daemon --start\n')
+                f.write(f'@echo off\ncd /d "{os.getcwd()}"\nstart /b pythonw -m jarvisx daemon --start\n')
 
             if is_win:
                 appdata = os.environ.get("APPDATA", "")
                 if appdata:
                     win_startup_folder = os.path.join(appdata, r"Microsoft\Windows\Start Menu\Programs\Startup")
                     if os.path.exists(win_startup_folder):
-                        win_bat = os.path.join(win_startup_folder, "AlfredOS.bat")
-                        with open(win_bat, "w", encoding="utf-8") as f2:
-                            f2.write(f'@echo off\ncd /d "{os.getcwd()}"\npython -m jarvisx daemon --start\n')
+                        # Clean up legacy AlfredOS.bat if present
+                        legacy_bat = os.path.join(win_startup_folder, "AlfredOS.bat")
+                        if os.path.exists(legacy_bat):
+                            try:
+                                os.remove(legacy_bat)
+                            except Exception:
+                                pass
+                        # Write silent VBScript background launcher
+                        win_vbs = os.path.join(win_startup_folder, "AlfredOS.vbs")
+                        cwd = os.getcwd().replace('"', '""')
+                        vbs_content = (
+                            'Set WshShell = CreateObject("WScript.Shell")\n'
+                            f'WshShell.CurrentDirectory = "{cwd}"\n'
+                            'WshShell.Run "pythonw -m jarvisx daemon --start", 0, False\n'
+                        )
+                        with open(win_vbs, "w", encoding="utf-8") as f2:
+                            f2.write(vbs_content)
 
             self.is_registered = True
         except Exception as e:
