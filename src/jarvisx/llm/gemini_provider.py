@@ -56,10 +56,30 @@ class GeminiLLMProvider(LLMProvider):
         return sanitized
 
     async def connect(self) -> bool:
-        """Refresh API key from environment/config and mark provider connected."""
+        """Refresh API key from environment/config, fetch live models, and mark provider connected."""
         if not self.api_key:
             self.api_key = self._load_api_key()
         self.is_connected = bool(self.api_key)
+
+        if self.api_key:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
+                req = urllib.request.Request(url, method="GET")
+                with urllib.request.urlopen(req, timeout=3.0) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        live = [
+                            m["name"].replace("models/", "")
+                            for m in data.get("models", [])
+                            if "generateContent" in m.get("supportedGenerationMethods", [])
+                        ]
+                        if live:
+                            self.available_models = live
+                            if self.default_model not in self.available_models:
+                                self.default_model = self.available_models[0]
+            except Exception:
+                pass
+
         return True
 
     async def disconnect(self) -> bool:
@@ -83,9 +103,8 @@ class GeminiLLMProvider(LLMProvider):
         conversation: Optional[List[Dict[str, str]]] = None,
         **kwargs
     ) -> Dict[str, Any]:
-        """Generate response via Google Gemini REST API."""
+        """Generate response via Google Gemini REST API with automatic model failover."""
         start_t = time.time()
-        chosen_model = model or self.default_model
 
         if not self.api_key:
             self.api_key = self._load_api_key()
@@ -94,11 +113,18 @@ class GeminiLLMProvider(LLMProvider):
             return {
                 "status": "NOT_AVAILABLE",
                 "provider_id": "gemini.google",
-                "model": chosen_model,
+                "model": model or self.default_model,
                 "response": "Gemini API key not configured. Set GEMINI_API_KEY in environment or .env file.",
                 "error": "Missing GEMINI_API_KEY",
                 "fallback_used": True
             }
+
+        # Candidate models to try in order
+        primary_model = model or self.default_model
+        candidates = [primary_model]
+        for fallback in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro-latest", "gemini-1.5-flash-latest", "gemini-pro"]:
+            if fallback not in candidates:
+                candidates.append(fallback)
 
         # Format prompt / conversation for Gemini
         contents = []
@@ -122,78 +148,68 @@ class GeminiLLMProvider(LLMProvider):
                 "maxOutputTokens": kwargs.get("max_tokens", 4096),
             }
         }
-
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{chosen_model}:generateContent?key={self.api_key}"
         data_bytes = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=data_bytes,
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-
         timeout = kwargs.get("timeout", self.config.get("timeout_seconds", 30.0))
 
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                status_code = resp.status
-                body = resp.read().decode("utf-8")
+        last_error = ""
+        for chosen_model in candidates:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{chosen_model}:generateContent?key={self.api_key}"
+            req = urllib.request.Request(
+                url,
+                data=data_bytes,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
 
-                if status_code == 200:
-                    data = json.loads(body)
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        text = "".join(p.get("text", "") for p in parts)
-                    else:
-                        text = ""
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    status_code = resp.status
+                    body = resp.read().decode("utf-8")
 
-                    latency_sec = round(time.time() - start_t, 3)
-                    latency_ms = round(latency_sec * 1000, 1)
+                    if status_code == 200:
+                        data = json.loads(body)
+                        candidates_list = data.get("candidates", [])
+                        if candidates_list:
+                            parts = candidates_list[0].get("content", {}).get("parts", [])
+                            text = "".join(p.get("text", "") for p in parts)
+                        else:
+                            text = ""
 
-                    return {
-                        "status": "AVAILABLE",
-                        "provider_id": "gemini.google",
-                        "model": chosen_model,
-                        "response": text,
-                        "latency": latency_sec,
-                        "latency_ms": latency_ms,
-                        "prompt_size": len(prompt),
-                        "response_size": len(text),
-                        "cost": 0.0,
-                        "fallback_used": False
-                    }
+                        latency_sec = round(time.time() - start_t, 3)
+                        latency_ms = round(latency_sec * 1000, 1)
+
+                        return {
+                            "status": "AVAILABLE",
+                            "provider_id": "gemini.google",
+                            "model": chosen_model,
+                            "response": text,
+                            "latency": latency_sec,
+                            "latency_ms": latency_ms,
+                            "prompt_size": len(prompt),
+                            "response_size": len(text),
+                            "cost": 0.0,
+                            "fallback_used": False
+                        }
+            except urllib.error.HTTPError as e:
+                body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else str(e)
+                last_error = f"Gemini HTTP Error {e.code}: {body}"
+                if e.code == 404:
+                    # Model not found on this tier, try next candidate
+                    continue
                 else:
-                    err_msg = f"Gemini HTTP Error {status_code}: {body}"
-                    return {
-                        "status": "NOT_AVAILABLE",
-                        "provider_id": "gemini.google",
-                        "model": chosen_model,
-                        "response": "",
-                        "error": self._sanitize(err_msg),
-                        "fallback_used": True
-                    }
+                    break
+            except Exception as ex:
+                last_error = str(ex)
+                break
 
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else str(e)
-            err_msg = f"Gemini HTTP Error {e.code}: {body}"
-            return {
-                "status": "NOT_AVAILABLE",
-                "provider_id": "gemini.google",
-                "model": chosen_model,
-                "response": "",
-                "error": self._sanitize(err_msg),
-                "fallback_used": True
-            }
-        except Exception as ex:
-            return {
-                "status": "NOT_AVAILABLE",
-                "provider_id": "gemini.google",
-                "model": chosen_model,
-                "response": "",
-                "error": self._sanitize(str(ex)),
-                "fallback_used": True
-            }
+        return {
+            "status": "NOT_AVAILABLE",
+            "provider_id": "gemini.google",
+            "model": primary_model,
+            "response": "",
+            "error": self._sanitize(last_error),
+            "fallback_used": True
+        }
 
     async def stream(self, prompt: str, model: Optional[str] = None, **kwargs) -> AsyncGenerator[str, None]:
         """Stream tokens for Gemini generation."""
