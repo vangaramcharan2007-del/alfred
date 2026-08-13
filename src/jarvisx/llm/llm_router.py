@@ -286,6 +286,11 @@ class LLMRouter:
         npu = get_npu_accelerator()
 
         provider = self.registry.get("ollama.local") or self.registry.get(profile.provider_id)
+        try:
+            await provider.connect()
+        except Exception:
+            pass
+
         installed = getattr(provider, "installed_models", [])
 
         if "qwen2.5-coder:1.5b" in installed and (task_cat in ("general", "chat", "summary") or npu.power_profile == "ECO"):
@@ -301,7 +306,6 @@ class LLMRouter:
         print(f"[LLM] Model: {chosen_model}")
 
         try:
-            await provider.connect()
             output = await provider.generate(prompt=prompt, model=chosen_model)
         except Exception as e:
             output = {

@@ -56,6 +56,10 @@ class GeminiLLMProvider(LLMProvider):
         if key and any(placeholder in key for placeholder in ("YourActualKey", "YourKey", "Your_Key", "your_api_key")):
             return ""
 
+        if key and not key.startswith("AIza"):
+            # Invalid key format for Generative Language API
+            return ""
+
         return key.strip().strip('"').strip("'")
 
     def _sanitize(self, message: str) -> str:
@@ -68,10 +72,11 @@ class GeminiLLMProvider(LLMProvider):
         return sanitized
 
     async def connect(self) -> bool:
-        """Refresh API key from environment/config, fetch live models, and mark provider connected."""
         if not self.api_key:
             self.api_key = self._load_api_key()
-        self.is_connected = bool(self.api_key)
+        self.is_connected = bool(self.api_key and self.api_key.startswith("AIza"))
+        if not self.is_connected:
+            return False
 
         if self.api_key:
             try:

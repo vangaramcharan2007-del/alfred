@@ -11,7 +11,7 @@ class OllamaLLMProvider(LLMProvider):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(name="ollama.local", config=config)
         self.endpoint = self.config.get("endpoint", "http://127.0.0.1:11434")
-        self.installed_models = ["qwen2.5-coder:7b", "qwen2.5:7b", "llama3:latest", "llama3.2:latest"]
+        self.installed_models = ["qwen2.5-coder:1.5b", "qwen2.5-coder:7b", "qwen2.5:7b", "llama3:latest", "llama3.2:latest"]
         self.is_installed = False
 
     async def connect(self) -> bool:

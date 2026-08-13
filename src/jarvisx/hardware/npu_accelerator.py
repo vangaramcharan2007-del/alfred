@@ -86,14 +86,16 @@ class NPUAccelerator:
     def get_system_health(self) -> Dict[str, Any]:
         """Inspect live memory pressure, CPU load, and thermal status."""
         mem = psutil.virtual_memory()
+        active_used = mem.total - mem.available
+        active_percent = round((active_used / mem.total) * 100, 1)
         cpu_load = psutil.cpu_percent(interval=None)
-        
+
         return {
-            "ram_used_gb": round(mem.used / (1024 ** 3), 1),
+            "ram_used_gb": round(active_used / (1024 ** 3), 1),
             "ram_total_gb": round(mem.total / (1024 ** 3), 1),
-            "ram_percent": mem.percent,
+            "ram_percent": active_percent,
             "cpu_percent": cpu_load,
-            "is_memory_critical": mem.percent > 85.0,
+            "is_memory_critical": active_percent > 85.0,
             "power_profile": self.power_profile,
             "hardware": self.hardware_info
         }
