@@ -7,8 +7,8 @@ from jarvisx.llm.llm_provider import LLMProvider
 class OllamaLLMProvider(LLMProvider):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(name="ollama.local", config=config)
-        self.endpoint = self.config.get("endpoint", "http://localhost:11434")
-        self.installed_models = ["qwen2.5-coder:7b", "deepseek-coder:6.7b", "llama3.2:3b", "mistral:7b"]
+        self.endpoint = self.config.get("endpoint", "http://127.0.0.1:11434")
+        self.installed_models = ["qwen2.5-coder:7b", "qwen2.5:7b", "llama3:latest", "llama3.2:latest"]
         self.is_installed = False
 
     async def connect(self) -> bool:
@@ -18,14 +18,21 @@ class OllamaLLMProvider(LLMProvider):
             import urllib.request
             import json
             req = urllib.request.Request(f"{self.endpoint}/api/tags", method="GET")
-            with urllib.request.urlopen(req, timeout=3.0) as resp:
+            with urllib.request.urlopen(req, timeout=1.5) as resp:
                 if resp.status == 200:
                     data = json.loads(resp.read().decode("utf-8"))
                     live_models = [m.get("name") for m in data.get("models", []) if m.get("name")]
                     if live_models:
                         self.installed_models = live_models
+                    return True
         except Exception:
-            pass
+            if shutil.which("ollama"):
+                try:
+                    import subprocess
+                    subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    time.sleep(1.0)
+                except Exception:
+                    pass
         return True
 
     async def disconnect(self) -> bool:
