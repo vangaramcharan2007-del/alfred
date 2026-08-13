@@ -74,39 +74,64 @@ class ChessGame:
     def _format_square(self, r: int, c: int) -> str:
         return f"{chr(ord('a') + c)}{8 - r}"
 
+    def launch_browser_arena(self) -> Dict[str, Any]:
+        """Launch visual interactive browser chess arena in user's default browser."""
+        import os
+        import webbrowser
+        from pathlib import Path
+
+        arena_file = Path(__file__).parent / "chess_arena.html"
+        if not arena_file.exists():
+            # Create if missing
+            return {"status": "ERROR", "message": "chess_arena.html not found"}
+
+        file_url = arena_file.resolve().as_uri()
+        webbrowser.open(file_url)
+        return {
+            "status": "SUCCESS",
+            "url": file_url,
+            "message": "Visual Chess Arena opened in browser."
+        }
+
     def make_user_move(self, move_str: str) -> Dict[str, Any]:
-        """Apply user's move (e.g. 'e2e4', 'e4', 'Nf3', 'd2d4')."""
+        """Apply user's move supporting full algebraic and coordinate notation."""
         if self.game_over:
             return {"status": "GAME_OVER", "message": f"Game is over. {self.winner} won."}
 
         clean = move_str.strip().replace(" ", "").replace("-", "")
 
-        # Try coordinate format e.g. e2e4 or e7e5
-        if len(clean) == 4:
+        # 1. Coordinate format e.g. e2e4, d2d4, g1f3, b1c3
+        if len(clean) == 4 and clean[0] in "abcdefgh" and clean[2] in "abcdefgh":
             src = self._parse_square(clean[:2])
             dst = self._parse_square(clean[2:])
             if src and dst:
                 return self._execute_move(src, dst, is_user=True)
 
-        # Try 2-char pawn move e.g. e4 -> find pawn in column e that can move to e4
-        if len(clean) == 2:
+        # 2. Pawn move e.g. e4, d4, c5, a3, a4, f4, g3
+        if len(clean) == 2 and clean[0] in "abcdefgh" and clean[1] in "12345678":
             dst = self._parse_square(clean)
             if dst:
                 dst_r, dst_c = dst
-                # Look for white pawn
-                for r in range(dst_r + 1, min(8, dst_r + 3)):
+                # Scan backwards from destination to find the white pawn
+                for r in range(dst_r + 1, 8):
                     if self.board[r][dst_c] == "P":
                         return self._execute_move((r, dst_c), dst, is_user=True)
 
-        # Try piece move like Nf3
-        if len(clean) == 3 and clean[0] in "NBRQK":
-            piece_type = clean[0]
-            dst = self._parse_square(clean[1:])
-            if dst:
-                for r in range(8):
-                    for c in range(8):
-                        if self.board[r][c] == piece_type:
-                            return self._execute_move((r, c), dst, is_user=True)
+        # 3. Piece moves e.g. Nf3, nf3, Nc3, nc3, Bc4, bc4, Qh5, qh5, Rd1, rd1
+        if len(clean) >= 3:
+            p_char = clean[0].upper()
+            if p_char in "NBRQK":
+                dst = self._parse_square(clean[-2:])
+                if dst:
+                    for r in range(8):
+                        for c in range(8):
+                            if self.board[r][c] == p_char:
+                                return self._execute_move((r, c), dst, is_user=True)
+
+        return {
+            "status": "INVALID_MOVE",
+            "message": f"Could not parse move '{move_str}'. Try 'e4', 'Nf3', or 'e2e4'."
+        }
 
         return {
             "status": "INVALID_MOVE",

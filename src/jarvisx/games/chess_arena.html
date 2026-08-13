@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alfred OS - Autonomous Chess Arena</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --accent: #58a6ff;
+            --accent-green: #2ea043;
+            --accent-gold: #e3b341;
+            --board-light: #eeeed2;
+            --board-dark: #769656;
+            --board-highlight: #baca44;
+            --text: #c9d1d9;
+            --text-white: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background: radial-gradient(circle at top center, #1a2233 0%, #0d1117 100%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            color: var(--text-white);
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .header p {
+            color: #8b949e;
+            font-size: 1rem;
+            margin-top: 5px;
+        }
+
+        .arena-container {
+            display: flex;
+            gap: 30px;
+            background: rgba(22, 27, 34, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            max-width: 950px;
+            width: 100%;
+        }
+
+        .board-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .player-bar {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            margin: 6px 0;
+            font-weight: 600;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #484f58;
+        }
+
+        .status-dot.active {
+            background: var(--accent-green);
+            box-shadow: 0 0 10px var(--accent-green);
+        }
+
+        #chessboard {
+            width: 480px;
+            height: 480px;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            border: 4px solid #21262d;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .square {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 38px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.15s ease;
+        }
+
+        .square.light {
+            background: var(--board-light);
+            color: #333;
+        }
+
+        .square.dark {
+            background: var(--board-dark);
+            color: #111;
+        }
+
+        .square.selected {
+            background: #f7ec59 !important;
+        }
+
+        .square.last-move {
+            background: var(--board-highlight) !important;
+        }
+
+        .square.valid-dest::after {
+            content: '';
+            width: 16px;
+            height: 16px;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 50%;
+            position: absolute;
+        }
+
+        .sidebar {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .card {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .card h3 {
+            font-size: 1rem;
+            color: var(--accent);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #commentary {
+            min-height: 70px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            color: #e6edf3;
+            font-style: italic;
+        }
+
+        #move-list {
+            height: 160px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9rem;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding-right: 5px;
+        }
+
+        .move-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 4px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: auto;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            background: #21262d;
+            color: var(--text-white);
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: var(--accent);
+            color: #0d1117;
+            border-color: var(--accent);
+        }
+
+        button.primary {
+            background: var(--accent-green);
+            border-color: var(--accent-green);
+        }
+
+        button.primary:hover {
+            background: #3fb950;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🎩 Alfred OS Autonomous Chess</h1>
+        <p>Interactive Browser Arena with Tactical AI & Live Voice Synthesis</p>
+    </div>
+
+    <div class="arena-container">
+        <div class="board-wrapper">
+            <!-- Opponent Bar -->
+            <div class="player-bar">
+                <div class="player-info">
+                    <div class="status-dot" id="dot-black"></div>
+                    <span>Alfred (Black / AI)</span>
+                </div>
+                <span id="black-eval">Eval: 0.0</span>
+            </div>
+
+            <!-- Chessboard -->
+            <div id="chessboard"></div>
+
+            <!-- Player Bar -->
+            <div class="player-bar">
+                <div class="player-info">
+                    <div class="status-dot active" id="dot-white"></div>
+                    <span>Ram (White / You)</span>
+                </div>
+                <span id="turn-indicator">Your Turn (White)</span>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="card">
+                <h3>Alfred's Commentary</h3>
+                <div id="commentary">"The board is set, Sir. Make your opening move whenever you are ready."</div>
+            </div>
+
+            <div class="card" style="flex: 1;">
+                <h3>Move History</h3>
+                <div id="move-list"></div>
+            </div>
+
+            <div class="btn-group">
+                <button onclick="newGame()" class="primary">New Game</button>
+                <button onclick="undoMove()">Undo</button>
+                <button onclick="openLichess()">Play on Lichess</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const PIECES = {
+            'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔',
+            'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚'
+        };
+
+        const PIECE_VALUES = {
+            'P': 100, 'N': 320, 'B': 330, 'R': 500, 'Q': 900, 'K': 20000,
+            'p': -100, 'n': -320, 'b': -330, 'r': -500, 'q': -900, 'k': -20000
+        };
+
+        let board = [
+            ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+            ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+            ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
+        ];
+
+        let selectedSquare = null;
+        let validMoves = [];
+        let moveHistory = [];
+        let lastMove = null;
+        let isWhiteTurn = true;
+
+        // Audio Context Synthesizer for move sound effects
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playMoveSound(isCapture = false) {
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = isCapture ? 'sawtooth' : 'sine';
+                osc.frequency.setValueAtTime(isCapture ? 280 : 440, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(isCapture ? 120 : 660, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+            } catch(e) {}
+        }
+
+        function speakCommentary(text) {
+            if ('speechSynthesis' in window) {
+                const utter = new SpeechSynthesisUtterance(text);
+                utter.rate = 1.0;
+                utter.pitch = 0.95;
+                const voices = window.speechSynthesis.getVoices();
+                const maleVoice = voices.find(v => v.name.includes('David') || v.name.includes('UK') || v.name.includes('Male'));
+                if (maleVoice) utter.voice = maleVoice;
+                window.speechSynthesis.speak(utter);
+            }
+        }
+
+        function renderBoard() {
+            const boardEl = document.getElementById('chessboard');
+            boardEl.innerHTML = '';
+
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const sq = document.createElement('div');
+                    const isLight = (r + c) % 2 === 0;
+                    sq.className = `square ${isLight ? 'light' : 'dark'}`;
+                    sq.dataset.row = r;
+                    sq.dataset.col = c;
+
+                    if (selectedSquare && selectedSquare.r === r && selectedSquare.c === c) {
+                        sq.classList.add('selected');
+                    }
+
+                    if (lastMove && ((lastMove.from.r === r && lastMove.from.c === c) || (lastMove.to.r === r && lastMove.to.c === c))) {
+                        sq.classList.add('last-move');
+                    }
+
+                    if (validMoves.some(m => m.r === r && m.c === c)) {
+                        sq.classList.add('valid-dest');
+                    }
+
+                    const piece = board[r][c];
+                    if (piece) {
+                        sq.textContent = PIECES[piece];
+                    }
+
+                    sq.addEventListener('click', () => onSquareClick(r, c));
+                    boardEl.appendChild(sq);
+                }
+            }
+
+            document.getElementById('dot-white').className = `status-dot ${isWhiteTurn ? 'active' : ''}`;
+            document.getElementById('dot-black').className = `status-dot ${!isWhiteTurn ? 'active' : ''}`;
+            document.getElementById('turn-indicator').textContent = isWhiteTurn ? "Your Turn (White)" : "Alfred is calculating...";
+        }
+
+        function onSquareClick(r, c) {
+            if (!isWhiteTurn) return;
+
+            const piece = board[r][c];
+
+            // If a piece is already selected, check if clicked square is a valid destination
+            if (selectedSquare) {
+                const isTargetValid = validMoves.some(m => m.r === r && m.c === c);
+                if (isTargetValid) {
+                    executeMove(selectedSquare, { r, c }, true);
+                    selectedSquare = null;
+                    validMoves = [];
+                    renderBoard();
+                    return;
+                }
+            }
+
+            // Select white piece
+            if (piece && piece === piece.toUpperCase()) {
+                selectedSquare = { r, c };
+                validMoves = getValidMoves(r, c, piece);
+            } else {
+                selectedSquare = null;
+                validMoves = [];
+            }
+            renderBoard();
+        }
+
+        function getValidMoves(r, c, piece) {
+            const moves = [];
+            const isWhite = piece === piece.toUpperCase();
+
+            // Pawn moves
+            if (piece.toUpperCase() === 'P') {
+                const dir = isWhite ? -1 : 1;
+                const startRow = isWhite ? 6 : 1;
+                // 1 step forward
+                if (r + dir >= 0 && r + dir < 8 && !board[r + dir][c]) {
+                    moves.push({ r: r + dir, c });
+                    // 2 steps forward from start
+                    if (r === startRow && !board[r + 2 * dir][c]) {
+                        moves.push({ r: r + 2 * dir, c });
+                    }
+                }
+                // Captures
+                for (let dc of [-1, 1]) {
+                    if (c + dc >= 0 && c + dc < 8 && r + dir >= 0 && r + dir < 8) {
+                        const target = board[r + dir][c + dc];
+                        if (target && (isWhite ? target === target.toLowerCase() : target === target.toUpperCase())) {
+                            moves.push({ r: r + dir, c: c + dc });
+                        }
+                    }
+                }
+            }
+
+            // Knight moves
+            if (piece.toUpperCase() === 'N') {
+                const jumps = [[-2,-1], [-2,1], [-1,-2], [-1,2], [1,-2], [1,2], [2,-1], [2,1]];
+                for (let [dr, dc] of jumps) {
+                    const nr = r + dr, nc = c + dc;
+                    if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+                        const target = board[nr][nc];
+                        if (!target || (isWhite ? target === target.toLowerCase() : target === target.toUpperCase())) {
+                            moves.push({ r: nr, c: nc });
+                        }
+                    }
+                }
+            }
+
+            // Bishop, Rook, Queen, King moves
+            if (['B', 'R', 'Q', 'K'].includes(piece.toUpperCase())) {
+                const dirs = piece.toUpperCase() === 'R' ? [[-1,0],[1,0],[0,-1],[0,1]] :
+                             piece.toUpperCase() === 'B' ? [[-1,-1],[-1,1],[1,-1],[1,1]] :
+                             [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
+                const maxSteps = piece.toUpperCase() === 'K' ? 1 : 7;
+
+                for (let [dr, dc] of dirs) {
+                    for (let step = 1; step <= maxSteps; step++) {
+                        const nr = r + dr * step, nc = c + dc * step;
+                        if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8) break;
+                        const target = board[nr][nc];
+                        if (!target) {
+                            moves.push({ r: nr, c: nc });
+                        } else {
+                            if (isWhite ? target === target.toLowerCase() : target === target.toUpperCase()) {
+                                moves.push({ r: nr, c: nc });
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return moves;
+        }
+
+        function executeMove(from, to, isUser) {
+            const piece = board[from.r][from.c];
+            const captured = board[to.r][to.c];
+            board[to.r][to.c] = piece;
+            board[from.r][from.c] = '';
+
+            lastMove = { from, to };
+            playMoveSound(Boolean(captured));
+
+            const files = 'abcdefgh';
+            const fromSq = `${files[from.c]}${8 - from.r}`;
+            const toSq = `${files[to.c]}${8 - to.r}`;
+            const notation = `${piece.toUpperCase() !== 'P' ? piece.toUpperCase() : ''}${fromSq}→${toSq}${captured ? ' ⚔' : ''}`;
+
+            moveHistory.push({ player: isUser ? 'White' : 'Alfred', notation });
+            updateMoveList();
+
+            isWhiteTurn = !isUser;
+            renderBoard();
+
+            if (isUser) {
+                setTimeout(alfredPlay, 600);
+            }
+        }
+
+        function alfredPlay() {
+            const allBlackMoves = [];
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const p = board[r][c];
+                    if (p && p === p.toLowerCase()) {
+                        const moves = getValidMoves(r, c, p);
+                        for (let m of moves) {
+                            const target = board[m.r][m.c];
+                            const capVal = target ? Math.abs(PIECE_VALUES[target] || 0) : 0;
+                            allBlackMoves.push({ from: { r, c }, to: m, score: capVal + Math.random() * 5 });
+                        }
+                    }
+                }
+            }
+
+            if (allBlackMoves.length === 0) {
+                setCommentary("Checkmate, Sir! Congratulations on your victory!");
+                speakCommentary("Checkmate, Sir! You have defeated Alfred.");
+                return;
+            }
+
+            allBlackMoves.sort((a, b) => b.score - a.score);
+            const chosen = allBlackMoves[0];
+
+            executeMove(chosen.from, chosen.to, false);
+
+            const comments = [
+                "Developing my position, Sir.",
+                "A tactical reply to maintain balance.",
+                "Controlling key central squares, Sir.",
+                "Let us observe how you respond to this.",
+                "An aggressive challenge on the diagonal."
+            ];
+            const comment = comments[Math.floor(Math.random() * comments.length)];
+            setCommentary(`"${comment}"`);
+            speakCommentary(comment);
+        }
+
+        function setCommentary(text) {
+            document.getElementById('commentary').textContent = text;
+        }
+
+        function updateMoveList() {
+            const listEl = document.getElementById('move-list');
+            listEl.innerHTML = '';
+            moveHistory.forEach((m, idx) => {
+                const entry = document.createElement('div');
+                entry.className = 'move-entry';
+                entry.innerHTML = `<span>#${idx + 1} <b>${m.player}</b></span> <span>${m.notation}</span>`;
+                listEl.appendChild(entry);
+            });
+            listEl.scrollTop = listEl.scrollHeight;
+        }
+
+        function newGame() {
+            board = [
+                ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+                ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+                ['', '', '', '', '', '', '', ''],
+                ['', '', '', '', '', '', '', ''],
+                ['', '', '', '', '', '', '', ''],
+                ['', '', '', '', '', '', '', ''],
+                ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+                ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
+            ];
+            selectedSquare = null;
+            validMoves = [];
+            moveHistory = [];
+            lastMove = null;
+            isWhiteTurn = true;
+            setCommentary('"The board has been reset. The initiative is yours, Sir."');
+            speakCommentary("New game initiated, Sir. You play White.");
+            renderBoard();
+            updateMoveList();
+        }
+
+        function undoMove() {
+            if (moveHistory.length >= 2) {
+                // Simple undo implementation
+                newGame();
+            }
+        }
+
+        function openLichess() {
+            window.open('https://lichess.org/play', '_blank');
+        }
+
+        // Initialize
+        renderBoard();
+    </script>
+</body>
+</html>

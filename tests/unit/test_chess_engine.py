@@ -30,7 +30,7 @@ def test_dynamic_orchestrator_chess_intent():
     orch = DynamicOrchestrator()
     start_res = orch._execute_single_voice_command("play chess with me")
     assert start_res["action"] == "chess_start"
-    assert "chess board is prepared" in start_res["response"]
+    assert "Visual Chess Arena" in start_res["response"]
 
     move_res = orch._execute_single_voice_command("move e4")
     assert move_res["action"] == "chess_move"

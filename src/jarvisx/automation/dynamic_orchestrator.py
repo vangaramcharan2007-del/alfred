@@ -278,11 +278,15 @@ class DynamicOrchestrator:
                         "response": f"{user_res['message']}\n{chess_game.render_board()}",
                     }
 
+            # Launch interactive browser GUI arena
+            chess_game.launch_browser_arena()
+
             board_view = chess_game.render_board()
             start_msg = (
-                f"Certainly, {salutation}! The chess board is prepared. You are playing as White.\n"
+                f"Certainly, {salutation}! I have opened the interactive Visual Chess Arena in your browser, "
+                f"and prepared the terminal board below. You are playing as White.\n"
                 f"{board_view}\n"
-                f"Make your opening move by typing e.g. 'move e4' or 'e2e4'."
+                f"You can play by clicking pieces in your browser, or typing moves here (e.g. 'e4', 'Nf3', 'd4')."
             )
             return {
                 "action": "chess_start",
