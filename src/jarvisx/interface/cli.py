@@ -624,6 +624,34 @@ class JarvisCLI:
                 print()
                 return {"action": "mesh_ping", "status": "SUCCESS"}
 
+            elif sub in ("bench", "benchmark"):
+                from jarvisx.mesh.mesh_benchmarker import get_mesh_benchmarker
+                benchmarker = get_mesh_benchmarker()
+                target_w = tokens[1] if len(tokens) >= 2 else None
+                print("\n[RUNNING DISTRIBUTED MESH VERIFICATION BENCHMARK]...")
+                res = asyncio.run(benchmarker.run_comparative_benchmark(target_worker_id=target_w))
+                loc = res["local_baseline"]
+                rem = res["remote_mesh"]
+
+                print("\n=========================================================================")
+                print("         🎩 JARVIS X DISTRIBUTED MESH VERIFICATION REPORT")
+                print("=========================================================================")
+                print(f"  Local Baseline Model  : {loc['model']} ({loc['status']})")
+                print(f"    • Execution Time    : {loc['duration_sec']}s")
+                print(f"    • Master CPU Load   : {loc['cpu_percent']}%")
+                print(f"    • Master RAM Delta  : +{loc['ram_delta_mb']} MB")
+                print(f"    • Tokens Generated  : {loc['tokens_generated']}")
+                print("  -----------------------------------------------------------------------")
+                print(f"  Remote Mesh Worker    : {rem['worker_name']} ({rem['status']})")
+                print(f"    • Worker URL        : {rem['worker_url']}")
+                print(f"    • Network RTT Ping  : {rem['network_rtt_ms']} ms")
+                print(f"    • Remote Exec Time  : {rem['duration_sec']}s")
+                print(f"    • Master CPU Load   : {rem['master_cpu_percent']}%")
+                print(f"    • Master RAM Delta  : +{rem['master_ram_delta_mb']} MB")
+                print(f"    • Tokens Generated  : {rem['tokens_generated']}")
+                print("=========================================================================\n")
+                return {"action": "mesh_benchmark", "status": "SUCCESS", "results": res}
+
             else:
                 workers = registry.list_workers()
                 print("\n=========================================================================")
