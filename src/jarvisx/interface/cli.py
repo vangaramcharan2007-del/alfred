@@ -582,6 +582,68 @@ class JarvisCLI:
                 return {"action": "npu_status", "status": "SUCCESS", "result": health}
 
         # ----------------------------------------------------------
+        # DISTRIBUTED WORKER MESH COMPUTE (P2P GAMING LAPTOP POOL)
+        # ----------------------------------------------------------
+        elif command in ("mesh", "workers", "worker", "nodes"):
+            from jarvisx.mesh.worker_node import get_worker_registry
+            from jarvisx.mesh.worker_heartbeat import get_worker_heartbeat_prober
+            registry = get_worker_registry()
+            prober = get_worker_heartbeat_prober()
+
+            tokens = (args or "").split()
+            sub = tokens[0].lower() if tokens else "status"
+
+            if sub in ("add", "register") and len(tokens) >= 3:
+                name = tokens[1]
+                host = tokens[2]
+                port = int(tokens[3]) if len(tokens) >= 4 else 11434
+                node = registry.register_worker(name=name, host=host, port=port)
+                print(f"\n[MESH WORKER REGISTERED]: {node.name} -> {node.url}")
+                print("Probing connection...")
+                try:
+                    probe_res = asyncio.run(prober.probe_worker(node))
+                    print(f"Status: {probe_res.get('status')} | Latency: {probe_res.get('latency_ms', 0)}ms | Models: {len(probe_res.get('models', []))} found\n")
+                except Exception as e:
+                    print(f"Worker added (Offline/Unreachable: {e})\n")
+                return {"action": "mesh_add", "status": "SUCCESS", "worker": node.to_dict()}
+
+            elif sub in ("remove", "delete", "rm") and len(tokens) >= 2:
+                target = tokens[1]
+                removed = registry.remove_worker(target)
+                print(f"\n[MESH WORKER REMOVED]: {target} ({'Success' if removed else 'Not found'})\n")
+                return {"action": "mesh_remove", "status": "SUCCESS" if removed else "NOT_FOUND"}
+
+            elif sub in ("ping", "probe", "scan"):
+                print("\n[PROBING MESH WORKER POOL]...")
+                try:
+                    res = asyncio.run(prober.probe_all_workers())
+                    for r in res:
+                        print(f"  • {r.get('name', 'Unknown')}: {r.get('status')} ({r.get('latency_ms', 'N/A')}ms) - {r.get('url')}")
+                except Exception as e:
+                    print(f"Probe error: {e}")
+                print()
+                return {"action": "mesh_ping", "status": "SUCCESS"}
+
+            else:
+                workers = registry.list_workers()
+                print("\n=========================================================================")
+                print("               🎩 JARVIS X DISTRIBUTED WORKER MESH POOL")
+                print("=========================================================================")
+                if not workers:
+                    print("  No remote worker nodes registered yet.")
+                    print("  To add a friend's gaming laptop: 'mesh add <name> <tailscale_ip>'")
+                    print("  Example: 'mesh add Rahul-4060 100.101.102.103'")
+                else:
+                    for w in workers:
+                        status_icon = "🟢" if w.status.value == "ONLINE" else "🎮" if w.status.value == "GAMING" else "🔴"
+                        print(f"  {status_icon} [{w.name:15s}] {w.url:25s} | GPU: {w.metrics.gpu_name[:15]:15s} | Status: {w.status.value}")
+                        print(f"     VRAM: {w.metrics.vram_used_gb:.1f}/{w.metrics.vram_total_gb:.1f} GB | Temp: {w.metrics.temperature_c:.1f}°C | Load: {w.metrics.gpu_util_percent:.1f}% | Tasks Done: {w.total_tasks_completed}")
+                        print(f"     Models: {', '.join(w.models[:4]) if w.models else 'Querying...'}")
+                        print("  -----------------------------------------------------------------------")
+                print("=========================================================================\n")
+                return {"action": "mesh_status", "status": "SUCCESS", "workers": [w.to_dict() for w in workers]}
+
+        # ----------------------------------------------------------
         # DAILY DSA TUTOR & MASTER CURRICULUM
         # ----------------------------------------------------------
         elif command in ("dsa", "tutor", "learn-dsa", "curriculum"):

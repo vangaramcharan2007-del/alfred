@@ -109,15 +109,30 @@ class ToolRegistry:
         self._tools[spec.name] = tool
         logger.info(f"[ToolRegistry] Registered: {spec.name} ({spec.permission_level.value})")
 
+    _TOOL_ALIASES = {
+        "reduce_heat_and_ram_usage": "reduce_heat_and_ram_usage",
+        "reduce_heat": "reduce_heat_and_ram_usage",
+        "cool_system": "reduce_heat_and_ram_usage",
+        "cool": "reduce_heat_and_ram_usage",
+        "purge_memory": "reduce_heat_and_ram_usage",
+        "clear_space": "clear_space",
+        "clean_disk_space": "clear_space",
+        "free_space": "clear_space",
+        "clean_space": "clear_space",
+        "clean_temp_files": "clear_space",
+    }
+
     def get(self, name: str) -> Optional[Tool]:
-        return self._tools.get(name)
+        canonical = self._TOOL_ALIASES.get(name, name)
+        return self._tools.get(canonical) or self._tools.get(name)
 
     def list_tools(self) -> List[ToolSpec]:
         return [t.spec() for t in self._tools.values()]
 
     def validate(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Validate tool name exists and arguments match the input schema."""
-        tool = self._tools.get(name)
+        canonical = self._TOOL_ALIASES.get(name, name)
+        tool = self._tools.get(canonical) or self._tools.get(name)
         if tool is None:
             return {"valid": False, "error": f"Unknown tool: '{name}'"}
 

@@ -281,6 +281,31 @@ class LLMRouter:
                 except Exception as e:
                     print(f"[LLM] OpenRouter request failed ({e}). Falling back to local Ollama.")
 
+        # 0.5 Distributed Worker Mesh Route (e.g. Friends' Gaming Laptops over Tailscale/LAN)
+        from jarvisx.mesh.worker_router import get_worker_mesh_router
+        mesh_router = get_worker_mesh_router()
+        if mesh_router.has_active_workers():
+            mesh_output = await mesh_router.execute_mesh_inference(
+                prompt=prompt,
+                model=profile.model_name,
+                conversation=conversation,
+                timeout_sec=60.0
+            )
+            if mesh_output.get("status") == "AVAILABLE" and bool(mesh_output.get("response")):
+                resp_preview = mesh_output.get("response", "")[:60].replace("\n", " ")
+                print(f"[LLM] Mesh Response received from {mesh_output.get('worker_name')}: \"{resp_preview}...\" ({len(mesh_output.get('response', ''))} chars)")
+                return {
+                    "status": "success",
+                    "selected_model": mesh_output.get("model"),
+                    "provider_id": mesh_output.get("provider_id"),
+                    "score": score,
+                    "task_category": task_cat,
+                    "fallback_used": False,
+                    "result": mesh_output
+                }
+            else:
+                print(f"[LLM] Mesh workers unavailable. Falling back to local Ollama.")
+
         # 1. Primary Route: Local Ollama with NPU / Power Profile Adaptive Selection
         from jarvisx.hardware.npu_accelerator import get_npu_accelerator
         npu = get_npu_accelerator()

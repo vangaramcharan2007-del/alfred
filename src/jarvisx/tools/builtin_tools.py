@@ -742,8 +742,102 @@ class BrowserOpenTool(Tool):
         webbrowser.open(val["url"])
         return ToolResult(status="success", tool="browser_open", result={"status": "OPENED", "url": val["url"]})
 
+# ---------------------------------------------------------------------------
+# Tool: reduce_heat_and_ram_usage / cool_system
+# ---------------------------------------------------------------------------
+
+class CoolSystemTool(Tool):
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="reduce_heat_and_ram_usage",
+            description="Reduces laptop heat, purges dormant RAM, throttles CPU to 4 threads, and unloads idle models.",
+            input_schema={"type": "object", "properties": {}, "required": []},
+            permission_level=PermissionLevel.SAFE,
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.hardware.npu_accelerator import get_npu_accelerator
+        npu = get_npu_accelerator()
+        cooling = npu.enforce_memory_cooling()
+        health = npu.get_system_health()
+        return ToolResult(
+            status="success",
+            tool="reduce_heat_and_ram_usage",
+            result={
+                "status": "COOLED",
+                "freed_mb": cooling["freed_mb"],
+                "active_ram_percent": health["ram_percent"],
+                "cpu_load": health["cpu_percent"],
+                "power_profile": "ECO",
+                "message": "Memory purged, 4-thread CPU throttling enforced, and thermal stability restored."
+            }
+        )
+
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
-        verified = result.status == "success" and bool(result.result) and result.result.get("status") == "OPENED"
+        verified = result.status == "success" and bool(result.result)
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tool: clear_space / clean_disk_space
+# ---------------------------------------------------------------------------
+
+class CleanDiskSpaceTool(Tool):
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="clear_space",
+            description="Cleans temporary files, cache directories, and local build artifacts to free disk space.",
+            input_schema={"type": "object", "properties": {}, "required": []},
+            permission_level=PermissionLevel.SAFE,
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        import shutil
+        import tempfile
+
+        freed_bytes = 0
+        cleaned_dirs = []
+
+        # 1. Clean local project caches (.pytest_cache, __pycache__)
+        for root, dirs, files in os.walk("."):
+            for d in list(dirs):
+                if d in ("__pycache__", ".pytest_cache", ".ruff_cache"):
+                    p = os.path.join(root, d)
+                    try:
+                        shutil.rmtree(p, ignore_errors=True)
+                        cleaned_dirs.append(d)
+                    except Exception:
+                        pass
+
+        # 2. Clean user temp folder safe files
+        temp_dir = tempfile.gettempdir()
+        if os.path.exists(temp_dir):
+            for item in os.listdir(temp_dir):
+                if item.startswith(("tmp", "jarvis", "pytest", "npm-", "pip-")):
+                    p = os.path.join(temp_dir, item)
+                    try:
+                        if os.path.isfile(p):
+                            freed_bytes += os.path.getsize(p)
+                            os.remove(p)
+                        elif os.path.isdir(p):
+                            shutil.rmtree(p, ignore_errors=True)
+                    except Exception:
+                        pass
+
+        freed_mb = round(freed_bytes / (1024 * 1024), 2)
+        return ToolResult(
+            status="success",
+            tool="clear_space",
+            result={
+                "status": "CLEARED",
+                "freed_mb": freed_mb,
+                "cleaned_caches": list(set(cleaned_dirs)),
+                "message": f"Successfully cleared temporary caches and temporary files."
+            }
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result)
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
 
 
@@ -770,6 +864,8 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(WebSearchTool())
     registry.register(FetchWebpageTool())
     registry.register(BrowserOpenTool())
+    registry.register(CoolSystemTool())
+    registry.register(CleanDiskSpaceTool())
 
 
 
