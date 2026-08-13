@@ -8,6 +8,7 @@ from jarvisx.llm.llm_registry import LLMRegistry
 from jarvisx.llm.ollama_provider import OllamaLLMProvider
 from jarvisx.llm.omniroute_provider import OmniRouteLLMProvider
 from jarvisx.llm.openrouter_provider import OpenRouterLLMProvider
+from jarvisx.llm.gemini_provider import GeminiLLMProvider
 
 
 class LLMRouter:
@@ -28,6 +29,8 @@ class LLMRouter:
     def _ensure_default_providers(self):
         if not self.registry.get("ollama.local"):
             self.registry.register(OllamaLLMProvider())
+        if not self.registry.get("gemini.google"):
+            self.registry.register(GeminiLLMProvider())
         if not self.registry.get("omniroute.gateway"):
             self.registry.register(OmniRouteLLMProvider())
         if not self.registry.get("openrouter.gateway"):
@@ -79,6 +82,36 @@ class LLMRouter:
                 offline_support=True,
                 privacy_level="HIGH",
                 hardware_requirements={"ram_gb": 4, "vram_gb": 2}
+            ),
+            LLMProfile(
+                provider_id="gemini.google",
+                model_name="gemini-1.5-pro",
+                context_window=2000000,
+                latency=0.3,
+                cost=0.0,
+                coding_score=0.99,
+                reasoning_score=0.99,
+                tool_support=True,
+                streaming_support=True,
+                vision_support=True,
+                offline_support=False,
+                privacy_level="HIGH",
+                hardware_requirements={"ram_gb": 0, "vram_gb": 0}
+            ),
+            LLMProfile(
+                provider_id="gemini.google",
+                model_name="gemini-2.0-flash",
+                context_window=1000000,
+                latency=0.15,
+                cost=0.0,
+                coding_score=0.98,
+                reasoning_score=0.97,
+                tool_support=True,
+                streaming_support=True,
+                vision_support=True,
+                offline_support=False,
+                privacy_level="HIGH",
+                hardware_requirements={"ram_gb": 0, "vram_gb": 0}
             ),
             LLMProfile(
                 provider_id="openrouter.gateway",
@@ -170,6 +203,32 @@ class LLMRouter:
             score = 1.0
         else:
             profile, score = self.select_model(prompt, require_offline=require_offline)
+
+        # Direct Gemini Pro Request or High-Complexity Cloud Priority
+        if profile.provider_id == "gemini.google" or any(w in prompt.lower() for w in ("gemini", "gemini pro", "use gemini", "google ai")):
+            gemini_provider = self.registry.get("gemini.google")
+            if gemini_provider:
+                gemini_model = "gemini-1.5-pro" if "pro" in prompt.lower() or task_cat in ("architecture", "planning", "research") else "gemini-2.0-flash"
+                print(f"[LLM] Direct Route -> Provider: gemini.google | Model: {gemini_model}")
+                try:
+                    await gemini_provider.connect()
+                    gem_output = await gemini_provider.generate(prompt=prompt, model=gemini_model)
+                    if gem_output.get("status") == "AVAILABLE" and bool(gem_output.get("response")):
+                        resp_preview = gem_output.get("response", "")[:60].replace("\n", " ")
+                        print(f"[LLM] Gemini response received: \"{resp_preview}...\" ({len(gem_output.get('response', ''))} chars)")
+                        return {
+                            "status": "success",
+                            "selected_model": gemini_model,
+                            "provider_id": "gemini.google",
+                            "score": score,
+                            "task_category": task_cat,
+                            "fallback_used": False,
+                            "result": gem_output
+                        }
+                    else:
+                        print(f"[LLM] Gemini provider not active ({gem_output.get('error', 'no key')}). Falling back to local Ollama.")
+                except Exception as e:
+                    print(f"[LLM] Gemini request failed ({e}). Falling back to local Ollama.")
 
         # Direct OpenRouter Request or Cloud Priority
         if profile.provider_id == "openrouter.gateway" or any(w in prompt.lower() for w in ("openrouter", "use cloud", "use openrouter")):
