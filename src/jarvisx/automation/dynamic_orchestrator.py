@@ -248,6 +248,48 @@ class DynamicOrchestrator:
                 "details": res
             }
 
+        # 0.3 Interactive Chess Game Intents ("play chess", "play chess with me", "move e4", "e2e4")
+        if "chess" in text or text.startswith("move ") or (len(text.split()) == 1 and bool(re.match(r'^[a-h][1-8][a-h][1-8]$|^[NBRQK]?[a-h][1-8]$', text))):
+            from jarvisx.games.chess_engine import get_or_create_chess_game
+            chess_game = get_or_create_chess_game(reset=("new chess" in text or "restart chess" in text))
+            
+            move_candidate = None
+            if text.startswith("move "):
+                move_candidate = text.replace("move ", "").strip()
+            elif re.match(r'^[a-h][1-8][a-h][1-8]$|^[NBRQK]?[a-h][1-8]$', text):
+                move_candidate = text
+            elif "play " in text and not text.startswith("play chess"):
+                move_candidate = text.replace("play ", "").replace("chess", "").strip()
+
+            if move_candidate:
+                user_res = chess_game.make_user_move(move_candidate)
+                if user_res.get("status") == "SUCCESS":
+                    alfred_res = chess_game.alfred_ai_move()
+                    board_view = chess_game.render_board()
+                    combined_msg = f"{user_res['message']}\n{alfred_res.get('commentary', alfred_res.get('message', ''))}\n{board_view}"
+                    return {
+                        "action": "chess_move",
+                        "response": combined_msg,
+                        "details": {"user_move": user_res, "alfred_move": alfred_res}
+                    }
+                else:
+                    return {
+                        "action": "chess_invalid",
+                        "response": f"{user_res['message']}\n{chess_game.render_board()}",
+                    }
+
+            board_view = chess_game.render_board()
+            start_msg = (
+                f"Certainly, {salutation}! The chess board is prepared. You are playing as White.\n"
+                f"{board_view}\n"
+                f"Make your opening move by typing e.g. 'move e4' or 'e2e4'."
+            )
+            return {
+                "action": "chess_start",
+                "response": start_msg,
+                "details": {"turn": chess_game.turn}
+            }
+
         # 1. Persona Switching Intents
         if "friday" in text and len(text.split()) <= 4:
             return {"action": "switch_persona", "persona": "FRIDAY", "response": "F.R.I.D.A.Y. Tactical Agent active under Alfred, Boss."}

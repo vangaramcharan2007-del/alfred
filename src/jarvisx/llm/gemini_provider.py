@@ -205,7 +205,12 @@ class GeminiLLMProvider(LLMProvider):
             except urllib.error.HTTPError as e:
                 body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else str(e)
                 last_error = f"Gemini HTTP Error {e.code}: {body}"
-                if e.code == 404:
+                if e.code in (400, 401):
+                    # Invalid or unauthorized key - disable provider for session
+                    self.api_key = ""
+                    self.is_connected = False
+                    break
+                elif e.code == 404:
                     # Model not found on this tier, try next candidate
                     continue
                 else:
