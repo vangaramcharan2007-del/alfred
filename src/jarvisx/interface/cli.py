@@ -549,6 +549,28 @@ class JarvisCLI:
             return {"action": "benchmark", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # DAILY DSA TUTOR & MASTER CURRICULUM
+        # ----------------------------------------------------------
+        elif command in ("dsa", "tutor", "learn-dsa", "curriculum"):
+            from jarvisx.tutor.dsa_tutor import DSATutorEngine
+            tutor = DSATutorEngine()
+            import re
+            
+            day_num = None
+            if args:
+                match = re.search(r'\b(\d+)\b', args)
+                if match:
+                    day_num = int(match.group(1))
+
+            res = tutor.launch_daily_lesson(day=day_num, open_video=True, open_vscode=True)
+            print(f"\n[DSA MASTER TUTOR - DAY {res['day']}]: {res['topic']}")
+            print(f"  Lesson File: {res['filename']}")
+            print(f"  VS Code:     {res['vscode_status']}")
+            print(f"  Video:       {res['video_url']}\n")
+            print(f"Alfred: {res['spoken_script']}\n")
+            return {"action": "dsa_tutor", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # API KEY REGISTRATION & VAULT SHORTCUTS
         # ----------------------------------------------------------
         elif command in ("set-key", "set_key", "key", "apikey", "api-key", "gemini-key") or (command == "set" and args.lower().startswith(("key", "gemini", "api", "openrouter"))):

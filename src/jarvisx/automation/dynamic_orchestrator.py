@@ -228,6 +228,26 @@ class DynamicOrchestrator:
                 "response": f"I have successfully registered your OpenRouter API key in Alfred's Vault, {salutation}!",
             }
 
+        # 0.2 Interactive DSA Tutor Intents ("teach me dsa", "plan and teach me everyday", "dsa day 1")
+        if any(phrase in text for phrase in (
+            "teach me dsa", "learn dsa", "plan and teach me everyday", "teach me everyday", 
+            "dsa course", "dsa lesson", "start dsa", "today's dsa", "dsa master", "dsa day"
+        )):
+            from jarvisx.tutor.dsa_tutor import DSATutorEngine
+            tutor = DSATutorEngine()
+            
+            target_day = None
+            day_match = re.search(r'day\s*(\d+)', text)
+            if day_match:
+                target_day = int(day_match.group(1))
+                
+            res = tutor.launch_daily_lesson(day=target_day, open_video=True, open_vscode=True)
+            return {
+                "action": "dsa_tutor",
+                "response": res["spoken_script"],
+                "details": res
+            }
+
         # 1. Persona Switching Intents
         if "friday" in text and len(text.split()) <= 4:
             return {"action": "switch_persona", "persona": "FRIDAY", "response": "F.R.I.D.A.Y. Tactical Agent active under Alfred, Boss."}
