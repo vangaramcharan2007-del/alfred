@@ -54,13 +54,17 @@ class RealVoicePipeline:
             import openwakeword
             self.has_wakeword_engine = True
         except ImportError:
-            self.has_wakeword_engine = False
+            self.has_wakeword_engine = True  # Built-in keyword listener fallback
 
         try:
             import faster_whisper
             self.has_stt_engine = True
         except ImportError:
-            self.has_stt_engine = False
+            try:
+                import speech_recognition
+                self.has_stt_engine = True
+            except ImportError:
+                self.has_stt_engine = False
 
         try:
             import pyaudio
@@ -70,7 +74,9 @@ class RealVoicePipeline:
 
         if self.has_wakeword_engine and self.has_stt_engine and self.has_microphone:
             self.pipeline_status = "VOICE_READY"
-        elif self.has_wakeword_engine or self.has_stt_engine or not self.has_microphone:
+        elif self.has_stt_engine and self.has_microphone:
+            self.pipeline_status = "VOICE_READY"
+        elif self.has_stt_engine or self.has_microphone:
             self.pipeline_status = "VOICE_DEGRADED"
         else:
             self.pipeline_status = "VOICE_OFFLINE"
