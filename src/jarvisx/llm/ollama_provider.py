@@ -1,6 +1,9 @@
 from __future__ import annotations
+import json
 import shutil
 import time
+import urllib.request
+import urllib.error
 from typing import Dict, Any, List, Optional, AsyncGenerator
 from jarvisx.llm.llm_provider import LLMProvider
 
@@ -49,26 +52,14 @@ class OllamaLLMProvider(LLMProvider):
         }
 
     def select_model_for_prompt(self, prompt: str, requested_model: Optional[str] = None) -> str:
-        if requested_model:
-            if requested_model in self.installed_models:
-                return requested_model
-            # Fuzzy match (e.g. llama3.2:3b -> llama3.2:latest)
-            req_prefix = requested_model.split(":")[0]
-            for m in self.installed_models:
-                if m.startswith(req_prefix):
-                    return m
+        if requested_model and (requested_model in self.installed_models or requested_model):
+            return requested_model
 
-        p_lower = prompt.lower()
-        if ("arch" in p_lower or "design" in p_lower or "refactor" in p_lower) and "deepseek-coder:6.7b" in self.installed_models:
-            return "deepseek-coder:6.7b"
-        elif ("chat" in p_lower or "hello" in p_lower or "speak" in p_lower):
-            for m in self.installed_models:
-                if "llama3" in m:
-                    return m
-
-        if "qwen2.5-coder:7b" in self.installed_models:
+        if "qwen2.5-coder:1.5b" in self.installed_models:
+            return "qwen2.5-coder:1.5b"
+        elif "qwen2.5-coder:7b" in self.installed_models:
             return "qwen2.5-coder:7b"
-        return self.installed_models[0] if self.installed_models else "qwen2.5-coder:7b"
+        return self.installed_models[0] if self.installed_models else "qwen2.5-coder:1.5b"
 
     async def generate(self, prompt: str, model: Optional[str] = None, conversation: Optional[List[Dict[str, str]]] = None, **kwargs) -> Dict[str, Any]:
         start_t = time.time()
@@ -119,7 +110,8 @@ class OllamaLLMProvider(LLMProvider):
                             "fallback_used": False,
                             "attempt": attempt
                         }
-            except Exception:
+            except Exception as ex:
+                print(f"[Ollama Error on {chosen_model}]: {ex}")
                 time.sleep(0.1 * attempt)
 
         # Return explicit NOT_AVAILABLE contract if local daemon is offline
