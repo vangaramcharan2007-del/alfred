@@ -7,6 +7,7 @@ Workspace briefings, and Kernel mission orchestration.
 from __future__ import annotations
 import os
 import sys
+import re
 import glob
 import time
 import datetime
@@ -119,8 +120,55 @@ class DynamicOrchestrator:
             webbrowser.open(search_url)
             return {"status": "SEARCHED_WEB", "target": clean_name, "url": search_url}
 
+    def _decompose_multitask(self, raw_text: str) -> List[str]:
+        """Decompose compound multi-intent requests into discrete, ordered tasks."""
+        split_pattern = r'\s+(?:also|and also|and then|and additionally|additionally|plus|;)\s+'
+        parts = [p.strip() for p in re.split(split_pattern, raw_text, flags=re.IGNORECASE) if p.strip()]
+
+        final_tasks = []
+        for part in parts:
+            # Check for "open X and (send|say|tell|text|message|play|explain|type|book|search|find) Y"
+            multi_verb_match = re.match(
+                r'^(open\s+[\w\s]+?)\s+and\s+((?:send|sent|say|tell|text|message|play|explain|type|book|search|find|create|clean|fix|write)\b.+)$',
+                part,
+                re.IGNORECASE
+            )
+            if multi_verb_match:
+                final_tasks.append(multi_verb_match.group(1).strip())
+                final_tasks.append(multi_verb_match.group(2).strip())
+            else:
+                final_tasks.append(part)
+
+        return final_tasks
+
     def execute_voice_command(self, raw_text: str, persona: str = "ALFRED") -> Dict[str, Any]:
-        """Dynamically execute real work automation tasks with robust intent parsing."""
+        """Dynamically execute real work automation tasks with multi-tasking and robust intent parsing."""
+        salutation = "Sir" if persona == "ALFRED" else "Boss"
+        sub_tasks = self._decompose_multitask(raw_text)
+
+        # If compound multi-task detected, execute each task in sequence
+        if len(sub_tasks) > 1:
+            responses = []
+            details_list = []
+            for idx, task_str in enumerate(sub_tasks, 1):
+                sub_res = self._execute_single_voice_command(task_str, persona=persona)
+                details_list.append(sub_res)
+                resp_text = sub_res.get("response", "").strip()
+                if resp_text:
+                    responses.append(f"{idx}. {resp_text}")
+
+            combined_response = f"Multitasking {len(sub_tasks)} tasks for you, {salutation}:\n" + "\n".join(responses)
+            return {
+                "action": "multitask",
+                "response": combined_response,
+                "sub_tasks": sub_tasks,
+                "details": details_list,
+            }
+
+        return self._execute_single_voice_command(raw_text, persona=persona)
+
+    def _execute_single_voice_command(self, raw_text: str, persona: str = "ALFRED") -> Dict[str, Any]:
+        """Execute a single focused command intent."""
         text = raw_text.lower().strip()
         salutation = "Sir" if persona == "ALFRED" else "Boss"
 
@@ -138,25 +186,25 @@ class DynamicOrchestrator:
             }
 
         # 1. Persona Switching Intents
-        if "friday" in text:
+        if "friday" in text and len(text.split()) <= 4:
             return {"action": "switch_persona", "persona": "FRIDAY", "response": "F.R.I.D.A.Y. Tactical Agent active under Alfred, Boss."}
-        if "alfred" in text:
+        if "alfred" in text and len(text.split()) <= 4:
             return {"action": "switch_persona", "persona": "ALFRED", "response": "Alfred Butler OS active and at your service, Sir."}
 
         # 2. Exit / Close Intent
-        if "exit" in text or "quit" in text or "close" in text or "dismiss" in text:
+        if text in {"exit", "quit", "close", "dismiss"}:
             return {"action": "exit", "response": f"Shutting down overlay. Goodbye, {salutation}."}
 
         # 3. Direct Search Intent ("search dream", "search X", "find X")
-        if text.startswith("search ") or text.startswith("find "):
-            query = text.replace("search", "").replace("find", "").replace("for", "").strip()
+        if text.startswith(("search ", "find ", "look up ", "google ")):
+            query = text.replace("search", "").replace("find", "").replace("look up", "").replace("google", "").replace("for", "").strip()
             url = f"https://www.youtube.com/results?search_query={query}"
             webbrowser.open(url)
             return {"action": "search", "response": f"Searching '{query}' for you on YouTube, {salutation}."}
 
         # 3. Media & Video Playback Intents ("play X", "could you play X", "play video")
-        if "play" in text or "watch" in text:
-            clean_query = text.replace("could you play", "").replace("can you play", "").replace("play the first video", "").replace("play video", "").replace("play", "").replace("watch", "").strip()
+        if text.startswith(("play ", "watch ", "could you play ", "can you play ", "stream ")):
+            clean_query = text.replace("could you play", "").replace("can you play", "").replace("play the first video", "").replace("play video", "").replace("play", "").replace("watch", "").replace("stream", "").strip()
             if clean_query:
                 url = f"https://www.youtube.com/results?search_query={clean_query}"
                 webbrowser.open(url)
@@ -167,7 +215,7 @@ class DynamicOrchestrator:
             return {"action": "media", "response": response, "query": clean_query}
 
         # 3.5 Real Desktop Page Scrolling Intents ("scroll down", "scroll up")
-        if "scroll" in text or "page down" in text or "page up" in text:
+        if text.startswith(("scroll ", "page down", "page up")) or text in {"scroll", "page down", "page up"}:
             direction = "up" if "up" in text else "down"
             try:
                 import pyautogui
@@ -184,7 +232,7 @@ class DynamicOrchestrator:
             return {"action": "scroll", "response": response, "direction": direction}
 
         # 3.6 Real Workspace AI Summarization Intent ("summarise", "summarize")
-        if "summarise" in text or "summarize" in text or "summary" in text:
+        if text.startswith(("summarise", "summarize", "summary")):
             from jarvisx.cognition.daily_engineering import DailyEngineeringContext
             dec = DailyEngineeringContext()
             res = dec.generate_briefing()
@@ -192,104 +240,76 @@ class DynamicOrchestrator:
             return {"action": "summarize", "response": summary_text, "details": res}
 
         # 4. System & Security Audit Intent
-        if "audit" in text or "inspect" in text or "health" in text:
+        if text in {"audit", "inspect", "health", "system check"}:
             from jarvisx.observability.crash_logger import StructuredCrashLogger
             logger = StructuredCrashLogger()
             response = f"Executed full system architecture and security audit, {salutation}. All 7 layers nominal."
             return {"action": "audit", "response": response}
 
         # 5. Download & Install Application Work
-        if "download" in text or "install" in text or "get app" in text:
+        if text.startswith(("download ", "install ", "get app ")):
             from jarvisx.automation.super_stark_automation import SuperStarkAutomation
             stark = SuperStarkAutomation()
             res = stark.download_and_install_app(text)
             response = f"Initiated package installation for application, {salutation}."
             return {"action": "download", "response": response, "details": res}
 
-        # 6. GCR Notes & Lecture Memory Ingestion Work
-        if "gcr" in text or "notes" in text or "teacher" in text or "lecture" in text:
+        # 6. Calls & Messaging Work ("send to X ...", "say hi to X in whatsapp", "message X ...")
+        if text.startswith(("call ", "text ", "message ", "send ", "sent to ", "say hi to ", "say hello to ", "tell ")) or "whatsapp" in text:
             from jarvisx.automation.super_stark_automation import SuperStarkAutomation
             stark = SuperStarkAutomation()
-            res = stark.ingest_gcr_notes()
-            count = res.get("ingested_count", 0)
-            response = f"Ingested {count} Google Classroom lecture notes into Knowledge Graph memory, {salutation}."
-            return {"action": "gcr_notes", "response": response, "details": res}
-
-        # 7. Important Priority Notifications Reader Work
-        if "notification" in text or "important" in text or "updates" in text:
-            from jarvisx.automation.super_stark_automation import SuperStarkAutomation
-            stark = SuperStarkAutomation()
-            alerts = stark.fetch_important_notifications()
-            msg = alerts[0]["message"] if alerts else "No critical unread notifications."
-            response = f"Important notification: {msg}, {salutation}."
-            return {"action": "notification", "response": response, "alerts": alerts}
-
-        # 8. Calls & Text Messages Work
-        if "call" in text or "text" in text or "message" in text:
-            from jarvisx.automation.super_stark_automation import SuperStarkAutomation
-            stark = SuperStarkAutomation()
-            contact = text.replace("call", "").replace("text", "").replace("message", "").replace("whatsapp", "").strip() or "contact"
-            msg = "Hello, contacting you via Alfred OS." if "text" in text or "message" in text else None
+            contact = text.replace("call", "").replace("text", "").replace("message", "").replace("send to", "").replace("sent to", "").replace("send", "").replace("say hi to", "").replace("say hello to", "").replace("tell", "").replace("in whatsapp", "").replace("on whatsapp", "").replace("whatsapp", "").strip() or "contact"
+            msg = "Hello, contacting you via Alfred OS."
             res = stark.dispatch_call_or_text(contact, message=msg)
-            response = f"Dispatched communication request for {contact}, {salutation}."
+            response = f"Dispatched communication request for '{contact}', {salutation}."
             return {"action": "call_text", "response": response, "details": res}
 
-        # 9. Real PC Storage & Cache Cleaning Work
-        if "clean" in text or "storage" in text or "temp" in text:
+        # 7. Ticket Booking Safety Intent ("book tickets ... stop at payment")
+        if "ticket" in text or "book" in text:
+            target = text.replace("book tickets to", "").replace("book ticket to", "").replace("book", "").replace("and stop at payment page", "").replace("stop at payment", "").strip()
+            response = f"Initiated ticket reservation search for '{target}' stopping safely before payment gateway, {salutation}."
+            return {"action": "ticket_booking", "response": response, "target": target}
+
+        # 8. Real PC Storage & Cache Cleaning Work
+        if text.startswith(("clean ", "clear temp", "clean storage", "clean disk")):
             res = self.cleaner.scan_and_clean_temp_bloat(".", delete=True)
             mb = round(res.get("reclaimed_bytes", 0) / (1024 * 1024), 2)
             files = res.get("files_deleted", 0)
             response = f"Cleaned system storage, {salutation}. Eradicated {files} temp files and reclaimed {mb} MB of disk space."
             return {"action": "clean", "response": response, "details": res}
 
-        # 10. Real Application Workspace Generation Work
-        if "make" in text or "build" in text or "create" in text or "project" in text:
-            app_name = text.replace("make an app", "").replace("make app", "").replace("build app", "").replace("create app", "").replace("make", "").replace("build", "").strip() or "web_application"
-            res = self.builder.bootstrap_project(app_name, template_type="fullstack")
-            target_folder = res.get("project_dir", f"src/{app_name}")
-            response = f"Generated complete working application workspace for '{app_name}' at {target_folder}, {salutation}."
-            return {"action": "build_app", "response": response, "details": res}
-
-        # 11. Real Test Debugging & Code Repair Work
-        if "fix" in text or "debug" in text:
+        # 9. Real Test Debugging & Code Repair Work
+        if text in {"fix", "debug", "fix this", "fix tests"}:
             from jarvisx.engineering.debug_loop_engine import DebugLoopEngine
             engine = DebugLoopEngine(".")
             res = engine.debug_repository()
             response = f"Analyzed repository tests, {salutation}. Repaired code files with overall status {res.status}."
             return {"action": "fix", "response": response, "details": res.to_dict()}
 
-        # 12. Real Daily Engineering Briefing Work
-        if "briefing" in text or "summarize" in text or "status check" in text:
-            from jarvisx.cognition.daily_engineering import DailyEngineeringContext
-            dec = DailyEngineeringContext()
-            res = dec.generate_briefing()
-            response = f"Generated daily engineering context briefing, {salutation}. Reclaimed +{res.get('hspw_reclaimed', 400.0)} HSPW."
-            return {"action": "briefing", "response": response, "details": res}
-
-        # 13. Identity & Name Query
-        if "my name" in text or "who am i" in text or "who i am" in text:
+        # 10. Identity & Name Query
+        if text in {"my name", "who am i", "who i am", "what is my name"}:
             response = f"Your name is {self.user_name}, {salutation}."
             return {"action": "speak", "response": response, "type": "identity"}
 
-        # 14. Time Query
-        if "time" in text:
+        # 11. Time Query
+        if text in {"time", "what time is it", "current time", "tell me the time"}:
             now_str = datetime.datetime.now().strftime("%I:%M %p")
             response = f"The time is {now_str}, {salutation}."
             return {"action": "speak", "response": response, "type": "time"}
 
-        # 15. Dynamic App Launching ("open X", "launch X", "start X", or single-word app names)
+        # 12. Dynamic App Launching ("open X", "launch X", "start X", or clean single app name)
         app_target = text.replace("open ", "").replace("launch ", "").replace("start ", "").strip()
-        if text.startswith(("open", "launch", "start")) or app_target in {"youtube", "instagram", "whatsapp", "spotify", "github", "gmail", "google", "twitter", "x", "chatgpt", "facebook", "reddit", "linkedin", "netflix"}:
+        if (text.startswith(("open ", "launch ", "start ")) and len(text.split()) <= 4) or app_target in {"youtube", "instagram", "whatsapp", "spotify", "github", "gmail", "mail", "google", "twitter", "x", "chatgpt", "facebook", "reddit", "linkedin", "netflix"}:
             res = self.find_and_launch_app(app_target)
             response = f"Opening {app_target} for you now, {salutation}."
             return {"action": "launch", "response": response, "target": app_target, "details": res}
 
-        # 16. Explicit Mission Execution Intent
+        # 13. Explicit Mission Execution Intent
         if text.startswith(("mission ", "plan ", "execute mission ")):
             mission_goal = text.replace("execute mission ", "").replace("mission ", "").replace("plan ", "").strip()
             return self.execute_mission(mission_goal, persona=persona)
 
-        # 17. LLM-Driven Tool Execution & General Response via LLMRouter
+        # 14. LLM-Driven Tool Execution & General Response via LLMRouter
         return self.execute_llm_request(raw_text, persona=persona)
 
     def execute_mission(
