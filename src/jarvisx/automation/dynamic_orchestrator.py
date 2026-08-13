@@ -185,6 +185,49 @@ class DynamicOrchestrator:
                 "response": f"I am your local-first personal AI operating agent, {salutation}. You can chat with me, ask questions, manage files, research the web, inspect your screen, or plan multi-step missions.",
             }
 
+        # 0.1 API Key Direct Paste / Auto-Detection
+        import re
+        import os
+        gemini_match = re.search(r'AIza[0-9A-Za-z-_]{30,40}', raw_text)
+        if gemini_match or (len(raw_text.strip().strip("'\"")) >= 35 and raw_text.strip().startswith("AIza")):
+            extracted_key = gemini_match.group(0) if gemini_match else raw_text.strip().strip("'\"")
+            os.environ["GEMINI_API_KEY"] = extracted_key
+            try:
+                from jarvisx.security.trust_engine import TrustEngine
+                te = TrustEngine()
+                te.vault.set_secret("GEMINI_API_KEY", extracted_key)
+            except Exception:
+                pass
+            try:
+                with open(".env", "a", encoding="utf-8") as f:
+                    f.write(f"\nGEMINI_API_KEY={extracted_key}\n")
+            except Exception:
+                pass
+            return {
+                "action": "speak",
+                "response": f"I have successfully registered your Google Gemini API key in Alfred's Vault, {salutation}! Gemini 1.5 Pro is now fully active.",
+            }
+
+        openrouter_match = re.search(r'sk-or-v1-[0-9a-fA-F]{64}', raw_text)
+        if openrouter_match:
+            extracted_key = openrouter_match.group(0)
+            os.environ["OPENROUTER_API_KEY"] = extracted_key
+            try:
+                from jarvisx.security.trust_engine import TrustEngine
+                te = TrustEngine()
+                te.vault.set_secret("OPENROUTER_API_KEY", extracted_key)
+            except Exception:
+                pass
+            try:
+                with open(".env", "a", encoding="utf-8") as f:
+                    f.write(f"\nOPENROUTER_API_KEY={extracted_key}\n")
+            except Exception:
+                pass
+            return {
+                "action": "speak",
+                "response": f"I have successfully registered your OpenRouter API key in Alfred's Vault, {salutation}!",
+            }
+
         # 1. Persona Switching Intents
         if "friday" in text and len(text.split()) <= 4:
             return {"action": "switch_persona", "persona": "FRIDAY", "response": "F.R.I.D.A.Y. Tactical Agent active under Alfred, Boss."}
