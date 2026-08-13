@@ -32,12 +32,14 @@ class NPUAccelerator:
         gpu_name = "Generic Integrated"
 
         if sys.platform == "win32":
+            creation_flags = 0x08000000
             try:
                 # Query WMI for Video Controller and NPU devices
                 output = subprocess.check_output(
                     ["powershell", "-NoProfile", "-Command", "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"],
                     stderr=subprocess.DEVNULL,
-                    text=True
+                    text=True,
+                    creationflags=creation_flags
                 )
                 if "Intel(R) Arc(TM)" in output or "Arc" in output:
                     gpu_name = "Intel Arc GPU (DirectML Enabled)"
@@ -53,7 +55,8 @@ class NPUAccelerator:
                 pnp_out = subprocess.check_output(
                     ["powershell", "-NoProfile", "-Command", "Get-PnpDevice | Select-Object -ExpandProperty FriendlyName"],
                     stderr=subprocess.DEVNULL,
-                    text=True
+                    text=True,
+                    creationflags=creation_flags
                 )
                 for line in pnp_out.splitlines():
                     if any(term in line for term in ("AI Boost", "Intel(R) AI", "NPU", "Neural Processing", "Qualcomm NPU", "AMD IPU")):
