@@ -29,7 +29,7 @@ class VoiceRuntimeEngine:
             except Exception:
                 self._sapi_voice = None
 
-    def speak(self, text: str, persona: str = "Alfred", rate: int = 1, volume: int = 100, block: bool = False) -> Dict[str, Any]:
+    def speak(self, text: str, persona: str = "Alfred", rate: int = 1, volume: int = 100, block: bool = True) -> Dict[str, Any]:
         """
         Speak text with specified persona voice and publish TTS events.
         Guarantees audio delivery across SAPI5, pyttsx3, or PowerShell SpeechSynthesizer.
