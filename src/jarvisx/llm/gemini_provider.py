@@ -53,7 +53,10 @@ class GeminiLLMProvider(LLMProvider):
             except Exception:
                 pass
 
-        return key
+        if key and any(placeholder in key for placeholder in ("YourActualKey", "YourKey", "Your_Key", "your_api_key")):
+            return ""
+
+        return key.strip().strip('"').strip("'")
 
     def _sanitize(self, message: str) -> str:
         """Redact API key from error or log messages."""
