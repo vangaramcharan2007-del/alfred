@@ -160,6 +160,14 @@ class JarvisDaemon:
         self.presence.transition_to(PresenceState.READY, reason="All subsystems initialized")
         self.log("All daemon subsystems successfully initialized and running.")
 
+        # 5. Spoken Welcome, Schedule & Progress Briefing
+        try:
+            from jarvisx.startup.startup_announcer import StartupAnnouncer
+            announcer = StartupAnnouncer(var_dir=str(self.var_dir))
+            announcer.announce(persona="ALFRED", speak=True, block=False)
+        except Exception as se:
+            self.log(f"Startup announcement warning: {se}")
+
         res = {
             "status": "STARTED",
             "pid": pid,

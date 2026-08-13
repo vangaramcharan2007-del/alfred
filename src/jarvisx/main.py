@@ -101,7 +101,7 @@ async def async_main():
 
         top_commands = {
             "status", "health", "history", "help", "--help", "-h", "doctor", "chat", "models",
-            "briefing", "context", "daily", "friday", "hud", "wake", "wakeword", "tactical",
+            "briefing", "context", "daily", "welcome", "announce", "greeting", "friday", "hud", "wake", "wakeword", "tactical",
             "daemon", "report", "time-saved", "metrics", "voice", "assistant",
             "benchmark", "autonomy", "eval", "cert", "certify", "certification",
             "security", "trust", "audit", "vault", "backup", "snapshot", "evolution", "improve", "team",

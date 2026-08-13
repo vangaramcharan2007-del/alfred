@@ -93,13 +93,14 @@ class JarvisCLI:
             return {"action": "benchmark", "status": "SUCCESS", "report": report, "scores": scores.to_dict()}
 
         # ----------------------------------------------------------
-        # BRIEFING: Daily Engineering Context
+        # BRIEFING & STARTUP WELCOME: Daily Context, Schedule & Progress
         # ----------------------------------------------------------
-        elif command in ("briefing", "context", "daily"):
-            from jarvisx.cognition.daily_engineering import DailyEngineeringContext
-            dec = DailyEngineeringContext()
-            res = dec.generate_briefing()
-            print(f"\n{res['briefing_text']}\n")
+        elif command in ("briefing", "context", "daily", "welcome", "announce"):
+            from jarvisx.startup.startup_announcer import StartupAnnouncer
+            announcer = StartupAnnouncer()
+            speak_opt = "--silent" not in (args or "").lower()
+            res = announcer.announce(persona="ALFRED", speak=speak_opt, block=False)
+            print(f"\n[ALFRED STARTUP BRIEFING]:\n{res['briefing_text']}\n")
             return {"action": "briefing", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
