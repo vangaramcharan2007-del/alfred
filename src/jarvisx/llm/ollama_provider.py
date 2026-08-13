@@ -79,10 +79,18 @@ class OllamaLLMProvider(LLMProvider):
         # Attempt live connection to local Ollama API with retries
         for attempt in range(1, max_retries + 1):
             try:
-                import json
-                import urllib.request
+                from jarvisx.hardware.npu_accelerator import get_npu_accelerator
+                npu = get_npu_accelerator()
+                opt = npu.get_recommended_ollama_options(chosen_model)
+
                 url = f"{self.endpoint}/api/generate"
-                payload_dict = {"model": chosen_model, "prompt": prompt, "stream": False}
+                payload_dict = {
+                    "model": chosen_model, 
+                    "prompt": prompt, 
+                    "stream": False,
+                    "options": {"num_thread": opt.get("num_thread", 4), "num_ctx": opt.get("num_ctx", 4096)},
+                    "keep_alive": opt.get("keep_alive", "30s")
+                }
                 if conversation:
                     payload_dict["context_history"] = conversation[-10:] # Last 10 context window
                 payload = json.dumps(payload_dict).encode("utf-8")

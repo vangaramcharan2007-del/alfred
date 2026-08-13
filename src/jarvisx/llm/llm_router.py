@@ -41,6 +41,21 @@ class LLMRouter:
         self.profiles = [
             LLMProfile(
                 provider_id="ollama.local",
+                model_name="qwen2.5-coder:1.5b",
+                context_window=64000,
+                latency=0.05,
+                cost=0.0,
+                coding_score=0.94,
+                reasoning_score=0.88,
+                tool_support=True,
+                streaming_support=True,
+                vision_support=False,
+                offline_support=True,
+                privacy_level="HIGH",
+                hardware_requirements={"ram_gb": 1, "vram_gb": 1}
+            ),
+            LLMProfile(
+                provider_id="ollama.local",
                 model_name="qwen2.5-coder:7b",
                 context_window=128000,
                 latency=0.2,
@@ -266,9 +281,21 @@ class LLMRouter:
                 except Exception as e:
                     print(f"[LLM] OpenRouter request failed ({e}). Falling back to local Ollama.")
 
-        # 1. Primary Route: Local Ollama
+        # 1. Primary Route: Local Ollama with NPU / Power Profile Adaptive Selection
+        from jarvisx.hardware.npu_accelerator import get_npu_accelerator
+        npu = get_npu_accelerator()
+
         provider = self.registry.get("ollama.local") or self.registry.get(profile.provider_id)
-        chosen_model = "qwen2.5-coder:7b" if "qwen2.5-coder:7b" in getattr(provider, "installed_models", []) else profile.model_name
+        installed = getattr(provider, "installed_models", [])
+
+        if "qwen2.5-coder:1.5b" in installed and (task_cat in ("general", "chat", "summary") or npu.power_profile == "ECO"):
+            chosen_model = "qwen2.5-coder:1.5b"
+        elif "qwen2.5-coder:7b" in installed:
+            chosen_model = "qwen2.5-coder:7b"
+        elif "llama3.2:latest" in installed:
+            chosen_model = "llama3.2:latest"
+        else:
+            chosen_model = profile.model_name
 
         print(f"[LLM] Provider: ollama.local")
         print(f"[LLM] Model: {chosen_model}")

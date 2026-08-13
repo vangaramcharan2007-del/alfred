@@ -549,6 +549,39 @@ class JarvisCLI:
             return {"action": "benchmark", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # HARDWARE, NPU & THERMAL RESOURCE MANAGEMENT
+        # ----------------------------------------------------------
+        elif command in ("npu", "cool", "power", "hardware", "thermal"):
+            from jarvisx.hardware.npu_accelerator import get_npu_accelerator
+            npu = get_npu_accelerator()
+
+            sub = (args or "").strip().lower()
+            if "cool" in sub or command == "cool":
+                res = npu.enforce_memory_cooling()
+                print(f"\n[THERMAL COOLING & MEMORY PURGE]: {res['status']}")
+                print(f"  Freed RAM    : {res['freed_mb']} MB")
+                print(f"  Current RAM  : {res['current_ram_percent']}%\n")
+                return {"action": "cool", "status": "SUCCESS", "result": res}
+            elif "eco" in sub or "quiet" in sub:
+                npu.power_profile = "ECO"
+                print("\n[POWER PROFILE]: Set to ECO (Cool & Quiet - 4 CPU Threads, 1.5B/Cloud AI)\n")
+                return {"action": "power", "status": "SUCCESS", "profile": "ECO"}
+            elif "perf" in sub or "max" in sub:
+                npu.power_profile = "PERFORMANCE"
+                print("\n[POWER PROFILE]: Set to PERFORMANCE (Full 7B Models)\n")
+                return {"action": "power", "status": "SUCCESS", "profile": "PERFORMANCE"}
+            else:
+                health = npu.get_system_health()
+                print(f"\n[HARDWARE ACCELERATION & NPU STATUS]:")
+                print(f"  NPU Device   : {health['hardware']['npu_name']}")
+                print(f"  GPU Device   : {health['hardware']['gpu_name']}")
+                print(f"  CPU Cores    : {health['hardware']['physical_cores']} Physical / {health['hardware']['logical_cores']} Logical")
+                print(f"  RAM Usage    : {health['ram_used_gb']} GB / {health['ram_total_gb']} GB ({health['ram_percent']}%)")
+                print(f"  CPU Usage    : {health['cpu_percent']}%")
+                print(f"  Power Mode   : {health['power_profile']}\n")
+                return {"action": "npu_status", "status": "SUCCESS", "result": health}
+
+        # ----------------------------------------------------------
         # DAILY DSA TUTOR & MASTER CURRICULUM
         # ----------------------------------------------------------
         elif command in ("dsa", "tutor", "learn-dsa", "curriculum"):
