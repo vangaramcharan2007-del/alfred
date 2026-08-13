@@ -202,12 +202,16 @@ class GeminiLLMProvider(LLMProvider):
                 last_error = str(ex)
                 break
 
+        hint = ""
+        if "404" in last_error or "NOT_FOUND" in last_error:
+            hint = " (Note: Gemini API requires an API key from Google AI Studio at https://aistudio.google.com/app/apikey starting with 'AIzaSy...')"
+
         return {
             "status": "NOT_AVAILABLE",
             "provider_id": "gemini.google",
             "model": primary_model,
             "response": "",
-            "error": self._sanitize(last_error),
+            "error": self._sanitize(last_error) + hint,
             "fallback_used": True
         }
 
