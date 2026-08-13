@@ -44,6 +44,15 @@ class GeminiLLMProvider(LLMProvider):
                             break
             except Exception:
                 pass
+
+        if not key:
+            try:
+                from jarvisx.security.trust_engine import TrustEngine
+                te = TrustEngine()
+                key = te.vault.get_secret("GEMINI_API_KEY") or te.vault.get_secret("GOOGLE_API_KEY") or ""
+            except Exception:
+                pass
+
         return key
 
     def _sanitize(self, message: str) -> str:

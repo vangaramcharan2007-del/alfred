@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 import time
 from typing import Dict, Any, List, Optional, Tuple, AsyncGenerator
 from jarvisx.llm.llm_profile import LLMProfile
@@ -205,8 +206,17 @@ class LLMRouter:
             profile, score = self.select_model(prompt, require_offline=require_offline)
 
         # Direct Gemini Pro Request or High-Complexity Cloud Priority
-        if profile.provider_id == "gemini.google" or any(w in prompt.lower() for w in ("gemini", "gemini pro", "use gemini", "google ai")):
-            gemini_provider = self.registry.get("gemini.google")
+        has_gemini_key = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+        gemini_provider = self.registry.get("gemini.google")
+        if not has_gemini_key and gemini_provider:
+            has_gemini_key = bool(getattr(gemini_provider, "api_key", ""))
+
+        wants_gemini = any(w in prompt.lower() for w in ("gemini", "gemini pro", "use gemini", "google ai"))
+
+        if wants_gemini and not has_gemini_key:
+            print("[LLM] Gemini requested, but GEMINI_API_KEY is not set. Use 'vault set GEMINI_API_KEY AIzaSy...' to configure. Falling back to local Ollama.")
+
+        if has_gemini_key and (profile.provider_id == "gemini.google" or wants_gemini):
             if gemini_provider:
                 gemini_model = "gemini-1.5-pro" if "pro" in prompt.lower() or task_cat in ("architecture", "planning", "research") else "gemini-2.0-flash"
                 print(f"[LLM] Direct Route -> Provider: gemini.google | Model: {gemini_model}")
