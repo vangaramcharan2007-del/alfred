@@ -1,1 +1,1 @@
-python jarvis.py
+python -m jarvisx
