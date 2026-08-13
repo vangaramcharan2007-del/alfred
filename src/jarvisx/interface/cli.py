@@ -549,6 +549,32 @@ class JarvisCLI:
             return {"action": "benchmark", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
+        # API KEY REGISTRATION & VAULT SHORTCUTS
+        # ----------------------------------------------------------
+        elif command in ("set-key", "set_key", "key", "apikey", "api-key", "gemini-key") or (command == "set" and args.lower().startswith(("key", "gemini", "api", "openrouter"))):
+            from jarvisx.security.trust_engine import TrustEngine
+            import os
+            te = TrustEngine()
+            
+            clean_args = args.split()
+            val = clean_args[-1] if clean_args else ""
+            key_name = "GEMINI_API_KEY"
+            if len(clean_args) >= 2 and any(k in clean_args[0].upper() for k in ("OPENROUTER", "GEMINI", "GOOGLE")):
+                key_name = clean_args[0].upper()
+
+            if val:
+                os.environ[key_name] = val
+                te.vault.set_secret(key_name, val)
+                try:
+                    with open(".env", "a", encoding="utf-8") as f:
+                        f.write(f"\n{key_name}={val}\n")
+                except Exception:
+                    pass
+                print(f"\n[KEY SAVED]: Successfully registered {key_name} in Alfred's Vault!\n")
+                return {"action": "set_key", "status": "SUCCESS", "key": key_name, "value": te.vault.mask_token(val)}
+            return {"action": "set_key", "status": "FAILED", "error": "No key value provided."}
+
+        # ----------------------------------------------------------
         # PHASE 99: SECURITY & TRUST LAYER (Permissions, Vault, Hash-Audit)
         # ----------------------------------------------------------
         elif command in ("security", "trust", "audit", "vault"):
@@ -563,6 +589,14 @@ class JarvisCLI:
                 if len(parts) >= 3 and parts[0].lower() == "set":
                     item = te.vault.set_secret(parts[1], parts[2])
                     res = item.to_dict()
+                    import os
+                    os.environ[parts[1]] = parts[2]
+                    try:
+                        with open(".env", "a", encoding="utf-8") as f:
+                            f.write(f"\n{parts[1]}={parts[2]}\n")
+                    except Exception:
+                        pass
+                    print(f"\n[VAULT KEY SAVED]: Successfully stored {parts[1]} in Alfred Vault!\n")
                 elif len(parts) >= 2 and parts[0].lower() == "get":
                     val = te.vault.get_secret(parts[1])
                     res = {"key": parts[1], "value": te.vault.mask_token(val or "")}
