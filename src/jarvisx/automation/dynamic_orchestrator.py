@@ -124,6 +124,19 @@ class DynamicOrchestrator:
         text = raw_text.lower().strip()
         salutation = "Sir" if persona == "ALFRED" else "Boss"
 
+        # 0. Conversational Greetings & Casual Queries
+        greetings = {"hi", "hello", "hey", "hloo", "hlw", "yo", "sup", "howdy", "good morning", "good afternoon", "good evening"}
+        if text in greetings or any(text.startswith(g + " ") for g in greetings):
+            return {
+                "action": "speak",
+                "response": f"Hello {salutation}! Alfred is active and standing by. How may I assist you today?",
+            }
+        if text in {"wdym", "what do you mean", "what can you do", "help me"}:
+            return {
+                "action": "speak",
+                "response": f"I am your local-first personal AI operating agent, {salutation}. You can chat with me, ask questions, manage files, research the web, inspect your screen, or plan multi-step missions.",
+            }
+
         # 1. Persona Switching Intents
         if "friday" in text:
             return {"action": "switch_persona", "persona": "FRIDAY", "response": "F.R.I.D.A.Y. Tactical Agent active under Alfred, Boss."}

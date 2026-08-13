@@ -62,7 +62,17 @@ class JarvisCLI:
             return {"commands": self.parser.list_commands()}
         elif command == "mission":
             return {"action": "mission", "request": args, "note": "Use handle_command_async for execution."}
-        return {"error": f"Unknown command: '{command}'. Type 'help' for available commands."}
+
+        # Route general conversational input through DynamicOrchestrator
+        try:
+            from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+            orch = DynamicOrchestrator()
+            res = orch.execute_voice_command(raw_input)
+            if isinstance(res, dict) and "response" in res:
+                return {"action": res.get("action", "chat"), "status": "SUCCESS", "output": res["response"], "response": res["response"]}
+            return res
+        except Exception:
+            return {"error": f"Unknown command: '{command}'. Type 'help' for available commands."}
 
     async def handle_command_async(self, raw_input: str) -> Dict[str, Any]:
         command, args = self.parser.parse(raw_input)
@@ -844,7 +854,20 @@ class JarvisCLI:
         elif command == "models":
             return self._handle_models()
 
-        return {"error": f"Unknown command: '{command}'. Type 'help' for available commands."}
+        # Route general conversational queries, greetings, or natural language requests to DynamicOrchestrator
+        try:
+            from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+            orch = DynamicOrchestrator()
+            query = raw_input.strip()
+            if query.lower().startswith("chat "):
+                query = query[5:].strip()
+            res = orch.execute_voice_command(query)
+            if isinstance(res, dict) and "response" in res:
+                print(f"\nAlfred: {res['response']}\n")
+                return {"action": res.get("action", "chat"), "status": "SUCCESS", "output": res["response"], "response": res["response"], "details": res}
+            return res
+        except Exception:
+            return {"error": f"Unknown command: '{command}'. Type 'help' for available commands."}
 
     async def _handle_mission(self, args: str) -> Dict[str, Any]:
         if not args:
@@ -934,19 +957,32 @@ class JarvisCLI:
         if command in ("models", "llm", "gateways") or cmd in ("models", "llm", "gateways"):
             return self._handle_models()
 
-        print("\nAlfred: Mission accepted.\n")
-        mission_res = await self.mission_mgr.create_and_execute_mission(args)
-        res = mission_res["result"]
-        files = res.get("files_changed", [])
-        test_status = res.get("test_result", {}).get("status", "PASS")
-
-        print("Mission Complete.\n")
-        print("Files:")
-        for f in files:
-            print(f"  - {f}")
-        print(f"\nTests: {test_status}\n")
-
-        return {"action": "mission", "status": "COMPLETED", "mission_result": mission_res}
+        # Route general conversational or unhandled commands to DynamicOrchestrator
+        try:
+            from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+            orch = DynamicOrchestrator()
+            query = raw_input.strip()
+            if query.lower().startswith("chat "):
+                query = query[5:].strip()
+            res = orch.execute_voice_command(query)
+            if isinstance(res, dict) and "response" in res:
+                print(f"\nAlfred: {res['response']}\n")
+                return {"action": res.get("action", "chat"), "status": "SUCCESS", "output": res["response"], "response": res["response"], "details": res}
+            return res
+        except Exception as e:
+            if self.mission_mgr and args:
+                print("\nAlfred: Mission accepted.\n")
+                mission_res = await self.mission_mgr.create_and_execute_mission(args)
+                res = mission_res.get("result", {})
+                files = res.get("files_changed", [])
+                test_status = res.get("test_result", {}).get("status", "PASS")
+                print("Mission Complete.\n")
+                print("Files:")
+                for f in files:
+                    print(f"  - {f}")
+                print(f"\nTests: {test_status}\n")
+                return {"action": "mission", "status": "COMPLETED", "mission_result": mission_res}
+            return {"error": f"Execution error: {e}"}
 
     def _handle_doctor(self) -> Dict[str, Any]:
         import shutil
