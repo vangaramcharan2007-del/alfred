@@ -171,11 +171,37 @@ class LLMRouter:
         else:
             profile, score = self.select_model(prompt, require_offline=require_offline)
 
-        # 1. Primary Route: Local Ollama
-        provider = self.registry.get(profile.provider_id) or self.registry.get("ollama.local")
-        chosen_model = profile.model_name
+        # Direct OpenRouter Request or Cloud Priority
+        if profile.provider_id == "openrouter.gateway" or any(w in prompt.lower() for w in ("openrouter", "use cloud", "use openrouter")):
+            cloud_provider = self.registry.get("openrouter.gateway")
+            if cloud_provider:
+                cloud_model = getattr(cloud_provider, "default_model", "openrouter/free")
+                print(f"[LLM] Direct Cloud Route -> Provider: openrouter.gateway | Model: {cloud_model}")
+                try:
+                    await cloud_provider.connect()
+                    cloud_output = await cloud_provider.generate(prompt=prompt, model=cloud_model)
+                    if cloud_output.get("status") == "AVAILABLE" and bool(cloud_output.get("response")):
+                        resp_preview = cloud_output.get("response", "")[:60].replace("\n", " ")
+                        print(f"[LLM] OpenRouter response received: \"{resp_preview}...\" ({len(cloud_output.get('response', ''))} chars)")
+                        return {
+                            "status": "success",
+                            "selected_model": cloud_model,
+                            "provider_id": "openrouter.gateway",
+                            "score": score,
+                            "task_category": task_cat,
+                            "fallback_used": False,
+                            "result": cloud_output
+                        }
+                    else:
+                        print("[LLM] OpenRouter free-tier rate limit reached (50 req/day). Falling back to local Ollama.")
+                except Exception as e:
+                    print(f"[LLM] OpenRouter request failed ({e}). Falling back to local Ollama.")
 
-        print(f"[LLM] Provider: {profile.provider_id}")
+        # 1. Primary Route: Local Ollama
+        provider = self.registry.get("ollama.local") or self.registry.get(profile.provider_id)
+        chosen_model = "qwen2.5-coder:7b" if "qwen2.5-coder:7b" in getattr(provider, "installed_models", []) else profile.model_name
+
+        print(f"[LLM] Provider: ollama.local")
         print(f"[LLM] Model: {chosen_model}")
 
         try:
@@ -184,7 +210,7 @@ class LLMRouter:
         except Exception as e:
             output = {
                 "status": "NOT_AVAILABLE",
-                "provider_id": profile.provider_id,
+                "provider_id": "ollama.local",
                 "model": chosen_model,
                 "response": "",
                 "error": str(e),
@@ -203,7 +229,7 @@ class LLMRouter:
             print(f"[LLM] Response received: \"{resp_preview}...\" ({len(output.get('response', ''))} chars)")
 
             self.history.record_outcome(
-                provider_id=profile.provider_id,
+                provider_id="ollama.local",
                 model_name=chosen_model,
                 task_category=task_cat,
                 success=True,
@@ -214,7 +240,7 @@ class LLMRouter:
             return {
                 "status": "success",
                 "selected_model": chosen_model,
-                "provider_id": profile.provider_id,
+                "provider_id": "ollama.local",
                 "score": score,
                 "task_category": task_cat,
                 "fallback_used": False,
@@ -246,7 +272,7 @@ class LLMRouter:
                 "result": output
             }
 
-        cloud_model = getattr(cloud_provider, "default_model", "nvidia/nemotron-3-nano-30b-a3b:free")
+        cloud_model = getattr(cloud_provider, "default_model", "openrouter/free")
         print(f"[LLM] Provider: openrouter.gateway")
         print(f"[LLM] Model: {cloud_model}")
 

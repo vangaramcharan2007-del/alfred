@@ -282,20 +282,23 @@ class JarvisCLI:
             return {"action": "daemon", "status": "COMPLETED", "result": res}
 
         # ----------------------------------------------------------
-        # FAST IPC ALFRED COMMAND DISPATCH
+        # FAST ALFRED COMMAND DISPATCH & NATURAL QUERY ROUTING
         # ----------------------------------------------------------
         elif command in ("alfred", "ask", "q"):
-            from jarvisx.runtime.ipc_client import IPCClient
-            client = IPCClient()
-            query_text = args or "status"
-            # Try warm IPC query first
-            ok, resp, lat = client.execute_command(query_text)
-            if ok:
-                print(f"[Alfred IPC ({lat:.2f}ms)]: {resp.get('output', resp)}")
-                return {"action": "alfred_ipc", "status": "SUCCESS", "result": resp}
-            else:
-                # Fallback to local mission execution
-                res = await self.handle_command_async(f"mission {query_text}")
+            clean_query = (args or "status").lstrip(">").strip()
+            if not clean_query or clean_query == "status":
+                return self.get_status()
+            # Route clean query through DynamicOrchestrator
+            try:
+                from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+                orch = DynamicOrchestrator()
+                res = orch.execute_voice_command(clean_query)
+                if isinstance(res, dict) and "response" in res:
+                    print(f"\nAlfred: {res['response']}\n")
+                    return {"action": res.get("action", "chat"), "status": "SUCCESS", "output": res["response"], "response": res["response"], "details": res}
+                return res
+            except Exception:
+                res = await self.handle_command_async(f"mission {clean_query}")
                 return {"action": "alfred_local", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
