@@ -278,6 +278,21 @@ class DynamicOrchestrator:
             response = f"Cleaned system storage, {salutation}. Eradicated {files} temp files and reclaimed {mb} MB of disk space."
             return {"action": "clean", "response": response, "details": res}
 
+        # 8.5 Autonomous VS Code Control & Live Typing Intent
+        if "vs code" in text or "vscode" in text or "in code" in text or "in vscode" in text or "in vs code" in text:
+            from jarvisx.automation.vscode_controller import VSCodeController
+            vsc = VSCodeController()
+
+            if any(w in text for w in ("can u control", "can you control", "control vs code", "control vscode", "control")):
+                vsc.focus_or_launch()
+                response = f"Yes {salutation}, I have full computer-use and autonomous automation control over Visual Studio Code. I can create files, type code live on screen, edit projects, and run programs."
+                return {"action": "vscode_control", "response": response, "status": "READY"}
+
+            if any(w in text for w in ("do it yourself", "type", "write", "implement", "create file", "infront of my eyes", "eyes", "example")):
+                vsc_res = vsc.create_and_type_code(filename="array_implementation.py", live_type=True)
+                response = f"I have brought Visual Studio Code to the foreground, created '{vsc_res['filename']}', and typed the complete array implementation live on your screen, {salutation}."
+                return {"action": "vscode_type", "response": response, "details": vsc_res}
+
         # 9. Real Test Debugging & Code Repair Work
         if text in {"fix", "debug", "fix this", "fix tests"}:
             from jarvisx.engineering.debug_loop_engine import DebugLoopEngine
