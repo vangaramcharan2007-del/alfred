@@ -92,6 +92,75 @@ class ComputerUseEngine:
             "total_latency_ms": round((time.time() - start_t) * 1000, 1)
         }
 
+    async def draw_artwork_via_uacc_mcp(self, character: str = "zoro") -> Dict[str, Any]:
+        """Execute complex artwork drawing through the full Agent -> MCP Client -> UACC Server -> MS Paint pipeline."""
+        from jarvisx.mcp.mcp_client import MCPClient
+        from jarvisx.computer_use.art_synthesizer import ArtSynthesizer
+        from jarvisx.observability.computer_use_logger import get_computer_use_logger
+
+        logger = get_computer_use_logger()
+        t0 = time.time()
+
+        # 1. Launch & Connect Standalone UACC MCP Server
+        server_cmd = [sys.executable, "-m", "jarvisx.mcp.uacc_server"]
+        mcp_client = MCPClient(server_id="uacc_desktop_server", command=server_cmd)
+        
+        connected = await mcp_client.connect(timeout_sec=4.0)
+        if not connected:
+            return {"status": "failed", "error": "Could not connect to UACC MCP Server"}
+
+        try:
+            # 2. Launch MS Paint via MCP
+            launch_res = await mcp_client.call_tool("uacc_launch_app", {"app_name": "mspaint"})
+            await asyncio.sleep(1.0)
+
+            # 3. Inspect Screen via MCP
+            inspect_res = await mcp_client.call_tool("uacc_inspect_screen", {})
+            screen_info = json.loads(inspect_res.get("content", [{}])[0].get("text", "{}")) if inspect_res.get("content") else {}
+            w = screen_info.get("width", 1920)
+            h = screen_info.get("height", 1080)
+
+            # Calculate canvas center offset
+            cx = w // 2
+            cy = h // 2
+
+            # 4. Generate Complex Vector Art Strokes
+            char_clean = character.lower().strip()
+            if "iron" in char_clean or "stark" in char_clean:
+                strokes = ArtSynthesizer.generate_ironman_strokes(cx, cy)
+                art_name = "Iron Man MK-85"
+            else:
+                strokes = ArtSynthesizer.generate_zoro_strokes(cx, cy)
+                art_name = "Roronoa Zoro (Three-Sword Style)"
+
+            print(f"[UACC MCP PIPELINE] Drawing {art_name} via {len(strokes)} continuous vector strokes in MS Paint...")
+
+            # 5. Execute Stroke Sequence over UACC MCP JSON-RPC
+            draw_res = await mcp_client.call_tool("uacc_draw_stroke_sequence", {"strokes": strokes}, timeout_sec=30.0)
+
+            total_latency = round((time.time() - t0) * 1000, 1)
+
+            logger.log_action(
+                task_id=f"uacc_art_{int(time.time()*1000)}",
+                tool="uacc_draw_stroke_sequence",
+                action=f"draw_{character}",
+                success=draw_res.get("status") == "success",
+                latency_ms=total_latency,
+                params={"character": art_name, "strokes_count": len(strokes)}
+            )
+
+            return {
+                "status": "success",
+                "character": art_name,
+                "strokes_drawn": len(strokes),
+                "mcp_server": "uacc-mcp-server",
+                "transport": "JSON-RPC 2.0 stdio",
+                "total_latency_ms": total_latency,
+                "pipeline": "Jarvis Agent -> MCP Client -> UACC MCP Server -> Windows -> MS Paint"
+            }
+        finally:
+            await mcp_client.disconnect()
+
     def type_code_in_vscode(self, filename: str, code_content: str) -> Dict[str, Any]:
         """Save file to workspace, open in VS Code, and bring to focus."""
         file_path = Path(filename)

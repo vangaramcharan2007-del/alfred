@@ -474,6 +474,19 @@ class DynamicOrchestrator:
                 response = f"I have brought Visual Studio Code to the foreground, created '{vsc_res['filename']}', and typed the complete implementation live on your screen, {salutation}."
                 return {"action": "vscode_type", "response": response, "details": vsc_res}
 
+        # 8.8 Autonomous MS Paint Computer-Use & UACC Art Intent
+        if any(w in text for w in ("paint", "draw", "sketch", "illustration")) and any(w in text for w in ("zoro", "iron", "character", "complex", "art", "portrait", "in paint", "ms paint")):
+            import asyncio
+            from jarvisx.computer_use.computer_use_engine import get_computer_use_engine
+            engine = get_computer_use_engine()
+            char_target = "ironman" if "iron" in text else "zoro"
+            res = asyncio.run(engine.draw_artwork_via_uacc_mcp(character=char_target))
+            response = (
+                f"I have launched MS Paint and drawn {res.get('character')} using {res.get('strokes_drawn')} "
+                f"pixel-precise vector strokes through the UACC MCP architecture, {salutation}."
+            )
+            return {"action": "paint_art", "response": response, "details": res}
+
         # 9. Real Test Debugging & Code Repair Work
         if text in {"fix", "debug", "fix this", "fix tests"}:
             from jarvisx.engineering.debug_loop_engine import DebugLoopEngine

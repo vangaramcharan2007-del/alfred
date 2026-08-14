@@ -143,3 +143,36 @@ def test_permission_gateway_enforcement_on_computer_use():
     time_tool = GetCurrentTimeTool()
     res_safe = gateway.check(time_tool.spec(), {}, interactive=False)
     assert res_safe["allowed"] is True
+
+
+def test_art_synthesizer_vector_strokes():
+    """Verify ArtSynthesizer produces valid parametric strokes for characters."""
+    from jarvisx.computer_use.art_synthesizer import ArtSynthesizer
+    
+    zoro_strokes = ArtSynthesizer.generate_zoro_strokes(960, 540)
+    assert len(zoro_strokes) >= 15
+    for s in zoro_strokes:
+        assert "start" in s and len(s["start"]) == 2
+        assert "end" in s and len(s["end"]) == 2
+
+    ironman_strokes = ArtSynthesizer.generate_ironman_strokes(960, 540)
+    assert len(ironman_strokes) >= 10
+    for s in ironman_strokes:
+        assert "start" in s and "end" in s
+
+
+def test_uacc_mcp_server_tools_spec():
+    """Verify standalone UACC MCP Server exposes all required computer-use tools."""
+    from jarvisx.mcp.uacc_server import TOOLS_SPEC, handle_inspect_screen
+    
+    names = [t["name"] for t in TOOLS_SPEC]
+    assert "uacc_inspect_screen" in names
+    assert "uacc_launch_app" in names
+    assert "uacc_mouse_click" in names
+    assert "uacc_mouse_drag" in names
+    assert "uacc_draw_stroke_sequence" in names
+
+    screen_res = handle_inspect_screen()
+    assert "width" in screen_res
+    assert "height" in screen_res
+    assert "active_window" in screen_res

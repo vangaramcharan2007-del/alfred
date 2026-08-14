@@ -683,11 +683,25 @@ class JarvisCLI:
         elif command in ("uacc", "paint", "draw"):
             from jarvisx.computer_use.computer_use_engine import get_computer_use_engine
             engine = get_computer_use_engine()
-            shape = args.strip().lower() if args else "rectangle"
-            print(f"\n[UACC DESKTOP ACTUATION]: Launching MS Paint and drawing '{shape}'...")
-            res = engine.draw_shape_in_paint(shape=shape)
-            print(f"Strokes drawn: {res.get('strokes_drawn')} | Latency: {res.get('total_latency_ms')} ms\n")
-            return {"action": "uacc_draw", "status": "SUCCESS", "result": res}
+            target = args.strip().lower() if args else "zoro"
+
+            if any(k in target for k in ("zoro", "iron", "stark", "anime", "character", "complex", "art", "portrait")) or not args:
+                char_name = "ironman" if "iron" in target else "zoro"
+                print(f"\n=========================================================================")
+                print(f"       🎨 JARVIS X: UACC MCP END-TO-END COMPUTER-USE DRAWING")
+                print(f"=========================================================================")
+                print(f"  Pipeline: Any Model / Intent -> MCP Client -> UACC MCP Server -> Windows -> MS Paint")
+                print(f"  Character: {char_name.upper()}")
+                res = asyncio.run(engine.draw_artwork_via_uacc_mcp(character=char_name))
+                print(f"  Result: {res.get('status')} | Character: {res.get('character')}")
+                print(f"  Strokes Actuated: {res.get('strokes_drawn')} | Total Latency: {res.get('total_latency_ms')} ms")
+                print("=========================================================================\n")
+                return {"action": "uacc_draw", "status": "SUCCESS", "result": res}
+            else:
+                print(f"\n[UACC DESKTOP ACTUATION]: Launching MS Paint and drawing '{target}'...")
+                res = engine.draw_shape_in_paint(shape=target)
+                print(f"Strokes drawn: {res.get('strokes_drawn')} | Latency: {res.get('total_latency_ms')} ms\n")
+                return {"action": "uacc_draw", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
         # DAILY DSA TUTOR & MASTER CURRICULUM
