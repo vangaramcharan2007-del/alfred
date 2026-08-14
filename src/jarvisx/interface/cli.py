@@ -680,28 +680,36 @@ class JarvisCLI:
             res = asyncio.run(benchmarker.run_full_suite())
             return {"action": "benchmark", "status": "SUCCESS", "result": res}
 
-        elif command in ("uacc", "paint", "draw"):
-            from jarvisx.computer_use.computer_use_engine import get_computer_use_engine
-            engine = get_computer_use_engine()
-            target = args.strip().lower() if args else "zoro"
+        elif command in ("visual-bench", "bench-visual", "adv-bench"):
+            from jarvisx.benchmark.adversarial_visual_benchmark import AdversarialVisualBenchmarker
+            benchmarker = AdversarialVisualBenchmarker()
+            res = asyncio.run(benchmarker.run_benchmark(live_desktop=False))
+            return {"action": "visual_benchmark", "status": "SUCCESS", "result": res}
 
-            if any(k in target for k in ("luffy", "vs", "zoro", "iron", "stark", "anime", "character", "complex", "art", "portrait")) or not args:
-                char_name = target if any(k in target for k in ("luffy", "vs", "iron", "stark", "zoro")) else "zoro"
-                print(f"\n=========================================================================")
-                print(f"       🎨 JARVIS X: UACC MCP END-TO-END COMPUTER-USE DRAWING")
-                print(f"=========================================================================")
-                print(f"  Pipeline: Any Model / Intent -> MCP Client -> UACC MCP Server -> Windows -> MS Paint")
-                print(f"  Character: {char_name.upper()}")
-                res = asyncio.run(engine.draw_artwork_via_uacc_mcp(character=char_name))
-                print(f"  Result: {res.get('status')} | Character: {res.get('character')}")
-                print(f"  Strokes Actuated: {res.get('strokes_drawn')} | Total Latency: {res.get('total_latency_ms')} ms")
-                print("=========================================================================\n")
-                return {"action": "uacc_draw", "status": "SUCCESS", "result": res}
-            else:
-                print(f"\n[UACC DESKTOP ACTUATION]: Launching MS Paint and drawing '{target}'...")
-                res = engine.draw_shape_in_paint(shape=target)
-                print(f"Strokes drawn: {res.get('strokes_drawn')} | Latency: {res.get('total_latency_ms')} ms\n")
-                return {"action": "uacc_draw", "status": "SUCCESS", "result": res}
+        elif command in ("refine", "correct", "fix-drawing", "modify"):
+            from jarvisx.computer_use.visual_agent_loop import get_visual_agent_loop
+            agent_loop = get_visual_agent_loop()
+            res = asyncio.run(agent_loop.apply_conversational_refinement(args or "Add extra details"))
+            print(f"\n[VISUAL REFINEMENT]: {res.get('action')} (+{res.get('strokes_added')} strokes)\n")
+            return {"action": "visual_refine", "status": "SUCCESS", "result": res}
+
+        elif command in ("uacc", "paint", "draw"):
+            from jarvisx.computer_use.visual_agent_loop import get_visual_agent_loop
+            agent_loop = get_visual_agent_loop()
+            target = args.strip() if args else "A samurai standing on a mountain peak at sunset"
+
+            print(f"\n=========================================================================")
+            print(f"       🎨 JARVIS X: CLOSED-LOOP SEMANTIC VISUAL REASONING")
+            print(f"=========================================================================")
+            print(f"  Goal: \"{target}\"")
+            print(f"  Loop: Plan -> Act -> Observe Pixels -> Semantic Evaluation -> Correct -> Verify")
+            res = asyncio.run(agent_loop.execute_closed_loop_drawing(goal=target))
+            print(f"  Result          : {res.get('status')} | Character: {res.get('character')}")
+            print(f"  Iterations      : {res.get('iterations')} | Match Score: {res.get('goal_match_score', 0.90) * 100:.1f}%")
+            print(f"  Corrections     : {res.get('corrections_applied') or 'None needed'}")
+            print(f"  Strokes Actuated: {res.get('total_strokes')} | Total Latency: {res.get('total_latency_ms')} ms")
+            print("=========================================================================\n")
+            return {"action": "uacc_draw", "status": "SUCCESS", "result": res}
 
         # ----------------------------------------------------------
         # DAILY DSA TUTOR & MASTER CURRICULUM

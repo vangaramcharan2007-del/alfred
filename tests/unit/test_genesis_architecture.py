@@ -243,3 +243,71 @@ def test_zero_shot_generative_visual_planner():
     res_unseen = GenerativeVisualPlanner.compile_goal_to_stages("cybernetic matrix core", bbox)
     assert len(res_unseen["stages"]) == 3
     assert sum(len(s["strokes"]) for s in res_unseen["stages"]) >= 15
+
+
+def test_semantic_canvas_perception_and_scene_state():
+    """Verify SemanticCanvasPerceptionEngine produces structured SceneState with clusters and spatial density."""
+    from jarvisx.computer_use.semantic_canvas_perception import SemanticCanvasPerceptionEngine
+    
+    engine = SemanticCanvasPerceptionEngine()
+    dummy_strokes = [
+        {"start": [900, 400], "end": [1020, 400]},
+        {"start": [900, 400], "end": [960, 320]},
+        {"start": [960, 320], "end": [1020, 400]},
+        {"start": [800, 600], "end": [1120, 600]},
+    ]
+    scene = engine.analyze_canvas_scene(dummy_strokes, "Samurai on a mountain", 1920, 1080)
+    assert scene.total_strokes_detected == len(dummy_strokes)
+    assert len(scene.detected_objects) > 0
+    assert "center" in scene.spatial_density
+    assert scene.confidence >= 0.70
+
+
+def test_semantic_visual_evaluator():
+    """Verify VisualEvaluator detects missing elements and generates actionable recommendations."""
+    from jarvisx.computer_use.semantic_canvas_perception import SemanticCanvasPerceptionEngine
+    from jarvisx.computer_use.visual_evaluator import VisualEvaluator
+    
+    perc = SemanticCanvasPerceptionEngine()
+    evaluator = VisualEvaluator()
+    
+    scene = perc.analyze_canvas_scene([], "Samurai on a mountain at sunset", 1920, 1080)
+    evaluation = evaluator.evaluate_scene("Samurai on a mountain at sunset", scene)
+    assert evaluation.completion_status == "INCOMPLETE"
+    assert len(evaluation.missing_elements) >= 2
+    assert len(evaluation.recommendations) > 0
+
+
+def test_visual_corrector_delta_strokes():
+    """Verify VisualCorrector synthesizes precise delta strokes for scale and refinement."""
+    from jarvisx.computer_use.semantic_canvas_perception import SemanticCanvasPerceptionEngine
+    from jarvisx.computer_use.visual_corrector import VisualCorrector
+    
+    perc = SemanticCanvasPerceptionEngine()
+    corrector = VisualCorrector()
+    
+    scene = perc.analyze_canvas_scene([], "Samurai on a mountain", 1920, 1080)
+    
+    # Contextual refinement 1: Enlarge mountain
+    corr_mountain = corrector.generate_contextual_refinement("Make the mountain larger", scene)
+    assert corr_mountain.target_element == "mountain"
+    assert corr_mountain.operation == "enlarge"
+    assert len(corr_mountain.corrective_strokes) >= 3
+
+    # Contextual refinement 2: Add missing sword
+    corr_sword = corrector.generate_contextual_refinement("Add a sword to his right hand", scene)
+    assert corr_sword.target_element == "sword"
+    assert len(corr_sword.corrective_strokes) >= 3
+
+
+@pytest.mark.asyncio
+async def test_adversarial_visual_benchmark_10_tasks():
+    """Verify AdversarialVisualBenchmarker evaluates all 10 unseen prompt tasks with 100% success."""
+    from jarvisx.benchmark.adversarial_visual_benchmark import AdversarialVisualBenchmarker
+    
+    benchmarker = AdversarialVisualBenchmarker()
+    summary = await benchmarker.run_benchmark(live_desktop=False)
+    assert summary["tasks_run"] == 10
+    assert summary["passed"] == 10
+    assert summary["average_goal_match_score"] >= 0.85
+    assert summary["overall_status"] == "PASSED"

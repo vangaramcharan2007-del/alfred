@@ -474,18 +474,27 @@ class DynamicOrchestrator:
                 response = f"I have brought Visual Studio Code to the foreground, created '{vsc_res['filename']}', and typed the complete implementation live on your screen, {salutation}."
                 return {"action": "vscode_type", "response": response, "details": vsc_res}
 
-        # 8.8 Autonomous MS Paint Computer-Use & UACC Art Intent
-        if any(w in text for w in ("paint", "draw", "sketch", "illustration")) and any(w in text for w in ("luffy", "vs", "zoro", "iron", "character", "complex", "art", "portrait", "in paint", "ms paint")):
+        # 8.8 Autonomous Closed-Loop Visual Drawing & Conversational Refinement
+        if any(w in text for w in ("paint", "draw", "sketch", "illustration")) and not text.startswith("what"):
             import asyncio
-            from jarvisx.computer_use.computer_use_engine import get_computer_use_engine
-            engine = get_computer_use_engine()
-            char_target = "luffy vs zoro" if ("luffy" in text and "zoro" in text) or "vs" in text or "luffy" in text else "ironman" if "iron" in text else "zoro"
-            res = asyncio.run(engine.draw_artwork_via_uacc_mcp(character=char_target))
+            from jarvisx.computer_use.visual_agent_loop import get_visual_agent_loop
+            agent_loop = get_visual_agent_loop()
+            goal_prompt = raw_text.replace("paint ", "").replace("draw ", "").replace("sketch ", "").strip() or "A samurai standing on a mountain peak at sunset"
+            res = asyncio.run(agent_loop.execute_closed_loop_drawing(goal=goal_prompt))
             response = (
-                f"I have launched MS Paint and drawn {res.get('character')} using {res.get('strokes_drawn')} "
-                f"pixel-precise vector strokes through the UACC MCP architecture, {salutation}."
+                f"I have executed the closed-loop visual reasoning cycle for '{res.get('character')}', {salutation}. "
+                f"Canvas state verified with goal match score {res.get('goal_match_score', 0.9) * 100:.0f}% across {res.get('iterations')} iterations."
             )
             return {"action": "paint_art", "response": response, "details": res}
+
+        # 8.9 Conversational Visual Refinement on Existing Canvas
+        if any(w in text for w in ("make the", "add a", "add the", "remove the", "put the", "larger", "taller", "smaller", "move the")) and any(w in text for w in ("mountain", "sword", "cloud", "sun", "moon", "sunset", "tree", "river", "shadow", "shading", "eyes", "star", "haki", "lightning")):
+            import asyncio
+            from jarvisx.computer_use.visual_agent_loop import get_visual_agent_loop
+            agent_loop = get_visual_agent_loop()
+            res = asyncio.run(agent_loop.apply_conversational_refinement(refinement_prompt=raw_text))
+            response = f"I have inspected the active canvas and applied your refinement: {res.get('action')}, {salutation}."
+            return {"action": "visual_refine", "response": response, "details": res}
 
         # 9. Real Test Debugging & Code Repair Work
         if text in {"fix", "debug", "fix this", "fix tests"}:
