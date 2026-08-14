@@ -176,3 +176,33 @@ def test_uacc_mcp_server_tools_spec():
     assert "width" in screen_res
     assert "height" in screen_res
     assert "active_window" in screen_res
+
+
+def test_visual_agent_loop_milestone_planning():
+    """Verify VisualAgentLoop decomposes complex visual goals into progressive stages (Level 2 & 5)."""
+    from jarvisx.computer_use.visual_agent_loop import VisualAgentLoop
+    
+    agent_loop = VisualAgentLoop()
+    session = agent_loop.plan_visual_milestones("Luffy vs Zoro duel", 960, 540)
+    assert len(session.stages) == 3
+    assert session.stages[0].name == "Primary Contours"
+    assert session.stages[1].name == "Facial Features & Scars"
+    assert session.stages[2].name == "Santoryu Blades & Haki Clash"
+    assert sum(len(s.strokes) for s in session.stages) >= 50
+
+
+@pytest.mark.asyncio
+async def test_visual_agent_loop_conversational_refinement():
+    """Verify VisualAgentLoop can apply conversational refinements to active artwork (Level 6)."""
+    from jarvisx.computer_use.visual_agent_loop import VisualAgentLoop
+    
+    agent_loop = VisualAgentLoop()
+    agent_loop.plan_visual_milestones("Zoro", 960, 540)
+    
+    with patch.object(agent_loop.client, "call_tool", return_value={"status": "success"}):
+        with patch.object(agent_loop.client, "connect", return_value=True):
+            agent_loop.client.is_connected = True
+            refine_res = await agent_loop.apply_conversational_refinement("Add Conqueror's Haki lightning")
+            assert refine_res["status"] == "success"
+            assert refine_res["strokes_added"] > 0
+            assert "Conqueror's Haki" in refine_res["refinement"]
