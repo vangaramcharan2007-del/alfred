@@ -496,6 +496,18 @@ class DynamicOrchestrator:
             response = f"I have inspected the active canvas and applied your refinement: {res.get('action')}, {salutation}."
             return {"action": "visual_refine", "response": response, "details": res}
 
+        # 8.95 Performance Optimization & Resource Reducer
+        if any(w in text for w in ("optimize", "clean memory", "reduce memory", "reduce performance", "performance", "high usage", "sky rocketing", "skyrocketing", "free ram", "clean cache")):
+            from jarvisx.reliability.performance_optimizer import PerformanceOptimizer
+            opt = PerformanceOptimizer(".")
+            res = opt.optimize_system()
+            response = (
+                f"I have optimized system resources, {salutation}. Reclaimed {res.ram_freed_mb:.1f} MB of RAM, "
+                f"pruned {len(res.orphan_processes_pruned)} background processes, cleared {res.caches_cleared_count} cache stores, "
+                f"and compacted {res.databases_compacted_count} databases."
+            )
+            return {"action": "optimize_performance", "response": response, "details": res.to_dict()}
+
         # 9. Real Test Debugging & Code Repair Work
         if text in {"fix", "debug", "fix this", "fix tests"}:
             from jarvisx.engineering.debug_loop_engine import DebugLoopEngine

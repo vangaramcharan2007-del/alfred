@@ -680,6 +680,22 @@ class JarvisCLI:
             res = asyncio.run(benchmarker.run_full_suite())
             return {"action": "benchmark", "status": "SUCCESS", "result": res}
 
+        elif command in ("optimize", "clean-memory", "reduce-usage", "performance", "clean-cache"):
+            from jarvisx.reliability.performance_optimizer import PerformanceOptimizer
+            opt = PerformanceOptimizer(".")
+            res = opt.optimize_system()
+            print(f"\n=========================================================================")
+            print(f"       ⚡ JARVIS X: SYSTEM PERFORMANCE OPTIMIZATION REPORT")
+            print(f"=========================================================================")
+            print(f"  * Status               : {res.status}")
+            print(f"  * RAM Freed            : {res.ram_freed_mb:.1f} MB")
+            print(f"  * RAM Usage            : {res.before_ram_used_gb:.2f} GB -> {res.after_ram_used_gb:.2f} GB")
+            print(f"  * Orphan Procs Pruned  : {len(res.orphan_processes_pruned)} (PIDs: {res.orphan_processes_pruned})")
+            print(f"  * Caches Cleared       : {res.caches_cleared_count} directories")
+            print(f"  * Databases Compacted  : {res.databases_compacted_count} SQLite stores")
+            print("=========================================================================\n")
+            return {"action": "optimize", "status": "SUCCESS", "result": res.to_dict()}
+
         elif command in ("visual-bench", "bench-visual", "adv-bench"):
             from jarvisx.benchmark.adversarial_visual_benchmark import AdversarialVisualBenchmarker
             benchmarker = AdversarialVisualBenchmarker()

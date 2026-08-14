@@ -311,3 +311,15 @@ async def test_adversarial_visual_benchmark_10_tasks():
     assert summary["passed"] == 10
     assert summary["average_goal_match_score"] >= 0.85
     assert summary["overall_status"] == "PASSED"
+
+
+def test_performance_optimizer_resource_reduction():
+    """Verify PerformanceOptimizer executes resource reduction and returns metrics."""
+    from jarvisx.reliability.performance_optimizer import PerformanceOptimizer
+    
+    opt = PerformanceOptimizer(".")
+    rep = opt.optimize_system()
+    assert rep.status == "COMPLETED"
+    assert rep.after_ram_used_gb > 0
+    assert rep.databases_compacted_count >= 0
+    assert isinstance(rep.to_dict(), dict)
