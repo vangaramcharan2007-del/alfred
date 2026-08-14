@@ -169,17 +169,19 @@ class DynamicOrchestrator:
 
     def _execute_single_voice_command(self, raw_text: str, persona: str = "ALFRED") -> Dict[str, Any]:
         """Execute a single focused command intent."""
+        import re
         text = raw_text.lower().strip()
+        clean_text = re.sub(r'[^\w\s]', '', text).strip()
         salutation = "Sir" if persona == "ALFRED" else "Boss"
 
         # 0. Conversational Greetings & Casual Queries
         greetings = {"hi", "hello", "hey", "hloo", "hlw", "yo", "sup", "howdy", "good morning", "good afternoon", "good evening"}
-        if text in greetings or any(text.startswith(g + " ") for g in greetings):
+        if clean_text in greetings or any(clean_text.startswith(g + " ") for g in greetings):
             return {
                 "action": "speak",
                 "response": f"Hello {salutation}! Alfred is active and standing by. How may I assist you today?",
             }
-        if text in {"wdym", "what do you mean", "what can you do", "help me"}:
+        if clean_text in {"wdym", "what do you mean", "what can you do", "help me"}:
             return {
                 "action": "speak",
                 "response": f"I am your local-first personal AI operating agent, {salutation}. You can chat with me, ask questions, manage files, research the web, inspect your screen, or plan multi-step missions.",
@@ -481,12 +483,12 @@ class DynamicOrchestrator:
             return {"action": "fix", "response": response, "details": res.to_dict()}
 
         # 10. Identity & Name Query
-        if text in {"my name", "who am i", "who i am", "what is my name"}:
+        if clean_text in {"my name", "who am i", "who i am", "what is my name"}:
             response = f"Your name is {self.user_name}, {salutation}."
             return {"action": "speak", "response": response, "type": "identity"}
 
         # 11. Time Query
-        if text in {"time", "what time is it", "current time", "tell me the time"}:
+        if clean_text in {"time", "what time is it", "current time", "tell me the time"}:
             now_str = datetime.datetime.now().strftime("%I:%M %p")
             response = f"The time is {now_str}, {salutation}."
             return {"action": "speak", "response": response, "type": "time"}
