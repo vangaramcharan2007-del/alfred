@@ -527,6 +527,18 @@ class DynamicOrchestrator:
             response = f"The time is {now_str}, {salutation}."
             return {"action": "speak", "response": response, "type": "time"}
 
+        # 11.5 NPTEL / Exam Fee Portal Navigation (Safety Protected: Stops at Payment Gateway)
+        if "nptel" in text and any(w in text for w in ("exam", "fee", "fees", "pay", "registration", "portal", "form")):
+            import webbrowser
+            nptel_url = "https://examform.nptel.ac.in/"
+            webbrowser.open(nptel_url)
+            response = (
+                f"I have opened the official NPTEL Exam Registration Portal at {nptel_url}, {salutation}. "
+                f"As instructed, I will stand by before the payment gateway so you can review the exam details "
+                f"and securely authorize the transaction with your credentials."
+            )
+            return {"action": "nptel_exam_navigation", "response": response, "url": nptel_url, "safety_gate": "STOPPED_AT_PAYMENT"}
+
         # 12. Dynamic App Launching ("open X", "launch X", "start X", or clean single app name)
         app_target = text.replace("open ", "").replace("launch ", "").replace("start ", "").strip()
         if (text.startswith(("open ", "launch ", "start ")) and len(text.split()) <= 4) or app_target in {"youtube", "instagram", "whatsapp", "spotify", "github", "gmail", "mail", "google", "twitter", "x", "chatgpt", "facebook", "reddit", "linkedin", "netflix"}:
