@@ -672,6 +672,24 @@ class JarvisCLI:
                 return {"action": "mesh_status", "status": "SUCCESS", "workers": [w.to_dict() for w in workers]}
 
         # ----------------------------------------------------------
+        # JARVIS X: GENESIS BENCHMARK & ARCHITECTURE STATUS
+        # ----------------------------------------------------------
+        elif command in ("benchmark", "genesis-bench", "bench-all"):
+            from jarvisx.benchmark.genesis_benchmarks import get_genesis_benchmarker
+            benchmarker = get_genesis_benchmarker()
+            res = asyncio.run(benchmarker.run_full_suite())
+            return {"action": "benchmark", "status": "SUCCESS", "result": res}
+
+        elif command in ("uacc", "paint", "draw"):
+            from jarvisx.computer_use.computer_use_engine import get_computer_use_engine
+            engine = get_computer_use_engine()
+            shape = args.strip().lower() if args else "rectangle"
+            print(f"\n[UACC DESKTOP ACTUATION]: Launching MS Paint and drawing '{shape}'...")
+            res = engine.draw_shape_in_paint(shape=shape)
+            print(f"Strokes drawn: {res.get('strokes_drawn')} | Latency: {res.get('total_latency_ms')} ms\n")
+            return {"action": "uacc_draw", "status": "SUCCESS", "result": res}
+
+        # ----------------------------------------------------------
         # DAILY DSA TUTOR & MASTER CURRICULUM
         # ----------------------------------------------------------
         elif command in ("dsa", "tutor", "learn-dsa", "curriculum"):

@@ -842,6 +842,79 @@ class CleanDiskSpaceTool(Tool):
 
 
 # ---------------------------------------------------------------------------
+# Tool: uacc_computer_control
+# ---------------------------------------------------------------------------
+
+class UACCComputerControlTool(Tool):
+    """Generic desktop computer control tool backed by UACC and MCP."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="uacc_computer_control",
+            description="Executes deterministic computer control actions (inspect, click, move, type, press, drag, launch_app) via UACC.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["inspect", "click", "move", "type", "press", "drag", "launch_app"],
+                        "description": "The specific desktop action to perform."
+                    },
+                    "params": {
+                        "type": "object",
+                        "description": "Action-specific parameters (e.g. x, y, text, key, start_x, start_y, end_x, end_y, app_name)."
+                    }
+                },
+                "required": ["action"]
+            },
+            permission_level=PermissionLevel.CONFIRM,
+            required_scope="desktop.actuate"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        import time
+        from jarvisx.computer_use.uacc_adapter import get_uacc_adapter
+        from jarvisx.computer_use.computer_use_engine import get_computer_use_engine
+        from jarvisx.observability.computer_use_logger import get_computer_use_logger
+        
+        action = arguments.get("action", "inspect")
+        params = arguments.get("params", {})
+        
+        uacc = get_uacc_adapter()
+        engine = get_computer_use_engine()
+        logger = get_computer_use_logger()
+
+        t0 = time.time()
+        try:
+            if action == "launch_app":
+                res = engine.launch_app(params.get("app_name", "notepad"))
+            else:
+                res = uacc.execute_action(action, params)
+
+            latency = round((time.time() - t0) * 1000, 1)
+            success = res.get("status") == "success"
+            
+            logger.log_action(
+                task_id=f"uacc_{int(time.time()*1000)}",
+                tool="uacc_computer_control",
+                action=action,
+                success=success,
+                latency_ms=latency,
+                params=params,
+                error=res.get("error")
+            )
+
+            status = "success" if success else "failed"
+            return ToolResult(status=status, tool="uacc_computer_control", result=res, error=res.get("error"))
+        except Exception as e:
+            return ToolResult(status="failed", tool="uacc_computer_control", error=str(e))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result)
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
 # Registry bootstrap
 # ---------------------------------------------------------------------------
 
@@ -866,6 +939,7 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(BrowserOpenTool())
     registry.register(CoolSystemTool())
     registry.register(CleanDiskSpaceTool())
+    registry.register(UACCComputerControlTool())
 
 
 

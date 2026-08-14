@@ -415,16 +415,61 @@ class DynamicOrchestrator:
         # 8.5 Autonomous VS Code Control & Live Typing Intent
         if "vs code" in text or "vscode" in text or "in code" in text or "in vscode" in text or "in vs code" in text:
             from jarvisx.automation.vscode_controller import VSCodeController
+            from jarvisx.computer_use.computer_use_engine import get_computer_use_engine
             vsc = VSCodeController()
+            comp_engine = get_computer_use_engine()
 
             if any(w in text for w in ("can u control", "can you control", "control vs code", "control vscode", "control")):
                 vsc.focus_or_launch()
                 response = f"Yes {salutation}, I have full computer-use and autonomous automation control over Visual Studio Code. I can create files, type code live on screen, edit projects, and run programs."
                 return {"action": "vscode_control", "response": response, "status": "READY"}
 
-            if any(w in text for w in ("do it yourself", "type", "write", "implement", "create file", "infront of my eyes", "eyes", "example")):
+            # NumPy & Matrix Multiplication lesson
+            if any(w in text for w in ("numpy", "matrix", "matrix multiplication", "reshape", "3x5", "5x3")):
+                code_content = (
+                    'import numpy as np\n\n'
+                    '# 1. Create a 3x5 NumPy array with sequential integer values\n'
+                    'array_3x5 = np.arange(1, 16).reshape((3, 5))\n'
+                    'print("Original 3x5 Array:")\n'
+                    'print(array_3x5)\n'
+                    'print("Shape:", array_3x5.shape)\n\n'
+                    '# 2. Reshape a copy into a 5x3 matrix\n'
+                    'matrix_5x3 = array_3x5.copy().reshape((5, 3))\n'
+                    'print("\\nReshaped 5x3 Matrix (Copy):")\n'
+                    'print(matrix_5x3)\n'
+                    'print("Shape:", matrix_5x3.shape)\n\n'
+                    '# 3. Compute Matrix Multiplication: (3x5) @ (5x3) -> (3x3) Matrix\n'
+                    '# Rule: Columns of A (5) == Rows of B (5). Result shape is (3x3).\n'
+                    'product_matrix = np.matmul(array_3x5, matrix_5x3)  # or array_3x5 @ matrix_5x3\n'
+                    'print("\\nResult of Matrix Multiplication (3x3 Matrix):")\n'
+                    'print(product_matrix)\n'
+                    'print("Product Shape:", product_matrix.shape)\n'
+                )
+                filename = "numpy_matrix_multiplication.py"
+                vsc_res = vsc.create_and_type_code(filename=filename, code_content=code_content, live_type=True)
+                
+                # Execute the code to show the output in Alfred
+                import subprocess
+                exec_out = ""
+                try:
+                    res_cmd = subprocess.run([sys.executable, filename], capture_output=True, text=True, timeout=10)
+                    exec_out = res_cmd.stdout.strip()
+                except Exception:
+                    pass
+
+                response = (
+                    f"Certainly, {salutation}! I have prepared your NumPy matrix multiplication lesson in Visual Studio Code.\n\n"
+                    f"1. **Created 3x5 Array**: `np.arange(1, 16).reshape((3, 5))`\n"
+                    f"2. **Reshaped Copy (5x3)**: `array_3x5.copy().reshape((5, 3))`\n"
+                    f"3. **Matrix Multiplication**: `(3x5) @ (5x3)` yields a **3x3 matrix**!\n\n"
+                    f"```\n{exec_out}\n```\n"
+                    f"The file `{filename}` is open in Visual Studio Code ready for your practice."
+                )
+                return {"action": "vscode_type", "response": response, "details": vsc_res}
+
+            if any(w in text for w in ("do it yourself", "type", "write", "implement", "create file", "infront of my eyes", "eyes", "example", "teach me")):
                 vsc_res = vsc.create_and_type_code(filename="array_implementation.py", live_type=True)
-                response = f"I have brought Visual Studio Code to the foreground, created '{vsc_res['filename']}', and typed the complete array implementation live on your screen, {salutation}."
+                response = f"I have brought Visual Studio Code to the foreground, created '{vsc_res['filename']}', and typed the complete implementation live on your screen, {salutation}."
                 return {"action": "vscode_type", "response": response, "details": vsc_res}
 
         # 9. Real Test Debugging & Code Repair Work
