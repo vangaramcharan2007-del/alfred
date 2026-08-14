@@ -135,6 +135,10 @@ class MCPClient:
                 tools.append(mcp_t)
         return tools
 
+    async def list_tools(self) -> List[MCPToolDefinition]:
+        """Alias for refresh_tools() to query tools/list."""
+        return await self.refresh_tools()
+
     async def call_tool(self, name: str, arguments: Dict[str, Any], timeout_sec: float = 15.0) -> Dict[str, Any]:
         """Execute a tool via MCP tools/call."""
         start_t = time.time()
