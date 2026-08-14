@@ -206,3 +206,40 @@ async def test_visual_agent_loop_conversational_refinement():
             assert refine_res["status"] == "success"
             assert refine_res["strokes_added"] > 0
             assert "Conqueror's Haki" in refine_res["refinement"]
+
+
+def test_canvas_perception_bounds():
+    """Verify CanvasPerceptionEngine computes valid MS Paint canvas boundaries."""
+    from jarvisx.computer_use.canvas_perception import CanvasPerceptionEngine
+    
+    bbox = CanvasPerceptionEngine.locate_paint_canvas(1920, 1080)
+    assert bbox.width > 1000
+    assert bbox.height > 600
+    assert bbox.top >= 150
+    assert bbox.left >= 20
+    assert bbox.center_x == bbox.left + (bbox.width // 2)
+    assert bbox.center_y == bbox.top + (bbox.height // 2)
+
+
+def test_zero_shot_generative_visual_planner():
+    """Verify GenerativeVisualPlanner compiles open-ended unseen prompts into 3-stage geometries."""
+    from jarvisx.computer_use.canvas_perception import CanvasPerceptionEngine
+    from jarvisx.computer_use.generative_visual_planner import GenerativeVisualPlanner
+
+    bbox = CanvasPerceptionEngine.locate_paint_canvas(1920, 1080)
+
+    # 1. Rocket Launching Prompt
+    res_rocket = GenerativeVisualPlanner.compile_goal_to_stages("rocket launching into space", bbox)
+    assert "Rocket" in res_rocket["subject"]
+    assert len(res_rocket["stages"]) == 3
+    assert all(len(s["strokes"]) > 0 for s in res_rocket["stages"])
+
+    # 2. Coffee Mug Prompt
+    res_coffee = GenerativeVisualPlanner.compile_goal_to_stages("steaming coffee mug", bbox)
+    assert "Coffee" in res_coffee["subject"]
+    assert len(res_coffee["stages"]) == 3
+
+    # 3. Unseen Abstract Entity (Zero-Shot Synthesis)
+    res_unseen = GenerativeVisualPlanner.compile_goal_to_stages("cybernetic matrix core", bbox)
+    assert len(res_unseen["stages"]) == 3
+    assert sum(len(s["strokes"]) for s in res_unseen["stages"]) >= 15

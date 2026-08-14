@@ -76,10 +76,13 @@ class VisualAgentLoop:
 
     def plan_visual_milestones(self, goal: str, cx: int, cy: int) -> VisualDrawingSession:
         """Decompose natural language visual goal into multi-stage milestones (Level 2 & Level 5)."""
+        from jarvisx.computer_use.canvas_perception import CanvasPerceptionEngine
+        from jarvisx.computer_use.generative_visual_planner import GenerativeVisualPlanner
+
         goal_clean = goal.lower().strip()
         session = VisualDrawingSession(goal=goal, character_name="Custom Artwork", canvas_center=[cx, cy])
 
-        if "luffy" in goal_clean and "zoro" in goal_clean or "vs" in goal_clean:
+        if ("luffy" in goal_clean and "zoro" in goal_clean) or "vs" in goal_clean:
             session.character_name = "Luffy vs Zoro (Straw Hat Duel)"
             # Stage 1: Contours & Silhouettes
             s1 = VisualPlanStage(
@@ -111,12 +114,22 @@ class VisualAgentLoop:
             s3 = VisualPlanStage(stage_id=3, name="Arc Reactor Core", description="Triangular power core", strokes=ArtSynthesizer.generate_ironman_strokes(cx, cy)[18:])
             session.stages = [s1, s2, s3]
 
-        else:
+        elif "zoro" in goal_clean:
             session.character_name = "Roronoa Zoro (Santoryu)"
             s1 = VisualPlanStage(stage_id=1, name="Bandana & Jawline", description="Head contour and jaw structure", strokes=ArtSynthesizer.generate_zoro_strokes(cx, cy)[:10])
             s2 = VisualPlanStage(stage_id=2, name="Piercing Eyes & Scar", description="Vertical eye slash & nose", strokes=ArtSynthesizer.generate_zoro_strokes(cx, cy)[10:18])
             s3 = VisualPlanStage(stage_id=3, name="Three Swords (Santoryu)", description="Wado Ichimonji mouth blade & dual katanas", strokes=ArtSynthesizer.generate_zoro_strokes(cx, cy)[18:])
             session.stages = [s1, s2, s3]
+
+        else:
+            # Zero-Shot Dynamic Visual Geometry Compilation for ANY unseen prompt
+            bbox = CanvasPerceptionEngine.locate_paint_canvas(cx * 2, cy * 2)
+            compiled = GenerativeVisualPlanner.compile_goal_to_stages(goal, bbox)
+            session.character_name = compiled["subject"]
+            session.stages = [
+                VisualPlanStage(stage_id=st["id"], name=st["name"], description=st["name"], strokes=st["strokes"])
+                for st in compiled["stages"]
+            ]
 
         self.active_session = session
         return session
