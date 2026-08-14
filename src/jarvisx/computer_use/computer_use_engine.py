@@ -9,6 +9,8 @@ import time
 import subprocess
 import shutil
 import sys
+import asyncio
+import json
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 
@@ -126,7 +128,10 @@ class ComputerUseEngine:
 
             # 4. Generate Complex Vector Art Strokes
             char_clean = character.lower().strip()
-            if "iron" in char_clean or "stark" in char_clean:
+            if "luffy" in char_clean or "vs" in char_clean or ("luffy" in char_clean and "zoro" in char_clean):
+                strokes = ArtSynthesizer.generate_luffy_vs_zoro_strokes(cx, cy)
+                art_name = "Luffy vs Zoro (Straw Hat Duel)"
+            elif "iron" in char_clean or "stark" in char_clean:
                 strokes = ArtSynthesizer.generate_ironman_strokes(cx, cy)
                 art_name = "Iron Man MK-85"
             else:

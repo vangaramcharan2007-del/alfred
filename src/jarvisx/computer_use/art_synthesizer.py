@@ -116,3 +116,120 @@ class ArtSynthesizer:
         strokes.append({"start": [cx - 25, cy + 240], "end": [cx, cy + 200], "duration": d})
 
         return strokes
+
+    @staticmethod
+    def generate_luffy_vs_zoro_strokes(cx: int, cy: int) -> List[Dict[str, Any]]:
+        """Generate high-intensity dual character clash vector strokes for Luffy vs Zoro in MS Paint."""
+        strokes = []
+        d = 0.035
+
+        # -----------------------------------------------------------
+        # 1. LEFT FIGHTER: MONKEY D. LUFFY (STRAW HAT PIRATE)
+        # -----------------------------------------------------------
+        lx = cx - 260
+        ly = cy
+
+        # Straw Hat
+        strokes.append({"start": [lx - 110, ly - 90], "end": [lx + 90, ly - 90], "duration": d}) # Hat Brim
+        strokes.append({"start": [lx - 70, ly - 90], "end": [lx - 60, ly - 150], "duration": d}) # Hat Left Crown
+        strokes.append({"start": [lx + 50, ly - 90], "end": [lx + 40, ly - 150], "duration": d}) # Hat Right Crown
+        strokes.append({"start": [lx - 60, ly - 150], "end": [lx + 40, ly - 150], "duration": d}) # Hat Top
+        strokes.append({"start": [lx - 65, ly - 110], "end": [lx + 45, ly - 110], "duration": d}) # Red Ribbon Band
+
+        # Luffy Spiky Hair
+        strokes.append({"start": [lx - 80, ly - 85], "end": [lx - 105, ly - 50], "duration": d})
+        strokes.append({"start": [lx - 105, ly - 50], "end": [lx - 70, ly - 40], "duration": d})
+        strokes.append({"start": [lx + 60, ly - 85], "end": [lx + 85, ly - 50], "duration": d})
+        strokes.append({"start": [lx + 85, ly - 50], "end": [lx + 50, ly - 40], "duration": d})
+
+        # Luffy Face & Jaw
+        strokes.append({"start": [lx - 70, ly - 40], "end": [lx - 40, ly + 50], "duration": d})
+        strokes.append({"start": [lx + 50, ly - 40], "end": [lx + 20, ly + 50], "duration": d})
+        strokes.append({"start": [lx - 40, ly + 50], "end": [lx - 10, ly + 70], "duration": d})
+        strokes.append({"start": [lx + 20, ly + 50], "end": [lx - 10, ly + 70], "duration": d})
+
+        # Luffy Eyes & Iconic Under-Eye Stitch Scar
+        strokes.append({"start": [lx - 50, ly - 20], "end": [lx - 20, ly - 20], "duration": d}) # Left Eye
+        strokes.append({"start": [lx - 40, ly - 10], "end": [lx - 30, ly - 10], "duration": d})
+        strokes.append({"start": [lx - 45, ly - 5], "end": [lx - 25, ly - 5], "duration": d}) # Eye Scar Line
+        strokes.append({"start": [lx - 35, ly - 8], "end": [lx - 35, ly - 2], "duration": d}) # Stitch tick
+        strokes.append({"start": [lx + 10, ly - 20], "end": [lx + 40, ly - 20], "duration": d}) # Right Eye
+        strokes.append({"start": [lx + 20, ly - 10], "end": [lx + 30, ly - 10], "duration": d})
+
+        # Luffy Massive Grin
+        strokes.append({"start": [lx - 40, ly + 15], "end": [lx + 20, ly + 15], "duration": d})
+        strokes.append({"start": [lx - 40, ly + 15], "end": [lx - 10, ly + 35], "duration": d})
+        strokes.append({"start": [lx + 20, ly + 15], "end": [lx - 10, ly + 35], "duration": d})
+
+        # Luffy Arm & Gomu Gomu Pistol Fist Clashing Toward Center
+        strokes.append({"start": [lx + 30, ly + 30], "end": [cx - 60, ly + 10], "duration": d}) # Arm Top
+        strokes.append({"start": [lx + 30, ly + 60], "end": [cx - 60, ly + 40], "duration": d}) # Arm Bottom
+        # Giant Fist Knuckles
+        strokes.append({"start": [cx - 60, ly - 15], "end": [cx - 15, ly - 15], "duration": d})
+        strokes.append({"start": [cx - 15, ly - 15], "end": [cx - 10, ly + 45], "duration": d})
+        strokes.append({"start": [cx - 10, ly + 45], "end": [cx - 60, ly + 45], "duration": d})
+        strokes.append({"start": [cx - 60, ly + 45], "end": [cx - 60, ly - 15], "duration": d})
+
+        # -----------------------------------------------------------
+        # 2. RIGHT FIGHTER: RORONOA ZORO (PIRATE HUNTER & SAMURAI)
+        # -----------------------------------------------------------
+        zx = cx + 260
+        zy = cy
+
+        # Zoro Bandana
+        strokes.append({"start": [zx - 90, zy - 90], "end": [zx + 90, zy - 90], "duration": d})
+        strokes.append({"start": [zx - 90, zy - 90], "end": [zx - 100, zy - 40], "duration": d})
+        strokes.append({"start": [zx + 90, zy - 90], "end": [zx + 100, zy - 40], "duration": d})
+        strokes.append({"start": [zx - 100, zy - 40], "end": [zx + 100, zy - 40], "duration": d})
+        # Bandana Tails
+        strokes.append({"start": [zx + 100, zy - 55], "end": [zx + 160, zy - 20], "duration": d})
+        strokes.append({"start": [zx + 100, zy - 45], "end": [zx + 150, zy], "duration": d})
+
+        # Zoro Jaw & Piercing Scowling Face
+        strokes.append({"start": [zx - 80, zy - 40], "end": [zx - 50, zy + 50], "duration": d})
+        strokes.append({"start": [zx + 80, zy - 40], "end": [zx + 50, zy + 50], "duration": d})
+        strokes.append({"start": [zx - 50, zy + 50], "end": [zx, zy + 70], "duration": d})
+        strokes.append({"start": [zx + 50, zy + 50], "end": [zx, zy + 70], "duration": d})
+
+        # Zoro Eyes & Vertical Scar
+        strokes.append({"start": [zx - 50, zy - 20], "end": [zx - 15, zy - 25], "duration": d}) # Closed Scarred Eye
+        strokes.append({"start": [zx - 35, zy - 40], "end": [zx - 30, zy - 5], "duration": d}) # Vertical Slash Scar
+        strokes.append({"start": [zx + 15, zy - 25], "end": [zx + 50, zy - 20], "duration": d}) # Sharp Eye
+        strokes.append({"start": [zx + 25, zy - 22], "end": [zx + 35, zy - 18], "duration": d})
+
+        # Zoro Santoryu: Mouth Katana (Wado Ichimonji) Clashing Center
+        strokes.append({"start": [zx + 80, zy + 25], "end": [cx + 10, zy + 15], "duration": d}) # Mouth Blade
+        strokes.append({"start": [zx + 80, zy + 32], "end": [cx + 10, zy + 22], "duration": d})
+        strokes.append({"start": [zx + 80, zy + 15], "end": [zx + 80, zy + 42], "duration": d}) # Tsuba
+        strokes.append({"start": [zx + 80, zy + 28], "end": [zx + 160, zy + 28], "duration": d}) # Hilt
+
+        # Zoro Santoryu: Dual Overhead Cross Swords (Enma & Kitetsu)
+        strokes.append({"start": [zx - 140, zy - 160], "end": [zx + 120, zy + 140], "duration": d})
+        strokes.append({"start": [zx + 140, zy - 160], "end": [zx - 120, zy + 140], "duration": d})
+
+        # -----------------------------------------------------------
+        # 3. CENTER IMPACT: CONQUEROR'S HAKI & CLASH LIGHTNING
+        # -----------------------------------------------------------
+        # Impact Starburst / Clash Flash
+        strokes.append({"start": [cx, cy - 80], "end": [cx, cy + 80], "duration": d})
+        strokes.append({"start": [cx - 80, cy], "end": [cx + 80, cy], "duration": d})
+        strokes.append({"start": [cx - 55, cy - 55], "end": [cx + 55, cy + 55], "duration": d})
+        strokes.append({"start": [cx + 55, cy - 55], "end": [cx - 55, cy + 55], "duration": d})
+
+        # Conqueror's Haki Jagged Lightning Bolting across Center
+        strokes.append({"start": [cx - 10, cy - 100], "end": [cx + 25, cy - 40], "duration": d})
+        strokes.append({"start": [cx + 25, cy - 40], "end": [cx - 15, cy + 20], "duration": d})
+        strokes.append({"start": [cx - 15, cy + 20], "end": [cx + 30, cy + 90], "duration": d})
+
+        strokes.append({"start": [cx + 20, cy - 110], "end": [cx - 30, cy - 50], "duration": d})
+        strokes.append({"start": [cx - 30, cy - 50], "end": [cx + 10, cy + 10], "duration": d})
+        strokes.append({"start": [cx + 10, cy + 10], "end": [cx - 25, cy + 100], "duration": d})
+
+        # Top Center "VS" Clash Insignia
+        strokes.append({"start": [cx - 30, cy - 180], "end": [cx - 10, cy - 130], "duration": d}) # V
+        strokes.append({"start": [cx + 10, cy - 180], "end": [cx - 10, cy - 130], "duration": d})
+        strokes.append({"start": [cx + 30, cy - 180], "end": [cx + 15, cy - 165], "duration": d}) # S
+        strokes.append({"start": [cx + 15, cy - 165], "end": [cx + 30, cy - 150], "duration": d})
+        strokes.append({"start": [cx + 30, cy - 150], "end": [cx + 15, cy - 135], "duration": d})
+
+        return strokes

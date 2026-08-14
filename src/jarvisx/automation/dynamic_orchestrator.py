@@ -475,11 +475,11 @@ class DynamicOrchestrator:
                 return {"action": "vscode_type", "response": response, "details": vsc_res}
 
         # 8.8 Autonomous MS Paint Computer-Use & UACC Art Intent
-        if any(w in text for w in ("paint", "draw", "sketch", "illustration")) and any(w in text for w in ("zoro", "iron", "character", "complex", "art", "portrait", "in paint", "ms paint")):
+        if any(w in text for w in ("paint", "draw", "sketch", "illustration")) and any(w in text for w in ("luffy", "vs", "zoro", "iron", "character", "complex", "art", "portrait", "in paint", "ms paint")):
             import asyncio
             from jarvisx.computer_use.computer_use_engine import get_computer_use_engine
             engine = get_computer_use_engine()
-            char_target = "ironman" if "iron" in text else "zoro"
+            char_target = "luffy vs zoro" if ("luffy" in text and "zoro" in text) or "vs" in text or "luffy" in text else "ironman" if "iron" in text else "zoro"
             res = asyncio.run(engine.draw_artwork_via_uacc_mcp(character=char_target))
             response = (
                 f"I have launched MS Paint and drawn {res.get('character')} using {res.get('strokes_drawn')} "

@@ -685,8 +685,8 @@ class JarvisCLI:
             engine = get_computer_use_engine()
             target = args.strip().lower() if args else "zoro"
 
-            if any(k in target for k in ("zoro", "iron", "stark", "anime", "character", "complex", "art", "portrait")) or not args:
-                char_name = "ironman" if "iron" in target else "zoro"
+            if any(k in target for k in ("luffy", "vs", "zoro", "iron", "stark", "anime", "character", "complex", "art", "portrait")) or not args:
+                char_name = target if any(k in target for k in ("luffy", "vs", "iron", "stark", "zoro")) else "zoro"
                 print(f"\n=========================================================================")
                 print(f"       🎨 JARVIS X: UACC MCP END-TO-END COMPUTER-USE DRAWING")
                 print(f"=========================================================================")
