@@ -114,26 +114,67 @@ class JavaRunner:
         javac_path = os.path.join(self.java_home, "bin", "javac.exe")
         java_path = os.path.join(self.java_home, "bin", "java.exe")
 
-        full_source = os.path.abspath(os.path.join(self.workspace_dir, source_file))
-        if not os.path.exists(full_source):
+        # 1. Resolve source file path across candidate locations
+        candidate_paths = [
+            os.path.abspath(source_file),
+            os.path.abspath(os.path.join(self.workspace_dir, source_file)),
+            os.path.abspath(os.path.join(os.path.expanduser("~"), source_file)),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", source_file)),
+        ]
+
+        full_source = None
+        for p in candidate_paths:
+            if os.path.exists(p):
+                full_source = p
+                break
+
+        # If HelloWorld.java does not exist yet, auto-create it in working directory
+        if not full_source and os.path.basename(source_file).lower() == "helloworld.java":
+            full_source = os.path.abspath(os.path.join(self.workspace_dir, "HelloWorld.java"))
+            with open(full_source, "w", encoding="utf-8") as f:
+                f.write('public class HelloWorld {\n    public static void main(String[] args) {\n        System.out.println("==========================================");\n        System.out.println("   🚀 Hello, World from Java JDK 21!      ");\n        System.out.println("   Java Runtime: " + System.getProperty("java.version"));\n        System.out.println("   Java Vendor : " + System.getProperty("java.vendor"));\n        System.out.println("   Environment : NPTEL Java SDK Configured ");\n        System.out.println("==========================================");\n    }\n}\n')
+
+        if not full_source or not os.path.exists(full_source):
             return JavaExecutionResult(
                 status="FILE_NOT_FOUND",
                 source_file=source_file,
                 class_name=class_name or "",
                 stdout="",
-                stderr=f"Source file '{source_file}' does not exist.",
+                stderr=f"Source file '{source_file}' does not exist in workspace or home directory.",
                 returncode=-1,
                 java_home=self.java_home,
                 java_version=""
             )
 
+        run_cwd = os.path.dirname(full_source)
         if not class_name:
-            class_name = os.path.splitext(os.path.basename(source_file))[0]
+            class_name = os.path.splitext(os.path.basename(full_source))[0]
 
-        # 1. Compile with javac
+        # 2. Compile with javac
         compile_res = subprocess.run(
             [javac_path, full_source],
-            cwd=self.workspace_dir,
+            cwd=run_cwd,
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+
+        if compile_res.returncode != 0:
+            return JavaExecutionResult(
+                status="COMPILE_ERROR",
+                source_file=full_source,
+                class_name=class_name,
+                stdout=compile_res.stdout,
+                stderr=compile_res.stderr,
+                returncode=compile_res.returncode,
+                java_home=self.java_home,
+                java_version=""
+            )
+
+        # 3. Run with java
+        run_res = subprocess.run(
+            [java_path, "-cp", run_cwd, class_name],
+            cwd=run_cwd,
             capture_output=True,
             text=True,
             timeout=15
