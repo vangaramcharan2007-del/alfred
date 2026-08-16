@@ -539,6 +539,22 @@ class DynamicOrchestrator:
             )
             return {"action": "nptel_exam_navigation", "response": response, "url": nptel_url, "safety_gate": "STOPPED_AT_PAYMENT"}
 
+        # 11.6 Java SDK, Compilation & Execution Intent
+        if any(w in text for w in ("java", "javac", "jdk", "helloworld.java", "compile java", "run java")) and not text.startswith("what is java"):
+            from jarvisx.engineering.java_runner import JavaRunner
+            runner = JavaRunner(".")
+            target_file = "HelloWorld.java"
+            for w in raw_text.split():
+                if w.endswith(".java"):
+                    target_file = w
+                    break
+            run_res = runner.compile_and_run(target_file)
+            if run_res.status == "SUCCESS":
+                response = f"I have compiled and executed '{target_file}' with Oracle JDK 21, {salutation}.\nOutput:\n{run_res.stdout.strip()}"
+            else:
+                response = f"Java execution failed for '{target_file}', {salutation}:\n{run_res.stderr.strip()}"
+            return {"action": "java_run", "response": response, "details": run_res.to_dict()}
+
         # 12. Dynamic App Launching ("open X", "launch X", "start X", or clean single app name)
         app_target = text.replace("open ", "").replace("launch ", "").replace("start ", "").strip()
         if (text.startswith(("open ", "launch ", "start ")) and len(text.split()) <= 4) or app_target in {"youtube", "instagram", "whatsapp", "spotify", "github", "gmail", "mail", "google", "twitter", "x", "chatgpt", "facebook", "reddit", "linkedin", "netflix"}:

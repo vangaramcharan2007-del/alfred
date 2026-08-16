@@ -323,3 +323,18 @@ def test_performance_optimizer_resource_reduction():
     assert rep.after_ram_used_gb > 0
     assert rep.databases_compacted_count >= 0
     assert isinstance(rep.to_dict(), dict)
+
+
+def test_java_runner_sdk_and_compilation():
+    """Verify JavaRunner discovers JDK 21, compiles Java code, and executes HelloWorld."""
+    from jarvisx.engineering.java_runner import JavaRunner
+    
+    runner = JavaRunner(".")
+    sdk_info = runner.get_sdk_info()
+    assert sdk_info["installed"] is True
+    assert "jdk" in sdk_info["java_home"].lower()
+    
+    res = runner.compile_and_run("HelloWorld.java")
+    assert res.status == "SUCCESS"
+    assert "Hello, World" in res.stdout
+    assert res.returncode == 0

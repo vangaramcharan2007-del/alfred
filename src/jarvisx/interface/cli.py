@@ -696,6 +696,26 @@ class JarvisCLI:
             print("=========================================================================\n")
             return {"action": "optimize", "status": "SUCCESS", "result": res.to_dict()}
 
+        elif command in ("java", "javac", "run-java"):
+            from jarvisx.engineering.java_runner import JavaRunner
+            runner = JavaRunner(".")
+            target_file = args.strip() if args else "HelloWorld.java"
+            if not target_file.endswith(".java"):
+                target_file += ".java"
+            res = runner.compile_and_run(target_file)
+            print(f"\n=========================================================================")
+            print(f"       ☕ JARVIS X: JAVA SDK COMPILER & RUNTIME (JDK 21)")
+            print(f"=========================================================================")
+            print(f"  * Status       : {res.status}")
+            print(f"  * Source File  : {res.source_file}")
+            print(f"  * Java Home    : {res.java_home}")
+            if res.status == "SUCCESS":
+                print(f"  * Output       :\n{res.stdout.strip()}")
+            else:
+                print(f"  * Error Details:\n{res.stderr.strip()}")
+            print("=========================================================================\n")
+            return {"action": "java_run", "status": "SUCCESS" if res.status == "SUCCESS" else "FAILED", "result": res.to_dict()}
+
         elif command in ("visual-bench", "bench-visual", "adv-bench"):
             from jarvisx.benchmark.adversarial_visual_benchmark import AdversarialVisualBenchmarker
             benchmarker = AdversarialVisualBenchmarker()
