@@ -6,10 +6,10 @@ demonstration for 'computer_system_architecture.pptx'.
 Validates strict compliance with:
 - Act I (Slides 1-5): V. Ram Charan — Core Hardware (CPU/RAM/IO), System Bus (Address/Data/Control), Interrupts & DMA
 - Act II (Slides 6-10): Vedhanth — Memory & Storage Hierarchy, Locality of Reference (Temporal/Spatial), Volatility, OS Optimizations
-- Act III (Slides 11-15): Nidhi — Single vs Multiprocessor, SMP vs AMP, Multicore & Clustered Systems, OS Coordination Challenges
+- Act III (Slides 11-15): Lochan — Single vs Multiprocessor, SMP vs AMP, Multicore & Clustered Systems, OS Coordination Challenges
 - 15 Slides exact count
 - 16:9 Widescreen aspect ratio
-- 3-Speaker balanced team structure (V. Ram Charan, Vedhanth, Nidhi)
+- 3-Speaker balanced team structure (V. Ram Charan, Vedhanth, Lochan)
 - Comprehensive presenter notes matching user speech on every slide
 """
 
@@ -30,7 +30,7 @@ def validate_presentation():
 
     print("=" * 80)
     print(" COMPUTER SYSTEM ARCHITECTURE — 15-SLIDE OS PRESENTATION DEMO & VALIDATION")
-    print(" Presenters: V. Ram Charan (Act I) · Vedhanth (Act II) · Nidhi (Act III)")
+    print(" Presenters: V. Ram Charan (Act I) · Vedhanth (Act II) · Lochan (Act III)")
     print("=" * 80)
     print(f"Presentation File: {pptx_path}")
     print(f"Total Slides: {total_slides} (Required: 15)")
@@ -46,7 +46,7 @@ def validate_presentation():
 
     # 3. Speaker Allocation & Concept Mapping
     expected_structure = [
-        (1, "V. Ram Charan", "Computer System Architecture", "Title & 3-Speaker Overview (Ram Charan, Vedhanth, Nidhi)"),
+        (1, "V. Ram Charan", "Computer System Architecture", "Title & 3-Speaker Overview (Ram Charan, Vedhanth, Lochan)"),
         (2, "V. Ram Charan", "The Three Fundamental Hardware Pillars", "CPU (Fetch/Decode/Exec), Main Memory (RAM), I/O Devices"),
         (3, "V. Ram Charan", "The System Bus Architecture", "Address Bus, Data Bus, Control Bus"),
         (4, "V. Ram Charan", "Hardware Communication: Interrupts & DMA", "Interrupts Attention & DMA Direct Memory Transfers"),
@@ -56,10 +56,10 @@ def validate_presentation():
         (8, "Vedhanth", "Locality of Reference", "Temporal Locality (Time) & Spatial Locality (Space)"),
         (9, "Vedhanth", "Memory Volatility", "Volatile Working RAM vs Non-Volatile Storage"),
         (10, "Vedhanth", "OS Memory Management", "Paging, Buffering, Disk Caching, Prefetching"),
-        (11, "Nidhi", "Single-Processor vs. Multiprocessor Systems", "1 CPU vs Multiple Parallel CPUs"),
-        (12, "Nidhi", "Multiprocessing Approaches: SMP vs. AMP", "Symmetric (Peers) vs Asymmetric (Master-Slave)"),
-        (13, "Nidhi", "Modern Systems: Multicore & Clustered", "On-Chip Multicore & Networked Clustered Systems"),
-        (14, "Nidhi", "OS Challenges in Multiprocessing", "Scheduling, Cache Coherence, Load Balancing, Synchronization"),
+        (11, "Lochan", "Single-Processor vs. Multiprocessor Systems", "1 CPU vs Multiple Parallel CPUs"),
+        (12, "Lochan", "Multiprocessing Approaches: SMP vs. AMP", "Symmetric (Peers) vs Asymmetric (Master-Slave)"),
+        (13, "Lochan", "Modern Systems: Multicore & Clustered", "On-Chip Multicore & Networked Clustered Systems"),
+        (14, "Lochan", "OS Challenges in Multiprocessing", "Scheduling, Cache Coherence, Load Balancing, Synchronization"),
         (15, "All 3 Presenters", "Complete Architecture & Key Takeaways", "Hardware, Storage, Multiprocessing, OS Coordination, Q&A")
     ]
 
@@ -110,12 +110,12 @@ def validate_presentation():
     print("\n### TOPIC & SCRIPT ALIGNMENT")
     print("Act I (V. Ram Charan): Core Hardware, System Bus, Interrupts & DMA: PASS")
     print("Act II (Vedhanth): Storage Hierarchy, Tiers, Locality, Volatility, OS Management: PASS")
-    print("Act III (Nidhi): Single/Multi, SMP/AMP, Multicore/Clustered, OS Challenges: PASS")
+    print("Act III (Lochan): Single/Multi, SMP/AMP, Multicore/Clustered, OS Challenges: PASS")
     print("Slide 15 (All 3 Presenters): Master Synthesis & 4 Takeaways: PASS")
 
     print("\n### PRESENTATION VALIDATION")
     print(f"15 slides: {'PASS' if slide_count_pass else 'FAIL'}")
-    print("Speaker distribution (Ram Charan: 1-5, Vedhanth: 6-10, Nidhi: 11-15): PASS")
+    print("Speaker distribution (Ram Charan: 1-5, Vedhanth: 6-10, Lochan: 11-15): PASS")
     print(f"Notes on every slide matching user speech: {'PASS' if all_notes_pass else 'FAIL'}")
     print(f"16:9 Widescreen dimensions: {'PASS' if ratio_pass else 'FAIL'}")
     print("PPTX integrity: PASS")

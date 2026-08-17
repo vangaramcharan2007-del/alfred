@@ -5,8 +5,8 @@ Generates a luxury 15-slide PowerPoint deck for Computer System Architecture (OS
 Content Structure & Speaker Allocation:
 - Act I (Slides 1-5): V. Ram Charan — Core Hardware & System Bus (CPU, RAM, I/O, 3-Part Bus, Interrupts & DMA)
 - Act II (Slides 6-10): Vedhanth — Memory & Storage Hierarchy (Speed/Cost/Capacity, Tiers, Locality, Volatility, OS Memory Management)
-- Act III (Slides 11-15): Nidhi — Multiprocessing & Modern Systems (Single vs Multiprocessor, SMP vs AMP, Multicore & Clustered, OS Challenges)
-- Slide 15: Grand Synthesis & Conclusion (V. Ram Charan · Vedhanth · Nidhi)
+- Act III (Slides 11-15): Lochan — Multiprocessing & Modern Systems (Single vs Multiprocessor, SMP vs AMP, Multicore & Clustered, OS Challenges)
+- Slide 15: Grand Synthesis & Conclusion (V. Ram Charan · Vedhanth · Lochan)
 """
 
 import os
@@ -267,7 +267,7 @@ def build_presentation():
     presenters = [
         ("V. Ram Charan", "Act I Lead — Core Hardware & System Bus", ACCENT_CYAN),
         ("Vedhanth", "Act II Lead — Memory & Storage Hierarchy", ACCENT_INDIGO),
-        ("Nidhi", "Act III Lead — Multiprocessing & Modern Architectures", ACCENT_EMERALD)
+        ("Lochan", "Act III Lead — Multiprocessing & Modern Architectures", ACCENT_EMERALD)
     ]
     for i, (name, role, col) in enumerate(presenters):
         py = 3.3 + i * 0.95
@@ -316,7 +316,7 @@ def build_presentation():
 
     set_speaker_notes(
         s1,
-        "Good morning everyone. I’ll be explaining the core hardware of a computer system. Together with Vedhanth and Nidhi, we will walk you through how hardware components communicate, how memory hierarchies optimize speed and capacity, and how modern multiprocessing systems scale concurrent execution.",
+        "Good morning everyone. I’ll be explaining the core hardware of a computer system. Together with Vedhanth and Lochan, we will walk you through how hardware components communicate, how memory hierarchies optimize speed and capacity, and how modern multiprocessing systems scale concurrent execution.",
         "Computer system architecture establishes the hardware foundation for operating system process management, memory allocation, and I/O handling.",
         "Let us begin with Slide 2 by examining the three fundamental hardware pillars: the CPU, main memory, and I/O devices.",
         "Stand center, introduce team members, gesture to the presenter cards."
@@ -686,19 +686,19 @@ def build_presentation():
 
     set_speaker_notes(
         s10,
-        "The OS uses techniques such as paging, buffering, disk caching, and prefetching to use this hierarchy efficiently. Now Nidhi will take over to discuss multiprocessing.",
+        "The OS uses techniques such as paging, buffering, disk caching, and prefetching to use this hierarchy efficiently. Now Lochan will take over to discuss multiprocessing.",
         "Operating system storage management techniques: Paging, Buffering, Disk Caching, and Prefetching.",
-        "I will now pass the presentation to Nidhi, who will explain multiprocessing, modern multicore systems, and OS challenges.",
-        "Hand over clicker to Nidhi."
+        "I will now pass the presentation to Lochan, who will explain multiprocessing, modern multicore systems, and OS challenges.",
+        "Hand over clicker to Lochan."
     )
 
     # =========================================================================
-    # SLIDE 11: SINGLE-PROCESSOR VS MULTIPROCESSOR (Nidhi)
+    # SLIDE 11: SINGLE-PROCESSOR VS MULTIPROCESSOR (Lochan)
     # =========================================================================
     s11 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s11)
     apply_slide_morph_transition(s11)
-    add_header(s11, 11, 15, "Act III: Multiprocessing", "Nidhi", "Single-Processor vs. Multiprocessor Systems", "Architectural Scaling from Single Execution Streams to Parallel Computing")
+    add_header(s11, 11, 15, "Act III: Multiprocessing", "Lochan", "Single-Processor vs. Multiprocessor Systems", "Architectural Scaling from Single Execution Streams to Parallel Computing")
 
     add_card(s11, 0.8, 1.8, 5.8, 2.15, "Single-Processor Systems", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
     sp_pts = [
@@ -731,12 +731,12 @@ def build_presentation():
     )
 
     # =========================================================================
-    # SLIDE 12: MULTIPROCESSING: SMP VS AMP (Nidhi)
+    # SLIDE 12: MULTIPROCESSING: SMP VS AMP (Lochan)
     # =========================================================================
     s12 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s12)
     apply_slide_morph_transition(s12)
-    add_header(s12, 12, 15, "Act III: Multiprocessing", "Nidhi", "Multiprocessing Approaches: SMP vs. AMP", "Peer Multiprocessing vs. Master-Slave Hierarchical Scheduling")
+    add_header(s12, 12, 15, "Act III: Multiprocessing", "Lochan", "Multiprocessing Approaches: SMP vs. AMP", "Peer Multiprocessing vs. Master-Slave Hierarchical Scheduling")
 
     add_card(s12, 0.8, 1.8, 5.7, 4.45, "Symmetric Multiprocessing (SMP)", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
     smp_pts = [
@@ -767,12 +767,12 @@ def build_presentation():
     )
 
     # =========================================================================
-    # SLIDE 13: MULTICORE & CLUSTERED SYSTEMS (Nidhi)
+    # SLIDE 13: MULTICORE & CLUSTERED SYSTEMS (Lochan)
     # =========================================================================
     s13 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s13)
     apply_slide_morph_transition(s13)
-    add_header(s13, 13, 15, "Act III: Multiprocessing", "Nidhi", "Modern Systems: Multicore & Clustered", "On-Chip Scale-Up vs. Networked Scale-Out Architecture")
+    add_header(s13, 13, 15, "Act III: Multiprocessing", "Lochan", "Modern Systems: Multicore & Clustered", "On-Chip Scale-Up vs. Networked Scale-Out Architecture")
 
     add_card(s13, 0.8, 1.8, 5.8, 2.15, "Multicore Processors (Scale-Up)", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
     tb_mc = s13.shapes.add_textbox(Inches(1.05), Inches(2.3), Inches(5.3), Inches(1.5))
@@ -823,12 +823,12 @@ def build_presentation():
     )
 
     # =========================================================================
-    # SLIDE 14: OS CHALLENGES IN MULTIPROCESSING (Nidhi)
+    # SLIDE 14: OS CHALLENGES IN MULTIPROCESSING (Lochan)
     # =========================================================================
     s14 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s14)
     apply_slide_morph_transition(s14)
-    add_header(s14, 14, 15, "Act III: Multiprocessing", "Nidhi", "OS Challenges in Multiprocessing", "Critical Complexities in Coordinating Concurrent Hardware Execution")
+    add_header(s14, 14, 15, "Act III: Multiprocessing", "Lochan", "OS Challenges in Multiprocessing", "Critical Complexities in Coordinating Concurrent Hardware Execution")
 
     challenges = [
         ("1. CPU Scheduling", "Deciding which core runs which process to maximize throughput, minimize latency, and maintain processor cache affinity.", ACCENT_CYAN),
@@ -867,7 +867,7 @@ def build_presentation():
     s15 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s15)
     apply_slide_morph_transition(s15)
-    add_header(s15, 15, 15, "Synthesis & Conclusion", "V. Ram Charan · Vedhanth · Nidhi", "Complete Architecture & Key Takeaways", "Hardware Foundations, Storage Hierarchies & Modern Multiprocessing")
+    add_header(s15, 15, 15, "Synthesis & Conclusion", "V. Ram Charan · Vedhanth · Lochan", "Complete Architecture & Key Takeaways", "Hardware Foundations, Storage Hierarchies & Modern Multiprocessing")
 
     takeaways = [
         ("1. Hardware Foundations", "CPU, RAM, and I/O linked via Address, Data, and Control buses with Interrupts and DMA for efficient operation.", ACCENT_CYAN),
@@ -915,7 +915,7 @@ def build_presentation():
     pres_cards = [
         ("V. Ram Charan", "Act I: Core Hardware (Slides 1–5)", ACCENT_CYAN),
         ("Vedhanth", "Act II: Memory & Storage Hierarchy (Slides 6–10)", ACCENT_INDIGO),
-        ("Nidhi", "Act III: Multiprocessing & Modern Systems (Slides 11–15)", ACCENT_EMERALD)
+        ("Lochan", "Act III: Multiprocessing & Modern Systems (Slides 11–15)", ACCENT_EMERALD)
     ]
     p_w = 3.7
     for i, (name, act_info, col) in enumerate(pres_cards):
@@ -931,7 +931,7 @@ def build_presentation():
 
     set_speaker_notes(
         s15,
-        "To summarize our complete presentation: Ram Charan walked us through the core hardware and 3-part system bus; Vedhanth explained the storage hierarchy, locality of reference, and OS caching optimizations; and Nidhi covered multiprocessing architectures, SMP vs AMP, multicore, clustering, and OS coordination challenges. On behalf of Ram Charan, Vedhanth, and Nidhi, thank you for your attention. We are now open for questions.",
+        "To summarize our complete presentation: Ram Charan walked us through the core hardware and 3-part system bus; Vedhanth explained the storage hierarchy, locality of reference, and OS caching optimizations; and Lochan covered multiprocessing architectures, SMP vs AMP, multicore, clustering, and OS coordination challenges. On behalf of Ram Charan, Vedhanth, and Lochan, thank you for your attention. We are now open for questions.",
         "Comprehensive architectural synthesis covering core hardware, system bus, storage hierarchy, locality, multiprocessing, and OS coordination.",
         "End of presentation — open floor for Q&A.",
         "All three presenters step forward together, smile, and invite questions from the professor and audience."
@@ -943,7 +943,7 @@ def build_presentation():
     prs.save(out_pptx_clean)
     out_pptx_cinematic = os.path.join(ROOT_DIR, "Computer_System_Architecture_Cinematic.pptx")
     prs.save(out_pptx_cinematic)
-    print(f"Successfully generated 15-slide Luxury presentation updated with Nidhi and exact speech!")
+    print(f"Successfully generated 15-slide Luxury presentation updated with Lochan and exact speech!")
     return out_pptx
 
 if __name__ == "__main__":
