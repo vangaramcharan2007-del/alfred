@@ -126,7 +126,7 @@ async def async_main():
     else:
         from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
         orch = DynamicOrchestrator()
-        orch.run_continuous_loop()
+        await orch.run_continuous_loop_async()
 
 
 def main():

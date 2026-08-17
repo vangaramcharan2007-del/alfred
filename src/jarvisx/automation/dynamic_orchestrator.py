@@ -59,7 +59,12 @@ class DynamicOrchestrator:
         # Common Web Applications & Social Services
         web_apps = {
             "youtube": "https://www.youtube.com",
+            "u tube": "https://www.youtube.com",
+            "urube": "https://www.youtube.com",
+            "youtbe": "https://www.youtube.com",
+            "yt": "https://www.youtube.com",
             "instagram": "https://www.instagram.com",
+            "insta": "https://www.instagram.com",
             "whatsapp": "https://web.whatsapp.com",
             "spotify": "https://open.spotify.com",
             "github": "https://github.com",
@@ -934,8 +939,8 @@ class DynamicOrchestrator:
         else:
             return {"status": "failed", "error": f"Unknown category: {category}"}
 
-    def run_continuous_loop(self):
-        """The Master Control Loop. Listens endlessly for voice/text input and orchestrates."""
+    async def run_continuous_loop_async(self):
+        """The Master Async Control Loop. Listens endlessly for voice/text input and orchestrates."""
         self.voice_engine.speak("All systems initialized. Jarvis X is online and listening.")
         
         while True:
@@ -949,11 +954,26 @@ class DynamicOrchestrator:
 
                 category = self._classify_intent(user_input)
                 print(f"[+] Intent Classified as: {category}")
-                asyncio.run(self._execute_subsystem(category, user_input))
+                await self._execute_subsystem(category, user_input)
             except Exception as e:
                 print(f"[!] Orchestrator Error: {e}")
                 self.voice_engine.speak("I encountered an error processing that request.")
-                time.sleep(1)
+                await asyncio.sleep(1)
+
+    def run_continuous_loop(self):
+        """Synchronous wrapper for run_continuous_loop_async."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # If already inside an event loop, run task in executor or create task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                pool.submit(lambda: asyncio.run(self.run_continuous_loop_async())).result()
+        else:
+            asyncio.run(self.run_continuous_loop_async())
 
 
 def main():
