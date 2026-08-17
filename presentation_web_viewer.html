@@ -545,7 +545,7 @@
       {
         id: 1,
         act: "Act I: Core Hardware",
-        speaker: "V. Ram Charan",
+        speaker: "V. Ram Charan (RAM)",
         title: "Computer System Architecture",
         subtitle: "Core Hardware, Storage Hierarchies & Modern Multiprocessing",
         render: () => `
@@ -559,22 +559,22 @@
                 <div style="display: flex; align-items: center; gap: 1rem; background: var(--pill-bg); padding: 0.6rem 1rem; border-radius: 10px; border: 1px solid var(--card-border);">
                   <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(56, 189, 248, 0.2); display: flex; align-items: center; justify-content: center; color: var(--accent-cyan); font-weight: bold;">RC</div>
                   <div>
-                    <div style="font-weight: 700; color: #fff;">V. Ram Charan</div>
-                    <div style="font-size: 0.75rem; color: var(--accent-cyan);">Act I Lead — Core Hardware & System Bus</div>
+                    <div style="font-weight: 700; color: #fff;">V. Ram Charan (RAM)</div>
+                    <div style="font-size: 0.75rem; color: var(--accent-cyan);">Act I Lead — Core Hardware & System Bus (Slides 1–5)</div>
                   </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 1rem; background: var(--pill-bg); padding: 0.6rem 1rem; border-radius: 10px; border: 1px solid var(--card-border);">
                   <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(129, 140, 248, 0.2); display: flex; align-items: center; justify-content: center; color: var(--accent-indigo); font-weight: bold;">VD</div>
                   <div>
                     <div style="font-weight: 700; color: #fff;">Vedhanth</div>
-                    <div style="font-size: 0.75rem; color: var(--accent-indigo);">Act II Lead — Memory & Storage Hierarchy</div>
+                    <div style="font-size: 0.75rem; color: var(--accent-indigo);">Act II Lead — Memory & Storage Hierarchy (Slides 6–10)</div>
                   </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 1rem; background: var(--pill-bg); padding: 0.6rem 1rem; border-radius: 10px; border: 1px solid var(--card-border);">
                   <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(52, 211, 153, 0.2); display: flex; align-items: center; justify-content: center; color: var(--accent-emerald); font-weight: bold;">LC</div>
                   <div>
                     <div style="font-weight: 700; color: #fff;">Lochan</div>
-                    <div style="font-size: 0.75rem; color: var(--accent-emerald);">Act III Lead — Multiprocessing & Modern Systems</div>
+                    <div style="font-size: 0.75rem; color: var(--accent-emerald);">Act III Lead — Multiprocessing & Modern Systems (Slides 11–15)</div>
                   </div>
                 </div>
               </div>
@@ -596,7 +596,7 @@
       {
         id: 2,
         act: "Act I: Core Hardware",
-        speaker: "V. Ram Charan",
+        speaker: "V. Ram Charan (RAM)",
         title: "Core Hardware of a Computer System",
         subtitle: "The Three Fundamental Hardware Pillars Powering Execution",
         render: () => `
@@ -606,7 +606,7 @@
               <div class="card-title">1. The CPU (Processor)</div>
               <ul class="card-list">
                 <li><strong>Fetch, Decode, Execute:</strong> Continuously fetches instructions from memory and processes operations.</li>
-                <li><strong>Core Units:</strong> Contains the Arithmetic Logic Unit (ALU), Control Unit (CU), and high-speed registers.</li>
+                <li><strong>Core Units:</strong> Contains the Arithmetic Logic Unit (ALU), Control Unit (CU), and internal registers.</li>
                 <li><strong>System Driver:</strong> Directs computational logic across all attached peripherals.</li>
               </ul>
             </div>
@@ -638,7 +638,7 @@
       {
         id: 3,
         act: "Act I: Core Hardware",
-        speaker: "V. Ram Charan",
+        speaker: "V. Ram Charan (RAM)",
         title: "The System Bus Architecture",
         subtitle: "Three Specialized High-Speed Communication Channels",
         render: () => `
@@ -673,7 +673,7 @@
       {
         id: 4,
         act: "Act I: Core Hardware",
-        speaker: "V. Ram Charan",
+        speaker: "V. Ram Charan (RAM)",
         title: "Hardware Communication: Interrupts & DMA",
         subtitle: "Asynchronous Event Signaling & High-Speed Memory Transfers",
         render: () => `
@@ -693,7 +693,7 @@
               <div class="card-title" style="color: var(--accent-emerald);">Direct Memory Access (DMA)</div>
               <ul class="card-list">
                 <li><strong>Direct RAM Access:</strong> Allows devices to transfer data directly to memory without making the CPU handle every piece of data.</li>
-                <li><strong>High-Speed Devices:</strong> Essential for disk controllers, SSDs, graphics, and Gigabit network interfaces.</li>
+                <li><strong>High-Speed Channels:</strong> Essential for disk controllers, SSDs, graphics, and Gigabit network interfaces.</li>
                 <li><strong>Block Transfer Efficiency:</strong> Moves entire blocks directly; emits only 1 interrupt per block.</li>
                 <li><strong>CPU Offloading:</strong> CPU performs computation while memory transfers proceed in parallel.</li>
               </ul>
@@ -704,6 +704,36 @@
         concept: "Interrupts eliminate busy-wait polling overhead; DMA offloads byte-by-byte data transfer from the CPU.",
         transition: "Let us summarize how core hardware components integrate before moving to memory hierarchy.",
         cue: "Contrast the event-driven signal flow of interrupts with the high-throughput block stream of DMA."
+      },
+      {
+        id: 5,
+        act: "Act I: Core Hardware",
+        speaker: "V. Ram Charan (RAM)",
+        title: "Core Hardware Integration Summary",
+        subtitle: "Cohesive Operation Across Processor, Memory, Bus & Controllers",
+        render: () => `
+          <div class="slide-body grid-3-col">
+            <div class="card">
+              <div class="card-accent-bar"></div>
+              <div class="card-title">1. Triad Organization</div>
+              <p class="card-text">CPU fetches, decodes, and executes. Main memory holds active tasks. I/O bridges external devices into the system.</p>
+            </div>
+            <div class="card">
+              <div class="card-accent-bar" style="background: var(--accent-indigo);"></div>
+              <div class="card-title" style="color: var(--accent-indigo);">2. Tri-Bus Highway</div>
+              <p class="card-text">Address bus routes destinations, data bus transmits operands/code, and control bus synchronizes read/write timing.</p>
+            </div>
+            <div class="card">
+              <div class="card-accent-bar" style="background: var(--accent-emerald);"></div>
+              <div class="card-title" style="color: var(--accent-emerald);">3. Event & Data Flow</div>
+              <p class="card-text">Interrupts notify the CPU on demand, while DMA streams high-speed data directly to RAM without processor bottlenecks.</p>
+            </div>
+          </div>
+        `,
+        speech: "That’s the basic idea of how the hardware components communicate. I will now pass the presentation to Vedhanth, who will explain the memory and storage hierarchy, locality of reference, and how the operating system manages storage tiers efficiently.",
+        concept: "Hardware components form a tightly synchronized system coordinated by the system bus, interrupts, and DMA.",
+        transition: "Pass presentation to Vedhanth for Act II.",
+        cue: "Hand over clicker to Vedhanth."
       },
       {
         id: 6,
@@ -741,6 +771,45 @@
         cue: "Trace the pyramid from top (Registers/Cache) to bottom (RAM/SSD)."
       },
       {
+        id: 7,
+        act: "Act II: Memory & Storage",
+        speaker: "Vedhanth",
+        title: "The Hierarchy Tiers: Registers to Secondary Storage",
+        subtitle: "Speed, Capacity, and Access Latency Across the Four Levels",
+        render: () => `
+          <div class="slide-body grid-4-col">
+            <div class="card">
+              <div class="card-accent-bar"></div>
+              <div class="card-title">1. Registers</div>
+              <div style="font-size: 0.8rem; color: var(--accent-cyan); font-weight: bold; margin-bottom: 0.4rem;">Speed: &lt; 1 ns | Bytes</div>
+              <p class="card-text">Fastest & smallest storage; located directly inside the CPU; holds immediate operands.</p>
+            </div>
+            <div class="card">
+              <div class="card-accent-bar" style="background: var(--accent-indigo);"></div>
+              <div class="card-title" style="color: var(--accent-indigo);">2. Cache</div>
+              <div style="font-size: 0.8rem; color: var(--accent-indigo); font-weight: bold; margin-bottom: 0.4rem;">Speed: 1–10 ns | MBs</div>
+              <p class="card-text">High-speed on-chip SRAM; buffers frequently used instructions and active data.</p>
+            </div>
+            <div class="card">
+              <div class="card-accent-bar" style="background: var(--accent-emerald);"></div>
+              <div class="card-title" style="color: var(--accent-emerald);">3. RAM</div>
+              <div style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: bold; margin-bottom: 0.4rem;">Speed: 50–100 ns | GBs</div>
+              <p class="card-text">Primary DRAM workspace; holds currently executing programs and OS buffers.</p>
+            </div>
+            <div class="card">
+              <div class="card-accent-bar" style="background: var(--accent-amber);"></div>
+              <div class="card-title" style="color: var(--accent-amber);">4. Secondary</div>
+              <div style="font-size: 0.8rem; color: var(--accent-amber); font-weight: bold; margin-bottom: 0.4rem;">Speed: 10μs–10ms | TBs</div>
+              <p class="card-text">SSDs, NVMe & Hard Disks; non-volatile long-term storage preserving files permanently.</p>
+            </div>
+          </div>
+        `,
+        speech: "The hierarchy starts with registers, which are the fastest and smallest, followed by cache, RAM, and finally secondary storage such as SSDs and hard disks.",
+        concept: "Step-by-step characteristics of Registers, Cache (SRAM), Main Memory (DRAM), and Secondary Storage (NVM/Disks).",
+        transition: "Next, why does caching work so effectively? Let's look at the Locality of Reference.",
+        cue: "Point to the 4 columns from fastest (Registers) to largest (Secondary Storage)."
+      },
+      {
         id: 8,
         act: "Act II: Memory & Storage",
         speaker: "Vedhanth",
@@ -772,6 +841,74 @@
         concept: "Temporal locality (reuse in time) and Spatial locality (adjacency in space) are the core reasons caching succeeds.",
         transition: "Now let's examine the difference between volatile and non-volatile storage.",
         cue: "Highlight the contrast between loop re-execution (Temporal) and sequential array scans (Spatial)."
+      },
+      {
+        id: 9,
+        act: "Act II: Memory & Storage",
+        speaker: "Vedhanth",
+        title: "Memory Volatility: RAM vs. SSDs & Hard Disks",
+        subtitle: "Volatile Working Storage vs. Non-Volatile Permanent Retention",
+        render: () => `
+          <div class="slide-body grid-2-col">
+            <div class="card">
+              <div class="card-accent-bar" style="background: var(--accent-rose);"></div>
+              <div class="card-title" style="color: var(--accent-rose);">Volatile Memory (RAM & Caches)</div>
+              <ul class="card-list">
+                <li><strong>Core Characteristic:</strong> RAM is volatile, meaning it loses its contents when power is turned off.</li>
+                <li><strong>Physical Storage:</strong> Uses capacitor charges (DRAM) or transistor latches (SRAM).</li>
+                <li><strong>System Role:</strong> Acts as high-speed temporary workspace for currently running processes.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <div class="card-accent-bar" style="background: var(--accent-emerald);"></div>
+              <div class="card-title" style="color: var(--accent-emerald);">Non-Volatile Storage (SSDs & HDDs)</div>
+              <ul class="card-list">
+                <li><strong>Core Characteristic:</strong> SSDs and hard disks are non-volatile, retaining data without power.</li>
+                <li><strong>Physical Storage:</strong> Uses NAND flash memory floating gates or magnetic domains.</li>
+                <li><strong>System Role:</strong> Preserves OS code, application files, and user data permanently.</li>
+              </ul>
+            </div>
+          </div>
+        `,
+        speech: "RAM is volatile, meaning it loses its contents when power is turned off. SSDs and hard disks are non-volatile, so they retain data even without power.",
+        concept: "Volatile working RAM vs Non-volatile secondary storage (SSDs/HDDs) and the role of permanent file storage.",
+        transition: "Next, how does the Operating System manage this entire storage hierarchy efficiently?",
+        cue: "Emphasize that volatile RAM provides execution speed while non-volatile SSDs provide data permanence."
+      },
+      {
+        id: 10,
+        act: "Act II: Memory & Storage",
+        speaker: "Vedhanth",
+        title: "OS Memory Management Techniques",
+        subtitle: "Software Strategies for Maximizing Storage Hierarchy Performance",
+        render: () => `
+          <div class="slide-body grid-2-col">
+            <div class="card">
+              <div class="card-accent-bar"></div>
+              <div class="card-title">1. Paging & Virtual Memory</div>
+              <p class="card-text">Divides memory into fixed-size pages and maps virtual addresses to physical RAM frames, swapping inactive pages to disk.</p>
+            </div>
+            <div class="card">
+              <div class="card-accent-bar" style="background: var(--accent-indigo);"></div>
+              <div class="card-title" style="color: var(--accent-indigo);">2. Buffering</div>
+              <p class="card-text">Temporarily holds data in memory during device transfers to bridge speed mismatches between fast CPUs and slower I/O peripherals.</p>
+            </div>
+            <div class="card">
+              <div class="card-accent-bar" style="background: var(--accent-emerald);"></div>
+              <div class="card-title" style="color: var(--accent-emerald);">3. Disk Caching</div>
+              <p class="card-text">Maintains copies of frequently accessed file system blocks in RAM to avoid slow physical disk read operations.</p>
+            </div>
+            <div class="card">
+              <div class="card-accent-bar" style="background: var(--accent-amber);"></div>
+              <div class="card-title" style="color: var(--accent-amber);">4. Prefetching</div>
+              <p class="card-text">Anticipates future memory and file requests based on spatial locality, loading data into cache/RAM before it is explicitly requested.</p>
+            </div>
+          </div>
+        `,
+        speech: "The OS uses techniques such as paging, buffering, disk caching, and prefetching to use this hierarchy efficiently. That concludes Act II. I now pass to Lochan.",
+        concept: "Operating system storage management techniques: Paging, Buffering, Disk Caching, and Prefetching.",
+        transition: "I will now pass the presentation to Lochan, who will explain multiprocessing, modern multicore systems, and OS challenges.",
+        cue: "Hand over clicker to Lochan."
       },
       {
         id: 11,
@@ -845,13 +982,43 @@
         cue: "Contrast the decentralized peer model of SMP with the centralized master-slave model of AMP."
       },
       {
+        id: 13,
+        act: "Act III: Multiprocessing",
+        speaker: "Lochan",
+        title: "Modern Systems: Multicore & Clustered Systems",
+        subtitle: "On-Chip Integration (Scale-Up) vs. Networked Independent Machines (Scale-Out)",
+        render: () => `
+          <div class="slide-body grid-split-img">
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="card">
+                <div class="card-accent-bar"></div>
+                <div class="card-title">Multicore Processors</div>
+                <p class="card-text">Multiple CPU cores are placed on a single physical chip, enabling fast on-chip communication and lower power consumption.</p>
+              </div>
+              <div class="card">
+                <div class="card-accent-bar" style="background: var(--accent-indigo);"></div>
+                <div class="card-title" style="color: var(--accent-indigo);">Clustered Systems</div>
+                <p class="card-text">Multiple independent computers work together over a network, sharing storage (SAN) for high availability and fault tolerance.</p>
+              </div>
+            </div>
+            <div class="diagram-container">
+              <img src="assets/presentation/gamma_assets/iso_multicore_chip.png" class="diagram-img" alt="Multicore Chip">
+            </div>
+          </div>
+        `,
+        speech: "Modern systems can also use multicore processors, where multiple CPU cores are placed on one chip. Another approach is clustered systems, where multiple independent computers work together over a network.",
+        concept: "Multicore processors (on-chip parallelism) and Clustered systems (distributed high-availability nodes).",
+        transition: "However, multiprocessing creates challenges for the OS, including scheduling, cache coherence, load balancing, and synchronization.",
+        cue: "Contrast on-chip multicore scaling with distributed networked cluster scaling."
+      },
+      {
         id: 14,
         act: "Act III: Multiprocessing",
         speaker: "Lochan",
         title: "OS Challenges in Multiprocessing",
         subtitle: "Critical Complexities in Coordinating Concurrent Hardware Execution",
         render: () => `
-          <div class="slide-body" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="slide-body grid-2-col">
             <div class="card">
               <div class="card-accent-bar"></div>
               <div class="card-title">1. CPU Scheduling</div>
@@ -882,7 +1049,7 @@
       {
         id: 15,
         act: "Synthesis & Conclusion",
-        speaker: "V. Ram Charan · Vedhanth · Lochan",
+        speaker: "V. Ram Charan (RAM) · Vedhanth · Lochan",
         title: "Complete Architecture & Key Takeaways",
         subtitle: "Hardware Foundations, Storage Hierarchies & Modern Multiprocessing",
         render: () => `
@@ -918,7 +1085,7 @@
 
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
               <div class="card" style="padding: 0.75rem; text-align: center; border-color: var(--accent-cyan);">
-                <div style="font-weight: 800; color: #fff;">V. Ram Charan</div>
+                <div style="font-weight: 800; color: #fff;">V. Ram Charan (RAM)</div>
                 <div style="font-size: 0.75rem; color: var(--accent-cyan);">Act I: Core Hardware & System Bus (Slides 1–5)</div>
               </div>
               <div class="card" style="padding: 0.75rem; text-align: center; border-color: var(--accent-indigo);">
@@ -965,7 +1132,6 @@
         ${slide.render()}
       `;
 
-      // Update Notes Drawer
       document.getElementById("notesSpeaker").textContent = slide.speaker.toUpperCase();
       document.getElementById("noteSpeech").textContent = slide.speech;
       document.getElementById("noteConcept").textContent = slide.concept;
