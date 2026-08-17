@@ -508,6 +508,19 @@ class DynamicOrchestrator:
             )
             return {"action": "optimize_performance", "response": response, "details": res.to_dict()}
 
+        # 8.96 Distributed Mesh GPU Workers & Tailscale Compute Pool
+        if clean_text in {"mesh", "workers", "nodes", "gpu pool", "worker pool", "cluster", "gpu nodes"}:
+            from jarvisx.mesh.worker_node import get_worker_registry
+            reg = get_worker_registry()
+            workers = reg.list_workers()
+            online_count = sum(1 for w in workers if w.status.value == "ONLINE")
+            details_str = ", ".join([f"{w.name} ({w.url} | {w.status.value} | {', '.join(w.models[:2])})" for w in workers]) or "No remote workers"
+            response = (
+                f"Distributed GPU Mesh Pool: {online_count}/{len(workers)} workers online, {salutation}. "
+                f"Active node: {details_str}."
+            )
+            return {"action": "mesh_status", "response": response, "workers": [w.to_dict() for w in workers]}
+
         # 9. Real Test Debugging & Code Repair Work
         if text in {"fix", "debug", "fix this", "fix tests"}:
             from jarvisx.engineering.debug_loop_engine import DebugLoopEngine
