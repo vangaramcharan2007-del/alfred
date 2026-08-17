@@ -4,8 +4,11 @@ Generates the 15-slide Luxury Minimalist Tech PowerPoint presentation with:
 - Native OpenXML Morph & Smooth Transitions on all slides
 - Cinematic Ambient Lighting & Glow Overlays
 - Frosted Glass Cards with High-Tech Corner Framing Accents
-- 3D Isometric Hardware Artworks (Motherboard, Stacked Layers, Bus, Multicore Chip)
-- Equal 3-Speaker structure: V. Ram Charan (1-5), Vedhanth (6-10), Lochan (11-15)
+- 3D Isometric Hardware Artworks (Motherboard, 3-Part Bus, Storage Pyramid, Multicore Chip)
+- Structured 3-Speaker Content & Spoken Scripts:
+    * Act I (Slides 1-5): V. Ram Charan — Core Hardware, CPU/RAM/IO, System Bus (Address, Data, Control), Interrupts & DMA
+    * Act II (Slides 6-10): Vedhanth — Memory & Storage Hierarchy, Locality of Reference, Volatility, OS Optimizations
+    * Act III (Slides 11-15): Lochan — Single vs Multiprocessor, SMP vs AMP, Multicore & Clustered Systems, OS Challenges
 - Zero textbook or author citations
 """
 
@@ -63,7 +66,7 @@ def apply_slide_morph_transition(slide):
 def add_header(slide, slide_num, total_slides, act_title, speaker_name, title, subtitle=None):
     """Creates a clean Gamma-style header with subtle pill tags."""
     # Top Left Act Tag
-    act_box = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(0.4), Inches(2.5), Inches(0.34))
+    act_box = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.8), Inches(0.4), Inches(2.7), Inches(0.34))
     act_box.fill.solid()
     act_box.fill.fore_color.rgb = PILL_BG
     act_box.line.color.rgb = CARD_BORDER
@@ -79,7 +82,7 @@ def add_header(slide, slide_num, total_slides, act_title, speaker_name, title, s
     p_act.alignment = PP_ALIGN.CENTER
 
     # Top Right Speaker Badge
-    spk_box = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(8.8), Inches(0.4), Inches(2.5), Inches(0.34))
+    spk_box = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(8.6), Inches(0.4), Inches(2.7), Inches(0.34))
     spk_box.fill.solid()
     spk_box.fill.fore_color.rgb = PILL_BG
     spk_box.line.color.rgb = CARD_BORDER
@@ -138,14 +141,12 @@ def add_card(slide, left, top, width, height, title=None, border_color=CARD_BORD
     card.line.color.rgb = border_color
     card.line.width = Pt(1)
 
-    # Optional side accent bar
     if accent_bar:
         bar = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(left), Inches(top), Inches(0.08), Inches(height))
         bar.fill.solid()
         bar.fill.fore_color.rgb = accent_bar
         bar.line.fill.background()
 
-    # Optional high-tech corner tick mark (Top-Right)
     if corner_accent:
         c_tick = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(left + width - 0.25), Inches(top + 0.08), Inches(0.15), Inches(0.02))
         c_tick.fill.solid()
@@ -166,7 +167,7 @@ def add_card(slide, left, top, width, height, title=None, border_color=CARD_BORD
 
     return card
 
-def add_bottom_banner(slide, text, tag="Speed-up Rule:", tag_color=ACCENT_CYAN):
+def add_bottom_banner(slide, text, tag="Key Principle:", tag_color=ACCENT_CYAN):
     """Adds a sleek full-width bottom callout banner matching the Gamma template."""
     banner = add_card(slide, 0.8, 6.35, 11.733, 0.65, border_color=CARD_BORDER, bg_color=PILL_BG)
     tb = slide.shapes.add_textbox(Inches(1.0), Inches(6.45), Inches(11.3), Inches(0.45))
@@ -189,16 +190,14 @@ def add_bottom_banner(slide, text, tag="Speed-up Rule:", tag_color=ACCENT_CYAN):
     r_body.font.color.rgb = TEXT_WHITE
 
 def add_circular_step(slide, cx, cy, radius, label, sublabel=None, number=None, border_color=ACCENT_CYAN):
-    """Draws sleek circular process step nodes matching Gamma template Slide 6 & 9."""
+    """Draws sleek circular process step nodes matching Gamma template."""
     r_inch = Inches(radius)
-    # Circle shape with glowing border
     circle = slide.shapes.add_shape(MSO_SHAPE.OVAL, Inches(cx - radius), Inches(cy - radius), Inches(radius * 2), Inches(radius * 2))
     circle.fill.solid()
     circle.fill.fore_color.rgb = PILL_BG
     circle.line.color.rgb = border_color
     circle.line.width = Pt(2)
 
-    # Text inside circle
     tb = slide.shapes.add_textbox(Inches(cx - radius - 0.2), Inches(cy - 0.2), Inches(radius * 2 + 0.4), Inches(0.4))
     tf = tb.text_frame
     tf.word_wrap = True
@@ -216,7 +215,6 @@ def add_circular_step(slide, cx, cy, radius, label, sublabel=None, number=None, 
         p.font.size = Pt(12)
         p.font.color.rgb = ACCENT_CYAN
 
-    # Sublabel under circle
     if label:
         tb_lbl = slide.shapes.add_textbox(Inches(cx - 0.8), Inches(cy + radius + 0.1), Inches(1.6), Inches(0.6))
         tf_l = tb_lbl.text_frame
@@ -225,7 +223,7 @@ def add_circular_step(slide, cx, cy, radius, label, sublabel=None, number=None, 
         p_l.alignment = PP_ALIGN.CENTER
         p_l.text = label
         p_l.font.name = FONT_HEADING
-        p_l.font.size = Pt(10.5)
+        p_l.font.size = Pt(10)
         p_l.font.bold = True
         p_l.font.color.rgb = TEXT_WHITE
 
@@ -255,7 +253,6 @@ def build_presentation():
     set_slide_backdrop(s1)
     apply_slide_morph_transition(s1)
 
-    # Left Column Text & Presenters
     tb_t = s1.shapes.add_textbox(Inches(0.8), Inches(1.0), Inches(7.0), Inches(2.2))
     tf_t = tb_t.text_frame
     tf_t.word_wrap = True
@@ -267,7 +264,7 @@ def build_presentation():
     p1.font.color.rgb = TEXT_WHITE
 
     p2 = tf_t.add_paragraph()
-    p2.text = "Understanding the Hardware Foundation of Operating Systems"
+    p2.text = "Core Hardware, Storage Hierarchies & Modern Multiprocessing"
     p2.font.name = FONT_HEADING
     p2.font.size = Pt(14)
     p2.font.bold = True
@@ -281,15 +278,13 @@ def build_presentation():
     p3.font.color.rgb = TEXT_MUTED
     p3.space_before = Pt(4)
 
-    # 3 Presenter Rows with Circular Avatar Badges
     presenters = [
-        ("V. Ram Charan", "Speaker 1 (Act I Lead)", ACCENT_CYAN),
-        ("Vedhanth", "Speaker 2 (Act II Lead)", ACCENT_INDIGO),
-        ("Lochan", "Speaker 3 (Act III Lead)", ACCENT_EMERALD)
+        ("V. Ram Charan", "Act I Lead — Core Hardware & System Bus", ACCENT_CYAN),
+        ("Vedhanth", "Act II Lead — Memory & Storage Hierarchy", ACCENT_INDIGO),
+        ("Lochan", "Act III Lead — Multiprocessing & Modern Architectures", ACCENT_EMERALD)
     ]
     for i, (name, role, col) in enumerate(presenters):
         py = 3.3 + i * 0.95
-        # Avatar Circle
         avatar = s1.shapes.add_shape(MSO_SHAPE.OVAL, Inches(0.8), Inches(py), Inches(0.7), Inches(0.7))
         avatar.fill.solid()
         avatar.fill.fore_color.rgb = PILL_BG
@@ -301,7 +296,6 @@ def build_presentation():
         p_av.text = "👤"
         p_av.font.size = Pt(14)
         
-        # Name Text
         tb_p = s1.shapes.add_textbox(Inches(1.65), Inches(py + 0.05), Inches(5.5), Inches(0.6))
         tf_p = tb_p.text_frame
         p_pn = tf_p.paragraphs[0]
@@ -316,7 +310,6 @@ def build_presentation():
         p_pr.font.size = Pt(10)
         p_pr.font.color.rgb = col
 
-    # Bottom Quote Line with vertical cyan accent
     q_bar = s1.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.8), Inches(6.3), Inches(0.06), Inches(0.65))
     q_bar.fill.solid()
     q_bar.fill.fore_color.rgb = ACCENT_CYAN
@@ -331,170 +324,526 @@ def build_presentation():
     pq.font.italic = True
     pq.font.color.rgb = TEXT_MUTED
 
-    # Right Side Isometric Motherboard Art with Ambient Glow
     mb_img = os.path.join(GAMMA_DIR, "iso_motherboard.png")
     if os.path.exists(mb_img):
         s1.shapes.add_picture(mb_img, Inches(7.5), Inches(0.8), width=Inches(5.2))
 
     set_speaker_notes(
         s1,
-        "Good morning everyone. Welcome to our presentation on Computer System Architecture. I am Ram Charan, and together with Vedhanth and Lochan, we will walk you through the fundamental relationship between computer hardware and the operating system. The OS is the critical piece of software that transforms raw silicon, memory, and devices into a cohesive, secure platform.",
-        "The Operating System acts as the vital bridge between user software and physical hardware, balancing resource allocation and execution control.",
-        "Let us begin with Slide 2 by looking at the four fundamental components that make up any computer system.",
+        "Good morning everyone. I’ll be explaining the core hardware of a computer system. Together with Vedhanth and Lochan, we will walk you through how hardware components communicate, how memory hierarchies optimize speed and capacity, and how modern multiprocessing systems scale concurrent execution.",
+        "Computer system architecture establishes the hardware foundation for operating system process management, memory allocation, and I/O handling.",
+        "Let us begin with Slide 2 by examining the three core hardware components: the CPU, main memory, and I/O devices.",
         "Stand center, introduce team members, gesture to the presenter cards."
     )
 
     # =========================================================================
-    # SLIDE 2: WHAT IS A COMPUTER SYSTEM? (V. Ram Charan)
+    # SLIDE 2: CORE HARDWARE COMPONENTS (V. Ram Charan)
     # =========================================================================
     s2 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s2)
     apply_slide_morph_transition(s2)
-    add_header(s2, 2, 15, "Act I: Foundations", "V. Ram Charan", "What is a Computer System?")
+    add_header(s2, 2, 15, "Act I: Core Hardware", "V. Ram Charan", "Core Hardware of a Computer System", "The Three Fundamental Hardware Pillars Powering Execution")
 
-    # Left: 3D Stacked Layers Tower
-    tower_img = os.path.join(GAMMA_DIR, "iso_stacked_layers.png")
-    if os.path.exists(tower_img):
-        s2.shapes.add_picture(tower_img, Inches(0.8), Inches(1.6), width=Inches(4.5))
-
-    # Right: Four Major Components List
-    tb_fc = s2.shapes.add_textbox(Inches(5.6), Inches(1.6), Inches(6.9), Inches(3.0))
-    tf_fc = tb_fc.text_frame
-    tf_fc.word_wrap = True
-
-    p_fch = tf_fc.paragraphs[0]
-    p_fch.text = "Four Major Components"
-    p_fch.font.name = FONT_HEADING
-    p_fch.font.size = Pt(16)
-    p_fch.font.bold = True
-    p_fch.font.color.rgb = TEXT_WHITE
-
-    comp_items = [
-        ("→  User", "Interacts with application programs"),
-        ("→  Application Programs", "Solve user computing problems (compilers, databases, browsers)"),
-        ("→  Operating System", "Controls and coordinates hardware use among competing applications"),
-        ("→  Computer Hardware", "CPU, Main Memory, and I/O Devices providing raw computing resources")
+    col_w = 3.7
+    hw_cards = [
+        ("The CPU (Processor)", ACCENT_CYAN, [
+            ("Instruction Cycle:", "Responsible for fetching, decoding, and executing instructions from memory."),
+            ("Core Units:", "Contains the Arithmetic Logic Unit (ALU), Control Unit (CU), and internal registers."),
+            ("System Driver:", "Directs computation and orchestrates data flow across all subsystems.")
+        ]),
+        ("Main Memory (RAM)", ACCENT_INDIGO, [
+            ("Primary Storage:", "Stores data and active programs that are currently being used by the system."),
+            ("Direct Access:", "The only large memory directly addressable and executable by the CPU."),
+            ("Volatile Nature:", "Provides high-speed working storage for active runtime processes.")
+        ]),
+        ("I/O Devices & Controllers", ACCENT_EMERALD, [
+            ("External Bridge:", "Helps the computer communicate with the outside world and users."),
+            ("Device Categories:", "Displays, keyboards, network interfaces, and secondary storage."),
+            ("Dedicated Hardware:", "Device controllers manage physical hardware protocols autonomously.")
+        ])
     ]
-    for k, v in comp_items:
-        pk = tf_fc.add_paragraph()
-        pk.text = k
-        pk.font.name = FONT_HEADING
-        pk.font.size = Pt(13)
-        pk.font.bold = True
-        pk.font.color.rgb = ACCENT_CYAN
-        pk.space_before = Pt(6)
+    for i, (ctitle, ccol, citems) in enumerate(hw_cards):
+        cx = 0.8 + i * 4.0
+        add_card(s2, cx, 1.6, col_w, 4.4, ctitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ccol)
+        tb = s2.shapes.add_textbox(Inches(cx + 0.24), Inches(2.1), Inches(col_w - 0.45), Inches(3.7))
+        tf = tb.text_frame
+        tf.word_wrap = True
+        for j, (h, b) in enumerate(citems):
+            p = tf.add_paragraph() if j > 0 else tf.paragraphs[0]
+            p.text = "• " + h + " "
+            p.font.name = FONT_HEADING
+            p.font.size = Pt(11)
+            p.font.bold = True
+            p.font.color.rgb = TEXT_WHITE
+            if j > 0: p.space_before = Pt(6)
+            run = p.add_run()
+            run.text = b
+            run.font.name = FONT_BODY
+            run.font.size = Pt(10.5)
+            run.font.bold = False
+            run.font.color.rgb = TEXT_MUTED
 
-        pv = tf_fc.add_paragraph()
-        pv.text = "    " + v
-        pv.font.name = FONT_BODY
-        pv.font.size = Pt(10.5)
-        pv.font.color.rgb = TEXT_MUTED
-
-    # Bottom Row: 3 Role Cards
-    r_w = 3.7
-    cards_s2 = [
-        ("Resource Allocator", "Manages CPU time, memory space, storage, and I/O devices fairly and efficiently.", ACCENT_CYAN),
-        ("Control Program", "Prevents errors and improper use of the computer by monitoring execution.", ACCENT_EMERALD),
-        ("Hardware Manager", "Coordinates hardware among all running applications to maximize throughput.", ACCENT_INDIGO)
-    ]
-    for i, (rtitle, rdesc, rcol) in enumerate(cards_s2):
-        rx = 0.8 + i * 4.0
-        add_card(s2, rx, 4.8, r_w, 1.8, rtitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=rcol)
-        tb_r = s2.shapes.add_textbox(Inches(rx + 0.2), Inches(5.3), Inches(r_w - 0.4), Inches(1.1))
-        tf_r = tb_r.text_frame
-        tf_r.word_wrap = True
-        pr = tf_r.paragraphs[0]
-        pr.text = rdesc
-        pr.font.name = FONT_BODY
-        pr.font.size = Pt(10.5)
-        pr.font.color.rgb = TEXT_MUTED
+    add_bottom_banner(s2, "The CPU continuously executes the Fetch-Decode-Execute cycle on programs held in Main Memory, communicating results via I/O.", "Execution Foundation:", ACCENT_CYAN)
 
     set_speaker_notes(
         s2,
-        "A computer system is divided into four components: Users, Application Programs, the Operating System, and Computer Hardware. Hardware supplies raw computing resources—the CPU, main memory, and I/O devices. Sitting right between applications and hardware is the Operating System, which fulfills two vital roles: as a Resource Allocator managing CPU cycles and memory without conflict, and as a Control Program preventing bugs and illegal operations from crashing the machine.",
-        "Four-component computer system model & OS duality as Resource Allocator and Control Program.",
-        "Now let's examine how computer system architectures have evolved from single-processor systems to modern multi-core chips.",
-        "Point to the vertical diagram showing the OS buffering applications from raw hardware."
+        "A computer system mainly consists of three parts: the CPU, main memory, and I/O devices. The CPU is responsible for fetching, decoding, and executing instructions. Main memory stores the data and programs that are currently being used, while I/O devices help the computer communicate with the outside world.",
+        "The CPU, RAM, and I/O form the triad of computer architecture; the CPU cannot run code that is not first loaded into main memory.",
+        "Now let's examine how these three components communicate with each other over the system bus.",
+        "Point to the 3 distinct cards highlighting CPU, Main Memory, and I/O Devices."
     )
 
     # =========================================================================
-    # SLIDE 3: COMPUTER-SYSTEM ORGANIZATION (V. Ram Charan)
+    # SLIDE 3: THE SYSTEM BUS ARCHITECTURE (V. Ram Charan)
     # =========================================================================
     s3 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s3)
     apply_slide_morph_transition(s3)
-    add_header(s3, 3, 15, "Act I: Foundations", "V. Ram Charan", "Computer-System Organization")
+    add_header(s3, 3, 15, "Act I: Core Hardware", "V. Ram Charan", "The System Bus Architecture", "Three Specialized High-Speed Communication Channels")
 
-    # Left: Isometric System Bus Topology
-    bus_img = os.path.join(GAMMA_DIR, "iso_system_bus.png")
-    if os.path.exists(bus_img):
-        s3.shapes.add_picture(bus_img, Inches(0.8), Inches(1.6), width=Inches(4.6))
-
-    # Right Column: Modern System Components & 3 Key Aspects
-    tb_mc = s3.shapes.add_textbox(Inches(5.7), Inches(1.6), Inches(6.8), Inches(2.2))
-    tf_mc = tb_mc.text_frame
-    tf_mc.word_wrap = True
-
-    p_mch = tf_mc.paragraphs[0]
-    p_mch.text = "Modern System Components"
-    p_mch.font.name = FONT_HEADING
-    p_mch.font.size = Pt(15)
-    p_mch.font.bold = True
-    p_mch.font.color.rgb = TEXT_WHITE
-
-    pts_s3 = [
-        "One or more CPUs and device controllers connected via a common bus",
-        "Device Controllers manage specific device types — disk, audio, graphics",
-        "Memory Controller synchronizes access to shared system memory",
-        "Parallel Execution: CPU and device controllers compete concurrently for memory cycles"
+    # Left: 3 Dedicated Bus Cards
+    bus_cards = [
+        ("1. Address Bus", "Tells WHERE the data should go by carrying physical memory addresses and I/O port numbers (Unidirectional from CPU/DMA).", ACCENT_CYAN),
+        ("2. Data Bus", "Carries the ACTUAL DATA and binary instructions between the CPU, main memory, and device controllers (Bidirectional).", ACCENT_INDIGO),
+        ("3. Control Bus", "Carries CONTROL SIGNALS and timing clocks — such as Memory Read/Write, I/O Read/Write, and Bus Grant commands (Bidirectional).", ACCENT_EMERALD)
     ]
-    for pt in pts_s3:
-        p = tf_mc.add_paragraph()
-        p.text = "• " + pt
+    for i, (btitle, bdesc, bcol) in enumerate(bus_cards):
+        by = 1.6 + i * 1.5
+        add_card(s3, 0.8, by, 5.8, 1.35, btitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=bcol)
+        tb = s3.shapes.add_textbox(Inches(1.05), Inches(by + 0.45), Inches(5.3), Inches(0.8))
+        tf = tb.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = bdesc
         p.font.name = FONT_BODY
         p.font.size = Pt(10.5)
         p.font.color.rgb = TEXT_MUTED
-        p.space_before = Pt(3)
 
-    # Right Bottom: 3 Key Aspects Stacked Cards
-    aspects = [
-        ("Interrupts", "Hardware signals CPU when immediate attention is required", ACCENT_CYAN),
-        ("Storage Structure", "Hierarchy from ultra-fast registers down to secondary storage", ACCENT_INDIGO),
-        ("I/O Structure", "Data movement between CPU, main memory, and peripheral controllers", ACCENT_EMERALD)
-    ]
-    for i, (atitle, adesc, acol) in enumerate(aspects):
-        ay = 4.2 + i * 1.0
-        add_card(s3, 5.7, ay, 6.8, 0.85, atitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=acol)
-        tb_a = s3.shapes.add_textbox(Inches(5.95), Inches(ay + 0.4), Inches(6.4), Inches(0.4))
-        tf_a = tb_a.text_frame
-        pa = tf_a.paragraphs[0]
-        pa.text = adesc
-        pa.font.name = FONT_BODY
-        pa.font.size = Pt(10)
-        pa.font.color.rgb = TEXT_MUTED
+    # Right: 3-Part Bus Isometric Diagram
+    bus_img = os.path.join(GAMMA_DIR, "iso_system_bus.png")
+    if os.path.exists(bus_img):
+        s3.shapes.add_picture(bus_img, Inches(7.0), Inches(1.5), width=Inches(5.5))
+
+    add_bottom_banner(s3, "These three buses work synchronously to coordinate all instruction fetching, operand reads, and device data transfers.", "System Bus Synchronization:", ACCENT_CYAN)
 
     set_speaker_notes(
         s3,
-        "In modern computer system organization, CPUs and device controllers are connected through a shared system bus. Each device controller manages a specific device type—like disks, network interfaces, or displays—and maintains its own local buffer storage. The CPU and controllers execute concurrently, competing for memory cycles managed by the memory controller.",
-        "Computer-system organization, shared bus interconnects, device controllers, and concurrent execution.",
-        "Let's look at how single-processor systems compare with multiprocessor architectures.",
-        "Trace the connection of CPUs, memory, and devices to the common central bus."
+        "These components communicate through a system bus, which has three parts: the address bus, which tells where the data should go; the data bus, which carries the actual data; and the control bus, which carries control signals.",
+        "The system bus connects CPU, memory, and I/O controllers; bus width determines addressable memory limits and throughput bandwidth.",
+        "Next, let's look at two critical concepts in hardware communication: Interrupts and DMA.",
+        "Trace the Address, Data, and Control lines on the diagram."
     )
 
     # =========================================================================
-    # SLIDE 4: SINGLE-PROCESSOR VS MULTIPROCESSOR (V. Ram Charan)
+    # SLIDE 4: INTERRUPTS & DMA (V. Ram Charan)
     # =========================================================================
     s4 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s4)
     apply_slide_morph_transition(s4)
-    add_header(s4, 4, 15, "Act I: Foundations", "V. Ram Charan", "Single-Processor vs. Multiprocessor Systems")
+    add_header(s4, 4, 15, "Act I: Core Hardware", "V. Ram Charan", "Hardware Communication: Interrupts & DMA", "Asynchronous Event Signaling & High-Speed Memory Transfers")
 
-    # Left: Text Descriptions
-    tb_s4 = s4.shapes.add_textbox(Inches(0.8), Inches(1.6), Inches(5.8), Inches(4.5))
-    tf_s4 = tb_s4.text_frame
-    tf_s4.word_wrap = True
+    # Left: 2 Hero Cards for Interrupts and DMA
+    add_card(s4, 0.8, 1.6, 5.7, 4.4, "Interrupt Mechanism", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
+    tb_int = s4.shapes.add_textbox(Inches(1.05), Inches(2.1), Inches(5.2), Inches(3.7))
+    tf_int = tb_int.text_frame
+    tf_int.word_wrap = True
+    pts_int = [
+        ("Purpose:", "Allows devices to get the CPU’s attention asynchronously whenever they need it."),
+        ("Eliminates Polling:", "CPU avoids wasting billions of clock cycles in busy-waiting polling loops."),
+        ("Vector Table Dispatch:", "CPU pushes state to stack and branches instantly to the Interrupt Service Routine (ISR)."),
+        ("Seamless Resumption:", "User execution resumes immediately after device service completes.")
+    ]
+    for i, (h, b) in enumerate(pts_int):
+        p = tf_int.add_paragraph() if i > 0 else tf_int.paragraphs[0]
+        p.text = "• " + h + " "
+        p.font.name = FONT_HEADING
+        p.font.size = Pt(11)
+        p.font.bold = True
+        p.font.color.rgb = TEXT_WHITE
+        if i > 0: p.space_before = Pt(4)
+        run = p.add_run()
+        run.text = b
+        run.font.name = FONT_BODY
+        run.font.size = Pt(10)
+        run.font.bold = False
+        run.font.color.rgb = TEXT_MUTED
 
-    p_sp = tf_s4.paragraphs[0]
+    add_card(s4, 6.8, 1.6, 5.7, 4.4, "Direct Memory Access (DMA)", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_EMERALD)
+    tb_dma = s4.shapes.add_textbox(Inches(7.05), Inches(2.1), Inches(5.2), Inches(3.7))
+    tf_dma = tb_dma.text_frame
+    tf_dma.word_wrap = True
+    pts_dma = [
+        ("Purpose:", "Allows devices to transfer data directly to memory without making the CPU handle every piece of data."),
+        ("High-Speed Channels:", "Essential for disk controllers, SSDs, graphics, and Gigabit network interfaces."),
+        ("Single Interrupt per Block:", "Transfers entire data blocks directly between device buffer and RAM; emits only 1 interrupt per block."),
+        ("CPU Offloading:", "Frees the CPU to execute user computation while memory transfers proceed in parallel.")
+    ]
+    for i, (h, b) in enumerate(pts_dma):
+        p = tf_dma.add_paragraph() if i > 0 else tf_dma.paragraphs[0]
+        p.text = "• " + h + " "
+        p.font.name = FONT_HEADING
+        p.font.size = Pt(11)
+        p.font.bold = True
+        p.font.color.rgb = TEXT_WHITE
+        if i > 0: p.space_before = Pt(4)
+        run = p.add_run()
+        run.text = b
+        run.font.name = FONT_BODY
+        run.font.size = Pt(10)
+        run.font.bold = False
+        run.font.color.rgb = TEXT_MUTED
+
+    add_bottom_banner(s4, "Interrupts provide asynchronous control signaling, while DMA provides high-throughput direct data movement.", "Core Takeaway:", ACCENT_EMERALD)
+
+    set_speaker_notes(
+        s4,
+        "Two important concepts are interrupts and DMA. Interrupts allow devices to get the CPU’s attention when they need it. DMA allows devices to transfer data directly to memory without making the CPU handle every piece of data.",
+        "Interrupts eliminate busy-wait polling overhead; DMA offloads byte-by-byte data transfer from the CPU.",
+        "Let us summarize how core hardware components integrate before moving to memory hierarchy.",
+        "Contrast the event-driven signal flow of interrupts with the high-throughput block stream of DMA."
+    )
+
+    # =========================================================================
+    # SLIDE 5: CORE HARDWARE INTEGRATION SUMMARY (V. Ram Charan)
+    # =========================================================================
+    s5 = prs.slides.add_slide(blank_layout)
+    set_slide_backdrop(s5)
+    apply_slide_morph_transition(s5)
+    add_header(s5, 5, 15, "Act I: Core Hardware", "V. Ram Charan", "Core Hardware Integration Summary", "Cohesive Operation Across Processor, Memory, Bus & Controllers")
+
+    # 3 Summary Cards
+    col_w = 3.7
+    int_cards = [
+        ("1. Triad Organization", ACCENT_CYAN, "CPU fetches, decodes, and executes. Main memory holds active tasks. I/O bridges external devices into the system."),
+        ("2. Tri-Bus Highway", ACCENT_INDIGO, "Address bus routes destinations, data bus transmits operands/code, and control bus synchronizes read/write timing."),
+        ("3. Event & Data Flow", ACCENT_EMERALD, "Interrupts notify the CPU on demand, while DMA streams high-speed data directly to RAM without processor bottlenecks.")
+    ]
+    for i, (stitle, scol, sdesc) in enumerate(int_cards):
+        cx = 0.8 + i * 4.0
+        add_card(s5, cx, 1.6, col_w, 4.4, stitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=scol)
+        tb = s5.shapes.add_textbox(Inches(cx + 0.24), Inches(2.2), Inches(col_w - 0.45), Inches(3.5))
+        tf = tb.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = sdesc
+        p.font.name = FONT_BODY
+        p.font.size = Pt(11)
+        p.font.color.rgb = TEXT_MUTED
+        p.space_before = Pt(4)
+
+    add_bottom_banner(s5, "That’s the basic idea of how the hardware components communicate. Next: Memory & Storage Hierarchy.", "Act I Transition:", ACCENT_CYAN)
+
+    set_speaker_notes(
+        s5,
+        "That’s the basic idea of how the hardware components communicate. I will now pass the presentation to Vedhanth, who will explain the memory and storage hierarchy, locality of reference, and how the operating system manages storage tiers efficiently.",
+        "Hardware components form a tightly synchronized system coordinated by the system bus, interrupts, and DMA.",
+        "Pass presentation to Vedhanth for Act II.",
+        "Hand over clicker to Vedhanth."
+    )
+
+    # =========================================================================
+    # SLIDE 6: MEMORY & STORAGE HIERARCHY OVERVIEW (Vedhanth)
+    # =========================================================================
+    s6 = prs.slides.add_slide(blank_layout)
+    set_slide_backdrop(s6)
+    apply_slide_morph_transition(s6)
+    add_header(s6, 6, 15, "Act II: Memory & Storage", "Vedhanth", "Memory and Storage Hierarchy", "Balancing Speed, Cost, and Capacity Across Storage Tiers")
+
+    # Left: Explanation & Principle
+    tb_mh = s6.shapes.add_textbox(Inches(0.8), Inches(1.6), Inches(5.8), Inches(4.5))
+    tf_mh = tb_mh.text_frame
+    tf_mh.word_wrap = True
+
+    p_mh1 = tf_mh.paragraphs[0]
+    p_mh1.text = "Why Do Computers Use Different Types of Memory?"
+    p_mh1.font.name = FONT_HEADING
+    p_mh1.font.size = Pt(15)
+    p_mh1.font.bold = True
+    p_mh1.font.color.rgb = TEXT_WHITE
+
+    p_mh2 = tf_mh.add_paragraph()
+    p_mh2.text = "Computers use different types of memory because faster memory is usually smaller and more expensive, while slower memory can provide much larger capacity."
+    p_mh2.font.name = FONT_BODY
+    p_mh2.font.size = Pt(11)
+    p_mh2.font.color.rgb = ACCENT_CYAN
+    p_mh2.space_before = Pt(6)
+
+    # 2 Sub Cards
+    add_card(s6, 0.8, 3.1, 5.8, 1.4, "High-Speed Tier (Top)", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
+    tb_t1 = s6.shapes.add_textbox(Inches(1.05), Inches(3.55), Inches(5.3), Inches(0.85))
+    p = tb_t1.text_frame.paragraphs[0]
+    p.text = "Registers and CPU caches provide sub-nanosecond access speeds to keep the execution pipeline fed, but are limited in physical capacity."
+    p.font.name = FONT_BODY
+    p.font.size = Pt(10)
+    p.font.color.rgb = TEXT_MUTED
+
+    add_card(s6, 0.8, 4.65, 5.8, 1.4, "High-Capacity Tier (Bottom)", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_AMBER)
+    tb_t2 = s6.shapes.add_textbox(Inches(1.05), Inches(5.1), Inches(5.3), Inches(0.85))
+    p = tb_t2.text_frame.paragraphs[0]
+    p.text = "Main memory and secondary storage (SSDs/HDDs) provide gigabytes to terabytes of storage at low cost per bit."
+    p.font.name = FONT_BODY
+    p.font.size = Pt(10)
+    p.font.color.rgb = TEXT_MUTED
+
+    # Right: Storage Pyramid Illustration
+    pyr_img = os.path.join(GAMMA_DIR, "iso_storage_pyramid.png")
+    if os.path.exists(pyr_img):
+        s6.shapes.add_picture(pyr_img, Inches(7.0), Inches(1.5), width=Inches(5.5))
+
+    add_bottom_banner(s6, "Faster memory is smaller and expensive; slower storage is large and economical. The hierarchy balances both.", "Fundamental Trade-off:", ACCENT_CYAN)
+
+    set_speaker_notes(
+        s6,
+        "Now I’ll explain memory and storage hierarchy. Computers use different types of memory because faster memory is usually smaller and more expensive, while slower memory can provide much larger capacity. The hierarchy allows the computer to approximate the speed of the fastest memory with the capacity of the largest storage.",
+        "Trade-off between access latency, cost per bit, and storage capacity across the memory hierarchy.",
+        "Let us examine each tier of the hierarchy from internal registers down to secondary storage.",
+        "Trace the pyramid from top (Registers/Cache) to bottom (RAM/SSD)."
+    )
+
+    # =========================================================================
+    # SLIDE 7: HIERARCHY TIERS (Vedhanth)
+    # =========================================================================
+    s7 = prs.slides.add_slide(blank_layout)
+    set_slide_backdrop(s7)
+    apply_slide_morph_transition(s7)
+    add_header(s7, 7, 15, "Act II: Memory & Storage", "Vedhanth", "The Hierarchy Tiers: Registers to Secondary Storage", "Speed, Capacity, and Access Latency Across the Four Levels")
+
+    c_w4 = 2.75
+    tiers_data = [
+        ("1. Registers", ACCENT_CYAN, "< 1 ns", "Bytes / KB", "Fastest & smallest storage; located directly inside the CPU; holds immediate operands."),
+        ("2. Cache (L1/L2/L3)", ACCENT_INDIGO, "1 – 10 ns", "KB – MB", "High-speed on-chip SRAM; buffers frequently used instructions and active data."),
+        ("3. Main Memory (RAM)", ACCENT_EMERALD, "50 – 100 ns", "GBs", "Primary DRAM workspace; holds currently executing programs and operating system buffers."),
+        ("4. Secondary Storage", ACCENT_AMBER, "10 μs – 10 ms", "TBs", "SSDs, NVMe & Hard Disks; non-volatile long-term storage preserving files permanently.")
+    ]
+    for i, (ttitle, tcol, tspeed, tcap, tdesc) in enumerate(tiers_data):
+        tx = 0.8 + i * 3.0
+        add_card(s7, tx, 1.6, c_w4, 4.4, ttitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=tcol)
+        
+        # Speed & Cap Badges
+        tb_b = s7.shapes.add_textbox(Inches(tx + 0.2), Inches(2.1), Inches(c_w4 - 0.4), Inches(0.8))
+        tf_b = tb_b.text_frame
+        p_s = tf_b.paragraphs[0]
+        p_s.text = f"Speed: {tspeed}"
+        p_s.font.name = FONT_HEADING
+        p_s.font.size = Pt(10)
+        p_s.font.bold = True
+        p_s.font.color.rgb = tcol
+        p_c = tf_b.add_paragraph()
+        p_c.text = f"Capacity: {tcap}"
+        p_c.font.name = FONT_BODY
+        p_c.font.size = Pt(9.5)
+        p_c.font.color.rgb = TEXT_WHITE
+
+        tb_d = s7.shapes.add_textbox(Inches(tx + 0.2), Inches(3.0), Inches(c_w4 - 0.4), Inches(2.8))
+        tf_d = tb_d.text_frame
+        tf_d.word_wrap = True
+        p_d = tf_d.paragraphs[0]
+        p_d.text = tdesc
+        p_d.font.name = FONT_BODY
+        p_d.font.size = Pt(10)
+        p_d.font.color.rgb = TEXT_MUTED
+
+    add_bottom_banner(s7, "The hierarchy starts with registers, which are the fastest and smallest, followed by cache, RAM, and finally secondary storage such as SSDs and hard disks.", "Hierarchy Structure:", ACCENT_CYAN)
+
+    set_speaker_notes(
+        s7,
+        "The hierarchy starts with registers, which are the fastest and smallest, followed by cache, RAM, and finally secondary storage such as SSDs and hard disks. Registers operate at processor clock speeds, cache buffers hot data, RAM holds active programs, and secondary storage provides permanent capacity.",
+        "Step-by-step characteristics of Registers, Cache (SRAM), Main Memory (DRAM), and Secondary Storage (NVM/Disks).",
+        "Next, why does caching work so effectively? Let's look at the Locality of Reference.",
+        "Point to the 4 columns from fastest (Registers) to largest (Secondary Storage)."
+    )
+
+    # =========================================================================
+    # SLIDE 8: LOCALITY OF REFERENCE (Vedhanth)
+    # =========================================================================
+    s8 = prs.slides.add_slide(blank_layout)
+    set_slide_backdrop(s8)
+    apply_slide_morph_transition(s8)
+    add_header(s8, 8, 15, "Act II: Memory & Storage", "Vedhanth", "Locality of Reference: Temporal & Spatial", "The Behavioral Principle Making Caching and Hierarchy Work")
+
+    # 2 Hero Cards: Temporal Locality vs Spatial Locality
+    c_w = 5.7
+    add_card(s8, 0.8, 1.6, c_w, 4.4, "Temporal Locality (Locality in Time)", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
+    tb_tem = s8.shapes.add_textbox(Inches(1.05), Inches(2.1), Inches(c_w - 0.4), Inches(3.7))
+    tf_tem = tb_tem.text_frame
+    tf_tem.word_wrap = True
+    pts_tem = [
+        ("Definition:", "Data used recently is likely to be used again soon in the near future."),
+        ("Program Patterns:", "Loop counters, repeated function calls, stack variables, and active subroutines."),
+        ("Cache Impact:", "Keeping recently accessed words in fast cache SRAM delivers hit rates above 90%."),
+        ("Principle:", "If you read address X at time T, you will likely read address X again at time T + Δ.")
+    ]
+    for i, (h, b) in enumerate(pts_tem):
+        p = tf_tem.add_paragraph() if i > 0 else tf_tem.paragraphs[0]
+        p.text = "• " + h + " "
+        p.font.name = FONT_HEADING
+        p.font.size = Pt(11)
+        p.font.bold = True
+        p.font.color.rgb = TEXT_WHITE
+        if i > 0: p.space_before = Pt(4)
+        run = p.add_run()
+        run.text = b
+        run.font.name = FONT_BODY
+        run.font.size = Pt(10)
+        run.font.bold = False
+        run.font.color.rgb = TEXT_MUTED
+
+    add_card(s8, 6.8, 1.6, c_w, 4.4, "Spatial Locality (Locality in Space)", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_INDIGO)
+    tb_spa = s8.shapes.add_textbox(Inches(7.05), Inches(2.1), Inches(c_w - 0.4), Inches(3.7))
+    tf_spa = tb_spa.text_frame
+    tf_spa.word_wrap = True
+    pts_spa = [
+        ("Definition:", "Data near recently used data is likely to be needed next by the program."),
+        ("Program Patterns:", "Sequential instruction execution, traversing continuous arrays, and structured records."),
+        ("Cache Impact:", "Memory controllers fetch whole cache lines (e.g. 64-byte blocks) rather than single words."),
+        ("Principle:", "If you read address X, you will likely read address X + 1, X + 2 soon after.")
+    ]
+    for i, (h, b) in enumerate(pts_spa):
+        p = tf_spa.add_paragraph() if i > 0 else tf_spa.paragraphs[0]
+        p.text = "• " + h + " "
+        p.font.name = FONT_HEADING
+        p.font.size = Pt(11)
+        p.font.bold = True
+        p.font.color.rgb = TEXT_WHITE
+        if i > 0: p.space_before = Pt(4)
+        run = p.add_run()
+        run.text = b
+        run.font.name = FONT_BODY
+        run.font.size = Pt(10)
+        run.font.bold = False
+        run.font.color.rgb = TEXT_MUTED
+
+    add_bottom_banner(s8, "Cache is important because programs show locality of reference: temporal (reuse soon) and spatial (nearby data needed next).", "Locality Rule:", ACCENT_CYAN)
+
+    set_speaker_notes(
+        s8,
+        "Cache is important because programs usually show locality of reference. Temporal locality means that data used recently is likely to be used again soon. Spatial locality means that data near recently used data is likely to be needed next. Because of locality, small fast caches can satisfy the vast majority of memory accesses.",
+        "Temporal locality (reuse in time) and Spatial locality (adjacency in space) are the core reasons caching succeeds.",
+        "Now let's examine the difference between volatile and non-volatile storage.",
+        "Highlight the contrast between loop re-execution (Temporal) and sequential array scans (Spatial)."
+    )
+
+    # =========================================================================
+    # SLIDE 9: VOLATILITY VS PERMANENCE (Vedhanth)
+    # =========================================================================
+    s9 = prs.slides.add_slide(blank_layout)
+    set_slide_backdrop(s9)
+    apply_slide_morph_transition(s9)
+    add_header(s9, 9, 15, "Act II: Memory & Storage", "Vedhanth", "Memory Volatility: RAM vs. SSDs & Hard Disks", "Volatile Working Storage vs. Non-Volatile Permanent Retention")
+
+    c_w = 5.7
+    add_card(s9, 0.8, 1.6, c_w, 4.4, "Volatile Memory (RAM & Caches)", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_ROSE)
+    tb_vol = s9.shapes.add_textbox(Inches(1.05), Inches(2.1), Inches(c_w - 0.4), Inches(3.7))
+    tf_vol = tb_vol.text_frame
+    tf_vol.word_wrap = True
+    pts_vol = [
+        ("Core Characteristic:", "RAM is volatile, meaning it loses its contents when power is turned off."),
+        ("Physical Storage:", "Uses dynamic capacitor charges (DRAM) or transistor latches (SRAM) requiring active power."),
+        ("System Role:", "Acts as high-speed temporary workspace for currently running processes and kernel state."),
+        ("Speed Advantage:", "Direct electrical access delivers nanosecond-level response times.")
+    ]
+    for i, (h, b) in enumerate(pts_vol):
+        p = tf_vol.add_paragraph() if i > 0 else tf_vol.paragraphs[0]
+        p.text = "• " + h + " "
+        p.font.name = FONT_HEADING
+        p.font.size = Pt(11)
+        p.font.bold = True
+        p.font.color.rgb = TEXT_WHITE
+        if i > 0: p.space_before = Pt(4)
+        run = p.add_run()
+        run.text = b
+        run.font.name = FONT_BODY
+        run.font.size = Pt(10)
+        run.font.bold = False
+        run.font.color.rgb = TEXT_MUTED
+
+    add_card(s9, 6.8, 1.6, c_w, 4.4, "Non-Volatile Storage (SSDs & HDDs)", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_EMERALD)
+    tb_nvol = s9.shapes.add_textbox(Inches(7.05), Inches(2.1), Inches(c_w - 0.4), Inches(3.7))
+    tf_nvol = tb_nvol.text_frame
+    tf_nvol.word_wrap = True
+    pts_nvol = [
+        ("Core Characteristic:", "SSDs and hard disks are non-volatile, so they retain data even without power."),
+        ("Physical Storage:", "Uses NAND flash memory floating gates (SSDs/NVMe) or magnetic platter domains (HDDs)."),
+        ("System Role:", "Preserves operating system code, application files, and user data permanently."),
+        ("Capacity Advantage:", "Provides massive terabyte-scale capacity at low cost per gigabyte.")
+    ]
+    for i, (h, b) in enumerate(pts_nvol):
+        p = tf_nvol.add_paragraph() if i > 0 else tf_nvol.paragraphs[0]
+        p.text = "• " + h + " "
+        p.font.name = FONT_HEADING
+        p.font.size = Pt(11)
+        p.font.bold = True
+        p.font.color.rgb = TEXT_WHITE
+        if i > 0: p.space_before = Pt(4)
+        run = p.add_run()
+        run.text = b
+        run.font.name = FONT_BODY
+        run.font.size = Pt(10)
+        run.font.bold = False
+        run.font.color.rgb = TEXT_MUTED
+
+    add_bottom_banner(s9, "RAM is volatile (loses data on power-off); SSDs and HDDs are non-volatile (retain data permanently without power).", "Volatility Distinction:", ACCENT_ROSE)
+
+    set_speaker_notes(
+        s9,
+        "RAM is volatile, meaning it loses its contents when power is turned off. SSDs and hard disks are non-volatile, so they retain data even without power. Because RAM is volatile, all programs and data must be saved to non-volatile secondary storage to survive reboots.",
+        "Volatile working RAM vs Non-volatile secondary storage (SSDs/HDDs) and the role of permanent file storage.",
+        "Next, how does the Operating System manage this entire storage hierarchy efficiently?",
+        "Emphasize that volatile RAM provides execution speed while non-volatile SSDs provide data permanence."
+    )
+
+    # =========================================================================
+    # SLIDE 10: OS STORAGE MANAGEMENT TECHNIQUES (Vedhanth)
+    # =========================================================================
+    s10 = prs.slides.add_slide(blank_layout)
+    set_slide_backdrop(s10)
+    apply_slide_morph_transition(s10)
+    add_header(s10, 10, 15, "Act II: Memory & Storage", "Vedhanth", "OS Memory Management Techniques", "Software Strategies for Maximizing Storage Hierarchy Performance")
+
+    c_w = 5.7
+    os_techs = [
+        ("1. Paging & Virtual Memory", ACCENT_CYAN, "Divides memory into fixed-size pages and maps virtual addresses to physical RAM frames, swapping inactive pages to disk when memory is full."),
+        ("2. Buffering", ACCENT_INDIGO, "Temporarily holds data in memory during device transfers to bridge speed mismatches between fast CPUs and slower I/O peripherals."),
+        ("3. Disk Caching", ACCENT_EMERALD, "Maintains copies of frequently accessed file system blocks in RAM to avoid slow physical disk read operations."),
+        ("4. Prefetching", ACCENT_AMBER, "Anticipates future memory and file requests based on spatial locality, loading data into cache/RAM before it is explicitly requested.")
+    ]
+    for i, (otitle, ocol, odesc) in enumerate(os_techs):
+        gx = 0.8 if i % 2 == 0 else 6.8
+        gy = 1.6 if i < 2 else 3.8
+        add_card(s10, gx, gy, c_w, 2.0, otitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ocol)
+        tb = s10.shapes.add_textbox(Inches(gx + 0.24), Inches(gy + 0.5), Inches(c_w - 0.45), Inches(1.3))
+        tf = tb.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = odesc
+        p.font.name = FONT_BODY
+        p.font.size = Pt(10.5)
+        p.font.color.rgb = TEXT_MUTED
+
+    add_bottom_banner(s10, "The OS uses techniques such as paging, buffering, disk caching, and prefetching to use this hierarchy efficiently.", "OS Optimization Suite:", ACCENT_CYAN)
+
+    set_speaker_notes(
+        s10,
+        "The OS uses techniques such as paging, buffering, disk caching, and prefetching to use this hierarchy efficiently. Paging manages virtual address spaces, buffering smooths I/O data streams, disk caching keeps hot blocks in memory, and prefetching loads data ahead of time. That concludes Act II. I now pass to Lochan.",
+        "Operating system storage management techniques: Paging, Buffering, Disk Caching, and Prefetching.",
+        "I will now pass the presentation to Lochan, who will explain multiprocessing, modern multicore systems, and OS challenges.",
+        "Hand over clicker to Lochan."
+    )
+
+    # =========================================================================
+    # SLIDE 11: SINGLE-PROCESSOR VS MULTIPROCESSOR (Lochan)
+    # =========================================================================
+    s11 = prs.slides.add_slide(blank_layout)
+    set_slide_backdrop(s11)
+    apply_slide_morph_transition(s11)
+    add_header(s11, 11, 15, "Act III: Multiprocessing", "Lochan", "Single-Processor vs. Multiprocessor Systems", "Architectural Scaling from Single Execution Streams to Parallel Computing")
+
+    # Left: Text descriptions
+    tb_s11 = s11.shapes.add_textbox(Inches(0.8), Inches(1.6), Inches(5.8), Inches(4.5))
+    tf_s11 = tb_s11.text_frame
+    tf_s11.word_wrap = True
+
+    p_sp = tf_s11.paragraphs[0]
     p_sp.text = "Single-Processor Systems"
     p_sp.font.name = FONT_HEADING
     p_sp.font.size = Pt(16)
@@ -502,19 +851,19 @@ def build_presentation():
     p_sp.font.color.rgb = TEXT_WHITE
 
     pts_sp = [
-        "One CPU with a single general-purpose processing core",
-        "May include special-purpose processors — disk, keyboard, graphics controllers",
-        "Special-purpose processors do not run user processes"
+        "Has one main CPU executing general-purpose instructions.",
+        "All instructions must pass through that single CPU.",
+        "Concurrency is simulated via rapid time-sliced context switching."
     ]
     for pt in pts_sp:
-        p = tf_s4.add_paragraph()
+        p = tf_s11.add_paragraph()
         p.text = "• " + pt
         p.font.name = FONT_BODY
         p.font.size = Pt(11)
         p.font.color.rgb = TEXT_MUTED
         p.space_before = Pt(3)
 
-    p_mp = tf_s4.add_paragraph()
+    p_mp = tf_s11.add_paragraph()
     p_mp.text = "Multiprocessor Systems"
     p_mp.font.name = FONT_HEADING
     p_mp.font.size = Pt(16)
@@ -523,12 +872,12 @@ def build_presentation():
     p_mp.space_before = Pt(16)
 
     pts_mp = [
-        "Two or more processors, each with a single-core CPU",
-        "Share bus, clock, memory, and peripheral devices",
-        "Dominate modern computing — from mobile devices to high-performance servers"
+        "Has multiple CPUs sharing bus, clock, memory, and peripherals.",
+        "Allows the OS to run more work at the same time (true hardware parallelism).",
+        "Delivers higher system throughput, economy of scale, and graceful degradation."
     ]
     for pt in pts_mp:
-        p = tf_s4.add_paragraph()
+        p = tf_s11.add_paragraph()
         p.text = "• " + pt
         p.font.name = FONT_BODY
         p.font.size = Pt(11)
@@ -538,546 +887,45 @@ def build_presentation():
     # Right: High-Contrast Tree Card
     tree_img = os.path.join(GAMMA_DIR, "single_vs_multi_tree.png")
     if os.path.exists(tree_img):
-        s4.shapes.add_picture(tree_img, Inches(7.0), Inches(1.5), width=Inches(5.5))
+        s11.shapes.add_picture(tree_img, Inches(7.0), Inches(1.5), width=Inches(5.5))
 
-    # Bottom Banner
-    add_bottom_banner(s4, "With N processors, speed-up is always less than N due to memory contention and coordination overhead.", "Speed-up Rule:", ACCENT_AMBER)
-
-    set_speaker_notes(
-        s4,
-        "Single-processor systems have one main general-purpose CPU. While they may contain special-purpose microcontrollers for disks or keyboards, only the main CPU executes user applications. Multiprocessor systems introduce two or more processors sharing memory and buses, delivering increased throughput and reliability. However, as our Speed-up Rule notes, adding N processors yields less than an N-fold speed-up due to bus contention and synchronization overhead.",
-        "Single vs multiprocessor architectures and the law of diminishing returns in processor scaling.",
-        "Let's examine how multicore designs bring multiprocessing directly onto a single silicon chip.",
-        "Point to the shared bus bottleneck on the multiprocessor diagram."
-    )
-
-    # =========================================================================
-    # SLIDE 5: MULTICORE & SYMMETRIC MULTIPROCESSING (V. Ram Charan)
-    # =========================================================================
-    s5 = prs.slides.add_slide(blank_layout)
-    set_slide_backdrop(s5)
-    apply_slide_morph_transition(s5)
-    add_header(s5, 5, 15, "Act I: Foundations", "V. Ram Charan", "Multicore & Symmetric Multiprocessing (SMP)")
-
-    # Left: 4 Concept Cards
-    c_w = 6.2
-    mc_cards = [
-        ("⚙", "Multicore Architecture", "Multiple computing cores reside on a single processor chip, enabling faster on-chip communication than separate chips.", ACCENT_CYAN),
-        ("⚡", "Power Efficiency", "Multicore systems consume significantly less power and generate less heat than an equivalent number of single-core chips.", ACCENT_EMERALD),
-        ("🧠", "Cache Architecture", "Each core has dedicated registers and L1 cache; L2 and L3 caches may be shared across cores on the chip.", ACCENT_INDIGO),
-        ("⚯", "SMP Definition", "Processors and cores cooperate, sharing system resources; the OS sees and manages multiple processing units.", ACCENT_AMBER)
-    ]
-    for i, (icon, ctitle, cdesc, ccol) in enumerate(mc_cards):
-        cy = 1.6 + i * 1.3
-        add_card(s5, 0.8, cy, c_w, 1.15, f"{icon}  {ctitle}", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ccol)
-        tb = s5.shapes.add_textbox(Inches(1.05), Inches(cy + 0.45), Inches(c_w - 0.4), Inches(0.6))
-        tf = tb.text_frame
-        tf.word_wrap = True
-        p = tf.paragraphs[0]
-        p.text = cdesc
-        p.font.name = FONT_BODY
-        p.font.size = Pt(10.5)
-        p.font.color.rgb = TEXT_MUTED
-
-    # Right: 3D Multicore Chip Illustration with Glow
-    chip_img = os.path.join(GAMMA_DIR, "iso_multicore_chip.png")
-    if os.path.exists(chip_img):
-        s5.shapes.add_picture(chip_img, Inches(7.5), Inches(1.6), width=Inches(5.0))
-
-    set_speaker_notes(
-        s5,
-        "Why has the computing industry shifted entirely to multicore? On-chip communication between cores on the same silicon die is vastly faster and consumes far less power than broadcasting signals across motherboard buses. In a multicore SMP system, each core has its own private registers and L1 cache, while sharing lower-level caches and main memory. The operating system views each core as an independent logical CPU, scheduling threads across all cores simultaneously. That concludes Act I. I now pass to Vedhanth.",
-        "Multicore chip architecture, private vs shared caches, and Symmetric Multiprocessing (SMP) peer scheduling.",
-        "I will now pass the presentation to Vedhanth, who will explain how the operating system maintains hardware control through interrupts and dual-mode execution.",
-        "Hand over presentation clicker/focus to Vedhanth."
-    )
-
-    # =========================================================================
-    # SLIDE 6: INTERRUPTS: HARDWARE-OS COMMUNICATION (Vedhanth)
-    # =========================================================================
-    s6 = prs.slides.add_slide(blank_layout)
-    set_slide_backdrop(s6)
-    apply_slide_morph_transition(s6)
-    add_header(s6, 6, 15, "Act II: OS Control & Memory", "Vedhanth", "Interrupts: Hardware–OS Communication")
-
-    # Left: Circular Step Pipeline
-    tb_intro = s6.shapes.add_textbox(Inches(0.8), Inches(1.6), Inches(6.0), Inches(0.8))
-    tf_in = tb_intro.text_frame
-    tf_in.word_wrap = True
-    p_in = tf_in.paragraphs[0]
-    p_in.text = "The interrupt mechanism is the primary signal pathway between hardware devices and the operating system kernel."
-    p_in.font.name = FONT_BODY
-    p_in.font.size = Pt(11.5)
-    p_in.font.color.rgb = TEXT_MUTED
-
-    # 4 Circular Nodes in a Row
-    steps_s6 = ["Hardware Event", "CPU Halt", "Invoke ISR", "Resume CPU"]
-    for i, step in enumerate(steps_s6):
-        cx = 1.3 + i * 1.45
-        add_circular_step(s6, cx, 3.2, 0.55, step, number=i+1, border_color=ACCENT_CYAN if i==0 else CARD_BORDER)
-
-    # Connecting Chevron Arrows
-    for i in range(3):
-        ax = 1.95 + i * 1.45
-        tb_a = s6.shapes.add_textbox(Inches(ax), Inches(3.0), Inches(0.3), Inches(0.4))
-        p = tb_a.text_frame.paragraphs[0]
-        p.text = "→"
-        p.font.size = Pt(16)
-        p.font.bold = True
-        p.font.color.rgb = ACCENT_AMBER
-
-    # Left Bottom Box: Event-driven summary
-    add_card(s6, 0.8, 4.4, 5.8, 2.3, "Event-Driven OS Execution", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_INDIGO)
-    tb_ed = s6.shapes.add_textbox(Inches(1.05), Inches(4.85), Inches(5.3), Inches(1.7))
-    tf_ed = tb_ed.text_frame
-    tf_ed.word_wrap = True
-    pts_ed = [
-        "The OS sits idle awaiting events if there are no active tasks or I/O requests.",
-        "Device controllers assert an electrical interrupt signal along the bus line.",
-        "CPU hardware pushes PC and registers onto kernel stack before branching."
-    ]
-    for pt in pts_ed:
-        p = tf_ed.add_paragraph()
-        p.text = "• " + pt
-        p.font.name = FONT_BODY
-        p.font.size = Pt(10.5)
-        p.font.color.rgb = TEXT_MUTED
-        p.space_before = Pt(3)
-
-    # Right Column: 3 Numbered Cards
-    c_w = 5.7
-    r_cards_s6 = [
-        (1, "Interrupt Vector", "Table of pointers to interrupt service routines, indexed by unique interrupt number for deterministic lookup.", ACCENT_CYAN),
-        (2, "Priority Levels", "Enable the CPU to defer low-priority interrupts and respond immediately to critical urgent events.", ACCENT_INDIGO),
-        (3, "Deferral Capability", "CPU can temporarily disable or mask interrupt handling during critical kernel processing sections.", ACCENT_EMERALD)
-    ]
-    for num, ctitle, cdesc, ccol in r_cards_s6:
-        cy = 1.6 + (num - 1) * 1.65
-        add_card(s6, 6.8, cy, c_w, 1.5, ctitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ccol)
-        
-        num_card = s6.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(7.05), Inches(cy + 0.4), Inches(0.55), Inches(0.55))
-        num_card.fill.solid()
-        num_card.fill.fore_color.rgb = PILL_BG
-        num_card.line.color.rgb = ccol
-        num_card.line.width = Pt(1)
-        tf_n = num_card.text_frame
-        p_n = tf_n.paragraphs[0]
-        p_n.alignment = PP_ALIGN.CENTER
-        p_n.text = str(num)
-        p_n.font.name = FONT_HEADING
-        p_n.font.size = Pt(14)
-        p_n.font.bold = True
-        p_n.font.color.rgb = TEXT_WHITE
-        
-        tb = s6.shapes.add_textbox(Inches(7.75), Inches(cy + 0.4), Inches(c_w - 1.1), Inches(0.9))
-        tf = tb.text_frame
-        tf.word_wrap = True
-        p = tf.paragraphs[0]
-        p.text = cdesc
-        p.font.name = FONT_BODY
-        p.font.size = Pt(10.5)
-        p.font.color.rgb = TEXT_MUTED
-
-    set_speaker_notes(
-        s6,
-        "Thank you Ram Charan. Hello everyone, I am Vedhanth, and in Act II we explore how the Operating System controls and protects hardware. Modern operating systems are completely interrupt-driven. When an I/O device finishes an operation, its controller asserts an interrupt signal. The CPU detects this, saves the current Program Counter and registers, looks up the corresponding service routine in the Interrupt Vector Table, executes the handler, and resumes the user program.",
-        "Interrupt mechanism as the core foundation of event-driven OS control and the role of the Interrupt Vector Table.",
-        "Now let's distinguish between hardware interrupts, software exceptions, and system calls.",
-        "Walk the audience step-by-step through the 4-stage circular pipeline on the left."
-    )
-
-    # =========================================================================
-    # SLIDE 7: INTERRUPTS & SYSTEM CALLS (Vedhanth)
-    # =========================================================================
-    s7 = prs.slides.add_slide(blank_layout)
-    set_slide_backdrop(s7)
-    apply_slide_morph_transition(s7)
-    add_header(s7, 7, 15, "Act II: OS Control & Memory", "Vedhanth", "Interrupts & System Calls")
-
-    # Left: Isometric Stack Flow with Glow
-    tower_img = os.path.join(GAMMA_DIR, "iso_stacked_layers.png")
-    if os.path.exists(tower_img):
-        s7.shapes.add_picture(tower_img, Inches(0.8), Inches(1.6), width=Inches(4.5))
-
-    # Right Top: 3 Cards (Hardware Interrupt, Trap, System Call)
-    right_x = 5.6
-    r_w = 6.9
-    
-    add_card(s7, right_x, 1.6, 3.35, 1.8, "Hardware Interrupt", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
-    tb_hw = s7.shapes.add_textbox(Inches(right_x + 0.2), Inches(2.05), Inches(3.0), Inches(1.2))
-    tf_hw = tb_hw.text_frame
-    tf_hw.word_wrap = True
-    p = tf_hw.paragraphs[0]
-    p.text = "Generated by hardware/device — e.g., keyboard input, timer tick, or I/O completion signal."
-    p.font.name = FONT_BODY
-    p.font.size = Pt(10.5)
-    p.font.color.rgb = TEXT_MUTED
-
-    add_card(s7, right_x + 3.55, 1.6, 3.35, 1.8, "Trap / Exception", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_AMBER)
-    tb_tr = s7.shapes.add_textbox(Inches(right_x + 3.75), Inches(2.05), Inches(3.0), Inches(1.2))
-    tf_tr = tb_tr.text_frame
-    tf_tr.word_wrap = True
-    p = tf_tr.paragraphs[0]
-    p.text = "Generated by software error or exceptional condition (division by zero, page fault, software trap)."
-    p.font.name = FONT_BODY
-    p.font.size = Pt(10.5)
-    p.font.color.rgb = TEXT_MUTED
-
-    add_card(s7, right_x, 3.55, r_w, 1.1, "System Call Interface", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_EMERALD)
-    tb_sc = s7.shapes.add_textbox(Inches(right_x + 0.2), Inches(3.95), Inches(r_w - 0.4), Inches(0.6))
-    tf_sc = tb_sc.text_frame
-    tf_sc.word_wrap = True
-    p = tf_sc.paragraphs[0]
-    p.text = "User program requests a privileged operating system service safely via a dedicated trap mechanism."
-    p.font.name = FONT_BODY
-    p.font.size = Pt(10.5)
-    p.font.color.rgb = TEXT_MUTED
-
-    # Right Bottom: 5-Node Circular System Call Pipeline
-    tb_pipe_lbl = s7.shapes.add_textbox(Inches(right_x), Inches(4.8), Inches(r_w), Inches(0.4))
-    p_pl = tb_pipe_lbl.text_frame.paragraphs[0]
-    p_pl.text = "System Call Execution Flow"
-    p_pl.font.name = FONT_HEADING
-    p_pl.font.size = Pt(14)
-    p_pl.font.bold = True
-    p_pl.font.color.rgb = TEXT_WHITE
-
-    sc_steps = ["User Call", "Trap", "Vector", "Kernel Routine", "OS Operation"]
-    for i, step in enumerate(sc_steps):
-        cx = right_x + 0.5 + i * 1.35
-        add_circular_step(s7, cx, 5.7, 0.45, step, number=i+1, border_color=ACCENT_CYAN if i==1 else CARD_BORDER)
-
-    set_speaker_notes(
-        s7,
-        "It is critical to distinguish between Hardware Interrupts, Traps, and System Calls. Hardware interrupts are asynchronous signals from physical devices. A Trap or exception is synchronous, triggered directly by an instruction—like a divide-by-zero error or a software trap. A System Call is the programmatic interface user applications use to request services reserved for the OS kernel, executing a trap that safely crosses the user-kernel boundary.",
-        "Distinction between asynchronous hardware interrupts and synchronous software traps/syscalls, plus the system call execution sequence.",
-        "To ensure user programs cannot bypass this boundary, the hardware enforces Dual-Mode Operation.",
-        "Trace the 5-step circular flow across the bottom."
-    )
-
-    # =========================================================================
-    # SLIDE 8: DUAL-MODE OPERATION (Vedhanth)
-    # =========================================================================
-    s8 = prs.slides.add_slide(blank_layout)
-    set_slide_backdrop(s8)
-    apply_slide_morph_transition(s8)
-    add_header(s8, 8, 15, "Act II: OS Control & Memory", "Vedhanth", "Dual-Mode Operation")
-
-    # Top Left: Two Operating Modes
-    add_card(s8, 0.8, 1.6, 5.7, 3.0, "Two Operating Modes & Privileged Instructions", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
-    tb_dm_l = s8.shapes.add_textbox(Inches(1.05), Inches(2.1), Inches(5.2), Inches(2.3))
-    tf_dml = tb_dm_l.text_frame
-    tf_dml.word_wrap = True
-    pts_dml = [
-        "Executable only in kernel mode (Mode Bit = 0)",
-        "Include: I/O control, timer management, interrupt disabling, memory protection setup",
-        "Hardware enforces mode distinction at the CPU status register level",
-        "Boot sequence starts in kernel mode, loads OS, and switches to user mode before running apps"
-    ]
-    for pt in pts_dml:
-        p = tf_dml.add_paragraph()
-        p.text = "• " + pt
-        p.font.name = FONT_BODY
-        p.font.size = Pt(10.5)
-        p.font.color.rgb = TEXT_MUTED
-        p.space_before = Pt(3)
-
-    # Top Right: Why Dual-Mode Matters
-    add_card(s8, 6.8, 1.6, 5.7, 3.0, "Why Dual-Mode Matters", border_color=CARD_BORDER, bg_color=CARD_HIGHLIGHT, accent_bar=ACCENT_INDIGO)
-    tb_dm_r = s8.shapes.add_textbox(Inches(7.05), Inches(2.1), Inches(5.2), Inches(2.3))
-    tf_dmr = tb_dm_r.text_frame
-    tf_dmr.word_wrap = True
-    pts_dmr = [
-        "Prevents incorrect or malicious user programs from interfering with the OS or other programs.",
-        "The mode bit is a hardware flag set by the CPU — not software — ensuring enforcement cannot be bypassed.",
-        "Every transition from user to kernel mode is a controlled, auditable hardware event via traps/syscalls."
-    ]
-    for pt in pts_dmr:
-        p = tf_dmr.add_paragraph()
-        p.text = "• " + pt
-        p.font.name = FONT_BODY
-        p.font.size = Pt(10.5)
-        p.font.color.rgb = TEXT_MUTED
-        p.space_before = Pt(4)
-
-    # Bottom Split Cards: User Mode vs Kernel Mode
-    c_w = 5.7
-    add_card(s8, 0.8, 4.8, c_w, 1.9, "User Mode", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
-    tb_um = s8.shapes.add_textbox(Inches(1.05), Inches(5.3), Inches(c_w - 0.4), Inches(1.2))
-    tf_um = tb_um.text_frame
-    tf_um.word_wrap = True
-    p_um = tf_um.paragraphs[0]
-    p_um.text = "Active while executing user application code. Mode bit = 1.\nCannot execute privileged instructions or access kernel memory directly."
-    p_um.font.name = FONT_BODY
-    p_um.font.size = Pt(11)
-    p_um.font.color.rgb = TEXT_MUTED
-
-    add_card(s8, 6.8, 4.8, c_w, 1.9, "Kernel Mode", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_ROSE)
-    tb_km = s8.shapes.add_textbox(Inches(7.05), Inches(5.3), Inches(c_w - 0.4), Inches(1.2))
-    tf_km = tb_km.text_frame
-    tf_km.word_wrap = True
-    p_km = tf_km.paragraphs[0]
-    p_km.text = "Active while executing operating system code. Mode bit = 0.\nFull access to all hardware instructions, memory spaces, and device controllers."
-    p_km.font.name = FONT_BODY
-    p_km.font.size = Pt(11)
-    p_km.font.color.rgb = TEXT_MUTED
-
-    set_speaker_notes(
-        s8,
-        "Dual-mode operation is one of the most fundamental concepts in computer science. The CPU hardware contains a Mode Bit: when Mode Bit equals 1, the CPU is in User Mode; when Mode Bit equals 0, it is in Kernel Mode. Why is this necessary? If user applications could directly alter hardware registers or halt the processor, one buggy program could crash the entire computer. By enforcing dual modes in hardware, privileged instructions can only execute when the mode bit is zero.",
-        "Dual-mode operation, the hardware Mode Bit (0=Kernel, 1=User), privileged instructions, and fault isolation.",
-        "Let's look at exactly what constitutes a privileged instruction and what happens when an illegal operation occurs.",
-        "Point to the contrast between User Mode (Mode Bit=1) and Kernel Mode (Mode Bit=0)."
-    )
-
-    # =========================================================================
-    # SLIDE 9: PROTECTION & TIMER CONTROL (Vedhanth)
-    # =========================================================================
-    s9 = prs.slides.add_slide(blank_layout)
-    set_slide_backdrop(s9)
-    apply_slide_morph_transition(s9)
-    add_header(s9, 9, 15, "Act II: OS Control & Memory", "Vedhanth", "Protection & Timer Control")
-
-    # Left: Protection & Illegal Operation Flow
-    add_card(s9, 0.8, 1.6, 5.7, 2.4, "Protection via Privileged Instructions", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_ROSE)
-    tb_pt = s9.shapes.add_textbox(Inches(1.05), Inches(2.05), Inches(5.2), Inches(1.8))
-    tf_pt = tb_pt.text_frame
-    tf_pt.word_wrap = True
-    pts_pt = [
-        "Harmful instructions can cause serious damage if ordinary programs execute them",
-        "Privileged instructions — I/O control, timer, interrupts — allowed only in kernel mode",
-        "CPU hardware enforces the mode distinction; user programs cannot bypass it"
-    ]
-    for pt in pts_pt:
-        p = tf_pt.add_paragraph()
-        p.text = "• " + pt
-        p.font.name = FONT_BODY
-        p.font.size = Pt(10.5)
-        p.font.color.rgb = TEXT_MUTED
-        p.space_before = Pt(3)
-
-    # Left Bottom: 3 Circular Nodes for Illegal Operation Flow
-    tb_il = s9.shapes.add_textbox(Inches(0.8), Inches(4.2), Inches(5.7), Inches(0.4))
-    p_il = tb_il.text_frame.paragraphs[0]
-    p_il.text = "Illegal Operation Flow"
-    p_il.font.name = FONT_HEADING
-    p_il.font.size = Pt(14)
-    p_il.font.bold = True
-    p_il.font.color.rgb = TEXT_WHITE
-
-    chain_s9 = ["User tries\nprivileged", "CPU generates\ntrap", "OS handles\nviolation"]
-    for i, step in enumerate(chain_s9):
-        cx = 1.6 + i * 1.8
-        add_circular_step(s9, cx, 5.3, 0.55, step, number=i+1, border_color=ACCENT_ROSE if i==1 else CARD_BORDER)
-
-    # Right Column: Timer & OS Control (3 Numbered Cards)
-    r_cards_s9 = [
-        (1, "The Problem", "A user program could enter an infinite loop and never voluntarily return control to the operating system.", ACCENT_ROSE),
-        (2, "The Solution", "A hardware timer interrupts the computer after a specified period — typically every 1–100 milliseconds.", ACCENT_EMERALD),
-        (3, "The Outcome", "OS regains CPU control, invokes the scheduler, enforces time-sharing, then resumes the user program.", ACCENT_CYAN)
-    ]
-    for num, ctitle, cdesc, ccol in r_cards_s9:
-        cy = 1.6 + (num - 1) * 1.65
-        add_card(s9, 6.8, cy, 5.7, 1.5, ctitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ccol)
-        
-        num_card = s9.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(7.05), Inches(cy + 0.4), Inches(0.55), Inches(0.55))
-        num_card.fill.solid()
-        num_card.fill.fore_color.rgb = PILL_BG
-        num_card.line.color.rgb = ccol
-        num_card.line.width = Pt(1)
-        tf_n = num_card.text_frame
-        p_n = tf_n.paragraphs[0]
-        p_n.alignment = PP_ALIGN.CENTER
-        p_n.text = str(num)
-        p_n.font.name = FONT_HEADING
-        p_n.font.size = Pt(14)
-        p_n.font.bold = True
-        p_n.font.color.rgb = TEXT_WHITE
-        
-        tb = s9.shapes.add_textbox(Inches(7.75), Inches(cy + 0.4), Inches(4.6), Inches(0.9))
-        tf = tb.text_frame
-        tf.word_wrap = True
-        p = tf.paragraphs[0]
-        p.text = cdesc
-        p.font.name = FONT_BODY
-        p.font.size = Pt(10.5)
-        p.font.color.rgb = TEXT_MUTED
-
-    set_speaker_notes(
-        s9,
-        "What prevents a user program from getting stuck in an infinite loop and refusing to yield control? The hardware timer. Before handing the CPU to a user process, the OS configures a timer. As the CPU runs, the timer decrements. When it reaches zero, a hardware interrupt fires, forcing control back to the OS scheduler. This guarantees preemption and makes multitasking possible. That concludes Act II. I now pass to Lochan.",
-        "Privileged instruction protection, hardware trap generation, and guaranteed preemption via the hardware interval timer.",
-        "I will now pass the presentation to Lochan, who will cover the Memory Hierarchy, I/O systems, Clustered systems, and our final synthesis.",
-        "Hand over presentation clicker/focus to Lochan."
-    )
-
-    # =========================================================================
-    # SLIDE 10: STORAGE HIERARCHY (Lochan)
-    # =========================================================================
-    s10 = prs.slides.add_slide(blank_layout)
-    set_slide_backdrop(s10)
-    apply_slide_morph_transition(s10)
-    add_header(s10, 10, 15, "Act III: Multiprocessors & I/O", "Lochan", "Storage Hierarchy")
-
-    # 3 Column Cards with Icons
-    col_w = 3.7
-    storage_cards = [
-        ("Registers & Cache", "Fastest, most expensive storage. CPU registers are directly inside the processor; L1/L2/L3 cache sits between registers and main memory.\n\nVolatile — data lost on power off.", ACCENT_CYAN, "CPU"),
-        ("Main Memory (RAM)", "Programs must be loaded here for execution. Directly accessible by the processor via the memory bus.\n\nVolatile — larger capacity but slower than cache.", ACCENT_EMERALD, "RAM"),
-        ("Secondary & Tertiary", "HDDs and NVM devices (SSDs) provide large, nonvolatile capacity.\n\nMagnetic tapes and optical disks serve as tertiary backup storage for special archiving.", ACCENT_INDIGO, "SSD")
-    ]
-    for i, (stitle, sdesc, scol, sicon) in enumerate(storage_cards):
-        sx = 0.8 + i * 4.0
-        add_card(s10, sx, 1.6, col_w, 4.4, stitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=scol)
-        
-        # Top Icon Tag
-        icon_box = s10.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(sx + 0.24), Inches(2.1), Inches(0.9), Inches(0.35))
-        icon_box.fill.solid()
-        icon_box.fill.fore_color.rgb = PILL_BG
-        icon_box.line.color.rgb = scol
-        icon_box.line.width = Pt(1)
-        p_ic = icon_box.text_frame.paragraphs[0]
-        p_ic.alignment = PP_ALIGN.CENTER
-        p_ic.text = sicon
-        p_ic.font.name = FONT_HEADING
-        p_ic.font.size = Pt(10)
-        p_ic.font.bold = True
-        p_ic.font.color.rgb = scol
-
-        tb = s10.shapes.add_textbox(Inches(sx + 0.24), Inches(2.6), Inches(col_w - 0.45), Inches(3.2))
-        tf = tb.text_frame
-        tf.word_wrap = True
-        p = tf.paragraphs[0]
-        p.text = sdesc
-        p.font.name = FONT_BODY
-        p.font.size = Pt(11)
-        p.font.color.rgb = TEXT_MUTED
-
-    # Bottom Full-Width Key Trade-off Banner
-    add_bottom_banner(s10, "Faster memory is more expensive per bit. The storage hierarchy balances speed, cost, and capacity across every level.", "Key Trade-off:", ACCENT_CYAN)
-
-    set_speaker_notes(
-        s10,
-        "Thank you Vedhanth. Hello everyone, I am Lochan, and in Act III we will explore storage hierarchies, I/O systems, and clustered environments. Memory is organized in a strict hierarchy governed by speed, cost, and volatility. At the top, CPU registers and caches offer near-instant access but are small, expensive, and volatile. Main memory is the only large storage the CPU can directly address. Below that, nonvolatile SSDs and hard disks preserve data permanently. The OS must stage data across these tiers efficiently.",
-        "Storage hierarchy trade-offs (speed, cost per bit, volatility) and the caching principle.",
-        "Now let's examine how the operating system communicates with I/O devices.",
-        "Trace the storage pyramid from top to bottom on the diagram."
-    )
-
-    # =========================================================================
-    # SLIDE 11: I/O STRUCTURE & DMA (Lochan)
-    # =========================================================================
-    s11 = prs.slides.add_slide(blank_layout)
-    set_slide_backdrop(s11)
-    apply_slide_morph_transition(s11)
-    add_header(s11, 11, 15, "Act III: Multiprocessors & I/O", "Lochan", "I/O Structure & Direct Memory Access (DMA)")
-
-    col_w = 3.7
-    io_cards = [
-        ("Device Controllers", ACCENT_CYAN, [
-            ("Dedicated Hardware:", "Hardware unit managing specific device types (disk, keyboard, network)."),
-            ("Local Buffers:", "Maintains local buffer storage and control registers for data staging."),
-            ("Autonomous:", "Moves data between device and local buffer independently.")
-        ]),
-        ("Device Drivers", ACCENT_INDIGO, [
-            ("Software Interface:", "OS module understanding controller register protocols."),
-            ("Uniform Interface:", "Presents a clean, uniform I/O interface to the rest of the OS."),
-            ("Register Dispatch:", "Writes command registers to initiate physical I/O.")
-        ]),
-        ("Direct Memory Access (DMA)", ACCENT_EMERALD, [
-            ("High-Speed Devices:", "Essential for high-throughput disk and network interfaces."),
-            ("CPU Bypass:", "Transfers whole data blocks directly between buffer and RAM."),
-            ("Single Interrupt per Block:", "Generates only one interrupt per block instead of one per byte.")
-        ])
-    ]
-    for i, (ctitle, ccol, citems) in enumerate(io_cards):
-        cx = 0.8 + i * 4.0
-        add_card(s11, cx, 1.6, col_w, 3.2, ctitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ccol)
-        tb = s11.shapes.add_textbox(Inches(cx + 0.24), Inches(2.1), Inches(col_w - 0.45), Inches(2.6))
-        tf = tb.text_frame
-        tf.word_wrap = True
-        for j, (h, b) in enumerate(citems):
-            p = tf.add_paragraph() if j > 0 else tf.paragraphs[0]
-            p.text = h + " "
-            p.font.name = FONT_HEADING
-            p.font.size = Pt(11)
-            p.font.bold = True
-            p.font.color.rgb = ccol
-            if j > 0: p.space_before = Pt(4)
-            run = p.add_run()
-            run.text = b
-            run.font.name = FONT_BODY
-            run.font.size = Pt(10)
-            run.font.bold = False
-            run.font.color.rgb = TEXT_MUTED
-
-    # Bottom Full-Width Pipeline Banner
-    add_bottom_banner(s11, "Application request → Driver loads registers → Controller stages buffer → DMA block transfer → Interrupt completion.", "I/O Execution Cycle:", ACCENT_EMERALD)
+    add_bottom_banner(s11, "A single-processor has one CPU for all instructions; a multiprocessor has multiple CPUs, running more work concurrently.", "Core Difference:", ACCENT_CYAN)
 
     set_speaker_notes(
         s11,
-        "How does the operating system coordinate with I/O devices? Each physical device is managed by a hardware Device Controller with its own local buffer storage. In the OS kernel, a corresponding Device Driver speaks the controller's language. For high-speed block devices like SSDs and network cards, transferring data byte-by-byte through the CPU would cause massive overhead. Direct Memory Access (DMA) transfers entire blocks directly between the controller buffer and RAM, generating only one interrupt per block.",
-        "Device Controller, Device Driver, local buffer storage, interrupt-driven I/O, and Direct Memory Access (DMA).",
-        "Let's revisit multiprocessor systems and compare Symmetric Multiprocessing with NUMA in depth.",
-        "Explain how DMA frees the CPU from byte-by-byte transfer duties."
+        "Finally, I’ll explain multiprocessing and modern computer systems. A single-processor system has one CPU, so all instructions must pass through that CPU. A multiprocessor system has multiple CPUs, allowing the OS to run more work at the same time.",
+        "Single-processor serial execution vs multiprocessor concurrent hardware execution.",
+        "Let us examine the two primary multiprocessing architectural approaches: SMP and AMP.",
+        "Point to the single CPU path versus the multiple parallel CPU paths on the diagram."
     )
 
     # =========================================================================
-    # SLIDE 12: MULTIPROCESSOR SYSTEMS: SMP VS NUMA (Lochan)
+    # SLIDE 12: MULTIPROCESSING: SMP VS AMP (Lochan)
     # =========================================================================
     s12 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s12)
     apply_slide_morph_transition(s12)
-    add_header(s12, 12, 15, "Act III: Multiprocessors & I/O", "Lochan", "Multiprocessor Systems: SMP vs NUMA")
+    add_header(s12, 12, 15, "Act III: Multiprocessing", "Lochan", "Multiprocessing Approaches: SMP vs. AMP", "Peer Multiprocessing vs. Master-Slave Hierarchical Scheduling")
 
-    # Top Table Card
-    add_card(s12, 0.8, 1.6, 11.733, 2.7, "Direct Architectural Comparison: SMP vs NUMA", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
-    
-    rows, cols = 4, 3
-    left_t, top_t, width_t, height_t = Inches(1.1), Inches(2.0), Inches(11.1), Inches(2.1)
-    tbl_shape = s12.shapes.add_table(rows, cols, left_t, top_t, width_t, height_t)
-    table = tbl_shape.table
-    table.columns[0].width = Inches(2.8)
-    table.columns[1].width = Inches(4.1)
-    table.columns[2].width = Inches(4.2)
-
-    table_data = [
-        ("Architectural Feature", "Symmetric Multiprocessing (SMP / UMA)", "Non-Uniform Memory Access (NUMA)"),
-        ("Memory Access Time", "Uniform access time across all CPUs / cores.", "Non-uniform: Local memory is fast; remote memory is slower."),
-        ("System Interconnect", "Single shared system bus connecting all CPUs to RAM.", "Point-to-point interconnect linking distributed nodes."),
-        ("Scalability & OS Role", "Scalability limited by shared bus contention.", "Highly scalable; OS must optimize thread memory locality.")
-    ]
-
-    for r_idx, row in enumerate(table_data):
-        for c_idx, val in enumerate(row):
-            cell = table.cell(r_idx, c_idx)
-            cell.text = val
-            cell.fill.solid()
-            cell.fill.fore_color.rgb = RGBColor(35, 42, 60) if r_idx == 0 else RGBColor(22, 26, 38)
-            p = cell.text_frame.paragraphs[0]
-            p.font.name = FONT_HEADING if r_idx == 0 else FONT_BODY
-            p.font.size = Pt(10.5 if r_idx == 0 else 10)
-            p.font.bold = True if r_idx == 0 or c_idx == 0 else False
-            p.font.color.rgb = ACCENT_CYAN if r_idx == 0 else (TEXT_WHITE if c_idx == 0 else TEXT_MUTED)
-
-    # Bottom Two Cards: NUMA Trade-off & OS Scheduling
     c_w = 5.7
-    add_card(s12, 0.8, 4.5, c_w, 2.2, "The NUMA Latency Trade-Off", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_AMBER)
-    tb_u1 = s12.shapes.add_textbox(Inches(1.05), Inches(4.9), Inches(5.2), Inches(1.6))
-    tf_u1 = tb_u1.text_frame
-    tf_u1.word_wrap = True
-    pts_u1 = [
-        ("Local Memory Access:", "CPU directly accesses its own attached memory channel at minimum latency."),
-        ("Remote Memory Access:", "Accessing memory on another node incurs interconnect delays and increases penalty.")
+    add_card(s12, 0.8, 1.6, c_w, 4.4, "Symmetric Multiprocessing (SMP)", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
+    tb_smp = s12.shapes.add_textbox(Inches(1.05), Inches(2.1), Inches(c_w - 0.4), Inches(3.7))
+    tf_smp = tb_smp.text_frame
+    tf_smp.word_wrap = True
+    pts_smp = [
+        ("Peer Relationship:", "All processors are treated as equal peers; no single processor is master."),
+        ("Independent Execution:", "Each processor can run both user tasks and operating system kernel code concurrently."),
+        ("Shared Resources:", "All CPUs share system memory and I/O channels over a common bus."),
+        ("Modern Standard:", "Dominates modern computing from laptops and smartphones to large multi-socket servers.")
     ]
-    for i, (h, b) in enumerate(pts_u1):
-        p = tf_u1.add_paragraph() if i > 0 else tf_u1.paragraphs[0]
+    for i, (h, b) in enumerate(pts_smp):
+        p = tf_smp.add_paragraph() if i > 0 else tf_smp.paragraphs[0]
         p.text = "• " + h + " "
         p.font.name = FONT_HEADING
         p.font.size = Pt(11)
         p.font.bold = True
         p.font.color.rgb = TEXT_WHITE
-        if i > 0: p.space_before = Pt(3)
+        if i > 0: p.space_before = Pt(4)
         run = p.add_run()
         run.text = b
         run.font.name = FONT_BODY
@@ -1085,157 +933,151 @@ def build_presentation():
         run.font.bold = False
         run.font.color.rgb = TEXT_MUTED
 
-    add_card(s12, 6.8, 4.5, c_w, 2.2, "OS NUMA Memory & Thread Scheduling", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_EMERALD)
-    tb_u2 = s12.shapes.add_textbox(Inches(7.05), Inches(4.9), Inches(5.2), Inches(1.6))
-    tf_u2 = tb_u2.text_frame
-    tf_u2.word_wrap = True
-    pts_u2 = [
-        ("Thread Affinity:", "The OS scheduler binds threads to CPU cores physically close to the thread's allocated memory."),
-        ("Locality-Aware Allocation:", "Memory managers prioritize allocating physical frames from the local NUMA node.")
+    add_card(s12, 6.8, 1.6, c_w, 4.4, "Asymmetric Multiprocessing (AMP)", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_AMBER)
+    tb_amp = s12.shapes.add_textbox(Inches(7.05), Inches(2.1), Inches(c_w - 0.4), Inches(3.7))
+    tf_amp = tb_amp.text_frame
+    tf_amp.word_wrap = True
+    pts_amp = [
+        ("Master-Slave Model:", "One main master processor controls the system and assigns work to the others."),
+        ("Centralized Control:", "Master processor runs the OS kernel and schedules tasks; slave processors execute assigned worker code."),
+        ("Specialized Roles:", "Slaves may handle dedicated tasks like graphics, audio decoding, or real-time signal processing."),
+        ("Simpler Scheduling:", "Avoids complex kernel data structure locking since only the master manages scheduling.")
     ]
-    for i, (h, b) in enumerate(pts_u2):
-        p = tf_u2.add_paragraph() if i > 0 else tf_u2.paragraphs[0]
+    for i, (h, b) in enumerate(pts_amp):
+        p = tf_amp.add_paragraph() if i > 0 else tf_amp.paragraphs[0]
         p.text = "• " + h + " "
         p.font.name = FONT_HEADING
         p.font.size = Pt(11)
         p.font.bold = True
         p.font.color.rgb = TEXT_WHITE
-        if i > 0: p.space_before = Pt(3)
+        if i > 0: p.space_before = Pt(4)
         run = p.add_run()
         run.text = b
         run.font.name = FONT_BODY
         run.font.size = Pt(10)
         run.font.bold = False
         run.font.color.rgb = TEXT_MUTED
+
+    add_bottom_banner(s12, "In SMP, all processors are peers and can run tasks independently; in AMP, a master processor assigns work to slaves.", "SMP vs AMP Distinction:", ACCENT_CYAN)
 
     set_speaker_notes(
         s12,
-        "Comparing SMP and NUMA side-by-side reveals a fundamental engineering trade-off. In pure Symmetric Multiprocessing, all CPUs share a single memory bus. While simple, bus contention caps scalability as processor counts increase. In NUMA, memory is partitioned across processor nodes. While this solves the bus bottleneck, it introduces variable latency: local access is fast, while remote access across the interconnect is slower. The operating system must be NUMA-aware to schedule threads on the same node where their memory lives.",
-        "SMP vs NUMA comparison, uniform vs non-uniform memory access, and OS locality-aware scheduling.",
-        "Beyond single machines, what happens when we connect independent computer systems together? This brings us to Clustered Systems.",
-        "Guide the audience through the comparison table columns."
+        "There are two approaches: SMP and AMP. In Symmetric Multiprocessing, or SMP, all processors are treated as peers and can run different tasks. In Asymmetric Multiprocessing, or AMP, one processor acts as the main processor and assigns work to the others.",
+        "Symmetric (peer-to-peer) vs Asymmetric (master-slave) multiprocessing models and their trade-offs.",
+        "Now let's examine modern systems: Multicore chips and Clustered systems.",
+        "Contrast the decentralized peer model of SMP with the centralized master-slave model of AMP."
     )
 
     # =========================================================================
-    # SLIDE 13: CLUSTERED SYSTEMS (Lochan)
+    # SLIDE 13: MULTICORE & CLUSTERED SYSTEMS (Lochan)
     # =========================================================================
     s13 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s13)
     apply_slide_morph_transition(s13)
-    add_header(s13, 13, 15, "Act III: Multiprocessors & I/O", "Lochan", "Clustered Systems Architecture")
+    add_header(s13, 13, 15, "Act III: Multiprocessing", "Lochan", "Modern Systems: Multicore & Clustered Systems", "On-Chip Integration (Scale-Up) vs. Networked Independent Machines (Scale-Out)")
 
-    c_w = 5.7
-    add_card(s13, 0.8, 1.6, c_w, 4.8, "Clustered Systems Architecture", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
-    tb_cl1 = s13.shapes.add_textbox(Inches(1.05), Inches(2.1), Inches(5.2), Inches(4.1))
-    tf_cl1 = tb_cl1.text_frame
-    tf_cl1.word_wrap = True
-
-    pts_cl1 = [
-        ("Loosely Coupled Nodes:", "Two or more individual computer systems/nodes connected via a high-speed network or SAN interconnect."),
-        ("Shared Storage (SAN):", "Nodes share a Storage Area Network, providing uniform data access across all machines."),
-        ("High Availability & Fault Tolerance:", "Failure of any individual node does not interrupt service; remaining nodes take over the workload."),
-        ("Asymmetric Clustering:", "One machine runs applications while another remains in hot-standby mode monitoring the active server."),
-        ("Symmetric Clustering:", "Multiple nodes run applications concurrently while monitoring each other for failure.")
+    # Left: Multicore & Clustered Cards
+    add_card(s13, 0.8, 1.6, 5.8, 2.1, "Multicore Processors (Scale-Up)", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_CYAN)
+    tb_mc = s13.shapes.add_textbox(Inches(1.05), Inches(2.05), Inches(5.3), Inches(1.5))
+    tf_mc = tb_mc.text_frame
+    tf_mc.word_wrap = True
+    pts_mc = [
+        "Multiple CPU cores are placed on a single physical chip.",
+        "On-chip communication between cores is vastly faster than off-chip motherboard buses.",
+        "Consumes significantly less power while sharing on-die L2/L3 caches."
     ]
-    for i, (h, b) in enumerate(pts_cl1):
-        p = tf_cl1.add_paragraph() if i > 0 else tf_cl1.paragraphs[0]
-        p.text = "• " + h + "\n"
-        p.font.name = FONT_HEADING
-        p.font.size = Pt(11)
-        p.font.bold = True
-        p.font.color.rgb = TEXT_WHITE
-        if i > 0: p.space_before = Pt(4)
-        run = p.add_run()
-        run.text = b
-        run.font.name = FONT_BODY
-        run.font.size = Pt(10)
-        run.font.bold = False
-        run.font.color.rgb = TEXT_MUTED
+    for pt in pts_mc:
+        p = tf_mc.add_paragraph()
+        p.text = "• " + pt
+        p.font.name = FONT_BODY
+        p.font.size = Pt(10)
+        p.font.color.rgb = TEXT_MUTED
+        p.space_before = Pt(2)
 
-    add_card(s13, 6.8, 1.6, c_w, 4.8, "High Availability Mechanics", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_INDIGO)
-    tb_cl2 = s13.shapes.add_textbox(Inches(7.05), Inches(2.1), Inches(5.2), Inches(4.1))
-    tf_cl2 = tb_cl2.text_frame
-    tf_cl2.word_wrap = True
-
-    pts_cl2 = [
-        ("Heartbeat Monitoring:", "Continuous health checks between cluster nodes detect hardware or OS failures in milliseconds."),
-        ("Automatic Failover:", "Cluster manager software migrates active database or application state to healthy standby nodes without downtime."),
-        ("Parallel Clusters:", "Multiple nodes access shared disks concurrently with distributed lock manager (DLM) synchronization."),
-        ("Grid & Cloud Scaling:", "Clustering forms the bedrock of modern cloud computing infrastructures and hyperscale datacenters.")
+    add_card(s13, 0.8, 3.9, 5.8, 2.1, "Clustered Systems (Scale-Out)", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_INDIGO)
+    tb_cl = s13.shapes.add_textbox(Inches(1.05), Inches(4.35), Inches(5.3), Inches(1.5))
+    tf_cl = tb_cl.text_frame
+    tf_cl.word_wrap = True
+    pts_cl = [
+        "Multiple independent computer systems work together over a high-speed network.",
+        "Nodes share a common Storage Area Network (SAN) for unified data access.",
+        "Provides high availability and fault tolerance — if one machine fails, others take over."
     ]
-    for i, (h, b) in enumerate(pts_cl2):
-        p = tf_cl2.add_paragraph() if i > 0 else tf_cl2.paragraphs[0]
-        p.text = "• " + h + "\n"
-        p.font.name = FONT_HEADING
-        p.font.size = Pt(11)
-        p.font.bold = True
-        p.font.color.rgb = TEXT_WHITE
-        if i > 0: p.space_before = Pt(4)
-        run = p.add_run()
-        run.text = b
-        run.font.name = FONT_BODY
-        run.font.size = Pt(10)
-        run.font.bold = False
-        run.font.color.rgb = TEXT_MUTED
+    for pt in pts_cl:
+        p = tf_cl.add_paragraph()
+        p.text = "• " + pt
+        p.font.name = FONT_BODY
+        p.font.size = Pt(10)
+        p.font.color.rgb = TEXT_MUTED
+        p.space_before = Pt(2)
+
+    # Right: Multicore Chip 3D Art
+    chip_img = os.path.join(GAMMA_DIR, "iso_multicore_chip.png")
+    if os.path.exists(chip_img):
+        s13.shapes.add_picture(chip_img, Inches(7.0), Inches(1.5), width=Inches(5.5))
+
+    add_bottom_banner(s13, "Modern systems use multicore processors on single chips and clustered systems connecting independent computers over networks.", "Modern Architectural Spectrum:", ACCENT_CYAN)
 
     set_speaker_notes(
         s13,
-        "While multiprocessor systems share a single chassis, Clustered Systems connect two or more independent computers together across a network, typically sharing a Storage Area Network (SAN). We distinguish asymmetric clustering—where one node acts as a hot-standby—and symmetric clustering—where all nodes run applications concurrently while monitoring each other for high availability.",
-        "Clustered systems (loosely coupled nodes, shared SAN, asymmetric vs symmetric) and high availability.",
-        "Now let's examine diverse computing environments from mobile to cloud.",
-        "Contrast clustered scale-out architecture with single-system multi-core scale-up architecture."
+        "Modern systems can also use multicore processors, where multiple CPU cores are placed on one chip. Another approach is clustered systems, where multiple independent computers work together over a network. Multicore scales up on a single die, while clustering scales out across many networked nodes.",
+        "Multicore processors (on-chip parallelism) and Clustered systems (distributed high-availability nodes).",
+        "However, multiprocessing creates significant challenges for the operating system. Let's look at those challenges.",
+        "Contrast on-chip multicore scaling with distributed networked cluster scaling."
     )
 
     # =========================================================================
-    # SLIDE 14: COMPUTING ENVIRONMENTS (Lochan)
+    # SLIDE 14: OS CHALLENGES IN MULTIPROCESSING (Lochan)
     # =========================================================================
     s14 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s14)
     apply_slide_morph_transition(s14)
-    add_header(s14, 14, 15, "Act III: Multiprocessors & I/O", "Lochan", "Diverse Computing Environments")
+    add_header(s14, 14, 15, "Act III: Multiprocessing", "Lochan", "OS Challenges in Multiprocessing", "Critical Complexities in Coordinating Concurrent Hardware Execution")
 
-    # 4 Card Grid (2x2)
-    grid_cards = [
-        ("Traditional / Desktop Computing", "Standard PCs, workstations, and dedicated file servers running general-purpose multitasking operating systems with rich UI frameworks.", ACCENT_CYAN),
-        ("Mobile Computing", "Smartphones and tablets with power-constrained architectures, touch/sensor interfaces, and wireless communications (iOS/Android).", ACCENT_INDIGO),
-        ("Distributed Systems", "Networked collection of physically separate computational nodes presenting a single unified computing system to users.", ACCENT_EMERALD),
-        ("Cloud & Real-Time Computing", "Virtualized compute/storage delivered on-demand via massive server clusters, alongside embedded deterministic real-time systems.", ACCENT_AMBER)
+    c_w = 5.7
+    challenges = [
+        ("1. CPU Scheduling", ACCENT_CYAN, "Deciding which processor or core runs which process to maximize throughput, avoid starvation, and maintain thread affinity."),
+        ("2. Cache Coherence", ACCENT_INDIGO, "Ensuring that when one CPU modifies data in its private cache, other CPUs with copies of the same memory location are kept updated."),
+        ("3. Load Balancing", ACCENT_EMERALD, "Distributing workload evenly across all available processors so no single CPU is bottlenecked while others sit idle."),
+        ("4. Synchronization", ACCENT_ROSE, "Using locks, mutexes, and semaphores to protect shared kernel data structures and prevent race conditions or data corruption.")
     ]
-    for i, (gtitle, gdesc, gcol) in enumerate(grid_cards):
+    for i, (ctitle, ccol, cdesc) in enumerate(challenges):
         gx = 0.8 if i % 2 == 0 else 6.8
-        gy = 1.6 if i < 2 else 4.2
-        add_card(s14, gx, gy, 5.7, 2.3, gtitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=gcol)
-        tb = s14.shapes.add_textbox(Inches(gx + 0.25), Inches(gy + 0.55), Inches(5.2), Inches(1.6))
+        gy = 1.6 if i < 2 else 3.8
+        add_card(s14, gx, gy, c_w, 2.0, ctitle, border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ccol)
+        tb = s14.shapes.add_textbox(Inches(gx + 0.24), Inches(gy + 0.5), Inches(c_w - 0.45), Inches(1.3))
         tf = tb.text_frame
         tf.word_wrap = True
         p = tf.paragraphs[0]
-        p.text = gdesc
+        p.text = cdesc
         p.font.name = FONT_BODY
-        p.font.size = Pt(11)
+        p.font.size = Pt(10.5)
         p.font.color.rgb = TEXT_MUTED
+
+    add_bottom_banner(s14, "Multiprocessing creates challenges for the OS, including scheduling, cache coherence, load balancing, and synchronization.", "Operating System Requirement:", ACCENT_ROSE)
 
     set_speaker_notes(
         s14,
-        "Computer architecture principles apply across a wide spectrum of environments: traditional desktop PCs, power-sensitive mobile smartphones, networked distributed systems, cloud computing platforms, and embedded real-time systems. In every case, the operating system controls hardware execution and resource allocation.",
-        "Overview of computing environment categories (Traditional, Mobile, Distributed, Cloud, Real-Time).",
+        "However, multiprocessing creates challenges for the OS, including scheduling, cache coherence, load balancing, and synchronization. So, multiprocessing allows computers to handle more work efficiently while requiring the OS to carefully coordinate everything.",
+        "Four major OS multiprocessing challenges: Scheduling, Cache Coherence, Load Balancing, and Synchronization.",
         "Now let's bring our entire presentation together into our final synthesis and key takeaways.",
-        "Summarize the spectrum from embedded IoT to hyperscale cloud."
+        "Review each of the four challenges and explain why hardware parallelism demands sophisticated OS coordination."
     )
 
     # =========================================================================
-    # SLIDE 15: MASTER SYNTHESIS & PRESENTERS (All 3 Presenters)
+    # SLIDE 15: MASTER SYNTHESIS & KEY TAKEAWAYS (All 3 Presenters)
     # =========================================================================
     s15 = prs.slides.add_slide(blank_layout)
     set_slide_backdrop(s15)
     apply_slide_morph_transition(s15)
-    add_header(s15, 15, 15, "Synthesis & Conclusion", "V. Ram Charan · Vedhanth · Lochan", "Key Takeaways")
+    add_header(s15, 15, 15, "Synthesis & Conclusion", "V. Ram Charan · Vedhanth · Lochan", "Complete Architecture & Key Takeaways", "Hardware Foundations, Storage Hierarchies & Modern Multiprocessing")
 
-    # 5 Numbered Capsule Cards in a Grid matching Gamma Screenshot 11!
+    # 5 Capsule Cards in a clean 4-top + 1-bottom grid
     capsules_top = [
-        (1, "System Organization", "CPUs, device controllers, and shared memory cooperate via a common bus — concurrency drives the need for OS coordination.", ACCENT_CYAN),
-        (2, "Interrupts", "The fundamental mechanism for hardware–OS communication; interrupt vectors and priority levels enable efficient, ordered response.", ACCENT_INDIGO),
-        (3, "Dual-Mode Operation", "User mode and kernel mode — enforced by a hardware mode bit — protect the OS and users from erroneous or malicious programs.", ACCENT_ROSE),
-        (4, "Multicore & SMP", "Multiple cores on one chip deliver throughput gains with lower power; speed-up with N processors is always less than N.", ACCENT_AMBER)
+        (1, "Core Hardware", "CPU (fetch/decode/exec), RAM, and I/O linked via Address, Data, and Control buses with Interrupts & DMA.", ACCENT_CYAN),
+        (2, "Storage Hierarchy", "Balances speed, cost, and capacity from fast volatile Registers/Cache/RAM down to non-volatile SSDs/HDDs.", ACCENT_INDIGO),
+        (3, "Locality of Reference", "Temporal (reuse soon) and Spatial (nearby) locality leveraged by Paging, Buffering, Caching & Prefetching.", ACCENT_EMERALD),
+        (4, "Multiprocessing", "SMP (peers) and AMP (master-slave) scale hardware capacity alongside Multicore and Clustered systems.", ACCENT_AMBER)
     ]
     c_w4 = 2.75
     for num, ctitle, cdesc, ccol in capsules_top:
@@ -1264,12 +1106,12 @@ def build_presentation():
         p.font.size = Pt(10)
         p.font.color.rgb = TEXT_MUTED
 
-    # Middle Row: 5th Wide Capsule Card (Storage Hierarchy)
-    add_card(s15, 0.8, 4.6, 11.733, 1.0, "Storage Hierarchy", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_EMERALD)
+    # Middle Row: 5th Wide Capsule Card (OS Multiprocessing Coordination)
+    add_card(s15, 0.8, 4.6, 11.733, 1.0, "OS Multiprocessing Coordination", border_color=CARD_BORDER, bg_color=CARD_BG, accent_bar=ACCENT_ROSE)
     num_badge5 = s15.shapes.add_shape(MSO_SHAPE.OVAL, Inches(0.8 + 11.733/2 - 0.25), Inches(4.4), Inches(0.5), Inches(0.5))
     num_badge5.fill.solid()
     num_badge5.fill.fore_color.rgb = PILL_BG
-    num_badge5.line.color.rgb = ACCENT_EMERALD
+    num_badge5.line.color.rgb = ACCENT_ROSE
     num_badge5.line.width = Pt(1.5)
     p_nb5 = num_badge5.text_frame.paragraphs[0]
     p_nb5.alignment = PP_ALIGN.CENTER
@@ -1283,16 +1125,16 @@ def build_presentation():
     tf_5 = tb_5.text_frame
     tf_5.word_wrap = True
     p5 = tf_5.paragraphs[0]
-    p5.text = "Speed, cost, and capacity trade-offs define a hierarchy from registers to tertiary storage — the OS manages movement across all levels."
+    p5.text = "Multiprocessing allows computers to handle more work efficiently while requiring the OS to carefully coordinate scheduling, cache coherence, load balancing, and synchronization."
     p5.font.name = FONT_BODY
     p5.font.size = Pt(10.5)
     p5.font.color.rgb = TEXT_MUTED
 
     # Bottom Row: 3 Presenter Cards
     pres_cards = [
-        ("V. Ram Charan", "Slides 1–5 · Act I", ACCENT_CYAN),
-        ("Vedhanth", "Slides 6–10 · Act II", ACCENT_INDIGO),
-        ("Lochan", "Slides 11–15 · Act III", ACCENT_EMERALD)
+        ("V. Ram Charan", "Act I: Core Hardware & System Bus (Slides 1–5)", ACCENT_CYAN),
+        ("Vedhanth", "Act II: Memory & Storage Hierarchy (Slides 6–10)", ACCENT_INDIGO),
+        ("Lochan", "Act III: Multiprocessing & Modern Systems (Slides 11–15)", ACCENT_EMERALD)
     ]
     p_w = 3.7
     for i, (name, act_info, col) in enumerate(pres_cards):
@@ -1303,15 +1145,15 @@ def build_presentation():
         p = tf.paragraphs[0]
         p.text = act_info
         p.font.name = FONT_BODY
-        p.font.size = Pt(10.5)
+        p.font.size = Pt(10)
         p.font.color.rgb = col
 
     set_speaker_notes(
         s15,
-        "To conclude our presentation: Users execute applications; applications request operating system services; the OS manages memory, processes, and I/O; and underlying hardware executes instructions under dual-mode protection. The five core takeaways are: system organization requires concurrency coordination, interrupts enable efficient communication, dual-mode operation protects the kernel, multicore delivers scalable parallelism, and storage hierarchies balance speed and capacity. On behalf of Ram Charan, Vedhanth, and myself, thank you for your attention. We are now open for questions.",
-        "Complete architectural synthesis: hardware resources, OS dual role, interrupt-driven operation, and hardware protection.",
+        "To summarize our complete presentation: Ram Charan walked us through the core hardware and 3-part system bus; Vedhanth explained the storage hierarchy, locality of reference, and OS caching optimizations; and Lochan covered multiprocessing architectures, SMP vs AMP, multicore, clustering, and OS coordination challenges. On behalf of Ram Charan, Vedhanth, and Lochan, thank you for your attention. We are now open for questions.",
+        "Comprehensive architectural synthesis covering core hardware, system bus, storage hierarchy, locality, multiprocessing, and OS coordination.",
         "End of presentation — open floor for Q&A.",
-        "All three presenters step forward together, smile, and invite questions from the professor and classmates."
+        "All three presenters step forward together, smile, and invite questions from the professor and audience."
     )
 
     out_pptx = os.path.join(ROOT_DIR, "computer_system_architecture.pptx")
@@ -1320,7 +1162,7 @@ def build_presentation():
     prs.save(out_pptx_clean)
     out_pptx_cinematic = os.path.join(ROOT_DIR, "Computer_System_Architecture_Cinematic.pptx")
     prs.save(out_pptx_cinematic)
-    print(f"Successfully generated 15-slide Luxury Gamma/Envato-style presentation with Morph transitions & lighting effects!")
+    print(f"Successfully generated 15-slide Luxury presentation updated to exact user speech!")
     return out_pptx
 
 if __name__ == "__main__":

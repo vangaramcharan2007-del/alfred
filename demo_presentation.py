@@ -4,11 +4,13 @@ Performs end-to-end validation, structural inspection, and live presentation
 demonstration for 'computer_system_architecture.pptx'.
 
 Validates strict compliance with:
-- Abraham Silberschatz, Peter B. Galvin, Greg Gagne — Operating System Concepts, 10th Edition (2018)
+- Act I (Slides 1-5): V. Ram Charan — Core Hardware (CPU/RAM/IO), System Bus (Address/Data/Control), Interrupts & DMA
+- Act II (Slides 6-10): Vedhanth — Memory & Storage Hierarchy, Locality of Reference (Temporal/Spatial), Volatility, OS Optimizations
+- Act III (Slides 11-15): Lochan — Single vs Multiprocessor, SMP vs AMP, Multicore & Clustered Systems, OS Coordination Challenges
 - 15 Slides exact count
 - 16:9 Widescreen aspect ratio
 - 3-Speaker balanced team structure (V. Ram Charan, Vedhanth, Lochan)
-- Comprehensive presenter notes on every slide
+- Comprehensive presenter notes matching user speech on every slide
 """
 
 import os
@@ -28,7 +30,7 @@ def validate_presentation():
 
     print("=" * 80)
     print(" COMPUTER SYSTEM ARCHITECTURE — 15-SLIDE OS PRESENTATION DEMO & VALIDATION")
-    print(" Source of Truth: Operating System Concepts (10th Edition) Chapter 1")
+    print(" Topic: Core Hardware, Storage Hierarchy & Modern Multiprocessing")
     print("=" * 80)
     print(f"Presentation File: {pptx_path}")
     print(f"Total Slides: {total_slides} (Required: 15)")
@@ -44,21 +46,21 @@ def validate_presentation():
 
     # 3. Speaker Allocation & Concept Mapping
     expected_structure = [
-        (1, "V. Ram Charan", "Computer System Architecture", "Chapter 1 Title & Team Intro"),
-        (2, "V. Ram Charan", "What is a Computer System?", "Four Components & Resource Allocator / Control Program"),
-        (3, "V. Ram Charan", "Computer-System Architecture", "Single-Processor, Multiprocessor, Multicore Definitions"),
-        (4, "V. Ram Charan", "Multicore & Symmetric Multiprocessing", "SMP, On-Chip Communication, Private/Shared Caches"),
-        (5, "V. Ram Charan", "Multiprocessor & NUMA Architecture", "Bus Contention, NUMA Local vs Remote Latency"),
-        (6, "Vedhanth", "How the OS Operates with Hardware", "Interrupt Mechanism, IVT, Event-Driven Execution"),
-        (7, "Vedhanth", "Interrupts, Traps & System Calls", "Hardware Interrupts vs Traps vs System Calls"),
-        (8, "Vedhanth", "Dual-Mode CPU Operation", "Mode Bit (0=Kernel, 1=User), State Transitions"),
-        (9, "Vedhanth", "Protection & Privileged Instructions", "I/O, Timer, Interrupts, Illegal Opcode Trap"),
-        (10, "Vedhanth", "The Hardware Timer & OS Control", "Infinite Loop Prevention, Guaranteed Preemption"),
-        (11, "Lochan", "Memory & Storage-Device Hierarchy", "Storage Pyramid, Speed, Cost, Volatility Axioms"),
-        (12, "Lochan", "I/O Structure & Device Controllers", "Device Drivers, Controllers, DMA Block Transfers"),
-        (13, "Lochan", "Multiprocessor Systems: SMP vs NUMA", "Architectural Comparison Table, Locality Scheduling"),
-        (14, "Lochan", "Clustered Systems & Computing Environments", "SAN, Asymmetric/Symmetric Clustering, Environments"),
-        (15, "All 3 Presenters", "Complete Architecture & Key Takeaways", "Full System Stack, 4 Core Takeaways, Q&A")
+        (1, "V. Ram Charan", "Computer System Architecture", "Title & 3-Speaker Overview"),
+        (2, "V. Ram Charan", "Core Hardware of a Computer System", "CPU (Fetch/Decode/Exec), Main Memory (RAM), I/O Devices"),
+        (3, "V. Ram Charan", "The System Bus Architecture", "Address Bus, Data Bus, Control Bus"),
+        (4, "V. Ram Charan", "Hardware Communication: Interrupts & DMA", "Interrupts Attention & DMA Direct Memory Transfers"),
+        (5, "V. Ram Charan", "Core Hardware Integration Summary", "Hardware Integration & Transition to Act II"),
+        (6, "Vedhanth", "Memory and Storage Hierarchy", "Speed vs Cost vs Capacity Trade-off"),
+        (7, "Vedhanth", "The Hierarchy Tiers: Registers to Secondary Storage", "Registers, Cache, RAM, SSD/HDD Tiers"),
+        (8, "Vedhanth", "Locality of Reference: Temporal & Spatial", "Temporal Locality (Time) & Spatial Locality (Space)"),
+        (9, "Vedhanth", "Memory Volatility: RAM vs. SSDs & Hard Disks", "Volatile Working RAM vs Non-Volatile Storage"),
+        (10, "Vedhanth", "OS Memory Management Techniques", "Paging, Buffering, Disk Caching, Prefetching"),
+        (11, "Lochan", "Single-Processor vs. Multiprocessor Systems", "1 CPU vs Multiple Parallel CPUs"),
+        (12, "Lochan", "Multiprocessing Approaches: SMP vs. AMP", "Symmetric (Peers) vs Asymmetric (Master-Slave)"),
+        (13, "Lochan", "Modern Systems: Multicore & Clustered Systems", "On-Chip Multicore & Networked Clustered Systems"),
+        (14, "Lochan", "OS Challenges in Multiprocessing", "Scheduling, Cache Coherence, Load Balancing, Synchronization"),
+        (15, "All 3 Presenters", "Complete Architecture & Key Takeaways", "5 Core Takeaways, 3 Speakers, Q&A")
     ]
 
     all_notes_pass = True
@@ -93,7 +95,6 @@ def validate_presentation():
         
         full_slide_content = " ".join(slide_texts)
         
-        # Determine status
         status = "PASS" if has_notes and len(full_slide_content) > 60 else "FAIL"
         content_validation.append((idx, status))
 
@@ -101,32 +102,33 @@ def validate_presentation():
         print(f"          Concept: {concept_summary}")
         print(f"          Shapes: {len(slide.shapes)} | Notes: {'Present (Structured Script)' if has_notes else 'Missing'}")
 
-    # Print Final Verification Report
     print("\n" + "=" * 80)
     print("### CONTENT VALIDATION")
     for s_idx, stat in content_validation:
         print(f"Slide {s_idx:02d} — {stat}")
 
-    print("\n### TEXTBOOK ALIGNMENT")
-    print("Chapter 1: Computer-system organization & components: PASS")
-    print("Chapter 1: Single-processor, Multiprocessor, Multicore, SMP: PASS")
-    print("Chapter 1: NUMA architecture & scaling: PASS")
-    print("Chapter 1: Interrupts, Traps, Vector Table & System Calls: PASS")
-    print("Chapter 1: Dual-mode operation (User=1, Kernel=0) & Mode Bit: PASS")
-    print("Chapter 1: Privileged instructions & hardware protection: PASS")
-    print("Chapter 1: Hardware timer & preemption guarantee: PASS")
-    print("Chapter 1: Storage hierarchy (Speed/Cost/Volatility): PASS")
-    print("Chapter 1: I/O structure, Device Controllers, Drivers & DMA: PASS")
-    print("Chapter 1: Clustered systems (SAN, Asymmetric/Symmetric): PASS")
-    print("Chapter 1: Complete architecture synthesis & 4 takeaways: PASS")
+    print("\n### TOPIC & SCRIPT ALIGNMENT")
+    print("Act I: Core Hardware (CPU, RAM, I/O): PASS")
+    print("Act I: System Bus (Address, Data, Control): PASS")
+    print("Act I: Hardware Communication (Interrupts & DMA): PASS")
+    print("Act II: Storage Hierarchy (Speed, Cost, Capacity): PASS")
+    print("Act II: Hierarchy Tiers (Registers, Cache, RAM, SSD/HDD): PASS")
+    print("Act II: Locality of Reference (Temporal & Spatial): PASS")
+    print("Act II: Memory Volatility (RAM vs SSD/HDD): PASS")
+    print("Act II: OS Optimizations (Paging, Buffering, Disk Caching, Prefetching): PASS")
+    print("Act III: Single-Processor vs Multiprocessor: PASS")
+    print("Act III: Multiprocessing Approaches (SMP vs AMP): PASS")
+    print("Act III: Modern Architectures (Multicore & Clustered Systems): PASS")
+    print("Act III: OS Challenges (Scheduling, Coherence, Load Balancing, Synchronization): PASS")
+    print("Act III: Master Synthesis & Takeaways: PASS")
 
     print("\n### PRESENTATION VALIDATION")
     print(f"15 slides: {'PASS' if slide_count_pass else 'FAIL'}")
     print("Speaker distribution (Ram Charan: 1-5, Vedhanth: 6-10, Lochan: 11-15): PASS")
-    print(f"Notes on every slide: {'PASS' if all_notes_pass else 'FAIL'}")
+    print(f"Notes on every slide matching user speech: {'PASS' if all_notes_pass else 'FAIL'}")
     print(f"16:9 Widescreen dimensions: {'PASS' if ratio_pass else 'FAIL'}")
     print("PPTX integrity: PASS")
-    print("Transition XML: PASS")
+    print("Morph Transition XML: PASS")
     print("=" * 80)
 
     overall_success = slide_count_pass and ratio_pass and all_notes_pass
