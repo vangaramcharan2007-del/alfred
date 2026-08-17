@@ -923,6 +923,16 @@ class DynamicOrchestrator:
                 time.sleep(1)
 
 
+def main():
+    orchestrator = DynamicOrchestrator()
+    orchestrator.run_continuous_loop()
+
+
+if __name__ == "__main__":
+    main()
+
+
+
 
 
 

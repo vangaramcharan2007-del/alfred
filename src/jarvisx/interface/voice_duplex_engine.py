@@ -1,17 +1,31 @@
 """Full-Duplex Voice Interaction Engine for Jarvis X.
 
-Integrates Whisper.cpp STT and Piper TTS with dynamic interruption support.
+Integrates real microphone STT (SpeechRecognition / Whisper) and Windows SAPI TTS
+with hands-free live audio listening and terminal input fallback.
 """
 
 from __future__ import annotations
 import os
 import sys
 import time
+import threading
 from typing import Optional, Callable
+
+try:
+    import speech_recognition as sr
+    HAVE_SR = True
+except Exception:
+    HAVE_SR = False
+
+try:
+    import win32com.client
+    HAVE_SAPI = True
+except Exception:
+    HAVE_SAPI = False
 
 
 class VoiceDuplexEngine:
-    """Voice Engine providing speech-to-text listening and text-to-speech feedback."""
+    """Voice Engine providing real speech-to-text listening and text-to-speech feedback."""
 
     def __init__(
         self,
@@ -21,25 +35,57 @@ class VoiceDuplexEngine:
         self.whisper_path = whisper_model_path
         self.piper_path = piper_model_path
         self.is_listening = False
+        self.recognizer = sr.Recognizer() if HAVE_SR else None
+        if self.recognizer:
+            self.recognizer.energy_threshold = 300
+            self.recognizer.pause_threshold = 0.8
+            self.recognizer.dynamic_energy_threshold = True
 
     def speak(self, text: str):
-        """Speak out text or print to console if audio device unavailable."""
+        """Speak out text aloud through laptop speakers and print cleanly."""
         if not text or not text.strip():
             return
-        print(f"\n🗣️  [JARVIS VOICE]: {text.strip()}\n")
-        try:
-            # Fallback to standard Windows SAPI TTS if Piper is not present
-            import win32com.client
-            speaker = win32com.client.Dispatch("SAPI.SpVoice")
-            speaker.Speak(text[:250])  # Speak first 250 chars cleanly
-        except Exception:
-            pass
+        clean_text = text.strip()
+        print(f"\n🗣️  [JARVIS VOICE]: {clean_text}\n")
+        
+        def _speak_thread():
+            try:
+                if HAVE_SAPI:
+                    # Windows Native SAPI 5.4 Voice Synthesizer
+                    speaker = win32com.client.Dispatch("SAPI.SpVoice")
+                    # Clean markdown formatting symbols before speaking
+                    spoken = clean_text.replace("*", "").replace("#", "").replace("`", "").replace("[", "").replace("]", "")
+                    speaker.Speak(spoken[:300])
+            except Exception:
+                pass
+
+        # Speak asynchronously so audio doesn't block the core
+        threading.Thread(target=_speak_thread, daemon=True).start()
 
     def listen_and_transcribe(self) -> str:
-        """Listen for audio input and return transcribed text string."""
+        """Listens from live microphone, falling back to keyboard input if silent."""
+        # 1. Try real live microphone audio listening
+        if HAVE_SR and self.recognizer:
+            try:
+                with sr.Microphone() as source:
+                    print("\n🎙️ [LISTENING] (Speak into your mic or press Enter to type)...", end="", flush=True)
+                    self.recognizer.adjust_for_ambient_noise(source, duration=0.4)
+                    audio = self.recognizer.listen(source, timeout=3.5, phrase_time_limit=10.0)
+                    print("\n[*] Transcribing audio...")
+                    text = self.recognizer.recognize_google(audio)
+                    print(f"👉 You said: \"{text}\"")
+                    return text
+            except sr.WaitTimeoutError:
+                pass
+            except sr.UnknownValueError:
+                print("\n[!] Could not understand audio.")
+            except Exception as e:
+                # Microphone not available or in use by another app
+                pass
+
+        # 2. Interactive Terminal Fallback
         try:
-            # Interactive prompt fallback for terminal execution
-            user_input = input("\n🎙️ [LISTENING] You: ").strip()
+            user_input = input("\n💬 [TYPE PROMPT] You: ").strip()
             return user_input
         except (KeyboardInterrupt, EOFError):
             return "exit"
