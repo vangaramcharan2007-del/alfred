@@ -10,6 +10,7 @@ import sys
 import re
 import glob
 import time
+import asyncio
 import datetime
 import subprocess
 import webbrowser
@@ -865,17 +866,49 @@ class DynamicOrchestrator:
             pass
 
         # Deterministic heuristic fallback
-        prompt_lower = user_prompt.lower()
+        prompt_lower = user_prompt.lower().strip()
+        
+        # 1. Quick greetings
+        if prompt_lower in ["yoo", "yo", "hi", "hello", "hey", "sup", "what's up", "good morning", "good evening"]:
+            return "GREETING"
+
+        # 2. App & Web Launches (e.g. "open youtube", "open paint", "launch vscode")
+        if any(prompt_lower.startswith(prefix) for prefix in ["open ", "launch ", "start ", "play "]):
+            return "APP_LAUNCH"
+
+        # 3. Visual UI Actions
         if any(term in prompt_lower for term in ["click", "screen", "paint", "window", "draw", "type into", "mouse"]):
             return "VISUAL_ACTUATION"
+
+        # 4. Web Research
         elif any(term in prompt_lower for term in ["web", "browse", "url", "http", "website", "search online", "wikipedia"]):
             return "WEB_RESEARCH"
+
+        # 5. General Knowledge / RAG
         else:
             return "KNOWLEDGE_RAG"
 
     async def _execute_subsystem(self, category: str, prompt: str) -> Dict[str, Any]:
         """Dispatches the prompt to the appropriate unified subsystem."""
-        if category == "KNOWLEDGE_RAG":
+        if category == "GREETING":
+            resp_text = f"Hey {self.user_name}! All systems are online and listening. How can I help you right now?"
+            print(f"\n[JARVIS X]: {resp_text}")
+            self.voice_engine.speak(resp_text)
+            return {"status": "success", "subsystem": "GREETING", "result": resp_text}
+
+        elif category == "APP_LAUNCH":
+            clean_app = prompt.lower().replace("open", "").replace("launch", "").replace("start", "").strip()
+            print(f"[*] Subsystem Selected: Dynamic App Launcher ('{clean_app}')")
+            res = self.find_and_launch_app(clean_app)
+            if res.get("status") in ["LAUNCHED_WEB", "LAUNCHED_PROCESS"]:
+                resp_text = f"Opening {clean_app} for you now."
+            else:
+                resp_text = f"Searching for and launching {clean_app}."
+            print(f"\n[JARVIS X]: {resp_text}")
+            self.voice_engine.speak(resp_text)
+            return {"status": "success", "subsystem": "APP_LAUNCH", "result": res}
+
+        elif category == "KNOWLEDGE_RAG":
             print("[*] Subsystem Selected: Distributed Mesh (RAG)")
             res = self.mesh_router.dispatch_intent(prompt)
             resp_text = res.get("response", str(res))

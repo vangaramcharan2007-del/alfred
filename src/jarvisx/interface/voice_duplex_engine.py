@@ -75,12 +75,9 @@ class VoiceDuplexEngine:
                     text = self.recognizer.recognize_google(audio)
                     print(f"👉 You said: \"{text}\"")
                     return text
-            except sr.WaitTimeoutError:
+            except (sr.WaitTimeoutError, sr.UnknownValueError):
                 pass
-            except sr.UnknownValueError:
-                print("\n[!] Could not understand audio.")
-            except Exception as e:
-                # Microphone not available or in use by another app
+            except Exception:
                 pass
 
         # 2. Interactive Terminal Fallback
