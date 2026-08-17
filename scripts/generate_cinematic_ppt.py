@@ -238,8 +238,8 @@ def set_speaker_notes(slide, what_to_say, concept, transition, cue):
                       f"4. PRESENTATION CUE:\n{cue}"
 
 def build_presentation():
-    # 1. Generate all isometric assets with ambient lighting
-    generate_all_gamma_assets()
+    # Only generate fallback assets if missing
+    # generate_all_gamma_assets()
     
     prs = Presentation()
     prs.slide_width = Inches(13.333)
@@ -326,7 +326,7 @@ def build_presentation():
 
     mb_img = os.path.join(GAMMA_DIR, "iso_motherboard.png")
     if os.path.exists(mb_img):
-        s1.shapes.add_picture(mb_img, Inches(7.5), Inches(0.8), width=Inches(5.2))
+        s1.shapes.add_picture(mb_img, Inches(7.2), Inches(1.3), width=Inches(5.4))
 
     set_speaker_notes(
         s1,
