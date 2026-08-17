@@ -795,6 +795,134 @@ class DynamicOrchestrator:
             except Exception as me:
                 print(f"[MEMORY] Memory persistence warning: {me}")
 
+    # =========================================================================
+    # SPRINT 1-4 GRAND UNIFICATION: SEMANTIC CLASSIFIER & MASTER ORCHESTRATION
+    # =========================================================================
+
+    @property
+    def voice_engine(self):
+        if not hasattr(self, "_voice_engine") or self._voice_engine is None:
+            from jarvisx.interface.voice_duplex_engine import VoiceDuplexEngine
+            self._voice_engine = VoiceDuplexEngine()
+        return self._voice_engine
+
+    @property
+    def mesh_router(self):
+        if not hasattr(self, "_mesh_router") or self._mesh_router is None:
+            from jarvisx.mesh.mesh_router import MeshRouter
+            self._mesh_router = MeshRouter()
+        return self._mesh_router
+
+    @property
+    def vision_bridge(self):
+        if not hasattr(self, "_vision_bridge") or self._vision_bridge is None:
+            from jarvisx.automation.vision_mcp_bridge import VisionActuationBridge
+            self._vision_bridge = VisionActuationBridge()
+        return self._vision_bridge
+
+    @property
+    def web_researcher(self):
+        if not hasattr(self, "_web_researcher") or self._web_researcher is None:
+            from jarvisx.automation.real_web_navigator import AutonomousWebResearcher
+            self._web_researcher = AutonomousWebResearcher()
+        return self._web_researcher
+
+    def _classify_intent(self, user_prompt: str, node_ip: str = "http://100.77.90.36:11434", model: str = "qwen2.5-coder:1.5b") -> str:
+        """Semantically classifies user's prompt into VISUAL_ACTUATION, WEB_RESEARCH, or KNOWLEDGE_RAG."""
+        print(f"[*] Semantic Intent Classification for: '{user_prompt}'")
+        
+        system_instruction = (
+            "You are the routing brain for an AI agent. Classify the user's prompt into EXACTLY ONE of these categories:\n"
+            "1. VISUAL_ACTUATION: The user wants to click something, type on the local screen, or wants you to look at their screen.\n"
+            "2. WEB_RESEARCH: The user wants to search the internet, navigate to a website, or scrape web data.\n"
+            "3. KNOWLEDGE_RAG: The user is asking a general question, wants coding help, or is making conversation.\n\n"
+            "Output ONLY the category name. Do not explain your reasoning."
+        )
+
+        try:
+            import urllib.request
+            import json
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": user_prompt}
+                ],
+                "stream": False
+            }
+            req = urllib.request.Request(
+                f"{node_ip}/api/chat",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=1.5) as resp:
+                res_data = json.loads(resp.read().decode("utf-8"))
+                category = res_data.get("message", {}).get("content", "").strip().upper()
+                if category in ["VISUAL_ACTUATION", "WEB_RESEARCH", "KNOWLEDGE_RAG"]:
+                    return category
+        except Exception:
+            pass
+
+        # Deterministic heuristic fallback
+        prompt_lower = user_prompt.lower()
+        if any(term in prompt_lower for term in ["click", "screen", "paint", "window", "draw", "type into", "mouse"]):
+            return "VISUAL_ACTUATION"
+        elif any(term in prompt_lower for term in ["web", "browse", "url", "http", "website", "search online", "wikipedia"]):
+            return "WEB_RESEARCH"
+        else:
+            return "KNOWLEDGE_RAG"
+
+    async def _execute_subsystem(self, category: str, prompt: str) -> Dict[str, Any]:
+        """Dispatches the prompt to the appropriate unified subsystem."""
+        if category == "KNOWLEDGE_RAG":
+            print("[*] Subsystem Selected: Distributed Mesh (RAG)")
+            res = self.mesh_router.dispatch_intent(prompt)
+            resp_text = res.get("response", str(res))
+            print(f"\n[JARVIS X]: {resp_text}")
+            self.voice_engine.speak(resp_text)
+            return {"status": "success", "subsystem": "KNOWLEDGE_RAG", "result": resp_text}
+
+        elif category == "VISUAL_ACTUATION":
+            print("[*] Subsystem Selected: Vision-Actuation Bridge")
+            self.voice_engine.speak("Executing visual desktop operation.")
+            success = await self.vision_bridge.execute_visual_click(target_description=prompt)
+            msg = f"Visual operation {'succeeded' if success else 'could not locate target'}."
+            self.voice_engine.speak(msg)
+            return {"status": "success" if success else "failed", "subsystem": "VISUAL_ACTUATION", "message": msg}
+
+        elif category == "WEB_RESEARCH":
+            print("[*] Subsystem Selected: Autonomous Web Researcher")
+            self.voice_engine.speak("Navigating the web to research this for you.")
+            web_res = await self.web_researcher.run_research_task(prompt)
+            self.voice_engine.speak("Web research complete. Check your terminal for the detailed synthesis.")
+            return {"status": "success", "subsystem": "WEB_RESEARCH", "result": web_res}
+
+        else:
+            return {"status": "failed", "error": f"Unknown category: {category}"}
+
+    def run_continuous_loop(self):
+        """The Master Control Loop. Listens endlessly for voice/text input and orchestrates."""
+        self.voice_engine.speak("All systems initialized. Jarvis X is online and listening.")
+        
+        while True:
+            try:
+                user_input = self.voice_engine.listen_and_transcribe()
+                if not user_input:
+                    continue
+                if user_input.lower() in ["shut down", "go to sleep", "exit", "stop", "quit"]:
+                    self.voice_engine.speak("Shutting down core processes. Goodbye.")
+                    break
+
+                category = self._classify_intent(user_input)
+                print(f"[+] Intent Classified as: {category}")
+                asyncio.run(self._execute_subsystem(category, user_input))
+            except Exception as e:
+                print(f"[!] Orchestrator Error: {e}")
+                self.voice_engine.speak("I encountered an error processing that request.")
+                time.sleep(1)
+
+
 
 
 
