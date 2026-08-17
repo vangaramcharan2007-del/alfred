@@ -45,6 +45,7 @@
       display: flex;
       flex-direction: column;
       user-select: none;
+      perspective: 1200px;
     }
 
     body::before {
@@ -95,14 +96,14 @@
     .nav-actions {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.65rem;
     }
 
     .btn {
       background: var(--pill-bg);
       border: 1px solid var(--card-border);
       color: var(--text-white);
-      padding: 0.4rem 0.9rem;
+      padding: 0.4rem 0.85rem;
       border-radius: 8px;
       font-family: var(--font-body);
       font-size: 0.8rem;
@@ -145,6 +146,7 @@
       justify-content: center;
       padding: 1.5rem;
       z-index: 10;
+      overflow: hidden;
     }
 
     .slide-wrapper {
@@ -160,6 +162,8 @@
       flex-direction: column;
       padding: 2.2rem 2.8rem;
       overflow: hidden;
+      transform-origin: center center;
+      backface-visibility: hidden;
     }
 
     .slide-wrapper::before {
@@ -168,6 +172,108 @@
       top: 0; left: 0; right: 0;
       height: 2px;
       background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+    }
+
+    /* === TRANSITION ANIMATION MODES === */
+    
+    /* 1. Fluid Morph & Scale */
+    .transition-morph-next {
+      animation: morphNext 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .transition-morph-prev {
+      animation: morphPrev 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes morphNext {
+      0% { opacity: 0; transform: scale(0.96) translateY(12px); filter: blur(4px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+    }
+    @keyframes morphPrev {
+      0% { opacity: 0; transform: scale(1.04) translateY(-12px); filter: blur(4px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+    }
+
+    /* 2. 3D Perspective Glide */
+    .transition-3d-next {
+      animation: flipNext 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .transition-3d-prev {
+      animation: flipPrev 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes flipNext {
+      0% { opacity: 0; transform: perspective(1000px) rotateY(-8deg) translateX(50px) scale(0.95); }
+      100% { opacity: 1; transform: perspective(1000px) rotateY(0deg) translateX(0) scale(1); }
+    }
+    @keyframes flipPrev {
+      0% { opacity: 0; transform: perspective(1000px) rotateY(8deg) translateX(-50px) scale(0.95); }
+      100% { opacity: 1; transform: perspective(1000px) rotateY(0deg) translateX(0) scale(1); }
+    }
+
+    /* 3. Cinematic Zoom & Fade */
+    .transition-zoom-next {
+      animation: zoomNext 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .transition-zoom-prev {
+      animation: zoomPrev 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes zoomNext {
+      0% { opacity: 0; transform: scale(1.08); filter: blur(6px); }
+      100% { opacity: 1; transform: scale(1); filter: blur(0); }
+    }
+    @keyframes zoomPrev {
+      0% { opacity: 0; transform: scale(0.92); filter: blur(6px); }
+      100% { opacity: 1; transform: scale(1); filter: blur(0); }
+    }
+
+    /* Card Stagger Entrance Animations */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: cardCascade 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .slide-body .card:nth-child(1) { animation-delay: 0.06s; }
+    .slide-body .card:nth-child(2) { animation-delay: 0.14s; }
+    .slide-body .card:nth-child(3) { animation-delay: 0.22s; }
+    .slide-body .card:nth-child(4) { animation-delay: 0.30s; }
+
+    @keyframes cardCascade {
+      0% { opacity: 0; transform: translateY(16px) scale(0.98); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .card:hover {
+      border-color: var(--card-hover-border);
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: 0 16px 36px rgba(56, 189, 248, 0.2);
+    }
+
+    .card::after {
+      content: "";
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 8px;
+      height: 8px;
+      border-top: 2px solid rgba(255, 255, 255, 0.25);
+      border-right: 2px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .card-accent-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 4px;
+      background: var(--accent-cyan);
     }
 
     .slide-header {
@@ -258,47 +364,6 @@
 
     .grid-split-img {
       grid-template-columns: 1.15fr 1fr;
-    }
-
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 1.2rem;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      overflow: hidden;
-      backdrop-filter: blur(16px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      animation: cardSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-    }
-
-    .card:hover {
-      border-color: var(--card-hover-border);
-      transform: translateY(-3px);
-      box-shadow: 0 12px 30px rgba(56, 189, 248, 0.15);
-    }
-
-    .card::after {
-      content: "";
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      width: 8px;
-      height: 8px;
-      border-top: 2px solid rgba(255, 255, 255, 0.2);
-      border-right: 2px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .card-accent-bar {
-      position: absolute;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      width: 4px;
-      background: var(--accent-cyan);
     }
 
     .card-title {
@@ -452,20 +517,6 @@
       line-height: 1.45;
       color: var(--text-white);
     }
-
-    .fade-in {
-      animation: slideMorph 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-
-    @keyframes slideMorph {
-      from { opacity: 0; transform: scale(0.985); }
-      to { opacity: 1; transform: scale(1); }
-    }
-
-    @keyframes cardSlideUp {
-      from { opacity: 0; transform: translateY(12px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
   </style>
 </head>
 <body>
@@ -479,13 +530,14 @@
       <div class="timer-badge" id="slideTimer" title="Current slide rehearsal timer">00:00</div>
       <button class="btn" id="prevBtn" title="Previous Slide (Left Arrow)">◀ Prev</button>
       <button class="btn" id="nextBtn" title="Next Slide (Right Arrow / Space)">Next ▶</button>
+      <button class="btn" id="transitionModeBtn" title="Cycle Slide Transition Style (T)">✨ Morph FX</button>
       <button class="btn" id="notesBtn" title="Toggle Presenter Notes (N)">📝 Notes</button>
       <button class="btn" id="fullscreenBtn" title="Toggle Fullscreen (F)">⛶ Fullscreen</button>
     </div>
   </header>
 
   <main class="stage">
-    <div class="slide-wrapper fade-in" id="slideContainer">
+    <div class="slide-wrapper transition-morph-next" id="slideContainer">
       <!-- Injected by Javascript -->
     </div>
   </main>
@@ -516,6 +568,9 @@
   </div>
 
   <script>
+    const transitionModes = ["morph", "3d", "zoom"];
+    let currentTransitionModeIdx = 0;
+
     const slidesData = [
       {
         id: 1,
@@ -1085,13 +1140,14 @@
     let timerSeconds = 0;
     let timerInterval = null;
 
-    function renderSlide(idx) {
+    function renderSlide(idx, direction = "next") {
       if (idx < 0 || idx >= slidesData.length) return;
       currentSlideIdx = idx;
       const slide = slidesData[idx];
       const container = document.getElementById("slideContainer");
+      const mode = transitionModes[currentTransitionModeIdx];
 
-      container.className = "slide-wrapper fade-in";
+      container.className = `slide-wrapper transition-${mode}-${direction}`;
       container.innerHTML = `
         <div class="slide-header">
           <div class="header-pills">
@@ -1133,11 +1189,18 @@
     }
 
     document.getElementById("prevBtn").onclick = () => {
-      if (currentSlideIdx > 0) renderSlide(currentSlideIdx - 1);
+      if (currentSlideIdx > 0) renderSlide(currentSlideIdx - 1, "prev");
     };
 
     document.getElementById("nextBtn").onclick = () => {
-      if (currentSlideIdx < slidesData.length - 1) renderSlide(currentSlideIdx + 1);
+      if (currentSlideIdx < slidesData.length - 1) renderSlide(currentSlideIdx + 1, "next");
+    };
+
+    document.getElementById("transitionModeBtn").onclick = () => {
+      currentTransitionModeIdx = (currentTransitionModeIdx + 1) % transitionModes.length;
+      const modeNames = ["✨ Morph FX", "🎲 3D Glide", "🔍 Zoom Blur"];
+      document.getElementById("transitionModeBtn").textContent = modeNames[currentTransitionModeIdx];
+      renderSlide(currentSlideIdx, "next");
     };
 
     document.getElementById("notesBtn").onclick = () => {
@@ -1161,13 +1224,15 @@
 
     window.addEventListener("keydown", (e) => {
       if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
-        if (currentSlideIdx < slidesData.length - 1) renderSlide(currentSlideIdx + 1);
+        if (currentSlideIdx < slidesData.length - 1) renderSlide(currentSlideIdx + 1, "next");
       } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
-        if (currentSlideIdx > 0) renderSlide(currentSlideIdx - 1);
+        if (currentSlideIdx > 0) renderSlide(currentSlideIdx - 1, "prev");
       } else if (e.key === "Home") {
-        renderSlide(0);
+        renderSlide(0, "prev");
       } else if (e.key === "End") {
-        renderSlide(slidesData.length - 1);
+        renderSlide(slidesData.length - 1, "next");
+      } else if (e.key.toLowerCase() === "t") {
+        document.getElementById("transitionModeBtn").click();
       } else if (e.key.toLowerCase() === "n") {
         document.getElementById("notesBtn").click();
       } else if (e.key.toLowerCase() === "f") {
@@ -1177,7 +1242,7 @@
       }
     });
 
-    renderSlide(0);
+    renderSlide(0, "next");
   </script>
 </body>
 </html>

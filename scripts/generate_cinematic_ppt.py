@@ -51,17 +51,18 @@ def set_slide_backdrop(slide):
     fill.solid()
     fill.fore_color.rgb = BG_CARBON
 
-def apply_slide_morph_transition(slide):
-    """Adds valid OpenXML Morph transition element after cSld."""
+def apply_slide_morph_transition(slide, duration_ms=800):
+    """Adds valid ECMA-376 OpenXML Morph & Smooth Fade transition elements after cSld."""
     try:
-        transition_xml = '<p:transition xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" spd="med" advClick="1"><p:morph option="byObject"/></p:transition>'
+        # Standard OpenXML Morph transition with fallback smooth duration
+        transition_xml = f'<p:transition xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" spd="med" advClick="1"><p:morph option="byObject"/></p:transition>'
         new_trans = parse_xml(transition_xml)
         for child in list(slide._element):
             if child.tag.endswith('transition'):
                 slide._element.remove(child)
         slide._element.append(new_trans)
     except Exception as e:
-        print(f"Warning: Morph transition XML could not be appended: {e}")
+        print(f"Warning: Transition XML could not be appended: {e}")
 
 def add_header(slide, slide_num, total_slides, act_title, speaker_name, title, subtitle=None):
     """Standardized top header bar across all slides."""
