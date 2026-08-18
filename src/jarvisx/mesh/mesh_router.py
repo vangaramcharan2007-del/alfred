@@ -35,8 +35,8 @@ class MeshRouter:
                 "status": "online"
             },
             "worker_3_rtx5050": {
-                "name": "Worker Node 3 (Friend 3)",
-                "ip": "http://100.85.206.20:11434",
+                "name": "laptop-lafr0e5l (Friend 3)",
+                "ip": "http://100.81.36.31:11434",
                 "model": "deepseek-r1:14b",
                 "fallback_model": "deepseek-r1:1.5b",
                 "hardware": "NVIDIA GeForce RTX 5050 GPU",
