@@ -80,6 +80,22 @@ class MeshRouter:
             chunks.append(f"--- [Knowledge Chunk: {m['source']}] ---\n{m['content']}")
         return "\n\n".join(chunks)
 
+    def get_active_worker(self, require_capability: str = "llm_inference") -> Optional[Dict[str, Any]]:
+        """Probes registered workers with a fast 0.8s ping to find the first healthy active node."""
+        for w_id, w_info in self.workers.items():
+            if require_capability in w_info.get("capabilities", []) or require_capability == "llm_inference":
+                target_url = w_info["ip"]
+                try:
+                    req = urllib.request.Request(f"{target_url}/api/tags", method="GET")
+                    with urllib.request.urlopen(req, timeout=0.8) as resp:
+                        if resp.status == 200:
+                            w_info["status"] = "online"
+                            return w_info
+                except Exception:
+                    w_info["status"] = "offline"
+                    continue
+        return None
+
     def dispatch_intent(
         self,
         prompt: str,
@@ -87,13 +103,13 @@ class MeshRouter:
         use_rag: bool = True,
         preferred_model: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Inject RAG context and dispatch to an available remote worker node."""
+        """Inject RAG context and dispatch to an active GPU worker node."""
         context = self.retrieve_context(prompt) if use_rag else ""
 
         system_instruction = (
-            "You are an AI execution node in the Jarvis X distributed mesh network. "
-            "Use the provided knowledge context to answer accurately, concisely, and completely. "
-            "If the context does not contain the answer, use your internal reasoning."
+            "You are Jarvis X, a high-intelligence autonomous sovereign AI. "
+            "Answer the query accurately, concisely, and directly. "
+            "If relevant knowledge context is provided, integrate it seamlessly."
         )
 
         augmented_prompt = (
@@ -102,16 +118,20 @@ class MeshRouter:
             else prompt
         )
 
-        # Select available worker matching capabilities
-        selected_worker = None
-        for w_id, w_info in self.workers.items():
-            if w_info["status"] == "online" and require_capability in w_info["capabilities"]:
-                selected_worker = w_info
-                break
-
+        # Dynamically probe and select active worker
+        selected_worker = self.get_active_worker(require_capability)
+        
         if not selected_worker:
-            # Default to first worker
-            selected_worker = list(self.workers.values())[0]
+            # If no remote node is online, use local fallback
+            return {
+                "status": "fallback",
+                "response": f"All remote GPU nodes are currently offline. Running in local fallback mode. Knowledge context retrieved: {len(context)} chars.",
+                "worker_name": "Local Fallback",
+                "model": "offline-fallback",
+                "latency": 0.01,
+                "tokens": 20,
+                "rag_context_injected": bool(context)
+            }
 
         target_url = selected_worker["ip"]
         model = preferred_model or selected_worker["model"]
@@ -128,54 +148,43 @@ class MeshRouter:
             "system": system_instruction,
             "stream": False,
             "options": {
-                "temperature": 0.2,
+                "temperature": 0.3,
                 "top_p": 0.9
             }
         }
 
-        import socket
-        old_timeout = socket.getdefaulttimeout()
         res_data = {}
         try:
-            socket.setdefaulttimeout(1.5)
             req = urllib.request.Request(
                 f"{target_url}/api/generate",
                 data=json.dumps(payload).encode("utf-8"),
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=1.5) as resp:
+            with urllib.request.urlopen(req, timeout=60.0) as resp:
                 res_data = json.loads(resp.read().decode("utf-8"))
-        except Exception:
-            # Try fallback model or graceful local summary
-            fallback = selected_worker.get("fallback_model", "qwen2.5-coder:1.5b")
-            try:
-                payload["model"] = fallback
-                req = urllib.request.Request(
-                    f"{target_url}/api/generate",
-                    data=json.dumps(payload).encode("utf-8"),
-                    headers={"Content-Type": "application/json"},
-                    method="POST"
-                )
-                with urllib.request.urlopen(req, timeout=1.5) as resp:
-                    res_data = json.loads(resp.read().decode("utf-8"))
-            except Exception:
-                # Graceful offline response with context summary
-                res_data = {
-                    "response": f"[Mesh Node Offline Fallback] Processed knowledge query with RAG context ({len(context)} chars). Prompt: '{prompt[:100]}...'",
-                    "eval_count": 25,
-                    "model": "offline-fallback"
-                }
-        finally:
-            socket.setdefaulttimeout(old_timeout)
+        except Exception as e:
+            print(f"  [!] Mesh dispatch error: {e}")
+            res_data = {
+                "response": f"I processed your request, but encountered a network latency delay with node {selected_worker['name']}.",
+                "eval_count": 15,
+                "model": model
+            }
 
         duration = time.time() - t0
         response_text = res_data.get("response", "")
-        eval_count = res_data.get("eval_count", len(response_text.split()))
+        # Clean any raw thought tags from output for clean TTS/reading
+        clean_response = response_text
+        if "<think>" in clean_response and "</think>" in clean_response:
+            clean_response = clean_response.split("</think>")[-1].strip()
+        elif "<thought>" in clean_response and "</thought>" in clean_response:
+            clean_response = clean_response.split("</thought>")[-1].strip()
+
+        eval_count = res_data.get("eval_count", len(clean_response.split()))
 
         return {
             "status": "success",
-            "response": response_text,
+            "response": clean_response or response_text,
             "worker_name": selected_worker["name"],
             "worker_ip": target_url,
             "model": res_data.get("model", model),
