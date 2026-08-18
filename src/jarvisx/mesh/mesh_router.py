@@ -33,6 +33,15 @@ class MeshRouter:
                 "hardware": "NVIDIA GeForce RTX 3050 Laptop GPU",
                 "capabilities": ["llm_inference", "code_gen", "math_reasoning", "reasoning"],
                 "status": "online"
+            },
+            "worker_3_rtx5050": {
+                "name": "Worker Node 3 (Friend 3)",
+                "ip": "http://100.85.206.20:11434",
+                "model": "deepseek-r1:14b",
+                "fallback_model": "deepseek-r1:1.5b",
+                "hardware": "NVIDIA GeForce RTX 5050 GPU",
+                "capabilities": ["deep_reasoning_14b", "heavy_math", "code_gen", "complex_logic"],
+                "status": "online"
             }
         }
 
