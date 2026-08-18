@@ -24,7 +24,7 @@ def train(
 ):
     """Executes QLoRA fine-tuning with 4-bit quantization and LoRA adapters."""
     print("========================================================")
-    print("  🔥 JARVIS X: QLoRA LOCAL GPU FINE-TUNING PIPELINE")
+    print("  [*] JARVIS X: QLoRA LOCAL GPU FINE-TUNING PIPELINE")
     print("========================================================")
     print(f"  Base Model     : {base_model}")
     print(f"  Dataset Path   : {dataset_path}")
@@ -32,6 +32,7 @@ def train(
     print(f"  LoRA Rank (r)  : {lora_r} (Alpha: {lora_alpha})")
     print(f"  Output Dir     : {output_dir}")
     print("========================================================\n")
+
 
     try:
         from unsloth import FastLanguageModel
@@ -98,9 +99,10 @@ def train(
         print(f"[+] GGUF exported to {output_dir}_gguf! Load into Ollama via 'ollama create'.")
 
     except ImportError:
-        print("  ℹ️ Unsloth/Torch CUDA not detected on this machine.")
-        print("  💡 This script is designed to run directly on Worker Node 1 (NVIDIA RTX 3050) or Google Colab.")
-        print("  💡 Dataset is prepared and ready for execution on your GPU worker node!")
+        print("  [i] Unsloth/Torch CUDA not detected on this machine.")
+        print("  [!] Run this script on Worker Node 3 (RTX 5050) or Google Colab with CUDA.")
+        print("  [+] Dataset is ready at: jarvis_fine_tune_dataset.jsonl")
+        print("\n[+] LEVEL 3 DATASET READY: Transfer jarvis_fine_tune_dataset.jsonl to RTX 5050 and run train_lora.py there.")
 
 
 if __name__ == "__main__":

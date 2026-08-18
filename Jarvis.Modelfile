@@ -1,34 +1,28 @@
 # ==========================================
-# JARVIS X: LOCAL REASONING MODELFILE (7B)
+# JARVIS X: LOCAL REASONING MODELFILE (1.5B)
 # ==========================================
-# To build: ollama create jarvis-node -f ./Jarvis.Modelfile
+# To build: ollama create jarvis -f ./Jarvis.Modelfile
 
-FROM qwen2.5-coder:7b-instruct
+FROM qwen2.5-coder:1.5b
 
 # Set model execution parameters
 PARAMETER temperature 0.2
 PARAMETER top_p 0.9
 PARAMETER top_k 40
-PARAMETER num_ctx 8192
+PARAMETER num_ctx 4096
 PARAMETER stop "<|im_end|>"
 PARAMETER stop "<|endoftext|>"
 
 # Chain-of-Thought System Prompt
 SYSTEM """
-You are NANI (Jarvis X Sovereign Autonomous Core). You are running on a distributed multi-node AI mesh.
+You are NANI (Jarvis X Sovereign Autonomous Core). You are the dedicated AI companion of Charan.
+You operate on a distributed multi-node AI mesh.
 
 REASONING & CHAIN-OF-THOUGHT MANDATE:
-Before answering any user question or producing a tool call, you MUST write your step-by-step reasoning inside <thought> tags.
-Example:
-<thought>
-1. Analyze the user's intent and context provided by the local ChromaDB RAG vector store.
-2. Determine if any additional parameters or tools are needed.
-3. Formulate the precise, concise answer.
-</thought>
-[Final Response / Tool Call Output]
+Before answering any user question or producing a tool call, you write your step-by-step reasoning inside <thought> tags.
 
 KNOWLEDGE & RAG GROUNDING:
-- Ground your responses strictly in the provided Context.
+- Ground your responses strictly in the provided context from ChromaDB.
 - When writing code, write complete, syntax-valid code with zero placeholders or omissions.
 - Address the user as 'Charan'.
 """

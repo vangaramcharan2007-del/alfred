@@ -175,6 +175,45 @@ class RAGRetriever:
 
         return matches
 
+    def index_documents(self, documents: List[str], source: str = "manual") -> int:
+        """Index a list of text documents into ChromaDB knowledge base."""
+        if not self.collection:
+            self.collection = self.client.get_or_create_collection(name="jarvis_knowledge_base")
+
+        # Chunk documents into 500-char segments
+        chunks, metas, ids = [], [], []
+        existing_count = self.collection.count()
+        for doc_idx, doc in enumerate(documents):
+            for chunk_idx in range(0, max(1, len(doc)), 500):
+                chunk = doc[chunk_idx:chunk_idx + 500].strip()
+                if len(chunk) < 20:
+                    continue
+                uid = f"{source}_{doc_idx}_{chunk_idx}_{existing_count}"
+                chunks.append(chunk)
+                metas.append({"source": source, "chunk_idx": chunk_idx})
+                ids.append(uid)
+                existing_count += 1
+
+        if chunks:
+            self.collection.add(documents=chunks, metadatas=metas, ids=ids)
+        return len(chunks)
+
+    def index_directory(self, directory: str) -> int:
+        """Recursively index all .txt, .md, .py files from a directory."""
+        import glob
+        total = 0
+        for ext in ("*.txt", "*.md", "*.py", "*.json"):
+            for fpath in glob.glob(os.path.join(directory, "**", ext), recursive=True):
+                try:
+                    with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                    if content.strip():
+                        n = self.index_documents([content], source=os.path.basename(fpath))
+                        total += n
+                except Exception:
+                    pass
+        return total
+
     def query(self, search_text: str, top_k: int = 3) -> List[Dict[str, Any]]:
         """Standard query interface pointing to advanced Corrective RAG."""
         return self.corrective_rag_query(search_text, top_k=top_k)
