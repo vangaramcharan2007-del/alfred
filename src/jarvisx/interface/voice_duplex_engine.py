@@ -1,7 +1,7 @@
 """Full-Duplex Voice Interaction Engine for Jarvis X.
 
-Integrates real microphone STT (SpeechRecognition / Whisper) and Windows SAPI TTS
-with hands-free live audio listening and terminal input fallback.
+Integrates real microphone STT (SpeechRecognition / PyAudio) and Windows SAPI / System.Speech TTS
+with robust multi-threaded COM initialization and fallback execution.
 """
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ import os
 import sys
 import time
 import threading
+import subprocess
 from typing import Optional, Callable
 
 try:
@@ -18,6 +19,7 @@ except Exception:
     HAVE_SR = False
 
 try:
+    import pythoncom
     import win32com.client
     HAVE_SAPI = True
 except Exception:
@@ -37,30 +39,50 @@ class VoiceDuplexEngine:
         self.is_listening = False
         self.recognizer = sr.Recognizer() if HAVE_SR else None
         if self.recognizer:
-            self.recognizer.energy_threshold = 300
+            self.recognizer.energy_threshold = 250
             self.recognizer.pause_threshold = 0.8
             self.recognizer.dynamic_energy_threshold = True
 
-    def speak(self, text: str):
+    def speak(self, text: str, sync: bool = False):
         """Speak out text aloud through laptop speakers and print cleanly."""
         if not text or not text.strip():
             return
         clean_text = text.strip()
-        print(f"\n🗣️  [JARVIS VOICE]: {clean_text}\n")
+        try:
+            print(f"\n[JARVIS VOICE]: {clean_text}\n")
+        except Exception:
+            pass
         
         def _speak_thread():
-            try:
-                if HAVE_SAPI:
-                    # Windows Native SAPI 5.4 Voice Synthesizer
+            spoken = clean_text.replace("*", "").replace("#", "").replace("`", "").replace("[", "").replace("]", "").replace("\n", " ")
+            
+            # Method 1: Windows Native SAPI with COM Initialized
+            if HAVE_SAPI:
+                try:
+                    pythoncom.CoInitialize()
                     speaker = win32com.client.Dispatch("SAPI.SpVoice")
-                    # Clean markdown formatting symbols before speaking
-                    spoken = clean_text.replace("*", "").replace("#", "").replace("`", "").replace("[", "").replace("]", "")
-                    speaker.Speak(spoken[:300])
+                    speaker.Speak(spoken[:350])
+                    pythoncom.CoUninitialize()
+                    return
+                except Exception:
+                    pass
+
+            # Method 2: PowerShell System.Speech Synthesizer (Zero-dependency Fallback)
+            try:
+                safe_spoken = spoken[:300].replace('"', ' ').replace("'", " ")
+                cmd = f'Add-Type -AssemblyName System.Speech; $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; $synth.Speak("{safe_spoken}")'
+                subprocess.run(
+                    ["powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", cmd],
+                    capture_output=True,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                )
             except Exception:
                 pass
 
-        # Speak asynchronously so audio doesn't block the core
-        threading.Thread(target=_speak_thread, daemon=True).start()
+        if sync:
+            _speak_thread()
+        else:
+            threading.Thread(target=_speak_thread, daemon=True).start()
 
     def listen_and_transcribe(self) -> str:
         """Listens from live microphone, falling back to keyboard input if silent."""
@@ -68,12 +90,21 @@ class VoiceDuplexEngine:
         if HAVE_SR and self.recognizer:
             try:
                 with sr.Microphone() as source:
-                    print("\n🎙️ [LISTENING] (Speak into your mic or press Enter to type)...", end="", flush=True)
-                    self.recognizer.adjust_for_ambient_noise(source, duration=0.4)
-                    audio = self.recognizer.listen(source, timeout=3.5, phrase_time_limit=10.0)
-                    print("\n[*] Transcribing audio...")
+                    try:
+                        print("\n[LISTENING] Speak into your mic (or press Enter to type)... ", end="", flush=True)
+                    except Exception:
+                        pass
+                    self.recognizer.adjust_for_ambient_noise(source, duration=0.3)
+                    audio = self.recognizer.listen(source, timeout=4.5, phrase_time_limit=12.0)
+                    try:
+                        print("\n[*] Transcribing audio...")
+                    except Exception:
+                        pass
                     text = self.recognizer.recognize_google(audio)
-                    print(f"👉 You said: \"{text}\"")
+                    try:
+                        print(f"You said: \"{text}\"")
+                    except Exception:
+                        pass
                     return text
             except (sr.WaitTimeoutError, sr.UnknownValueError):
                 pass
@@ -82,7 +113,7 @@ class VoiceDuplexEngine:
 
         # 2. Interactive Terminal Fallback
         try:
-            user_input = input("\n💬 [TYPE PROMPT] You: ").strip()
+            user_input = input("\n[TYPE PROMPT] You: ").strip()
             return user_input
         except (KeyboardInterrupt, EOFError):
             return "exit"
