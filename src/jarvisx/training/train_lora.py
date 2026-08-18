@@ -108,6 +108,16 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, default="./jarvis_fine_tune_dataset.jsonl")
     parser.add_argument("--base_model", type=str, default="unsloth/qwen2.5-coder-7b-instruct-bnb-4bit")
     parser.add_argument("--output", type=str, default="./jarvis_lora_adapter")
+    parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs")
+    parser.add_argument("--batch_size", type=int, default=2, help="Batch size per device")
+    parser.add_argument("--lora_r", type=int, default=16, help="LoRA rank dimension")
     args = parser.parse_args()
 
-    train(dataset_path=args.dataset, base_model=args.base_model, output_dir=args.output)
+    train(
+        dataset_path=args.dataset,
+        base_model=args.base_model,
+        output_dir=args.output,
+        num_epochs=args.epochs,
+        batch_size=args.batch_size,
+        lora_r=args.lora_r
+    )
