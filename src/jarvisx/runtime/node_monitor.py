@@ -1,66 +1,81 @@
-"""Jarvis X: Worker Node Online Monitor + Auto-Upgrade Engine.
+"""Jarvis X: Universal Worker Node Monitor + Auto-Upgrade Engine.
 
-Polls all GPU worker nodes every 60 seconds.
-- Fires Windows toast notification when any node comes online.
-- Auto-triggers remote model upgrades when a node reconnects.
+Dynamically reads ALL worker nodes from mesh_router.py registry.
+- No manual updates needed when new nodes are added.
+- Polls every 60s, fires Windows toast on connect/disconnect.
+- Auto-pulls the node's assigned model if missing on reconnect.
 """
 
 import time
 import urllib.request
-import urllib.error
 import http.client
 import json
 import subprocess
 import sys
+import os
 
-# Windows UTF-8
+# Ensure UTF-8 on Windows
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
 
-NODES = {
-    "Worker 1 - RTX 4050": "100.77.90.36",
-    "Worker 3 - RTX 5050": "100.81.36.31",
-}
-
-# Models to auto-pull on each node when it comes online (if not already present)
-AUTO_UPGRADE = {
-    "Worker 1 - RTX 4050": ["qwen2.5-coder:7b-instruct"],
-    "Worker 3 - RTX 5050": ["deepseek-r1:14b"],
-}
+# Add project src to path so we can import mesh_router
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
 
 PORT = 11434
 POLL_INTERVAL = 60  # seconds
 
 already_online: set = set()
-upgrade_done: set = set()  # tracks nodes we've already triggered upgrade for
+upgrade_done: set = set()
 
 
-def is_node_online(ip: str) -> bool:
+def load_workers() -> dict:
+    """Dynamically load all registered workers from MeshRouter.
+    Falls back to empty dict if import fails.
+    """
     try:
-        req = urllib.request.urlopen(f"http://{ip}:{PORT}/api/tags", timeout=4)
+        from jarvisx.mesh.mesh_router import MeshRouter
+        router = MeshRouter()
+        # Filter out PENDING nodes (no real IP yet)
+        active = {
+            name: info for name, info in router.workers.items()
+            if "PENDING" not in info.get("ip", "")
+        }
+        return active
+    except Exception as e:
+        print(f"  [!] Could not load MeshRouter workers: {e}")
+        return {}
+
+
+def is_node_online(ip_url: str) -> bool:
+    try:
+        clean = ip_url.replace("http://", "").replace("https://", "").split(":")[0]
+        req = urllib.request.urlopen(f"http://{clean}:{PORT}/api/tags", timeout=4)
         return req.status == 200
     except Exception:
         return False
 
 
-def get_node_models(ip: str) -> list:
+def get_node_models(ip_url: str) -> list:
     try:
-        req = urllib.request.urlopen(f"http://{ip}:{PORT}/api/tags", timeout=4)
+        clean = ip_url.replace("http://", "").replace("https://", "").split(":")[0]
+        req = urllib.request.urlopen(f"http://{clean}:{PORT}/api/tags", timeout=4)
         data = json.loads(req.read())
         return [m["name"] for m in data.get("models", [])]
     except Exception:
         return []
 
 
-def remote_pull(ip: str, model: str):
+def remote_pull(ip_url: str, model: str) -> bool:
     """Trigger a streaming model pull on a remote Ollama node."""
-    print(f"  [*] Triggering remote pull: {model} on {ip}...")
+    clean_ip = ip_url.replace("http://", "").replace("https://", "").split(":")[0]
+    print(f"  [*] Remote pulling: {model} on {clean_ip}...")
     body = json.dumps({"name": model, "stream": True}).encode()
     try:
-        conn = http.client.HTTPConnection(ip, PORT, timeout=1800)
+        conn = http.client.HTTPConnection(clean_ip, PORT, timeout=3600)
         conn.request("POST", "/api/pull", body=body, headers={"Content-Type": "application/json"})
         resp = conn.getresponse()
         last_pct = ""
@@ -70,11 +85,11 @@ def remote_pull(ip: str, model: str):
                 break
             try:
                 obj = json.loads(chunk.decode())
-                status = obj.get("status", "")
                 total = obj.get("total", 0)
                 completed = obj.get("completed", 0)
+                status = obj.get("status", "")
                 if total and completed:
-                    pct = f"{round(completed/total*100, 1)}%"
+                    pct = f"{round(completed / total * 100, 1)}%"
                     if pct != last_pct:
                         print(f"\r  [downloading] {model}: {pct}   ", end="", flush=True)
                         last_pct = pct
@@ -84,14 +99,15 @@ def remote_pull(ip: str, model: str):
             except Exception:
                 pass
         conn.close()
-        print(f"\n  [+] Pull complete: {model} on {ip}")
+        print(f"\n  [+] Pull complete: {model} on {clean_ip}")
         return True
     except Exception as e:
-        print(f"  [!] Pull failed for {model} on {ip}: {e}")
+        print(f"  [!] Pull error for {model} on {clean_ip}: {e}")
         return False
 
 
 def toast(title: str, message: str):
+    """Windows 10/11 toast notification via PowerShell."""
     ps = f"""
 Add-Type -AssemblyName System.Windows.Forms
 $n = New-Object System.Windows.Forms.NotifyIcon
@@ -109,63 +125,69 @@ $n.Dispose()
     )
 
 
-def handle_node_online(name: str, ip: str):
-    """Called when a node just came online. Show toast + trigger upgrades."""
-    print(f"\n[!!!] NODE ONLINE: {name} ({ip})")
-    existing_models = get_node_models(ip)
-    print(f"  Current models: {existing_models or 'none'}")
+def handle_node_online(worker_id: str, info: dict):
+    """Called when a node just came online. Toast + auto-upgrade."""
+    name = info.get("name", worker_id)
+    ip = info.get("ip", "")
+    target_model = info.get("model", "")
+    hardware = info.get("hardware", "GPU")
 
-    # Toast notification
-    toast("Jarvis X - Node Online!", f"{name} ({ip}) is back online!")
+    print(f"\n[!!!] NODE ONLINE: {name} | {hardware} | {ip}")
+    toast("Jarvis X - Node Online!", f"{name} ({hardware}) is now online!")
 
-    # Auto-upgrade: pull any missing models
-    targets = AUTO_UPGRADE.get(name, [])
-    missing = [m for m in targets if not any(m.split(":")[0] in em for em in existing_models)]
-
-    if not missing:
-        print(f"  [OK] All target models already present on {name}. No upgrade needed.")
-        upgrade_done.add(name)
+    if not target_model:
         return
 
-    for model in missing:
-        print(f"  [UPGRADE] Pulling {model} on {name}...")
-        toast("Jarvis X - Auto-Upgrade", f"Pulling {model} on {name} silently...")
-        success = remote_pull(ip, model)
-        if success:
-            upgrade_done.add(name)
-            toast("Jarvis X - Upgrade Complete!", f"{model} is now live on {name}!")
+    existing = get_node_models(ip)
+    model_base = target_model.split(":")[0]
+    already_has = any(model_base in em for em in existing)
+
+    if already_has:
+        print(f"  [OK] Target model '{target_model}' already present. No upgrade needed.")
+        upgrade_done.add(worker_id)
+        return
+
+    print(f"  [UPGRADE] Missing model: {target_model}. Starting remote pull...")
+    toast("Jarvis X - Auto-Upgrade", f"Pulling {target_model} on {name} silently...")
+
+    success = remote_pull(ip, target_model)
+    if success:
+        upgrade_done.add(worker_id)
+        toast("Jarvis X - Upgrade Complete!", f"{target_model} is now live on {name}!")
+        print(f"  [+] {name} is now fully upgraded with {target_model}!")
 
 
 def main():
-    print("=" * 56)
-    print("  [*] JARVIS X: NODE MONITOR + AUTO-UPGRADE ENGINE")
-    print(f"  Polling every {POLL_INTERVAL}s | Auto-pulls on reconnect")
-    print("=" * 56)
-
-    # Initial state
-    for name, ip in NODES.items():
-        if is_node_online(ip):
-            already_online.add(name)
-            models = get_node_models(ip)
-            print(f"  [ALREADY ONLINE] {name} ({ip}) | {models}")
-        else:
-            print(f"  [WAITING]        {name} ({ip})")
-    print()
+    print("=" * 60)
+    print("  [*] JARVIS X: UNIVERSAL NODE MONITOR + AUTO-UPGRADE")
+    print(f"  Reads workers dynamically from MeshRouter registry.")
+    print(f"  Polling every {POLL_INTERVAL}s | Auto-pulls on reconnect.")
+    print("=" * 60)
 
     while True:
-        time.sleep(POLL_INTERVAL)
-        for name, ip in NODES.items():
+        workers = load_workers()
+
+        if not workers:
+            print("  [!] No active workers found in registry. Retrying in 60s...")
+            time.sleep(POLL_INTERVAL)
+            continue
+
+        for worker_id, info in workers.items():
+            name = info.get("name", worker_id)
+            ip = info.get("ip", "")
             online = is_node_online(ip)
 
-            if online and name not in already_online:
-                already_online.add(name)
-                upgrade_done.discard(name)  # reset so upgrade re-runs
-                handle_node_online(name, ip)
+            if online and worker_id not in already_online:
+                already_online.add(worker_id)
+                upgrade_done.discard(worker_id)
+                handle_node_online(worker_id, info)
 
-            elif not online and name in already_online:
-                already_online.discard(name)
+            elif not online and worker_id in already_online:
+                already_online.discard(worker_id)
                 print(f"\n[---] NODE OFFLINE: {name} ({ip})")
                 toast("Jarvis X - Node Offline", f"{name} went offline.")
+
+        time.sleep(POLL_INTERVAL)
 
 
 if __name__ == "__main__":
