@@ -1,13 +1,6 @@
 # ==============================================================================
 # JARVIS X: RESUMABLE & IDEMPOTENT GPU WORKER NODE ONBOARDING
 # ==============================================================================
-# Auto-detects existing progress:
-# - Skips Tailscale install if already installed
-# - Skips Tailscale login if already connected
-# - Skips Ollama install if already installed
-# - Skips Model download if already pulled
-# - Installs invisible 24/7 background persistence
-# ==============================================================================
 
 param (
     [string]$AuthKey = ""
@@ -22,8 +15,7 @@ Write-Host "========================================================`n" -Foregro
 # ------------------------------------------------------------------------------
 # STEP 1: TAILSCALE (Check -> Install -> Skip)
 # ------------------------------------------------------------------------------
-$tsCmd = Get-Command tailscale -ErrorAction SilentlyContinue
-if (-not $tsCmd) {
+if (-not (Get-Command tailscale -ErrorAction SilentlyContinue)) {
     Write-Host "[1/5] Installing Tailscale..." -ForegroundColor Yellow
     winget install Tailscale.Tailscale --accept-package-agreements --accept-source-agreements --silent
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -52,8 +44,7 @@ if ($currentIp -and ($currentIp -like "100.*")) {
 # ------------------------------------------------------------------------------
 # STEP 3: OLLAMA (Check -> Install -> Skip)
 # ------------------------------------------------------------------------------
-$ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue
-if (-not $ollamaCmd) {
+if (-not (Get-Command ollama -ErrorAction SilentlyContinue)) {
     Write-Host "[3/5] Installing Ollama..." -ForegroundColor Yellow
     winget install Ollama.Ollama --accept-package-agreements --accept-source-agreements --silent
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -62,7 +53,7 @@ if (-not $ollamaCmd) {
 }
 
 # ------------------------------------------------------------------------------
-# STEP 4: PERSISTENCE & ENVIRONMENT SETUP (Always ensure silent background daemon)
+# STEP 4: PERSISTENCE & ENVIRONMENT SETUP
 # ------------------------------------------------------------------------------
 Write-Host "[4/5] Ensuring 24/7 background persistence..." -ForegroundColor Yellow
 [System.Environment]::SetEnvironmentVariable('OLLAMA_HOST', '0.0.0.0:11434', 'User')
@@ -73,18 +64,14 @@ $env:OLLAMA_ORIGINS = '*'
 $env:OLLAMA_KEEP_ALIVE = '24h'
 
 # Register silent startup VBS
-$startupDir = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
-$vbsPath = "$startupDir\JarvisDaemon.vbs"
-$vbsContent = 'CreateObject("Wscript.Shell").Run "powershell -WindowStyle Hidden -ExecutionPolicy Bypass -Command `\"$env:OLLAMA_HOST=''0.0.0.0:11434''; $env:OLLAMA_ORIGINS=''*''; $env:OLLAMA_KEEP_ALIVE=''24h''; Start-Process ollama -ArgumentList ''serve'' -WindowStyle Hidden`\"", 0, True'
+$vbsPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\JarvisDaemon.vbs"
+$vbsContent = 'Set ws = CreateObject("WScript.Shell")' + "`r`n" + 'ws.Run "powershell -WindowStyle Hidden -Command ""$env:OLLAMA_HOST=''0.0.0.0:11434''; $env:OLLAMA_ORIGINS=''*''; $env:OLLAMA_KEEP_ALIVE=''24h''; Start-Process ollama -ArgumentList ''serve'' -WindowStyle Hidden""", 0, False'
 Set-Content -Path $vbsPath -Value $vbsContent -Encoding ASCII
 
 # Ensure Ollama daemon is running with 0.0.0.0
-$listening = netstat -ano | findstr "11434"
-if (-not $listening) {
-    Stop-Process -Name "ollama" -Force -ErrorAction SilentlyContinue
-    Start-Process powershell -ArgumentList "-WindowStyle Hidden -ExecutionPolicy Bypass -Command `\"$env:OLLAMA_HOST=''0.0.0.0:11434''; $env:OLLAMA_ORIGINS=''*''; $env:OLLAMA_KEEP_ALIVE=''24h''; Start-Process ollama -ArgumentList ''serve'' -WindowStyle Hidden`\"" -WindowStyle Hidden
-    Start-Sleep -Seconds 3
-}
+Stop-Process -Name "ollama" -Force -ErrorAction SilentlyContinue
+Start-Process ollama -ArgumentList "serve" -WindowStyle Hidden
+Start-Sleep -Seconds 3
 
 # ------------------------------------------------------------------------------
 # STEP 5: MODEL PULL (Check if already downloaded -> Skip if present)
