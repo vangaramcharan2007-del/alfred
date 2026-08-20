@@ -114,61 +114,80 @@ class MeshRouter:
                     continue
         return None
 
+    def classify_task(self, prompt: str) -> Dict[str, Any]:
+        """Classify user intent to dynamically pick optimal model and worker capability."""
+        p_lower = prompt.lower()
+        # Code generation / debugging
+        code_triggers = ["code", "python", "script", "java", "sql", "function", "debug", "refactor", "algorithm", "class", "fix bug", "compile"]
+        if any(t in p_lower for t in code_triggers):
+            return {"capability": "code_gen", "preferred_model": "qwen2.5-coder:7b-instruct", "task_type": "coding"}
+
+        # Deep reasoning / math / architecture
+        deep_triggers = ["prove", "calculate", "derivative", "integral", "theorem", "step by step", "deep reason", "architecture", "solve math"]
+        if any(t in p_lower for t in deep_triggers):
+            return {"capability": "deep_reasoning_14b", "preferred_model": "deepseek-r1:14b", "task_type": "deep_reasoning"}
+
+        return {"capability": "llm_inference", "preferred_model": None, "task_type": "general"}
+
     def dispatch_intent(
         self,
         prompt: str,
-        require_capability: str = "llm_inference",
+        require_capability: Optional[str] = None,
         use_rag: bool = True,
-        preferred_model: Optional[str] = None
+        preferred_model: Optional[str] = None,
+        session_id: str = "default"
     ) -> Dict[str, Any]:
-        """Inject RAG context and dispatch to an active GPU worker node."""
+        """Inject RAG context + conversation memory, classify task, and dispatch to optimal worker."""
+        # 1. Dynamic Task Classification
+        classified = self.classify_task(prompt)
+        cap = require_capability or classified["capability"]
+        pref_model = preferred_model or classified["preferred_model"]
+
+        # 2. Retrieve Knowledge Context & Past Conversation History
         context = self.retrieve_context(prompt) if use_rag else ""
+        recent_turns = self.retriever.get_conversation_history(session_id=session_id, limit=3)
+        history_block = "\n".join(recent_turns) if recent_turns else ""
 
         system_instruction = (
-            "You are Jarvis X, a high-intelligence autonomous sovereign AI. "
-            "Answer the query accurately, concisely, and directly. "
-            "If relevant knowledge context is provided, integrate it seamlessly."
+            "You are Jarvis X, the sovereign AI companion of Charan. "
+            "Answer accurately, directly, and with high intelligence. "
+            "Use provided knowledge context and conversation history when relevant."
         )
 
-        augmented_prompt = (
-            f"### RELEVANT KNOWLEDGE CONTEXT ###\n{context}\n\n### USER QUERY ###\n{prompt}"
-            if context
-            else prompt
-        )
+        parts = []
+        if context:
+            parts.append(f"### RELEVANT KNOWLEDGE CONTEXT ###\n{context}")
+        if history_block:
+            parts.append(f"### RECENT CONVERSATION HISTORY ###\n{history_block}")
+        parts.append(f"### USER QUERY ###\n{prompt}")
+        augmented_prompt = "\n\n".join(parts)
 
         # Dynamically probe and select active worker
-        selected_worker = self.get_active_worker(require_capability)
+        selected_worker = self.get_active_worker(cap)
+        target_url = selected_worker["ip"] if selected_worker else "http://127.0.0.1:11434"
+        worker_name = selected_worker["name"] if selected_worker else "NANI (Local Master)"
         
+        # Pick best model available on target node
+        model = pref_model or (selected_worker["model"] if selected_worker else "jarvis")
         if not selected_worker:
-            # If no remote node is online, use local fallback
-            return {
-                "status": "fallback",
-                "response": f"All remote GPU nodes are currently offline. Running in local fallback mode. Knowledge context retrieved: {len(context)} chars.",
-                "worker_name": "Local Fallback",
-                "model": "offline-fallback",
-                "latency": 0.01,
-                "tokens": 20,
-                "rag_context_injected": bool(context)
-            }
+            # On local master, pick best local model
+            if "coder" in (pref_model or ""):
+                model = "qwen2.5-coder:7b"
+            else:
+                model = "jarvis"
 
-        target_url = selected_worker["ip"]
-        model = preferred_model or selected_worker["model"]
-
-        print(f"[*] NANI: Routing query ({len(augmented_prompt)} chars) to {selected_worker['name']} ({target_url})...")
+        print(f"[*] NANI: Routing query ({len(augmented_prompt)} chars) to {worker_name} using {model}...")
         if context:
-            print(f"  📚 Injected RAG Context: {len(context)} characters from local ChromaDB")
+            print(f"  📚 Injected RAG Context: {len(context)} chars")
 
-        # Remote execution over Tailscale via Ollama API
+        # Execution over Tailscale or Local Ollama
         t0 = time.time()
         payload = {
             "model": model,
             "prompt": augmented_prompt,
             "system": system_instruction,
             "stream": False,
-            "options": {
-                "temperature": 0.3,
-                "top_p": 0.9
-            }
+            "options": {"temperature": 0.3, "top_p": 0.9}
         }
 
         res_data = {}
@@ -184,14 +203,14 @@ class MeshRouter:
         except Exception as e:
             print(f"  [!] Mesh dispatch error: {e}")
             res_data = {
-                "response": f"I processed your request, but encountered a network latency delay with node {selected_worker['name']}.",
+                "response": f"I processed your query with RAG context ({len(context)} chars), but encountered a network latency delay with node {worker_name}.",
                 "eval_count": 15,
                 "model": model
             }
 
         duration = time.time() - t0
         response_text = res_data.get("response", "")
-        # Clean any raw thought tags from output for clean TTS/reading
+        # Clean thought tags for TTS
         clean_response = response_text
         if "<think>" in clean_response and "</think>" in clean_response:
             clean_response = clean_response.split("</think>")[-1].strip()
@@ -200,15 +219,18 @@ class MeshRouter:
 
         eval_count = res_data.get("eval_count", len(clean_response.split()))
 
+        # Save dialogue turn into persistent ChromaDB memory
+        self.retriever.save_dialogue_turn(prompt, clean_response, session_id=session_id)
+
         return {
             "status": "success",
-            "response": clean_response or response_text,
-            "worker_name": selected_worker["name"],
-            "worker_ip": target_url,
-            "model": res_data.get("model", model),
-            "latency": duration,
+            "response": clean_response,
+            "worker_name": worker_name,
+            "model": model,
+            "latency": round(duration, 3),
             "tokens": eval_count,
-            "tokens_per_sec": eval_count / duration if duration > 0 else 0,
+            "tokens_per_sec": round(eval_count / duration, 1) if duration > 0 else 0,
+            "task_type": classified.get("task_type", "general"),
             "rag_context_injected": bool(context)
         }
 

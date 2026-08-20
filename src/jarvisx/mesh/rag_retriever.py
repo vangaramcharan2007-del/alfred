@@ -11,6 +11,7 @@ import os
 import sys
 import math
 import re
+import time
 from typing import List, Dict, Any, Optional, Set
 from collections import Counter
 
@@ -213,6 +214,49 @@ class RAGRetriever:
                 except Exception:
                     pass
         return total
+
+    def save_dialogue_turn(self, user_msg: str, assistant_msg: str, session_id: str = "default") -> None:
+        """Persist a conversation turn into persistent ChromaDB memory."""
+        try:
+            conv_coll = self.client.get_or_create_collection(name="jarvis_conversation_memory")
+            ts = time.strftime("%Y-%m-%d %H:%M:%S")
+            turn_text = f"[{ts}] User: {user_msg}\nJarvis: {assistant_msg}"
+            uid = f"conv_{session_id}_{int(time.time()*1000)}"
+            conv_coll.add(
+                documents=[turn_text],
+                metadatas=[{"session_id": session_id, "timestamp": ts, "type": "dialogue"}],
+                ids=[uid]
+            )
+        except Exception as e:
+            print(f"[MEMORY] Error saving dialogue turn: {e}")
+
+    def get_conversation_history(self, session_id: str = "default", limit: int = 5) -> List[str]:
+        """Fetch the most recent dialogue turns for the given session."""
+        try:
+            conv_coll = self.client.get_or_create_collection(name="jarvis_conversation_memory")
+            count = conv_coll.count()
+            if count == 0:
+                return []
+            res = conv_coll.get(
+                where={"session_id": session_id},
+                limit=limit
+            )
+            return res.get("documents", [])
+        except Exception:
+            return []
+
+    def search_past_conversations(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
+        """Semantically search through past conversations across all sessions."""
+        try:
+            conv_coll = self.client.get_or_create_collection(name="jarvis_conversation_memory")
+            if conv_coll.count() == 0:
+                return []
+            res = conv_coll.query(query_texts=[query], n_results=min(top_k, conv_coll.count()))
+            docs = res.get("documents", [[]])[0]
+            metas = res.get("metadatas", [[]])[0]
+            return [{"content": d, "metadata": m} for d, m in zip(docs, metas)]
+        except Exception:
+            return []
 
     def query(self, search_text: str, top_k: int = 3) -> List[Dict[str, Any]]:
         """Standard query interface pointing to advanced Corrective RAG."""
