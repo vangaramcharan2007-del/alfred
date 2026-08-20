@@ -42,6 +42,15 @@ class MeshRouter:
                 "hardware": "NVIDIA GeForce RTX 5050 GPU",
                 "capabilities": ["deep_reasoning_14b", "heavy_math", "code_gen", "complex_logic"],
                 "status": "online"
+            },
+            "worker_4_asus_tuf": {
+                "name": "ASUS TUF (Friend 4)",
+                "ip": "http://PENDING:11434",
+                "model": "qwen2.5-coder:7b-instruct",
+                "fallback_model": "qwen2.5-coder:1.5b",
+                "hardware": "NVIDIA GeForce RTX 3050 (16GB RAM, AMD Ryzen)",
+                "capabilities": ["code_gen", "llm_inference", "math_reasoning"],
+                "status": "pending_onboard"
             }
         }
 
