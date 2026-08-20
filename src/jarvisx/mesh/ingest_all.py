@@ -31,7 +31,7 @@ def build_knowledge_payload() -> List[Dict[str, Any]]:
     core_facts = [
         ("core_identity", "User Profile: Charan is the creator, architect, and sovereign commander of Jarvis X. He uses Windows 11 on the NANI master laptop with Intel Iris Xe graphics."),
         ("core_topology", "Cluster Architecture: Jarvis X is a distributed AI mesh network operating over a private Tailscale VPN. Master node (NANI) runs at 100.105.164.83, coordinating STT/TTS, RAG, and tool execution."),
-        ("core_workers", "Worker Nodes: Worker 1 (RTX 3050, tuf-a16 at 100.77.90.36) for code generation; Worker 3 (RTX 5050, laptop-lafr0e5l at 100.81.36.31) for heavy deep reasoning (deepseek-r1:14b); Worker 4 (ASUS TUF RTX 3050 16GB) for auxiliary compute."),
+        ("core_workers", "Worker Nodes: Worker 1 (RTX 3050, tuf-a16 at 100.77.90.36) for code generation; Worker 3 (RTX 5050, laptop-lafr0e5l at 100.81.36.31) for heavy deep reasoning (deepseek-r1:14b); Worker 4 (ASUS TUF RTX 3050 16GB) for auxiliary compute; Worker 5 (Blackwell Beast RTX 5060 GDDR7) for ultra-fast deep reasoning and math."),
         ("core_protocol", "Communication Protocols: Health probing occurs via HTTP GET /api/tags on port 11434 with a 0.8s timeout. Auto-failover routes requests to local Ollama if remote GPU nodes sleep."),
         ("core_voice", "Voice Engine: SAPI SpVoice via win32com with pythoncom.CoInitialize() multi-threaded COM initialization, backed by PowerShell System.Speech synthesizer fallback. STT uses Google Speech Recognition with dynamic ambient noise adjustment."),
         ("core_security", "Security & Tools: ProductionSafetyGate enforces CONFIRM level for sensitive actions (file deletion, execution, system settings). Read/Write operations are sandboxed.")
