@@ -45,11 +45,20 @@ class MeshRouter:
             },
             "worker_4_asus_tuf": {
                 "name": "ASUS TUF (Friend 4)",
-                "ip": "http://PENDING:11434",
+                "ip": "http://PENDING_WORKER4:11434",
                 "model": "qwen2.5-coder:7b-instruct",
                 "fallback_model": "qwen2.5-coder:1.5b",
                 "hardware": "NVIDIA GeForce RTX 3050 (16GB RAM, AMD Ryzen)",
                 "capabilities": ["code_gen", "llm_inference", "math_reasoning"],
+                "status": "pending_onboard"
+            },
+            "worker_5_rtx5060": {
+                "name": "Blackwell Beast (Friend 5)",
+                "ip": "http://PENDING_WORKER5:11434",
+                "model": "deepseek-r1:14b",
+                "fallback_model": "qwen2.5-coder:7b-instruct",
+                "hardware": "NVIDIA GeForce RTX 5060 GPU (GDDR7)",
+                "capabilities": ["deep_reasoning_14b", "heavy_math", "code_gen", "ultra_fast_inference", "complex_logic"],
                 "status": "pending_onboard"
             }
         }
