@@ -30,7 +30,7 @@ class MeshRouter:
                 "ip": WORKER_1_URL,
                 "model": "deepseek-r1:1.5b",
                 "fallback_model": "qwen2.5-coder:1.5b",
-                "hardware": "NVIDIA GeForce RTX 3050 Laptop GPU",
+                "hardware": "NVIDIA GeForce RTX 4050 Laptop GPU",
                 "capabilities": ["llm_inference", "code_gen", "math_reasoning", "reasoning"],
                 "status": "online"
             },
