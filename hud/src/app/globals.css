@@ -3,118 +3,143 @@
 @tailwind utilities;
 
 :root {
-  /* Default: ALFRED (Wayne-Tech Tactical Gold & Gunmetal) */
-  --color-bg: #0b0c0e;
+  /* ALFRED: Wayne-Tech Tactical Precision (Gold, Amber, Gunmetal, Obsidian Glass) */
+  --color-bg: #050608;
   --color-fg: #f3f4f6;
   --color-primary: #d4af37;
-  --color-secondary: #3a3f47;
+  --color-primary-rgb: 212, 175, 55;
+  --color-secondary: #4b5563;
   --color-accent: #f59e0b;
-  --color-accent-muted: rgba(212, 175, 55, 0.15);
-  --color-surface: rgba(18, 20, 24, 0.75);
-  --color-border: rgba(212, 175, 55, 0.25);
-  --color-glow: rgba(212, 175, 55, 0.5);
-  --font-mono: "JetBrains Mono", monospace;
-  --font-sans: "Inter", sans-serif;
+  --color-surface: rgba(10, 12, 16, 0.45);
+  --color-surface-hover: rgba(18, 22, 30, 0.65);
+  --color-border: rgba(212, 175, 55, 0.2);
+  --color-border-subtle: rgba(255, 255, 255, 0.07);
+  --color-glow: rgba(212, 175, 55, 0.45);
   --clip-chamfer: polygon(0 0, 100% 0, 100% 100%, 0 100%);
-  --grid-pattern: radial-gradient(rgba(212, 175, 55, 0.08) 1px, transparent 0);
 }
 
-/* Persona: E.V. (Cybernetic Neural Lab - Cyber Red & Electric Purple) */
 [data-persona="ev"] {
-  --color-bg: #07090e;
+  /* E.V.: Cybernetic Neural Core (Cyber-Red, Electric Neon Purple, Void Glass) */
+  --color-bg: #030408;
   --color-fg: #f8fafc;
   --color-primary: #ff2a4d;
+  --color-primary-rgb: 255, 42, 77;
   --color-secondary: #8a2be2;
-  --color-accent: #a855f7;
-  --color-accent-muted: rgba(255, 42, 77, 0.15);
-  --color-surface: rgba(15, 12, 24, 0.75);
-  --color-border: rgba(255, 42, 77, 0.28);
+  --color-accent: #c084fc;
+  --color-surface: rgba(12, 8, 20, 0.45);
+  --color-surface-hover: rgba(22, 14, 38, 0.65);
+  --color-border: rgba(255, 42, 77, 0.25);
+  --color-border-subtle: rgba(255, 42, 77, 0.12);
   --color-glow: rgba(255, 42, 77, 0.55);
-  --clip-chamfer: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
-  --grid-pattern: radial-gradient(rgba(255, 42, 77, 0.09) 1px, transparent 0);
+  --clip-chamfer: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
 }
 
-/* Persona: ALFRED (Wayne-Tech Tactical Intelligence) */
 [data-persona="alfred"] {
-  --color-bg: #0b0c0e;
+  --color-bg: #050608;
   --color-fg: #f3f4f6;
   --color-primary: #d4af37;
-  --color-secondary: #3a3f47;
-  --color-accent: #eab308;
-  --color-accent-muted: rgba(212, 175, 55, 0.15);
-  --color-surface: rgba(18, 20, 24, 0.8);
-  --color-border: rgba(212, 175, 55, 0.28);
-  --color-glow: rgba(212, 175, 55, 0.5);
+  --color-primary-rgb: 212, 175, 55;
+  --color-secondary: #4b5563;
+  --color-accent: #f59e0b;
+  --color-surface: rgba(10, 12, 16, 0.45);
+  --color-surface-hover: rgba(18, 22, 30, 0.65);
+  --color-border: rgba(212, 175, 55, 0.2);
+  --color-border-subtle: rgba(255, 255, 255, 0.07);
+  --color-glow: rgba(212, 175, 55, 0.45);
   --clip-chamfer: polygon(0 0, 100% 0, 100% 100%, 0 100%);
-  --grid-pattern: radial-gradient(rgba(212, 175, 55, 0.08) 1px, transparent 0);
 }
 
 body {
   background-color: var(--color-bg);
   color: var(--color-fg);
-  font-family: var(--font-sans);
+  font-family: var(--font-mono), monospace;
   overflow-x: hidden;
   user-select: none;
+  background-image: 
+    radial-gradient(circle at 50% 30%, rgba(var(--color-primary-rgb), 0.08) 0%, transparent 65%),
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
 }
 
-/* Spatial Glass Layer */
-.glass-panel {
+/* Spatial Glass 3.0: Floating Depth, Multi-Layer Backdrop Blur */
+.spatial-glass {
   background: var(--color-surface);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--color-border);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6), 0 0 15px -2px var(--color-glow);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--color-border-subtle);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 20px 50px -10px rgba(0, 0, 0, 0.7),
+    0 0 30px -5px rgba(var(--color-primary-rgb), 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   clip-path: var(--clip-chamfer);
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
 }
 
-.glass-panel-subtle {
-  background: rgba(12, 14, 18, 0.55);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  clip-path: var(--clip-chamfer);
+.spatial-glass:hover {
+  border-color: var(--color-border);
+  box-shadow: 
+    0 25px 60px -10px rgba(0, 0, 0, 0.85),
+    0 0 35px -2px rgba(var(--color-primary-rgb), 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-/* Cybernetic Glowing Text & Borders */
-.glow-text {
-  text-shadow: 0 0 12px var(--color-glow);
+/* Tactical Corner Crosshairs & HUD Brackets */
+.hud-bracket {
+  position: relative;
+}
+.hud-bracket::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid var(--color-primary);
+  border-left: 2px solid var(--color-primary);
+  pointer-events: none;
+}
+.hud-bracket::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-bottom: 2px solid var(--color-primary);
+  border-right: 2px solid var(--color-primary);
+  pointer-events: none;
 }
 
-.glow-box {
-  box-shadow: 0 0 20px -2px var(--color-glow);
+/* Holographic Glows & Text Shadows */
+.glow-primary {
+  text-shadow: 0 0 12px rgba(var(--color-primary-rgb), 0.65), 0 0 24px rgba(var(--color-primary-rgb), 0.3);
 }
 
-/* Background Tech Grid */
-.bg-tech-grid {
-  background-image: var(--grid-pattern);
-  background-size: 24px 24px;
+.glow-svg {
+  filter: drop-shadow(0 0 8px rgba(var(--color-primary-rgb), 0.7));
 }
 
-/* Scanline Effect */
-.scanline-overlay {
-  background: linear-gradient(
-    to bottom,
-    rgba(255,255,255,0),
-    rgba(255,255,255,0) 50%,
-    rgba(0, 0, 0, 0.3) 50%,
-    rgba(0, 0, 0, 0.3)
+.glow-box-primary {
+  box-shadow: 0 0 25px -3px rgba(var(--color-primary-rgb), 0.4);
+}
+
+/* Radial Vignette & Grid Mask */
+.radial-mask {
+  mask-image: radial-gradient(circle at center, black 40%, transparent 80%);
+  -webkit-mask-image: radial-gradient(circle at center, black 40%, transparent 80%);
+}
+
+/* Scanline Ambient Wave */
+.scanline-layer {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.25) 2px,
+    rgba(0, 0, 0, 0.25) 4px
   );
-  background-size: 100% 4px;
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.4);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--color-primary);
-  border-radius: 2px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-accent);
+  pointer-events: none;
 }

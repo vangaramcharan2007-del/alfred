@@ -20,7 +20,7 @@ export const DevControlStrip: React.FC = () => {
   const states: AIState[] = ["IDLE", "LISTENING", "THINKING", "EXECUTING", "WORLD_MONITOR_ACTIVE"];
 
   return (
-    <aside aria-label="Dev controls" className="fixed bottom-3 inset-x-4 max-w-7xl mx-auto glass-panel p-2.5 px-4 flex flex-wrap items-center justify-between gap-3 z-40 border border-primary/40 font-mono text-xs shadow-2xl">
+    <aside aria-label="Dev controls" className="fixed bottom-3 inset-x-4 max-w-7xl mx-auto spatial-glass hud-bracket p-2.5 px-4 flex flex-wrap items-center justify-between gap-3 z-40 border border-primary/40 font-mono text-xs shadow-2xl">
       {/* Persona Toggle Controls */}
       <div className="flex items-center space-x-2">
         <span className="text-[10px] text-foreground/50 font-bold uppercase tracking-wider flex items-center gap-1">
@@ -31,7 +31,7 @@ export const DevControlStrip: React.FC = () => {
             onClick={() => setPersona("ev")}
             className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${
               persona === "ev"
-                ? "bg-primary text-black shadow-md glow-box"
+                ? "bg-primary text-black shadow-md glow-box-primary"
                 : "text-foreground/60 hover:text-foreground"
             }`}
           >
@@ -42,7 +42,7 @@ export const DevControlStrip: React.FC = () => {
             onClick={() => setPersona("alfred")}
             className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${
               persona === "alfred"
-                ? "bg-primary text-black shadow-md glow-box"
+                ? "bg-primary text-black shadow-md glow-box-primary"
                 : "text-foreground/60 hover:text-foreground"
             }`}
           >
@@ -67,9 +67,9 @@ export const DevControlStrip: React.FC = () => {
                   if (!worldMonitorActive) toggleWorldMonitor();
                 }
               }}
-              className={`px-2 py-1 rounded text-[9px] font-bold transition-all whitespace-nowrap ${
+              className={`px-2.5 py-1 rounded text-[9px] font-bold transition-all whitespace-nowrap ${
                 aiState === s
-                  ? "bg-primary text-black glow-box"
+                  ? "bg-primary text-black glow-box-primary font-black"
                   : "text-foreground/60 hover:text-foreground"
               }`}
             >
@@ -91,7 +91,7 @@ export const DevControlStrip: React.FC = () => {
 
         <button
           onClick={() => submitCommand("Deploy Coding Swarm for cluster optimization")}
-          className="px-2.5 py-1 rounded bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 font-bold transition-all text-[10px] flex items-center gap-1 glow-box"
+          className="px-2.5 py-1 rounded bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 font-bold transition-all text-[10px] flex items-center gap-1 glow-box-primary"
         >
           <Flame className="w-3 h-3" />
           <span>DEPLOY SWARM</span>

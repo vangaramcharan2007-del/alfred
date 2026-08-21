@@ -25,29 +25,29 @@ export const ActionTerminal: React.FC = () => {
   };
 
   const quickPrompts = [
-    "Write a Python script for cluster mesh scanning",
-    "Calculate the derivative of e^(2x)*cos(3x)",
+    "Write Python script for cluster mesh scanning",
+    "Calculate derivative of e^(2x)*cos(3x)",
     "What is the architecture of NANI master?",
     "Check GPU VRAM and system health",
   ];
 
   return (
-    <div className="glass-panel p-4 flex flex-col space-y-3 font-mono text-xs h-full min-h-[380px]">
-      {/* Terminal Title */}
+    <div className="spatial-glass hud-bracket p-4 flex flex-col space-y-3 font-mono text-xs h-full min-h-[420px]">
+      {/* Terminal Header */}
       <div className="flex items-center justify-between border-b border-primary/20 pb-2.5">
         <div className="flex items-center space-x-2">
           <Terminal className="w-4 h-4 text-primary" />
-          <span className="font-bold text-foreground tracking-wider uppercase">
+          <span className="font-bold text-foreground tracking-wider uppercase glow-primary">
             {persona === "ev" ? "NEURAL ACTION STREAM" : "TACTICAL MISSION TERMINAL"}
           </span>
         </div>
-        <span className="text-[10px] text-foreground/50">SESSION: 100.105.164.83</span>
+        <span className="text-[10px] text-foreground/40 font-bold">NODE: 100.105.164.83</span>
       </div>
 
       {/* Messages Stream */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-[320px]"
+        className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-[340px]"
       >
         {messages.map((msg) => (
           <div
@@ -55,17 +55,17 @@ export const ActionTerminal: React.FC = () => {
             className={`p-3 rounded space-y-2 transition-all ${
               msg.sender === "user"
                 ? "bg-primary/10 border border-primary/30 ml-6"
-                : "bg-black/50 border border-white/10 mr-2"
+                : "bg-black/50 border border-white/5 mr-2"
             }`}
           >
-            {/* Header / Meta */}
-            <div className="flex items-center justify-between text-[10px] text-foreground/60">
-              <span className="font-bold text-primary flex items-center gap-1.5 uppercase">
+            {/* Meta */}
+            <div className="flex items-center justify-between text-[10px] text-foreground/50">
+              <span className="font-bold text-primary flex items-center gap-1.5 uppercase glow-primary">
                 {msg.sender === "user" ? "CHARAN" : persona === "ev" ? "E.V. AI" : "ALFRED"}
               </span>
               <div className="flex items-center gap-2">
                 {msg.nodeUsed && (
-                  <span className="bg-black/60 px-1.5 py-0.5 rounded border border-white/10 text-foreground/80">
+                  <span className="bg-black/60 px-1.5 py-0.5 rounded border border-white/10 text-foreground/70">
                     {msg.nodeUsed} ({msg.modelUsed})
                   </span>
                 )}
@@ -78,12 +78,12 @@ export const ActionTerminal: React.FC = () => {
               </div>
             </div>
 
-            {/* Content */}
+            {/* Message Body */}
             <div className="text-foreground/90 leading-relaxed whitespace-pre-wrap">
               {msg.text}
             </div>
 
-            {/* Collapsible Chain-of-Thought Box */}
+            {/* Collapsible Chain-of-Thought */}
             {msg.thought && (
               <div className="pt-1">
                 <button
@@ -102,7 +102,7 @@ export const ActionTerminal: React.FC = () => {
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
-                    className="mt-2 p-2.5 rounded bg-black/70 border border-primary/20 text-[10px] text-foreground/70 font-mono space-y-1 whitespace-pre-wrap"
+                    className="mt-2 p-2.5 rounded bg-black/80 border border-primary/20 text-[10px] text-foreground/70 font-mono space-y-1 whitespace-pre-wrap"
                   >
                     <div className="text-primary font-bold text-[9px] uppercase tracking-wider">
                       &lt;thought&gt; Multi-Node Reasoning Trace
@@ -115,7 +115,7 @@ export const ActionTerminal: React.FC = () => {
           </div>
         ))}
 
-        {/* Live Status Indicator if processing */}
+        {/* Live Processing Indicator */}
         {aiState !== "IDLE" && (
           <div className="p-2.5 rounded bg-primary/10 border border-primary/40 flex items-center space-x-2 text-primary">
             <Sparkles className="w-3.5 h-3.5 animate-spin" />
@@ -132,7 +132,7 @@ export const ActionTerminal: React.FC = () => {
           <button
             key={idx}
             onClick={() => submitCommand(p)}
-            className="px-2.5 py-1 rounded bg-black/40 border border-white/10 hover:border-primary/40 hover:text-primary text-foreground/70 whitespace-nowrap transition-all flex items-center gap-1"
+            className="px-2.5 py-1 rounded bg-black/40 border border-white/5 hover:border-primary/40 hover:text-primary text-foreground/60 whitespace-nowrap transition-all flex items-center gap-1"
           >
             <ChevronRight className="w-2.5 h-2.5 text-primary" />
             <span>{p}</span>
@@ -147,8 +147,8 @@ export const ActionTerminal: React.FC = () => {
             type="text"
             value={inputVal}
             onChange={(e) => setInputVal(e.target.value)}
-            placeholder={`Instruct ${persona === "ev" ? "E.V." : "Alfred"} (e.g. 'Write a Python script', 'Check cluster')...`}
-            className="w-full bg-black/60 border border-white/15 focus:border-primary px-3 py-2 rounded text-foreground placeholder-foreground/40 outline-none text-xs font-mono transition-all glow-box"
+            placeholder={`Instruct ${persona === "ev" ? "E.V." : "Alfred"}...`}
+            className="w-full bg-black/60 border border-white/10 focus:border-primary px-3 py-2 rounded text-foreground placeholder-foreground/30 outline-none text-xs font-mono transition-all glow-box-primary"
           />
         </div>
         <button

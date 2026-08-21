@@ -5,27 +5,27 @@ import { useJarvis } from "@/context/JarvisContext";
 import { Globe, Radio, Video, Satellite, X } from "lucide-react";
 
 export const WorldSituationRoom: React.FC = () => {
-  const { threatPings, intelFeed, toggleWorldMonitor, persona } = useJarvis();
+  const { threatPings, intelFeed, toggleWorldMonitor } = useJarvis();
   const [selectedPing, setSelectedPing] = useState(threatPings[3]); // Default to Bengaluru Master Node
 
   return (
-    <div className="w-full h-full glass-panel p-6 flex flex-col space-y-4 font-mono text-xs relative overflow-hidden animate-fadeIn">
+    <div className="w-full h-full spatial-glass hud-bracket p-6 flex flex-col space-y-4 font-mono text-xs relative overflow-hidden animate-fadeIn shadow-2xl">
       {/* Top Header Bar of Situation Room */}
       <div className="flex items-center justify-between border-b border-primary/20 pb-3 z-10">
         <div className="flex items-center space-x-3">
-          <div className="p-2 rounded bg-red-500/20 border border-red-500/40 text-red-400 glow-box">
+          <div className="p-2 rounded bg-red-500/20 border border-red-500/40 text-red-400 glow-box-primary">
             <Globe className="w-5 h-5 animate-pulse" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-base font-black tracking-widest text-foreground glow-text uppercase">
+              <h2 className="text-base font-black tracking-widest text-foreground glow-primary uppercase">
                 GLOBAL SITUATION ROOM &bull; WORLD MONITOR
               </h2>
               <span className="px-2 py-0.5 rounded text-[10px] bg-red-500/20 text-red-400 font-bold border border-red-500/30 animate-pulse">
                 DEFCON 2 MONITORING
               </span>
             </div>
-            <p className="text-[10px] text-foreground/60">
+            <p className="text-[10px] text-foreground/50">
               ORBITAL SATELLITE TELEMETRY &bull; TAILSCALE MESH SURVEILLANCE
             </p>
           </div>
@@ -44,12 +44,12 @@ export const WorldSituationRoom: React.FC = () => {
         {/* =========================================================================
             LEFT 70% (8 COLS): Dark High-Tech SVG World Map Canvas
            ========================================================================= */}
-        <div className="lg:col-span-8 glass-panel-subtle p-4 flex flex-col relative rounded border border-primary/20 bg-black/60 overflow-hidden group">
+        <div className="lg:col-span-8 p-4 flex flex-col relative rounded border border-primary/20 bg-black/40 overflow-hidden group">
           {/* Map Grid Background */}
-          <div className="absolute inset-0 bg-tech-grid opacity-30 pointer-events-none" />
+          <div className="absolute inset-0 bg-tech-grid opacity-20 pointer-events-none" />
 
           {/* Latitude / Longitude Overlay Lines */}
-          <div className="absolute inset-0 flex justify-between pointer-events-none opacity-20">
+          <div className="absolute inset-0 flex justify-between pointer-events-none opacity-15">
             <div className="border-r border-primary/30 w-1/4 h-full" />
             <div className="border-r border-primary/30 w-1/4 h-full" />
             <div className="border-r border-primary/30 w-1/4 h-full" />
@@ -59,7 +59,7 @@ export const WorldSituationRoom: React.FC = () => {
           {/* High-Tech Vector World Map SVG */}
           <div className="relative flex-1 flex items-center justify-center min-h-[360px]">
             <svg
-              className="w-full h-full max-h-[460px] opacity-85"
+              className="w-full h-full max-h-[460px] opacity-90"
               viewBox="0 0 1000 500"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -71,8 +71,8 @@ export const WorldSituationRoom: React.FC = () => {
                 </radialGradient>
               </defs>
 
-              {/* Simplified Dark Continents Vector Path */}
-              <g fill="#1a1e24" stroke="rgba(255,255,255,0.08)" strokeWidth="0.8">
+              {/* Dark Continents Vector Path */}
+              <g fill="#14171d" stroke="rgba(212,175,55,0.15)" strokeWidth="0.8">
                 {/* North America */}
                 <path d="M120 80 Q 200 60 280 110 T 320 220 Q 220 250 180 200 T 110 140 Z" />
                 {/* South America */}
@@ -105,10 +105,8 @@ export const WorldSituationRoom: React.FC = () => {
 
               {/* Dynamic Geo-Pings plotted on Map */}
               {threatPings.map((ping) => {
-                // Approximate Lat/Lng projection to 1000x500 SVG
                 const x = ((ping.lng + 180) / 360) * 920 + 40;
                 const y = ((90 - ping.lat) / 180) * 440 + 30;
-
                 const isSelected = selectedPing.id === ping.id;
 
                 return (
@@ -117,7 +115,6 @@ export const WorldSituationRoom: React.FC = () => {
                     onClick={() => setSelectedPing(ping)}
                     className="cursor-pointer group/pin"
                   >
-                    {/* Outer Pulsing Wave */}
                     <circle
                       cx={x}
                       cy={y}
@@ -125,8 +122,6 @@ export const WorldSituationRoom: React.FC = () => {
                       fill="url(#pingGlow)"
                       className="animate-ping opacity-60"
                     />
-
-                    {/* Pin Ring */}
                     <circle
                       cx={x}
                       cy={y}
@@ -135,8 +130,6 @@ export const WorldSituationRoom: React.FC = () => {
                       stroke="#000"
                       strokeWidth="1"
                     />
-
-                    {/* Tag label */}
                     <text
                       x={x + 10}
                       y={y + 4}
@@ -153,13 +146,13 @@ export const WorldSituationRoom: React.FC = () => {
             </svg>
           </div>
 
-          {/* Selected Pin Info Card (Overlay on Bottom of Map) */}
+          {/* Selected Pin Info Card */}
           <div className="mt-auto p-3 rounded bg-black/80 border border-white/10 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
-              <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse glow-box" />
+              <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse glow-box-primary" />
               <div>
-                <span className="text-[10px] text-foreground/50 uppercase">TARGET VECTOR:</span>
-                <div className="font-bold text-foreground text-sm">{selectedPing.name}</div>
+                <span className="text-[9px] text-foreground/50 uppercase">TARGET VECTOR:</span>
+                <div className="font-bold text-foreground text-sm glow-primary">{selectedPing.name}</div>
               </div>
             </div>
 
@@ -180,24 +173,23 @@ export const WorldSituationRoom: React.FC = () => {
         </div>
 
         {/* =========================================================================
-            RIGHT 30% (4 COLS): 3 Tactical Feed Blocks (Sat Feeds & Video Feeds)
+            RIGHT 30% (4 COLS): 3 Tactical Feed Blocks
            ========================================================================= */}
         <div className="lg:col-span-4 flex flex-col space-y-4">
-          {/* Feed Block 1: Live Video / Broadcast Monitor (like screenshot) */}
-          <div className="glass-panel-subtle p-3 rounded border border-white/10 space-y-2 bg-black/60">
+          {/* Feed Block 1: Live Satellite Broadcast */}
+          <div className="p-3 rounded border border-white/10 space-y-2 bg-black/40">
             <div className="flex items-center justify-between text-[10px] text-foreground/70">
-              <span className="flex items-center gap-1.5 text-primary font-bold uppercase">
+              <span className="flex items-center gap-1.5 text-primary font-bold uppercase glow-primary">
                 <Video className="w-3.5 h-3.5" /> LIVE SATELLITE BROADCAST
               </span>
               <span className="text-red-500 animate-pulse font-bold">&bull; REC</span>
             </div>
 
-            {/* Video Placeholder Container with scanlines */}
-            <div className="relative w-full aspect-video rounded bg-zinc-900 border border-white/10 overflow-hidden flex items-center justify-center">
-              <div className="absolute inset-0 scanline-overlay pointer-events-none opacity-40" />
+            <div className="relative w-full aspect-video rounded bg-black/80 border border-white/10 overflow-hidden flex items-center justify-center">
+              <div className="absolute inset-0 scanline-layer opacity-40" />
               <div className="text-center p-4 space-y-1">
                 <Radio className="w-6 h-6 text-primary mx-auto animate-pulse" />
-                <span className="text-[10px] text-foreground/70 font-bold tracking-wider">
+                <span className="text-[10px] text-foreground/80 font-bold tracking-wider">
                   GEO-STATIONARY ORBIT FEED 04
                 </span>
                 <p className="text-[8px] text-foreground/40 font-mono">
@@ -208,25 +200,25 @@ export const WorldSituationRoom: React.FC = () => {
           </div>
 
           {/* Feed Block 2: Global Cyber Intel Stream */}
-          <div className="glass-panel-subtle p-3 rounded border border-white/10 space-y-2 bg-black/60 flex-1 flex flex-col">
+          <div className="p-3 rounded border border-white/10 space-y-2 bg-black/40 flex-1 flex flex-col">
             <div className="flex items-center justify-between text-[10px] text-foreground/70 border-b border-white/10 pb-1.5">
-              <span className="flex items-center gap-1.5 text-primary font-bold uppercase">
+              <span className="flex items-center gap-1.5 text-primary font-bold uppercase glow-primary">
                 <Satellite className="w-3.5 h-3.5" /> TACTICAL INTEL LOGS
               </span>
               <span className="text-green-400 font-bold">REAL-TIME</span>
             </div>
 
-            <div className="space-y-2 overflow-y-auto max-h-[160px] pr-1">
+            <div className="space-y-2 overflow-y-auto max-h-[180px] pr-1">
               {intelFeed.map((item) => (
                 <div
                   key={item.id}
-                  className="p-2 rounded bg-black/40 border border-white/5 text-[10px] space-y-1"
+                  className="p-2 rounded bg-black/50 border border-white/5 text-[10px] space-y-1"
                 >
-                  <div className="flex items-center justify-between text-[9px] text-foreground/50">
+                  <div className="flex items-center justify-between text-[9px] text-foreground/40">
                     <span className="text-primary font-bold">[{item.category}]</span>
                     <span>{item.timestamp}</span>
                   </div>
-                  <div className="text-foreground/90 leading-snug">{item.title}</div>
+                  <div className="text-foreground/80 leading-snug">{item.title}</div>
                 </div>
               ))}
             </div>
@@ -234,11 +226,9 @@ export const WorldSituationRoom: React.FC = () => {
         </div>
       </div>
 
-      {/* =========================================================================
-          BOTTOM SCROLLING INTELLIGENCE TICKER
-         ========================================================================= */}
+      {/* Bottom Scrolling Intelligence Ticker */}
       <div className="w-full bg-black/80 border border-primary/30 p-2 rounded overflow-hidden flex items-center gap-3">
-        <span className="px-2 py-0.5 bg-primary text-black font-black text-[9px] rounded uppercase tracking-wider whitespace-nowrap">
+        <span className="px-2 py-0.5 bg-primary text-black font-black text-[9px] rounded uppercase tracking-wider whitespace-nowrap glow-box-primary">
           INTEL TICKER
         </span>
         <div className="overflow-hidden relative flex-1">
