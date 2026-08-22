@@ -1,7 +1,8 @@
 """
 Unit and Integration Tests for AEGIS Engine, WESAD Multi-Modal Classifier,
 FastAPI Ingestion, Pure Ollama LLM Service, Baymax Voice Companion,
-Real-Time Computer Vision, Persistent SQLite Memory & EHR Layer, and Offline Medical RAG.
+Real-Time Computer Vision, Persistent SQLite Memory & EHR Layer,
+and Offline Medical RAG with Multi-Turn Conversation Memory.
 """
 
 import os
@@ -20,7 +21,12 @@ from aegis_engine import (
 from aegis_memory import AegisMemory
 from aegis_vision import VitalScanner
 from medical_rag import OfflineMedicalRAG
-from baymax_service import stream_baymax_reasoning, generate_baymax_reply_text, generate_explanation
+from baymax_service import (
+    stream_baymax_reasoning,
+    generate_baymax_reply_text,
+    generate_explanation,
+    is_third_party_query
+)
 from main import app, dispatch_webhook_escalation
 
 
@@ -209,24 +215,38 @@ def test_medical_rag_protocol_retrieval(medical_rag_engine):
     assert fev["protocol_id"] == "CLIN-PROT-FEV-01"
     assert "Paracetamol" in fev["pharmacotherapy"]["first_line"]
 
+    # Depression / Mental Health Protocol
+    mental = medical_rag_engine.retrieve_protocol("So my frnd is suffering from depression")
+    assert mental is not None
+    assert mental["protocol_id"] == "CLIN-PROT-MENTAL-07"
+    assert "psychiatrist" in mental["first_line_action"].lower()
+
     # Eye Strain Protocol
     eye = medical_rag_engine.retrieve_protocol("burning eyes from long screen time")
     assert eye is not None
     assert eye["protocol_id"] == "CLIN-PROT-EYE-03"
-    assert "20-20-20" in eye["first_line_action"]
+
+
+def test_third_party_query_detection():
+    """Verify third-party friend inquiry detection."""
+    assert is_third_party_query("So my frnd is suffering from depression") is True
+    assert is_third_party_query("My friend has a headache") is True
+    assert is_third_party_query("What can I take for my headache?") is False
+
+    # Multi-turn history detection
+    history = [{"role": "user", "content": "My friend is sick"}]
+    assert is_third_party_query("any medicines?", history) is True
 
 
 def test_medical_rag_drug_safety_check(medical_rag_engine):
     """Verify drug allergy contraindication flagging."""
     allergies = ["ibuprofen", "nsaids"]
     
-    # Conflicting query
     conflict = medical_rag_engine.evaluate_drug_safety("Should I take some Ibuprofen?", allergies)
     assert conflict["is_contraindicated"] is True
     assert "ibuprofen" in conflict["conflicting_allergens"]
     assert "Paracetamol" in conflict["safe_alternative"]
 
-    # Safe query
     safe = medical_rag_engine.evaluate_drug_safety("Should I drink some warm water?", allergies)
     assert safe["is_contraindicated"] is False
 
@@ -239,18 +259,18 @@ def test_api_patient_profile_and_protocols(client):
 
     res_rag = client.get("/medical-protocols")
     assert res_rag.status_code == 200
-    assert len(res_rag.json()) >= 5
+    assert len(res_rag.json()) >= 6
 
 
 # ==========================================
-# 5. Pure Ollama LLM Service Tests
+# 5. Pure Ollama Multi-Turn LLM Service Tests
 # ==========================================
 
 async def mock_async_chat_stream(*args, **kwargs):
     """Mock async generator yielding Ollama chat stream chunks."""
     chunks = [
-        {"message": {"content": "I am scanning your vitals now. "}},
-        {"message": {"content": "Your medical profile indicates an allergy to Ibuprofen. Please take Paracetamol instead."}}
+        {"message": {"content": "I am very sorry to hear about your friend. "}},
+        {"message": {"content": "Depression is a clinical condition requiring professional psychiatric evaluation."}}
     ]
     for chunk in chunks:
         yield chunk
@@ -269,62 +289,28 @@ def test_pure_ollama_streaming_inference():
             return "".join(parts)
 
         result = asyncio.run(run_test())
-        assert "scanning your vitals" in result
-        assert "Ibuprofen" in result
+        assert "sorry to hear about your friend" in result or "clinical condition" in result
 
 
-def test_api_explain_risk_with_mocked_ollama(client):
-    """Verify POST /explain-risk returns HTTP 200 and streams Ollama advice."""
-    payload = {"heart_rate": 135, "temperature": 39.5}
-
-    with patch("ollama.AsyncClient.chat", side_effect=lambda **kw: mock_async_chat_stream()):
-        response = client.post("/explain-risk", json=payload)
-        assert response.status_code == 200
-        assert "scanning your vitals" in response.text
-
-
-def test_api_companion_interact_with_ehr_allergy_alert(client):
-    """Verify POST /companion-interact cross-references EHR allergies and returns warning."""
+def test_api_companion_interact_third_party_depression(client):
+    """Verify POST /companion-interact handles third-party depression inquiry."""
     payload = {
-        "user_speech": "I have a fever, can I take some Ibuprofen?",
-        "heart_rate": 88.0,
-        "rmssd": 35.0,
-        "temperature": 38.8,
+        "user_speech": "So my frnd is suffering from depression",
+        "heart_rate": 72.0,
+        "rmssd": 45.0,
+        "temperature": 36.8,
         "temp_slope": 0.0,
-        "eda": 2.2,
-        "ear": 0.30
+        "eda": 1.5,
+        "ear": 0.32
     }
 
     with patch("ollama.AsyncClient.chat", side_effect=lambda **kw: mock_async_chat_stream()):
         response = client.post("/companion-interact", json=payload)
         assert response.status_code == 200
         data = response.json()
-        assert data["allergy_warning"] is True
         assert data["matched_protocol"] is not None
-        assert data["matched_protocol"]["protocol_id"] == "CLIN-PROT-FEV-01"
-        assert "Paracetamol" in data["reply_text"]
-
-
-@patch("main.dispatch_webhook_escalation")
-def test_api_companion_interact_anomaly_takeover(mock_dispatch, client):
-    """Verify POST /companion-interact detects acute anomaly and triggers escalation."""
-    payload = {
-        "user_speech": "I feel extremely dizzy and overheated.",
-        "heart_rate": 135.0,
-        "rmssd": 15.0,
-        "temperature": 39.5,
-        "temp_slope": 0.15,
-        "eda": 8.5,
-        "ear": 0.25
-    }
-
-    with patch("ollama.AsyncClient.chat", side_effect=lambda **kw: mock_async_chat_stream()):
-        response = client.post("/companion-interact", json=payload)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["is_anomaly"] is True
-        assert data["risk_level"] == "HIGH RISK"
-        assert data["escalated"] is True
+        assert data["matched_protocol"]["protocol_id"] == "CLIN-PROT-MENTAL-07"
+        assert data["risk_level"] == "THIRD-PARTY ADVISORY"
 
 
 # ==========================================

@@ -3,7 +3,7 @@ AEGIS Health Companion - FastAPI Backend
 Provides telemetry ingestion, WESAD physiological ML evaluation,
 live OpenCV MJPEG video streaming, persistent SQLite memory & EHR inspection (/memory-records, /patient-profile),
 Offline Medical RAG knowledge base (/medical-protocols),
-and Doctor-Level Ollama LLaMA health intelligence (/companion-interact).
+and Doctor-Level Multi-Turn Ollama LLaMA health intelligence (/companion-interact).
 """
 
 from collections import deque
@@ -27,7 +27,7 @@ from aegis_engine import (
 from aegis_memory import AegisMemory
 from aegis_vision import global_scanner
 from medical_rag import OfflineMedicalRAG
-from baymax_service import generate_baymax_reply_text, generate_explanation
+from baymax_service import generate_baymax_reply_text, generate_explanation, is_third_party_query
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("aegis_backend")
@@ -95,8 +95,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="AEGIS Medical Intelligence Workstation Core",
-    version="3.3.0",
-    description="Offline-first clinical intelligence, Offline Medical RAG, SQLite EHR patient profile, and pure Ollama LLaMA inference.",
+    version="3.4.0",
+    description="Offline-first clinical intelligence, Multi-Turn Conversation Memory, Offline Medical RAG, and pure Ollama LLaMA inference.",
     lifespan=lifespan
 )
 
@@ -165,7 +165,7 @@ class CompanionChatResponse(BaseModel):
 def read_root():
     return {
         "service": "AEGIS Doctor-Level Clinical Workstation Backend",
-        "version": "3.3.0",
+        "version": "3.4.0",
         "status": "online",
         "llm_engine": "Ollama Local LLaMA 3 Model",
         "medical_rag": "OfflineMedicalRAG Active",
@@ -356,12 +356,12 @@ async def explain_risk(payload: ExplainRiskPayload):
 @app.post("/companion-interact", response_model=CompanionChatResponse)
 async def companion_interact(req: CompanionChatRequest, background_tasks: BackgroundTasks):
     """
-    Doctor-Level Baymax Healthcare Companion Endpoint.
+    Doctor-Level Multi-Turn Baymax Companion Endpoint.
     Integrates:
-    - WESAD 5-feature Physiological Classifier
+    - Multi-turn conversation buffer (retains context across turns)
+    - Third-party inquiry detection
     - Offline Medical RAG Protocol Index
     - SQLite EHR Patient Profile & Allergy Records
-    - Pure Ollama LLaMA 3 Model Inference
     """
     global wesad_detector, aegis_memory, medical_rag
     if wesad_detector is None:
@@ -371,15 +371,17 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
     if medical_rag is None:
         medical_rag = OfflineMedicalRAG()
 
-    # 1. Fetch Rolling Baseline & Patient EHR
+    # 1. Fetch Rolling Baseline, Patient EHR, and Recent Conversation History
     recent_records = aegis_memory.get_recent_baseline(limit=20)
     avg_hr = sum(r[0] for r in recent_records) / max(1, len(recent_records)) if recent_records else req.heart_rate
     avg_ear = sum(r[1] for r in recent_records) / max(1, len(recent_records)) if recent_records else 0.32
 
     patient_ehr = aegis_memory.get_patient_profile()
+    chat_history = aegis_memory.get_conversation_context(limit=6)
 
     ear_val = req.ear if req.ear is not None else 0.32
     fatigue_detected = bool(ear_val < 0.22)
+    is_third_party = is_third_party_query(req.user_speech, chat_history)
 
     # 2. WESAD Physiological Evaluation
     eval_res: WESADEvaluationResult = wesad_detector.evaluate(
@@ -391,7 +393,7 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
     )
 
     escalated = False
-    if eval_res.is_anomaly or fatigue_detected:
+    if not is_third_party and (eval_res.is_anomaly or fatigue_detected):
         risk_level = "HIGH RISK"
         background_tasks.add_task(
             dispatch_webhook_escalation,
@@ -403,16 +405,20 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
         )
         escalated = True
     else:
-        risk_level = eval_res.risk_level
+        risk_level = "THIRD-PARTY ADVISORY" if is_third_party else eval_res.risk_level
 
     # 3. Medical RAG Protocol & Drug Safety Check
-    matched_protocol = medical_rag.retrieve_protocol(req.user_speech)
+    search_query = req.user_speech
+    if len(req.user_speech.split()) <= 3 and chat_history:
+        for turn in reversed(chat_history):
+            if turn.get("role") == "user":
+                search_query = f"{turn.get('content', '')} {req.user_speech}"
+                break
+
+    matched_protocol = medical_rag.retrieve_protocol(search_query)
     safety_check = medical_rag.evaluate_drug_safety(req.user_speech, patient_ehr.get("allergies_list", []))
 
-    # 4. Record user query to SQLite
-    aegis_memory.add_conversation(role="user", content=req.user_speech)
-
-    # 5. Doctor-Level Baymax Reasoning
+    # 4. Doctor-Level Baymax Reasoning with Multi-Turn History
     vitals_dict = {
         "heart_rate": req.heart_rate,
         "temperature": req.temperature,
@@ -429,20 +435,22 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
         user_query=req.user_speech,
         vitals=vitals_dict,
         baseline=baseline_dict,
-        patient_profile=patient_ehr
+        patient_profile=patient_ehr,
+        conversation_history=chat_history
     )
 
-    # Record Baymax reply to SQLite
+    # 5. Record user and Baymax turns to SQLite
+    aegis_memory.add_conversation(role="user", content=req.user_speech)
     aegis_memory.add_conversation(role="baymax", content=reply_text)
 
     return CompanionChatResponse(
         reply_text=reply_text,
-        is_anomaly=eval_res.is_anomaly or fatigue_detected,
+        is_anomaly=(eval_res.is_anomaly or fatigue_detected) if not is_third_party else False,
         risk_level=risk_level,
         confidence=eval_res.confidence,
         vital_summary=eval_res.features,
         escalated=escalated,
-        fatigue_detected=fatigue_detected,
+        fatigue_detected=fatigue_detected if not is_third_party else False,
         matched_protocol=matched_protocol,
         allergy_warning=safety_check["is_contraindicated"],
         patient_profile=patient_ehr

@@ -44,7 +44,7 @@ CLINICAL_PROTOCOLS: List[Dict[str, Any]] = [
         "protocol_id": "CLIN-PROT-EYE-03",
         "title": "Digital Eye Strain (CVS) & Somnolence Recovery Protocol",
         "category": "Occupational & Ophthalmic Fatigue",
-        "keywords": ["eye", "eyes", "burning", "vision", "screen", "strain", "tired", "sleepy", "fatigue", "drowsy", "somnolence", "blink", "drowsiness"],
+        "keywords": ["eye", "eyes", "burning eyes", "vision", "screen", "strain", "tired eyes", "sleepy", "drowsy", "somnolence", "blink rate", "drowsiness"],
         "summary": "Management of Computer Vision Syndrome (CVS), tear film evaporation, and ocular motor fatigue.",
         "first_line_action": "Enforce the 20-20-20 Rule (every 20 minutes, focus on an object 20 feet away for 20 seconds); perform deliberate complete blinks for 10 seconds; reduce display glare.",
         "pharmacotherapy": {
@@ -74,7 +74,7 @@ CLINICAL_PROTOCOLS: List[Dict[str, Any]] = [
         "protocol_id": "CLIN-PROT-CARD-05",
         "title": "Acute Tachycardia & Autonomic Stress Protocol",
         "category": "Cardiovascular & Autonomic Regulation",
-        "keywords": ["heart", "tachycardia", "palpitations", "racing heart", "rapid pulse", "chest", "anxiety", "bpm", "cardiac"],
+        "keywords": ["heart", "tachycardia", "palpitations", "racing heart", "rapid pulse", "chest", "bpm", "cardiac"],
         "summary": "Management of sinus tachycardia triggered by stress, caffeine, or physiological over-arousal.",
         "first_line_action": "Seated rest in semi-Fowler position; diaphragmatic breathing (4-second inhale, 7-second hold, 8-second exhale); cold water face immersion (mammalian diving reflex).",
         "pharmacotherapy": {
@@ -99,6 +99,21 @@ CLINICAL_PROTOCOLS: List[Dict[str, Any]] = [
             "contraindication_rationale": "Direct ice application causes vasoconstrictive tissue ischemia and frostbite; butter/oils trap heat and introduce bacterial infection vectors."
         },
         "escalation_criteria": "Burn area > 3 inches in diameter, burns on face, hands, joints, or genitalia, or circumferential burns."
+    },
+    {
+        "protocol_id": "CLIN-PROT-MENTAL-07",
+        "title": "Mental Health, Major Depressive Disorder & Crisis Support Protocol",
+        "category": "Psychiatry & Behavioral Health",
+        "keywords": ["depression", "depressed", "mental health", "sad", "sadness", "hopeless", "hopelessness", "anxiety", "panic", "antidepressant", "antidepressants", "ssri", "ssris", "counseling", "psychiatrist", "psychologist", "therapy", "crying", "mood", "friend depression", "frnd depression", "suicide", "grief"],
+        "summary": "Clinical guidelines for depressive disorders, psychological distress, and supportive third-party interventions.",
+        "first_line_action": "Offer non-judgmental, compassionate active listening and presence; encourage scheduling an appointment with a licensed psychiatrist or clinical psychologist; provide local crisis lifeline resources (e.g. 988 / Vandrevala Helpline).",
+        "pharmacotherapy": {
+            "first_line": "Antidepressant medications (e.g. SSRIs such as Escitalopram or Sertraline, SNRIs) require a formal psychiatric assessment and a strict clinical prescription.",
+            "second_line": "Evidence-based psychotherapy (Cognitive Behavioral Therapy - CBT, Interpersonal Therapy).",
+            "contraindicated_drugs": ["over-the-counter mood modifiers", "unprescribed sedatives", "alcohol self-medication", "unmonitored herbal stimulants"],
+            "contraindication_rationale": "Antidepressant pharmacotherapy cannot be recommended or obtained over the counter. SSRIs require strict medical supervision, baseline organ function screening, and titrated dosing to prevent adverse reactions like Serotonin Syndrome or paradoxical worsening."
+        },
+        "escalation_criteria": "Expressions of active suicidal ideation, intent of self-harm, severe psychosis, or acute inability to care for fundamental personal safety."
     }
 ]
 
@@ -113,9 +128,10 @@ class OfflineMedicalRAG:
     def __init__(self, protocols: Optional[List[Dict[str, Any]]] = None):
         self.protocols = protocols or CLINICAL_PROTOCOLS
 
-    def retrieve_protocol(self, query_text: str, threshold: float = 0.15) -> Optional[Dict[str, Any]]:
+    def retrieve_protocol(self, query_text: str, threshold: float = 1.0) -> Optional[Dict[str, Any]]:
         """
         Retrieve the most relevant clinical protocol for a patient inquiry.
+        Requires genuine medical keyword or phrase match.
         """
         query_clean = re.sub(r"[^a-zA-Z0-9\s]", "", query_text.lower())
         query_tokens = set(query_clean.split())
@@ -129,17 +145,18 @@ class OfflineMedicalRAG:
             score = 0.0
             keywords = [k.lower() for k in proto["keywords"]]
             
-            # 1. Exact keyword match
+            # 1. Exact keyword/phrase match in query
             for kw in keywords:
                 if kw in query_clean:
-                    score += 2.0
-                elif any(q in kw for q in query_tokens):
+                    # Multi-word phrase matches get higher weight
+                    score += 3.0 if " " in kw else 2.0
+                elif any(q in kw for q in query_tokens if len(q) > 3):
                     score += 0.8
 
-            # 2. Title & summary overlap
+            # 2. Title overlap
             title_tokens = set(re.sub(r"[^a-zA-Z0-9\s]", "", proto["title"].lower()).split())
             overlap = query_tokens.intersection(title_tokens)
-            score += len(overlap) * 1.5
+            score += len([w for w in overlap if len(w) > 3]) * 1.5
 
             if score > best_score and score >= threshold:
                 best_score = score
