@@ -1,7 +1,7 @@
 """
-AEGIS Health Companion - Phase 1 FastAPI Backend
+AEGIS Health Companion - FastAPI Backend
 Handles telemetry ingestion, anomaly evaluation via aegis_engine,
-and asynchronous escalation webhook dispatching.
+asynchronous escalation webhook dispatching, and localized LLM streaming via baymax_service.
 """
 
 from contextlib import asynccontextmanager
@@ -14,6 +14,7 @@ from fastapi import FastAPI, BackgroundTasks, status
 from pydantic import BaseModel, Field
 
 from aegis_engine import AnomalyDetector, EvaluationResult
+from baymax_service import generate_explanation
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("aegis_backend")
@@ -56,8 +57,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="AEGIS Offline-First Health Companion API",
-    version="1.0.0",
-    description="Offline-first telemetry ingestion and anomaly detection engine.",
+    version="1.1.0",
+    description="Offline-first telemetry ingestion, anomaly detection, and localized LLM advice engine.",
     lifespan=lifespan
 )
 
@@ -76,13 +77,20 @@ class TelemetryResponse(BaseModel):
     escalated: bool = False
 
 
+class ExplainRiskPayload(BaseModel):
+    heart_rate: int = Field(..., description="Heart rate in beats per minute (BPM)")
+    temperature: float = Field(..., description="Body temperature in Celsius (°C)")
+    risk_score: Optional[str] = Field(None, description="Optional pre-evaluated risk score ('Normal' or 'High')")
+
+
 @app.get("/")
 def read_root():
     return {
         "service": "AEGIS Health Companion",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "status": "online",
-        "engine": "IsolationForest Active"
+        "engine": "IsolationForest Active",
+        "llm_assistant": "aegis-baymax (Ollama)"
     }
 
 
@@ -128,6 +136,28 @@ async def ingest_telemetry(payload: TelemetryPayload, background_tasks: Backgrou
         heart_rate=payload.heart_rate,
         temperature=payload.temperature,
         escalated=escalated
+    )
+
+
+@app.post("/explain-risk")
+async def explain_risk(payload: ExplainRiskPayload):
+    """
+    Translate telemetry anomalies and risk scores into actionable safety advice
+    streaming from localized aegis-baymax LLM.
+    """
+    global detector
+    if detector is None:
+        detector = AnomalyDetector()
+
+    risk_score = payload.risk_score
+    if not risk_score:
+        result = detector.evaluate(payload.heart_rate, payload.temperature)
+        risk_score = result.risk_score
+
+    return await generate_explanation(
+        hr=payload.heart_rate,
+        temp=payload.temperature,
+        risk_score=risk_score
     )
 
 

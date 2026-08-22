@@ -1,14 +1,16 @@
 """
-Unit and Integration Tests for AEGIS Engine & FastAPI Ingestion Service.
-Tests physiological anomaly detection logic and API escalation workflows.
+Unit and Integration Tests for AEGIS Engine, FastAPI Ingestion, and Ollama LLM Service.
+Tests physiological anomaly detection logic, API escalation workflows, and streaming advice.
 """
 
+import asyncio
+from unittest.mock import patch, AsyncMock
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
 
 from aegis_engine import AnomalyDetector, EvaluationResult
 from main import app, dispatch_webhook_escalation
+from baymax_service import generate_explanation
 
 
 @pytest.fixture
@@ -124,9 +126,58 @@ def test_api_ingest_telemetry_anomaly_triggers_escalation(mock_dispatch, client)
     assert data["escalated"] is True
 
 
-import asyncio
-
 def test_webhook_escalation_dispatcher_handles_connection_error():
     """Verify webhook dispatcher handles unreachable destination gracefully."""
     with patch("httpx.AsyncClient.post", side_effect=Exception("Connection refused")):
         asyncio.run(dispatch_webhook_escalation(heart_rate=135, temperature=39.5, risk_score="High"))
+
+
+# ==========================================
+# 3. Phase 2: Ollama LLM /explain-risk Tests
+# ==========================================
+
+async def mock_async_chat_stream(*args, **kwargs):
+    """Mock async generator yielding Ollama chat stream chunks."""
+    chunks = [
+        {"message": {"content": "Critical physiological elevation detected. "}},
+        {"message": {"content": "Please rest immediately in a cool area and hydrate."}}
+    ]
+    for chunk in chunks:
+        yield chunk
+
+
+def test_api_explain_risk_with_mocked_ollama(client):
+    """Verify POST /explain-risk returns HTTP 200 and streams Ollama advice."""
+    payload = {"heart_rate": 135, "temperature": 39.5}
+
+    with patch("ollama.AsyncClient.chat", side_effect=lambda **kw: mock_async_chat_stream()):
+        response = client.post("/explain-risk", json=payload)
+
+        assert response.status_code == 200
+        streamed_content = response.text
+        assert "Critical physiological elevation detected" in streamed_content
+        assert "hydrate" in streamed_content
+
+
+def test_api_explain_risk_offline_fallback(client):
+    """Verify POST /explain-risk gracefully falls back when Ollama daemon is offline."""
+    payload = {"heart_rate": 135, "temperature": 39.5, "risk_score": "High"}
+
+    with patch("ollama.AsyncClient.chat", side_effect=Exception("Ollama connection refused")):
+        response = client.post("/explain-risk", json=payload)
+
+        assert response.status_code == 200
+        streamed_content = response.text
+        assert "Critical physiological elevation detected" in streamed_content
+        assert "rest immediately" in streamed_content
+
+
+def test_api_explain_risk_normal_telemetry(client):
+    """Verify POST /explain-risk handles normal telemetry correctly."""
+    payload = {"heart_rate": 72, "temperature": 36.8}
+
+    with patch("ollama.AsyncClient.chat", side_effect=Exception("Ollama connection refused")):
+        response = client.post("/explain-risk", json=payload)
+
+        assert response.status_code == 200
+        assert "Vitals appear stable" in response.text
