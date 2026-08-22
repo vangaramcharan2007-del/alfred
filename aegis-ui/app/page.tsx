@@ -25,7 +25,8 @@ import {
   Radio,
   Sliders,
   AlertTriangle,
-  PlayCircle
+  PlayCircle,
+  UserCheck
 } from "lucide-react";
 
 interface VitalsState {
@@ -93,6 +94,12 @@ export default function AegisMedicalCommandDeck() {
     },
   ]);
 
+  // Voice Settings State (Calm Baymax Male Persona)
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string>("");
+  const [speechRate, setSpeechRate] = useState<number>(0.90);
+  const [speechPitch, setSpeechPitch] = useState<number>(0.90);
+
   // Memory Table State
   const [memoryLogs, setMemoryLogs] = useState<MemoryRecord[]>([]);
   const [rollingStats, setRollingStats] = useState<RollingStats>({
@@ -127,7 +134,68 @@ export default function AegisMedicalCommandDeck() {
     }
   }, []);
 
-  // 2. Initialize Speech Recognition
+  // 2. Initialize Voice Synthesis & Filter for Calm Male Healthcare Companion Voices
+  useEffect(() => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      const updateVoices = () => {
+        const allVoices = window.speechSynthesis.getVoices();
+        if (allVoices.length === 0) return;
+
+        setAvailableVoices(allVoices);
+
+        // Filter out female voices and prioritize warm, calm male voices
+        const isMaleOrBaymax = (v: SpeechSynthesisVoice) => {
+          const name = v.name.toLowerCase();
+          // Exclude typical female voices
+          if (
+            name.includes("female") ||
+            name.includes("samantha") ||
+            name.includes("zira") ||
+            name.includes("jenny") ||
+            name.includes("victoria") ||
+            name.includes("karen") ||
+            name.includes("sonia") ||
+            name.includes("eva") ||
+            name.includes("hazel") ||
+            name.includes("susan") ||
+            name.includes("aria")
+          ) {
+            return false;
+          }
+          return (
+            name.includes("david") ||
+            name.includes("mark") ||
+            name.includes("guy") ||
+            name.includes("ryan") ||
+            name.includes("daniel") ||
+            name.includes("george") ||
+            name.includes("male") ||
+            name.includes("james") ||
+            name.includes("natural") ||
+            (v.lang.startsWith("en") && !name.includes("female"))
+          );
+        };
+
+        const preferredMaleVoice =
+          allVoices.find((v) => v.name.includes("David")) ||
+          allVoices.find((v) => v.name.includes("Guy") && v.name.includes("Natural")) ||
+          allVoices.find((v) => v.name.includes("Mark")) ||
+          allVoices.find((v) => v.name.includes("Google UK English Male")) ||
+          allVoices.find((v) => v.name.includes("Daniel")) ||
+          allVoices.find(isMaleOrBaymax) ||
+          allVoices[0];
+
+        if (preferredMaleVoice) {
+          setSelectedVoiceName((prev) => prev || preferredMaleVoice.name);
+        }
+      };
+
+      updateVoices();
+      window.speechSynthesis.onvoiceschanged = updateVoices;
+    }
+  }, []);
+
+  // 3. Initialize Speech Recognition
   useEffect(() => {
     if (typeof window !== "undefined") {
       const SpeechRecognition =
@@ -165,7 +233,7 @@ export default function AegisMedicalCommandDeck() {
     }
   }, [vitals.isAnomaly, vitals.isFatigued, isSpeaking]);
 
-  // 3. Periodic Memory Records Poller (every 2.5s)
+  // 4. Periodic Memory Records Poller (every 2.5s)
   useEffect(() => {
     const pollMemory = async () => {
       try {
@@ -187,7 +255,7 @@ export default function AegisMedicalCommandDeck() {
     return () => clearInterval(interval);
   }, []);
 
-  // 4. Live rPPG Plethysmogram Oscilloscope Canvas
+  // 5. Live rPPG Plethysmogram Oscilloscope Canvas
   useEffect(() => {
     let animationFrame: number;
     let phase = 0;
@@ -242,7 +310,7 @@ export default function AegisMedicalCommandDeck() {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Speech Synthesis Helper
+  // Speech Synthesis Helper (Calm Baymax Male Persona)
   const speakText = (text: string) => {
     if (!voiceEnabled || typeof window === "undefined" || !("speechSynthesis" in window)) {
       return;
@@ -250,18 +318,29 @@ export default function AegisMedicalCommandDeck() {
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.95;
-    utterance.pitch = 1.05;
+    utterance.rate = speechRate;
+    utterance.pitch = speechPitch;
 
     const voices = window.speechSynthesis.getVoices();
-    const friendlyVoice = voices.find(
-      (v) =>
-        v.name.includes("Google") ||
-        v.name.includes("Natural") ||
-        v.name.includes("Samantha") ||
-        v.name.includes("Daniel")
-    );
-    if (friendlyVoice) utterance.voice = friendlyVoice;
+    let chosenVoice: SpeechSynthesisVoice | undefined;
+
+    if (selectedVoiceName) {
+      chosenVoice = voices.find((v) => v.name === selectedVoiceName);
+    }
+
+    if (!chosenVoice) {
+      chosenVoice =
+        voices.find((v) => v.name.includes("David")) ||
+        voices.find((v) => v.name.includes("Guy") && v.name.includes("Natural")) ||
+        voices.find((v) => v.name.includes("Mark")) ||
+        voices.find((v) => v.name.includes("Google UK English Male")) ||
+        voices.find((v) => v.name.includes("Daniel")) ||
+        voices[0];
+    }
+
+    if (chosenVoice) {
+      utterance.voice = chosenVoice;
+    }
 
     utterance.onstart = () => {
       setIsSpeaking(true);
@@ -279,6 +358,11 @@ export default function AegisMedicalCommandDeck() {
     };
 
     window.speechSynthesis.speak(utterance);
+  };
+
+  // Preview Baymax Male Voice
+  const handleTestVoice = () => {
+    speakText("Hello! I am Baymax, your personal healthcare companion. My synthesized male voice is calibrated for calm clinical reassurance.");
   };
 
   // Toggle Microphone
@@ -446,13 +530,50 @@ export default function AegisMedicalCommandDeck() {
               <span>•</span>
               <span>SQLITE PERSISTENT MEMORY</span>
               <span>•</span>
-              <span>PURE MODEL INFERENCE</span>
+              <span>BAYMAX MALE SYNTHESIS</span>
             </p>
           </div>
         </div>
 
-        {/* Quick Action Simulation Controls */}
+        {/* Quick Action Simulation Controls & Voice Selector */}
         <div className="flex flex-wrap items-center gap-2">
+          
+          {/* Baymax Voice Selector Dropdown */}
+          <div className="flex items-center gap-1.5 bg-slate-950 border border-cyan-900/60 px-2.5 py-1 rounded-xl">
+            <UserCheck className="w-3.5 h-3.5 text-cyan-400" />
+            <select
+              value={selectedVoiceName}
+              onChange={(e) => setSelectedVoiceName(e.target.value)}
+              className="bg-transparent text-[11px] font-mono text-cyan-300 focus:outline-none cursor-pointer max-w-[170px] truncate"
+              title="Select Baymax Synthesized Male Voice"
+            >
+              {availableVoices
+                .filter((v) => {
+                  const n = v.name.toLowerCase();
+                  return (
+                    !n.includes("female") &&
+                    !n.includes("zira") &&
+                    !n.includes("samantha") &&
+                    !n.includes("jenny") &&
+                    !n.includes("victoria") &&
+                    !n.includes("karen")
+                  );
+                })
+                .map((v, i) => (
+                  <option key={i} value={v.name} className="bg-slate-900 text-slate-200">
+                    {v.name.replace("Microsoft ", "").replace("Google ", "")} ({v.lang})
+                  </option>
+                ))}
+            </select>
+            <button
+              onClick={handleTestVoice}
+              className="text-[10px] font-mono px-1.5 py-0.5 bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded"
+              title="Test Voice Sample"
+            >
+              Test
+            </button>
+          </div>
+
           <button
             onClick={triggerFatigueSimulation}
             className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-amber-950/80 border border-amber-500/60 text-amber-300 hover:bg-amber-900 transition flex items-center gap-1.5 shadow"

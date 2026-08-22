@@ -1,7 +1,7 @@
 """
 AEGIS Baymax Service - Pure Ollama Local Model Inference
-Routes raw live biometrics and user inquiries directly to Ollama.
-Zero canned responses or heuristic fallbacks.
+Enforces the authentic, empathetic, first-person Baymax Caregiver Persona.
+Zero canned responses or third-person textbook strings.
 """
 
 import sys
@@ -25,26 +25,30 @@ async def stream_baymax_reasoning(
     model: str = "aegis-baymax"
 ) -> AsyncGenerator[str, None]:
     """
-    Sends raw live biometrics and user query directly to Ollama.
-    Zero canned responses or heuristic fallbacks.
+    Sends raw live biometrics and patient speech directly to Ollama.
+    Strictly enforces first-person ('I', 'you'), empathetic Baymax caregiver persona.
     """
     system_prompt = (
-        "You are Baymax, an offline personal healthcare companion. "
-        "Analyze the user's inquiry strictly in the context of their real-time biometric readings. "
-        "Be empathetic, calm, and clinically concise (2 to 3 sentences maximum). "
-        "Do not diagnose severe conditions; provide actionable self-care or escalation guidance."
+        "You are Baymax, a personal healthcare companion. "
+        "Rule 1: NEVER refer to the person as 'the user' or in the third person. Speak directly to them using 'you' and 'your'. "
+        "Rule 2: Adopt a warm, calming, innocent, and highly empathetic tone, but remain clinically objective about data. "
+        "Rule 3: Keep your responses extremely concise (1 to 3 sentences maximum). "
+        "Rule 4: When relevant, express concern for their well-being. "
+        "Rule 5: If the patient expresses distress, offer comfort before providing a medical assessment. "
+        "Use phrases like 'I am scanning you now,' or 'Your current heart rate indicates...' "
+        "Do not provide a disclaimer about consulting a doctor unless it is a severe emergency."
     )
 
     user_context = (
-        f"User Inquiry: '{user_query}'\n"
-        f"Live Biometrics: Heart Rate={vitals.get('heart_rate')} BPM, "
+        f"Patient says: '{user_query}'\n"
+        f"Live Vitals Scan: Heart Rate={vitals.get('heart_rate')} BPM, "
         f"Core Temp={vitals.get('temperature')}°C, "
         f"Ocular EAR={vitals.get('ear')}, "
-        f"HRV (RMSSD)={vitals.get('rmssd')}ms, "
+        f"HRV RMSSD={vitals.get('rmssd')}ms, "
         f"Galvanic Skin Response={vitals.get('eda')} uS.\n"
-        f"5-Min Rolling Baseline: Avg HR={baseline.get('avg_hr')} BPM, "
+        f"5-Min Baseline: Avg HR={baseline.get('avg_hr')} BPM, "
         f"Avg EAR={baseline.get('avg_ear')}.\n"
-        f"Provide your real-time assessment."
+        f"Respond directly to them as Baymax in 1 to 3 concise, caring sentences."
     )
 
     models_to_try = [model, "llama3.2:1b", "llama3", "tinyllama"]
@@ -72,7 +76,7 @@ async def stream_baymax_reasoning(
             continue
 
     if not success:
-        yield f"Error communicating with local Ollama core: {last_err}. Please ensure 'ollama serve' is running."
+        yield f"I am unable to connect to my diagnostic core: {last_err}. Please ensure 'ollama serve' is active."
 
 
 async def generate_baymax_reply_text(
