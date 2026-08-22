@@ -1,8 +1,9 @@
 """
 AEGIS Health Companion - FastAPI Backend
 Provides telemetry ingestion, WESAD physiological ML evaluation,
-live OpenCV MJPEG video streaming, persistent SQLite memory inspection (/memory-records),
-and pure Ollama local LLaMA model health intelligence (/companion-interact).
+live OpenCV MJPEG video streaming, persistent SQLite memory & EHR inspection (/memory-records, /patient-profile),
+Offline Medical RAG knowledge base (/medical-protocols),
+and Doctor-Level Ollama LLaMA health intelligence (/companion-interact).
 """
 
 from collections import deque
@@ -25,6 +26,7 @@ from aegis_engine import (
 )
 from aegis_memory import AegisMemory
 from aegis_vision import global_scanner
+from medical_rag import OfflineMedicalRAG
 from baymax_service import generate_baymax_reply_text, generate_explanation
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -35,6 +37,7 @@ WEBHOOK_URL = "http://localhost:5678/webhook/aegis-escalation"
 detector: Optional[AnomalyDetector] = None
 wesad_detector: Optional[WESADPhysiologicalDetector] = None
 aegis_memory: Optional[AegisMemory] = None
+medical_rag: Optional[OfflineMedicalRAG] = None
 telemetry_history: deque = deque(maxlen=60)
 
 
@@ -66,12 +69,13 @@ async def dispatch_webhook_escalation(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global detector, wesad_detector, aegis_memory
-    logger.info("Initializing AEGIS AnomalyDetector, WESAD Classifier, and SQLite Memory...")
+    global detector, wesad_detector, aegis_memory, medical_rag
+    logger.info("Initializing AEGIS AnomalyDetector, WESAD Classifier, SQLite EHR Memory, and Medical RAG...")
     detector = AnomalyDetector()
     wesad_detector = WESADPhysiologicalDetector()
     aegis_memory = AegisMemory(db_path="aegis_core.db")
-    logger.info("AEGIS Core Systems Online.")
+    medical_rag = OfflineMedicalRAG()
+    logger.info("AEGIS Core Doctor-Level Systems Online.")
 
     now = datetime.now(timezone.utc)
     for i in range(5):
@@ -91,8 +95,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="AEGIS Medical Intelligence Workstation Core",
-    version="3.1.0",
-    description="Offline-first clinical intelligence, pure Ollama LLaMA inference, live camera streaming, and WESAD classification.",
+    version="3.3.0",
+    description="Offline-first clinical intelligence, Offline Medical RAG, SQLite EHR patient profile, and pure Ollama LLaMA inference.",
     lifespan=lifespan
 )
 
@@ -126,6 +130,14 @@ class ExplainRiskPayload(BaseModel):
     risk_score: Optional[str] = Field(None)
 
 
+class PatientProfileUpdatePayload(BaseModel):
+    name: Optional[str] = None
+    age: Optional[int] = None
+    allergies: Optional[str] = None
+    active_medications: Optional[str] = None
+    chronic_conditions: Optional[str] = None
+
+
 class CompanionChatRequest(BaseModel):
     user_speech: str = Field(..., description="User query or voice transcript")
     heart_rate: float = Field(72.0)
@@ -144,26 +156,60 @@ class CompanionChatResponse(BaseModel):
     vital_summary: Dict[str, float]
     escalated: bool = False
     fatigue_detected: bool = False
+    matched_protocol: Optional[Dict[str, Any]] = None
+    allergy_warning: bool = False
+    patient_profile: Optional[Dict[str, Any]] = None
 
 
 @app.get("/")
 def read_root():
     return {
-        "service": "AEGIS Clinical Workstation Backend",
-        "version": "3.1.0",
+        "service": "AEGIS Doctor-Level Clinical Workstation Backend",
+        "version": "3.3.0",
         "status": "online",
-        "llm_engine": "Pure Ollama Local LLaMA 3 Model",
-        "memory_inspector": "GET /memory-records",
+        "llm_engine": "Ollama Local LLaMA 3 Model",
+        "medical_rag": "OfflineMedicalRAG Active",
+        "ehr_memory": "SQLite patient_profile + allergy_records",
         "ml_engine": "WESAD Multi-Modal Random Forest + IsolationForest"
     }
 
 
+@app.get("/patient-profile")
+def get_patient_profile():
+    """Retrieve the patient's Electronic Health Record (EHR)."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    return aegis_memory.get_patient_profile()
+
+
+@app.post("/patient-profile")
+def update_patient_profile(payload: PatientProfileUpdatePayload):
+    """Update patient EHR record."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    return aegis_memory.update_patient_profile(
+        name=payload.name,
+        age=payload.age,
+        allergies=payload.allergies,
+        active_medications=payload.active_medications,
+        chronic_conditions=payload.chronic_conditions
+    )
+
+
+@app.get("/medical-protocols")
+def get_medical_protocols():
+    """Retrieve full offline medical knowledge base protocol index."""
+    global medical_rag
+    if medical_rag is None:
+        medical_rag = OfflineMedicalRAG()
+    return medical_rag.list_all_protocols()
+
+
 @app.get("/video-feed")
 def video_feed():
-    """
-    Live OpenCV MJPEG Video Stream with facial ROI tracking,
-    Eye Aspect Ratio, and Forehead rPPG waveform.
-    """
+    """Live OpenCV MJPEG Video Stream."""
     return StreamingResponse(
         global_scanner.generate_mjpeg_frames(),
         media_type="multipart/x-mixed-replace; boundary=frame"
@@ -228,7 +274,8 @@ def get_memory_records(limit: int = 30):
     return {
         "rolling_stats": rolling_stats,
         "vitals_log": vitals_list,
-        "conversation_context": conversation_history
+        "conversation_context": conversation_history,
+        "patient_profile": aegis_memory.get_patient_profile()
     }
 
 
@@ -309,24 +356,32 @@ async def explain_risk(payload: ExplainRiskPayload):
 @app.post("/companion-interact", response_model=CompanionChatResponse)
 async def companion_interact(req: CompanionChatRequest, background_tasks: BackgroundTasks):
     """
-    Pure Ollama LLaMA health companion endpoint.
-    Zero canned heuristics. Direct model inference on live biometrics.
+    Doctor-Level Baymax Healthcare Companion Endpoint.
+    Integrates:
+    - WESAD 5-feature Physiological Classifier
+    - Offline Medical RAG Protocol Index
+    - SQLite EHR Patient Profile & Allergy Records
+    - Pure Ollama LLaMA 3 Model Inference
     """
-    global wesad_detector, aegis_memory
+    global wesad_detector, aegis_memory, medical_rag
     if wesad_detector is None:
         wesad_detector = WESADPhysiologicalDetector()
     if aegis_memory is None:
         aegis_memory = AegisMemory(db_path="aegis_core.db")
+    if medical_rag is None:
+        medical_rag = OfflineMedicalRAG()
 
-    # Fetch rolling baseline
+    # 1. Fetch Rolling Baseline & Patient EHR
     recent_records = aegis_memory.get_recent_baseline(limit=20)
     avg_hr = sum(r[0] for r in recent_records) / max(1, len(recent_records)) if recent_records else req.heart_rate
     avg_ear = sum(r[1] for r in recent_records) / max(1, len(recent_records)) if recent_records else 0.32
 
+    patient_ehr = aegis_memory.get_patient_profile()
+
     ear_val = req.ear if req.ear is not None else 0.32
     fatigue_detected = bool(ear_val < 0.22)
 
-    # 1. WESAD Physiological Evaluation
+    # 2. WESAD Physiological Evaluation
     eval_res: WESADEvaluationResult = wesad_detector.evaluate(
         heart_rate=req.heart_rate,
         rmssd=req.rmssd,
@@ -350,10 +405,14 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
     else:
         risk_level = eval_res.risk_level
 
-    # Record user message to persistent SQLite memory
+    # 3. Medical RAG Protocol & Drug Safety Check
+    matched_protocol = medical_rag.retrieve_protocol(req.user_speech)
+    safety_check = medical_rag.evaluate_drug_safety(req.user_speech, patient_ehr.get("allergies_list", []))
+
+    # 4. Record user query to SQLite
     aegis_memory.add_conversation(role="user", content=req.user_speech)
 
-    # 2. Pure Ollama Reasoning
+    # 5. Doctor-Level Baymax Reasoning
     vitals_dict = {
         "heart_rate": req.heart_rate,
         "temperature": req.temperature,
@@ -369,10 +428,11 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
     reply_text = await generate_baymax_reply_text(
         user_query=req.user_speech,
         vitals=vitals_dict,
-        baseline=baseline_dict
+        baseline=baseline_dict,
+        patient_profile=patient_ehr
     )
 
-    # Record Baymax reply to persistent SQLite memory
+    # Record Baymax reply to SQLite
     aegis_memory.add_conversation(role="baymax", content=reply_text)
 
     return CompanionChatResponse(
@@ -382,7 +442,10 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
         confidence=eval_res.confidence,
         vital_summary=eval_res.features,
         escalated=escalated,
-        fatigue_detected=fatigue_detected
+        fatigue_detected=fatigue_detected,
+        matched_protocol=matched_protocol,
+        allergy_warning=safety_check["is_contraindicated"],
+        patient_profile=patient_ehr
     )
 
 

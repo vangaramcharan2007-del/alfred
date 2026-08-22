@@ -26,7 +26,10 @@ import {
   Sliders,
   AlertTriangle,
   PlayCircle,
-  UserCheck
+  UserCheck,
+  FileText,
+  AlertOctagon,
+  BookOpen
 } from "lucide-react";
 
 interface VitalsState {
@@ -47,6 +50,8 @@ interface MessageLog {
   text: string;
   timestamp: string;
   isAlert?: boolean;
+  matchedProtocol?: string;
+  allergyWarning?: boolean;
 }
 
 interface MemoryRecord {
@@ -54,6 +59,18 @@ interface MemoryRecord {
   eye_aspect_ratio: number;
   fatigue_flag: boolean;
   rppg_signal: number;
+}
+
+interface PatientProfile {
+  patient_uid: string;
+  name: string;
+  age: number;
+  gender: string;
+  blood_type: string;
+  allergies: string;
+  active_medications: string;
+  chronic_conditions: string;
+  emergency_contact: string;
 }
 
 interface RollingStats {
@@ -89,7 +106,7 @@ export default function AegisMedicalCommandDeck() {
     {
       id: "init-1",
       sender: "baymax",
-      text: "Hello! I am Baymax, your personal healthcare companion powered by local Ollama intelligence. Live hardware camera feed and persistent memory are online. How may I assist your well-being today?",
+      text: "Hello! I am Baymax, your personal healthcare companion. Offline Medical RAG protocols and your Electronic Health Record (EHR) are active. How may I assist you today?",
       timestamp: "12:00",
     },
   ]);
@@ -99,6 +116,19 @@ export default function AegisMedicalCommandDeck() {
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>("");
   const [speechRate, setSpeechRate] = useState<number>(0.90);
   const [speechPitch, setSpeechPitch] = useState<number>(0.90);
+
+  // Patient EHR State
+  const [patientProfile, setPatientProfile] = useState<PatientProfile>({
+    patient_uid: "PAT-RAM-2026",
+    name: "Ramcharan",
+    age: 24,
+    gender: "Male",
+    blood_type: "O+",
+    allergies: "Ibuprofen, NSAIDs",
+    active_medications: "None",
+    chronic_conditions: "Mild Asthmatic Tendency",
+    emergency_contact: "Dr. Callaghan"
+  });
 
   // Memory Table State
   const [memoryLogs, setMemoryLogs] = useState<MemoryRecord[]>([]);
@@ -143,10 +173,8 @@ export default function AegisMedicalCommandDeck() {
 
         setAvailableVoices(allVoices);
 
-        // Filter out female voices and prioritize warm, calm male voices
         const isMaleOrBaymax = (v: SpeechSynthesisVoice) => {
           const name = v.name.toLowerCase();
-          // Exclude typical female voices
           if (
             name.includes("female") ||
             name.includes("samantha") ||
@@ -170,7 +198,6 @@ export default function AegisMedicalCommandDeck() {
             name.includes("daniel") ||
             name.includes("george") ||
             name.includes("male") ||
-            name.includes("james") ||
             name.includes("natural") ||
             (v.lang.startsWith("en") && !name.includes("female"))
           );
@@ -233,7 +260,7 @@ export default function AegisMedicalCommandDeck() {
     }
   }, [vitals.isAnomaly, vitals.isFatigued, isSpeaking]);
 
-  // 4. Periodic Memory Records Poller (every 2.5s)
+  // 4. Periodic Memory Records & EHR Poller (every 2.5s)
   useEffect(() => {
     const pollMemory = async () => {
       try {
@@ -243,6 +270,9 @@ export default function AegisMedicalCommandDeck() {
           setMemoryLogs(data.vitals_log || []);
           if (data.rolling_stats) {
             setRollingStats(data.rolling_stats);
+          }
+          if (data.patient_profile) {
+            setPatientProfile(data.patient_profile);
           }
         }
       } catch {
@@ -362,7 +392,7 @@ export default function AegisMedicalCommandDeck() {
 
   // Preview Baymax Male Voice
   const handleTestVoice = () => {
-    speakText("Hello! I am Baymax, your personal healthcare companion. My synthesized male voice is calibrated for calm clinical reassurance.");
+    speakText("Hello! I am Baymax. I have reviewed your electronic health record. How may I assist your well-being today?");
   };
 
   // Toggle Microphone
@@ -374,9 +404,9 @@ export default function AegisMedicalCommandDeck() {
         recognitionRef.current?.start();
       } catch {
         const samplePrompts = [
+          "Baymax, my core temperature is spiking and I have a fever. Should I take some Ibuprofen?",
           "How can I reduce fever safely?",
           "What are the best recovery steps for fatigue and eye strain?",
-          "How are my vitals doing right now?",
         ];
         const randomPrompt = samplePrompts[Math.floor(Math.random() * samplePrompts.length)];
         handleSendQuery(randomPrompt);
@@ -384,7 +414,7 @@ export default function AegisMedicalCommandDeck() {
     }
   };
 
-  // Send Query to Pure Ollama LLaMA Engine
+  // Send Query to Doctor-Level Baymax Engine
   const handleSendQuery = async (queryText: string, customVitals?: Partial<VitalsState>) => {
     if (!queryText.trim()) return;
     const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
@@ -422,11 +452,13 @@ export default function AegisMedicalCommandDeck() {
             sender: "baymax",
             text: reply,
             timestamp: timeStr,
-            isAlert: data.is_anomaly || data.fatigue_detected,
+            isAlert: data.is_anomaly || data.fatigue_detected || data.allergy_warning,
+            matchedProtocol: data.matched_protocol ? data.matched_protocol.title : undefined,
+            allergyWarning: data.allergy_warning
           },
         ]);
 
-        if (data.is_anomaly || data.fatigue_detected) {
+        if (data.is_anomaly || data.fatigue_detected || data.allergy_warning) {
           setEscalationsCount((c) => c + 1);
         }
 
@@ -435,7 +467,7 @@ export default function AegisMedicalCommandDeck() {
         throw new Error("HTTP failure");
       }
     } catch {
-      const fallbackMsg = `Ollama model inference is processing. Heart rate: ${activeVitals.heartRate} BPM, Temp: ${activeVitals.temperature}°C.`;
+      const fallbackMsg = `Doctor-Level inference active. Heart rate: ${activeVitals.heartRate} BPM, Temp: ${activeVitals.temperature}°C.`;
       setMessages((prev) => [
         ...prev,
         { id: `baymax-${Date.now()}`, sender: "baymax", text: fallbackMsg, timestamp: timeStr },
@@ -444,7 +476,25 @@ export default function AegisMedicalCommandDeck() {
     }
   };
 
-  // Simulation Trigger: Fatigue (EAR < 0.22)
+  // Simulation Trigger 1: Allergy Contraindication Test (The Winning Demo Pitch)
+  const triggerAllergyTest = async () => {
+    const feverVitals: VitalsState = {
+      heartRate: 105,
+      rmssd: 25,
+      temperature: 39.2,
+      tempSlope: 0.12,
+      eda: 4.5,
+      ear: 0.28,
+      riskLevel: "HIGH RISK",
+      isAnomaly: true,
+      isFatigued: false,
+    };
+    setVitals(feverVitals);
+    setAvatarState("alert");
+    handleSendQuery("Baymax, my core temperature is spiking and I have a severe fever. Should I take some Ibuprofen?", feverVitals);
+  };
+
+  // Simulation Trigger 2: Fatigue (EAR < 0.22)
   const triggerFatigueSimulation = async () => {
     const fatigueVitals: VitalsState = {
       ...vitals,
@@ -457,7 +507,7 @@ export default function AegisMedicalCommandDeck() {
     handleSendQuery("I have severe eye fatigue and prolonged eyelid closure from working all night.", fatigueVitals);
   };
 
-  // Simulation Trigger: Acute Cardiac & Heat Anomaly
+  // Simulation Trigger 3: Acute Cardiac & Heat Anomaly
   const triggerAnomalySimulation = async () => {
     const anomalyVitals: VitalsState = {
       heartRate: 135,
@@ -472,7 +522,7 @@ export default function AegisMedicalCommandDeck() {
     };
     setVitals(anomalyVitals);
     setAvatarState("alert");
-    handleSendQuery("I have severe fever, body temperature of 39.5 degrees, and tachycardia.", anomalyVitals);
+    handleSendQuery("I have severe fever, body temperature of 39.5 degrees, and rapid palpitations.", anomalyVitals);
   };
 
   // Reset to Baseline & Clear DB
@@ -521,16 +571,16 @@ export default function AegisMedicalCommandDeck() {
                 AEGIS <span className="text-cyan-400 font-mono text-xs font-normal">// CLINICAL COMMAND DECK</span>
               </h1>
               <span className="px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/40 text-[10px] font-mono text-cyan-300">
-                OLLAMA LLaMA 3
+                DOCTOR-LEVEL RAG
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>HARDWARE CAMERA LIVE</span>
+              <span>OFFLINE MEDICAL RAG</span>
               <span>•</span>
-              <span>SQLITE PERSISTENT MEMORY</span>
+              <span>EHR MEMORY LAYER</span>
               <span>•</span>
-              <span>BAYMAX MALE SYNTHESIS</span>
+              <span>ALLERGY CONTRAINDICATION</span>
             </p>
           </div>
         </div>
@@ -544,7 +594,7 @@ export default function AegisMedicalCommandDeck() {
             <select
               value={selectedVoiceName}
               onChange={(e) => setSelectedVoiceName(e.target.value)}
-              className="bg-transparent text-[11px] font-mono text-cyan-300 focus:outline-none cursor-pointer max-w-[170px] truncate"
+              className="bg-transparent text-[11px] font-mono text-cyan-300 focus:outline-none cursor-pointer max-w-[150px] truncate"
               title="Select Baymax Synthesized Male Voice"
             >
               {availableVoices
@@ -561,7 +611,7 @@ export default function AegisMedicalCommandDeck() {
                 })
                 .map((v, i) => (
                   <option key={i} value={v.name} className="bg-slate-900 text-slate-200">
-                    {v.name.replace("Microsoft ", "").replace("Google ", "")} ({v.lang})
+                    {v.name.replace("Microsoft ", "").replace("Google ", "")}
                   </option>
                 ))}
             </select>
@@ -573,6 +623,16 @@ export default function AegisMedicalCommandDeck() {
               Test
             </button>
           </div>
+
+          {/* Winning Pitch Demo Trigger */}
+          <button
+            onClick={triggerAllergyTest}
+            className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-indigo-950/90 border border-indigo-500/70 text-indigo-300 hover:bg-indigo-900 transition flex items-center gap-1.5 shadow-[0_0_15px_rgba(99,102,241,0.4)]"
+            title="Test Ibuprofen Allergy Contraindication Pitch Demo"
+          >
+            <AlertOctagon className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+            <span>TEST ALLERGY CONTRAINDICATION</span>
+          </button>
 
           <button
             onClick={triggerFatigueSimulation}
@@ -824,7 +884,7 @@ export default function AegisMedicalCommandDeck() {
                 <div>
                   <h3 className="text-xs font-bold font-mono tracking-wide text-white flex items-center gap-2">
                     BAYMAX HEALTHCARE COMPANION
-                    <span className="text-[9px] text-cyan-400 font-normal">OLLAMA LLaMA 3</span>
+                    <span className="text-[9px] text-cyan-400 font-normal">DOCTOR-LEVEL RAG</span>
                   </h3>
                   <p className="text-[10px] text-slate-400 font-mono">
                     State: <span className="text-cyan-300 uppercase">{avatarState}</span>
@@ -845,14 +905,30 @@ export default function AegisMedicalCommandDeck() {
                   className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
                 >
                   <div
-                    className={`max-w-[90%] rounded-2xl px-4 py-3 leading-relaxed ${
+                    className={`max-w-[90%] rounded-2xl px-4 py-3 leading-relaxed flex flex-col gap-1.5 ${
                       msg.sender === "user"
                         ? "bg-cyan-950/80 text-cyan-100 border border-cyan-500/40 rounded-br-none"
+                        : msg.allergyWarning
+                        ? "bg-indigo-950/90 text-indigo-100 border border-indigo-500/80 rounded-bl-none shadow-[0_0_25px_rgba(99,102,241,0.4)]"
                         : msg.isAlert
                         ? "bg-rose-950/90 text-rose-100 border border-rose-500/60 rounded-bl-none shadow-[0_0_20px_rgba(244,63,94,0.3)]"
                         : "bg-slate-950 text-slate-200 border border-slate-800 rounded-bl-none"
                     }`}
                   >
+                    {/* Clinical Protocol / Allergy Badges */}
+                    {msg.matchedProtocol && (
+                      <div className="flex items-center gap-1 text-[9px] font-mono text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded-md border border-cyan-500/30 w-fit">
+                        <BookOpen className="w-3 h-3" />
+                        <span>RAG: {msg.matchedProtocol}</span>
+                      </div>
+                    )}
+                    {msg.allergyWarning && (
+                      <div className="flex items-center gap-1 text-[9px] font-mono text-amber-300 bg-amber-950/80 px-2 py-0.5 rounded-md border border-amber-500/50 w-fit">
+                        <AlertOctagon className="w-3 h-3" />
+                        <span>EHR ALLERGY CONTRAINDICATION DETECTED</span>
+                      </div>
+                    )}
+
                     <p className="whitespace-pre-wrap">{msg.text}</p>
                   </div>
                   <span className="text-[9px] text-slate-500 font-mono mt-1 px-1">
@@ -870,7 +946,7 @@ export default function AegisMedicalCommandDeck() {
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSendQuery(textInput)}
-                placeholder="Ask Baymax anything (e.g. 'how to reduce fever', 'check my vitals')..."
+                placeholder="Ask Baymax anything (e.g. 'Can I take Ibuprofen for fever?')..."
                 className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono transition"
               />
 
@@ -899,10 +975,51 @@ export default function AegisMedicalCommandDeck() {
         </section>
 
         {/* ========================================================================= */}
-        {/* RIGHT DECK (Cols 10-12): SQLite Persistent Memory & Telemetry Inspector */}
+        {/* RIGHT DECK (Cols 10-12): SQLite Persistent EHR Memory & Vitals Inspector */}
         {/* ========================================================================= */}
         <section className="lg:col-span-3 flex flex-col gap-4">
           
+          {/* Patient EHR Record Inspector Card */}
+          <div className="bg-slate-900/70 border border-slate-800 rounded-3xl p-4 flex flex-col gap-3 backdrop-blur-xl shadow-xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-cyan-400" />
+                <h2 className="text-xs font-bold font-mono tracking-wider text-slate-200">
+                  PATIENT EHR PROFILE (SQLite)
+                </h2>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/40 text-[9px] font-mono text-cyan-300">
+                {patientProfile.patient_uid}
+              </span>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-2">
+              <div className="flex justify-between items-center text-slate-300 border-b border-slate-800/60 pb-1.5">
+                <span className="text-slate-400">Patient:</span>
+                <span className="text-white font-bold">{patientProfile.name} ({patientProfile.age}y, {patientProfile.gender})</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-300 border-b border-slate-800/60 pb-1.5">
+                <span className="text-slate-400">Blood Type:</span>
+                <span className="text-cyan-300 font-bold">{patientProfile.blood_type}</span>
+              </div>
+              <div className="flex flex-col gap-1 border-b border-slate-800/60 pb-1.5">
+                <span className="text-slate-400 text-[10px]">DOCUMENTED ALLERGIES:</span>
+                <span className="px-2 py-1 rounded bg-rose-950/80 border border-rose-500/60 text-rose-300 font-bold text-[11px] flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3 text-rose-400" />
+                  {patientProfile.allergies}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span className="text-slate-400">Active Meds:</span>
+                <span className="text-slate-200">{patientProfile.active_medications}</span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span className="text-slate-400">Conditions:</span>
+                <span className="text-slate-300 text-[10px]">{patientProfile.chronic_conditions}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Persistent Database Inspector Card */}
           <div className="bg-slate-900/70 border border-slate-800 rounded-3xl p-4 flex flex-col gap-3 backdrop-blur-xl shadow-xl flex-1">
             <div className="flex items-center justify-between">
@@ -942,9 +1059,9 @@ export default function AegisMedicalCommandDeck() {
             <div className="text-[10px] font-mono text-slate-400 font-bold mt-1">
               LIVE INSERT STREAM (vitals_log):
             </div>
-            <div className="flex-1 overflow-y-auto max-h-[320px] rounded-2xl bg-slate-950/80 border border-slate-800/80 p-2 text-[10px] font-mono">
+            <div className="flex-1 overflow-y-auto max-h-[160px] rounded-2xl bg-slate-950/80 border border-slate-800/80 p-2 text-[10px] font-mono">
               {memoryLogs.length === 0 ? (
-                <div className="text-slate-500 text-center py-6">Connecting to SQLite stream...</div>
+                <div className="text-slate-500 text-center py-4">Connecting to SQLite stream...</div>
               ) : (
                 <div className="space-y-1.5">
                   {memoryLogs.map((log, idx) => (

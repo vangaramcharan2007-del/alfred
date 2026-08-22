@@ -1,7 +1,7 @@
 """
 Unit and Integration Tests for AEGIS Engine, WESAD Multi-Modal Classifier,
 FastAPI Ingestion, Pure Ollama LLM Service, Baymax Voice Companion,
-Real-Time Computer Vision, Persistent SQLite Memory Layer, and Video Streaming.
+Real-Time Computer Vision, Persistent SQLite Memory & EHR Layer, and Offline Medical RAG.
 """
 
 import os
@@ -19,6 +19,7 @@ from aegis_engine import (
 )
 from aegis_memory import AegisMemory
 from aegis_vision import VitalScanner
+from medical_rag import OfflineMedicalRAG
 from baymax_service import stream_baymax_reasoning, generate_baymax_reply_text, generate_explanation
 from main import app, dispatch_webhook_escalation
 
@@ -37,7 +38,7 @@ def wesad_detector():
 
 @pytest.fixture
 def memory():
-    """Fixture providing a temporary SQLite test database."""
+    """Fixture providing a temporary SQLite test database with EHR support."""
     test_db = "test_aegis_temp.db"
     mem = AegisMemory(db_path=test_db)
     yield mem
@@ -47,6 +48,12 @@ def memory():
             os.remove(test_db)
         except Exception:
             pass
+
+
+@pytest.fixture
+def medical_rag_engine():
+    """Fixture providing Offline Medical RAG engine."""
+    return OfflineMedicalRAG()
 
 
 @pytest.fixture
@@ -176,14 +183,74 @@ def test_api_telemetry_history(client):
 
 
 # ==========================================
-# 4. Pure Ollama LLM Service Tests
+# 4. EHR Memory & Offline Medical RAG Tests
+# ==========================================
+
+def test_ehr_patient_profile_crud(memory):
+    """Verify EHR patient profile initialization and updates."""
+    profile = memory.get_patient_profile()
+    assert profile["name"] == "Ramcharan"
+    assert profile["blood_type"] == "O+"
+    assert "ibuprofen" in profile["allergies_list"]
+
+    updated = memory.update_patient_profile(
+        active_medications="Vitamin C 500mg daily",
+        chronic_conditions="Mild seasonal allergies"
+    )
+    assert updated["active_medications"] == "Vitamin C 500mg daily"
+    assert updated["chronic_conditions"] == "Mild seasonal allergies"
+
+
+def test_medical_rag_protocol_retrieval(medical_rag_engine):
+    """Verify OfflineMedicalRAG retrieves clinical guidelines."""
+    # Fever Protocol
+    fev = medical_rag_engine.retrieve_protocol("spiking high fever and chills")
+    assert fev is not None
+    assert fev["protocol_id"] == "CLIN-PROT-FEV-01"
+    assert "Paracetamol" in fev["pharmacotherapy"]["first_line"]
+
+    # Eye Strain Protocol
+    eye = medical_rag_engine.retrieve_protocol("burning eyes from long screen time")
+    assert eye is not None
+    assert eye["protocol_id"] == "CLIN-PROT-EYE-03"
+    assert "20-20-20" in eye["first_line_action"]
+
+
+def test_medical_rag_drug_safety_check(medical_rag_engine):
+    """Verify drug allergy contraindication flagging."""
+    allergies = ["ibuprofen", "nsaids"]
+    
+    # Conflicting query
+    conflict = medical_rag_engine.evaluate_drug_safety("Should I take some Ibuprofen?", allergies)
+    assert conflict["is_contraindicated"] is True
+    assert "ibuprofen" in conflict["conflicting_allergens"]
+    assert "Paracetamol" in conflict["safe_alternative"]
+
+    # Safe query
+    safe = medical_rag_engine.evaluate_drug_safety("Should I drink some warm water?", allergies)
+    assert safe["is_contraindicated"] is False
+
+
+def test_api_patient_profile_and_protocols(client):
+    """Verify GET /patient-profile and GET /medical-protocols endpoints."""
+    res_ehr = client.get("/patient-profile")
+    assert res_ehr.status_code == 200
+    assert res_ehr.json()["name"] == "Ramcharan"
+
+    res_rag = client.get("/medical-protocols")
+    assert res_rag.status_code == 200
+    assert len(res_rag.json()) >= 5
+
+
+# ==========================================
+# 5. Pure Ollama LLM Service Tests
 # ==========================================
 
 async def mock_async_chat_stream(*args, **kwargs):
     """Mock async generator yielding Ollama chat stream chunks."""
     chunks = [
-        {"message": {"content": "Your temperature is elevated. "}},
-        {"message": {"content": "Please rest in a cool area and drink water."}}
+        {"message": {"content": "I am scanning your vitals now. "}},
+        {"message": {"content": "Your medical profile indicates an allergy to Ibuprofen. Please take Paracetamol instead."}}
     ]
     for chunk in chunks:
         yield chunk
@@ -197,13 +264,13 @@ def test_pure_ollama_streaming_inference():
     with patch("ollama.AsyncClient.chat", side_effect=lambda **kw: mock_async_chat_stream()):
         async def run_test():
             parts = []
-            async for chunk in stream_baymax_reasoning("How to reduce fever?", vitals, baseline):
+            async for chunk in stream_baymax_reasoning("Should I take Ibuprofen for fever?", vitals, baseline):
                 parts.append(chunk)
             return "".join(parts)
 
         result = asyncio.run(run_test())
-        assert "temperature is elevated" in result
-        assert "drink water" in result
+        assert "scanning your vitals" in result
+        assert "Ibuprofen" in result
 
 
 def test_api_explain_risk_with_mocked_ollama(client):
@@ -212,28 +279,30 @@ def test_api_explain_risk_with_mocked_ollama(client):
 
     with patch("ollama.AsyncClient.chat", side_effect=lambda **kw: mock_async_chat_stream()):
         response = client.post("/explain-risk", json=payload)
-
         assert response.status_code == 200
-        assert "temperature is elevated" in response.text
+        assert "scanning your vitals" in response.text
 
 
-def test_api_companion_interact_pure_ollama(client):
-    """Verify POST /companion-interact routes through pure Ollama model."""
+def test_api_companion_interact_with_ehr_allergy_alert(client):
+    """Verify POST /companion-interact cross-references EHR allergies and returns warning."""
     payload = {
-        "user_speech": "How to reduce fever safely?",
-        "heart_rate": 72.0,
-        "rmssd": 48.0,
-        "temperature": 38.5,
+        "user_speech": "I have a fever, can I take some Ibuprofen?",
+        "heart_rate": 88.0,
+        "rmssd": 35.0,
+        "temperature": 38.8,
         "temp_slope": 0.0,
-        "eda": 1.4,
-        "ear": 0.32
+        "eda": 2.2,
+        "ear": 0.30
     }
 
     with patch("ollama.AsyncClient.chat", side_effect=lambda **kw: mock_async_chat_stream()):
         response = client.post("/companion-interact", json=payload)
         assert response.status_code == 200
         data = response.json()
-        assert "temperature is elevated" in data["reply_text"]
+        assert data["allergy_warning"] is True
+        assert data["matched_protocol"] is not None
+        assert data["matched_protocol"]["protocol_id"] == "CLIN-PROT-FEV-01"
+        assert "Paracetamol" in data["reply_text"]
 
 
 @patch("main.dispatch_webhook_escalation")
@@ -259,7 +328,7 @@ def test_api_companion_interact_anomaly_takeover(mock_dispatch, client):
 
 
 # ==========================================
-# 5. Persistent Memory & Real Vision Tests
+# 6. Persistent Memory & Real Vision Tests
 # ==========================================
 
 def test_aegis_memory_crud(memory):
@@ -321,12 +390,13 @@ def test_api_live_vision_metrics(client):
 
 
 def test_api_memory_records(client):
-    """Verify GET /memory-records returns rolling stats and vitals log."""
+    """Verify GET /memory-records returns rolling stats, vitals log, and patient profile."""
     response = client.get("/memory-records")
     assert response.status_code == 200
     data = response.json()
     assert "rolling_stats" in data
     assert "vitals_log" in data
+    assert "patient_profile" in data
 
 
 def test_api_clear_memory(client):
