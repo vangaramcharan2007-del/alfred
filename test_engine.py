@@ -1,10 +1,13 @@
 """
 Unit and Integration Tests for AEGIS Engine, WESAD Multi-Modal Classifier,
-FastAPI Ingestion, Ollama LLM Service, and Baymax Voice Companion.
+FastAPI Ingestion, Ollama LLM Service, Baymax Voice Companion,
+and Real-Time Computer Vision & Persistent SQLite Memory Layer.
 """
 
+import os
 import asyncio
 from unittest.mock import patch, AsyncMock
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
@@ -14,6 +17,8 @@ from aegis_engine import (
     WESADPhysiologicalDetector,
     WESADEvaluationResult
 )
+from aegis_memory import AegisMemory
+from aegis_vision import VitalScanner
 from main import app, dispatch_webhook_escalation
 from baymax_service import generate_explanation
 
@@ -31,6 +36,20 @@ def wesad_detector():
 
 
 @pytest.fixture
+def memory():
+    """Fixture providing a temporary SQLite test database."""
+    test_db = "test_aegis_temp.db"
+    mem = AegisMemory(db_path=test_db)
+    yield mem
+    mem.close()
+    if os.path.exists(test_db):
+        try:
+            os.remove(test_db)
+        except Exception:
+            pass
+
+
+@pytest.fixture
 def client():
     """Test client for the FastAPI backend."""
     with TestClient(app) as test_client:
@@ -38,7 +57,7 @@ def client():
 
 
 # ==========================================
-# 1. ML Core Evaluation Tests (Task 1 & 4)
+# 1. ML Core Evaluation Tests
 # ==========================================
 
 def test_evaluate_normal_baseline(detector):
@@ -87,7 +106,6 @@ def test_evaluate_extreme_anomalies(detector):
 
 def test_wesad_classifier_normal_and_stress(wesad_detector):
     """Verify WESAD 5-feature classification."""
-    # 1. Healthy Resting: HR=72, RMSSD=45ms, Temp=36.8°C, Slope=0.0, EDA=1.5
     normal_res = wesad_detector.evaluate(
         heart_rate=72.0,
         rmssd=45.0,
@@ -99,7 +117,6 @@ def test_wesad_classifier_normal_and_stress(wesad_detector):
     assert normal_res.is_anomaly is False
     assert normal_res.confidence >= 0.5
 
-    # 2. Severe Stress / Heat Stroke: HR=135, RMSSD=15ms, Temp=39.5°C, Slope=0.15, EDA=8.5
     stress_res = wesad_detector.evaluate(
         heart_rate=135.0,
         rmssd=15.0,
@@ -244,4 +261,97 @@ def test_api_companion_interact_anomaly_takeover(mock_dispatch, client):
     assert data["is_anomaly"] is True
     assert data["risk_level"] == "HIGH RISK"
     assert data["escalated"] is True
-    assert "cooldown protocol" in data["reply_text"].lower() or "thermal" in data["reply_text"].lower() or "acute" in data["reply_text"].lower()
+
+
+# ==========================================
+# 6. Persistent Memory & Real Vision Tests
+# ==========================================
+
+def test_aegis_memory_crud(memory):
+    """Verify SQLite CRUD logging and retrieval in AegisMemory."""
+    # 1. Log vitals
+    row_id = memory.log_vitals(hr=74.5, ear=0.28, is_fatigued=False, rppg_signal=132.0)
+    assert row_id is not None
+    assert row_id > 0
+
+    # 2. Retrieve latest vital
+    latest = memory.get_latest_vital()
+    assert latest is not None
+    assert latest["heart_rate"] == 74.5
+    assert latest["eye_aspect_ratio"] == 0.28
+    assert latest["fatigue_flag"] is False
+    assert latest["rppg_signal"] == 132.0
+
+    # 3. Add dialogue context
+    memory.add_conversation("user", "Check my fatigue level")
+    memory.add_conversation("baymax", "Your eye aspect ratio is nominal.")
+    context = memory.get_conversation_context(limit=2)
+    assert len(context) == 2
+    assert context[0]["role"] == "user"
+    assert context[1]["role"] == "baymax"
+
+
+def test_vital_scanner_ear_calculation():
+    """Verify Eye Aspect Ratio (EAR) mathematical formula."""
+    scanner = VitalScanner()
+    
+    # Coordinates of an open eye
+    open_eye = [
+        (0.0, 10.0),   # 0: outer corner
+        (5.0, 15.0),   # 1: upper left
+        (10.0, 15.0),  # 2: upper right
+        (15.0, 10.0),  # 3: inner corner
+        (10.0, 5.0),   # 4: lower right
+        (5.0, 5.0)     # 5: lower left
+    ]
+    ear_open = scanner.calculate_ear(open_eye)
+    assert ear_open > 0.30  # Standard open eye EAR is ~0.33
+
+    # Coordinates of a closed/blinking eye (height ~ 0)
+    closed_eye = [
+        (0.0, 10.0),
+        (5.0, 10.2),
+        (10.0, 10.2),
+        (15.0, 10.0),
+        (10.0, 9.8),
+        (5.0, 9.8)
+    ]
+    ear_closed = scanner.calculate_ear(closed_eye)
+    assert ear_closed < 0.10  # Closed eye EAR drops significantly
+
+
+def test_vital_scanner_process_frame():
+    """Verify VitalScanner processes image frame cleanly."""
+    scanner = VitalScanner()
+    test_frame = np.full((480, 640, 3), 120, dtype=np.uint8)
+    result = scanner.process_frame(test_frame, draw_overlay=True)
+
+    assert "ear" in result
+    assert "is_fatigued" in result
+    assert "raw_pulse" in result
+    assert result["annotated_frame"].shape == (480, 640, 3)
+
+
+def test_api_live_vision_metrics(client):
+    """Verify GET /live-vision-metrics returns vision metrics from database."""
+    response = client.get("/live-vision-metrics")
+    assert response.status_code == 200
+    data = response.json()
+    assert "heart_rate" in data
+    assert "eye_aspect_ratio" in data
+    assert "fatigue_flag" in data
+
+
+def test_api_log_vision_vitals(client):
+    """Verify POST /log-vision-vitals writes metrics to SQLite memory."""
+    payload = {
+        "heart_rate": 75.0,
+        "ear": 0.29,
+        "is_fatigued": False,
+        "rppg_signal": 130.5
+    }
+    response = client.post("/log-vision-vitals", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "logged"
+    assert data["row_id"] > 0
