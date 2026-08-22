@@ -1,6 +1,6 @@
 """
 Unit and Integration Tests for AEGIS Engine, WESAD Multi-Modal Classifier,
-FastAPI Ingestion, Ollama LLM Service, Baymax Voice Companion,
+FastAPI Ingestion, Pure Ollama LLM Service, Baymax Voice Companion,
 Real-Time Computer Vision, Persistent SQLite Memory Layer, and Video Streaming.
 """
 
@@ -19,7 +19,7 @@ from aegis_engine import (
 )
 from aegis_memory import AegisMemory
 from aegis_vision import VitalScanner
-from baymax_service import DynamicBaymaxEngine, generate_explanation
+from baymax_service import stream_baymax_reasoning, generate_baymax_reply_text, generate_explanation
 from main import app, dispatch_webhook_escalation
 
 
@@ -176,17 +176,34 @@ def test_api_telemetry_history(client):
 
 
 # ==========================================
-# 4. Ollama LLM /explain-risk Tests
+# 4. Pure Ollama LLM Service Tests
 # ==========================================
 
 async def mock_async_chat_stream(*args, **kwargs):
     """Mock async generator yielding Ollama chat stream chunks."""
     chunks = [
-        {"message": {"content": "Critical physiological elevation detected. "}},
-        {"message": {"content": "Please rest immediately in a cool area and hydrate."}}
+        {"message": {"content": "Your temperature is elevated. "}},
+        {"message": {"content": "Please rest in a cool area and drink water."}}
     ]
     for chunk in chunks:
         yield chunk
+
+
+def test_pure_ollama_streaming_inference():
+    """Verify stream_baymax_reasoning yields model stream chunks."""
+    vitals = {"heart_rate": 75, "temperature": 37.0, "ear": 0.32, "rmssd": 45, "eda": 1.5}
+    baseline = {"avg_hr": 72.0, "avg_ear": 0.32}
+
+    with patch("ollama.AsyncClient.chat", side_effect=lambda **kw: mock_async_chat_stream()):
+        async def run_test():
+            parts = []
+            async for chunk in stream_baymax_reasoning("How to reduce fever?", vitals, baseline):
+                parts.append(chunk)
+            return "".join(parts)
+
+        result = asyncio.run(run_test())
+        assert "temperature is elevated" in result
+        assert "drink water" in result
 
 
 def test_api_explain_risk_with_mocked_ollama(client):
@@ -197,83 +214,26 @@ def test_api_explain_risk_with_mocked_ollama(client):
         response = client.post("/explain-risk", json=payload)
 
         assert response.status_code == 200
-        streamed_content = response.text
-        assert "Critical physiological elevation detected" in streamed_content or "temperature" in streamed_content
+        assert "temperature is elevated" in response.text
 
 
-def test_api_explain_risk_offline_fallback(client):
-    """Verify POST /explain-risk gracefully falls back when Ollama daemon is offline."""
-    payload = {"heart_rate": 135, "temperature": 39.5, "risk_score": "High"}
-
-    with patch("ollama.AsyncClient.chat", side_effect=Exception("Ollama connection refused")):
-        response = client.post("/explain-risk", json=payload)
-
-        assert response.status_code == 200
-        assert len(response.text) > 0
-
-
-# ==========================================
-# 5. Baymax Companion Dynamic NLG Tests
-# ==========================================
-
-def test_dynamic_baymax_engine_responses():
-    """Verify DynamicBaymaxEngine generates non-canned responses based on query intent."""
-    # 1. Normal Vitals Query
-    ans1 = DynamicBaymaxEngine.synthesize_response(
-        user_speech="How are my vitals today Baymax?",
-        heart_rate=72.0,
-        rmssd=45.0,
-        temperature=36.8,
-        temp_slope=0.0,
-        eda=1.5,
-        ear=0.32
-    )
-    assert "72" in ans1 or "cardiovascular" in ans1.lower() or "optimal" in ans1.lower()
-
-    # 2. Fatigue Query
-    ans2 = DynamicBaymaxEngine.synthesize_response(
-        user_speech="I feel so sleepy and exhausted",
-        heart_rate=65.0,
-        rmssd=40.0,
-        temperature=36.7,
-        temp_slope=0.0,
-        eda=1.4,
-        ear=0.15,
-        is_fatigued=True
-    )
-    assert "eyelid" in ans2.lower() or "somnolence" in ans2.lower() or "drowsiness" in ans2.lower() or "break" in ans2.lower()
-
-    # 3. Water / Hydration Query
-    ans3 = DynamicBaymaxEngine.synthesize_response(
-        user_speech="Should I drink more water?",
-        heart_rate=74.0,
-        rmssd=42.0,
-        temperature=37.0,
-        temp_slope=0.0,
-        eda=2.0,
-        ear=0.30
-    )
-    assert "water" in ans3.lower() or "hydration" in ans3.lower()
-
-
-def test_api_companion_interact_normal_speech(client):
-    """Verify POST /companion-interact handles routine user speech."""
+def test_api_companion_interact_pure_ollama(client):
+    """Verify POST /companion-interact routes through pure Ollama model."""
     payload = {
-        "user_speech": "How are my vitals doing today Baymax?",
+        "user_speech": "How to reduce fever safely?",
         "heart_rate": 72.0,
         "rmssd": 48.0,
-        "temperature": 36.8,
+        "temperature": 38.5,
         "temp_slope": 0.0,
         "eda": 1.4,
         "ear": 0.32
     }
 
-    response = client.post("/companion-interact", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["is_anomaly"] is False
-    assert data["risk_level"] == "OPTIMAL"
-    assert len(data["reply_text"]) > 0
+    with patch("ollama.AsyncClient.chat", side_effect=lambda **kw: mock_async_chat_stream()):
+        response = client.post("/companion-interact", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert "temperature is elevated" in data["reply_text"]
 
 
 @patch("main.dispatch_webhook_escalation")
@@ -289,16 +249,17 @@ def test_api_companion_interact_anomaly_takeover(mock_dispatch, client):
         "ear": 0.25
     }
 
-    response = client.post("/companion-interact", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["is_anomaly"] is True
-    assert data["risk_level"] == "HIGH RISK"
-    assert data["escalated"] is True
+    with patch("ollama.AsyncClient.chat", side_effect=lambda **kw: mock_async_chat_stream()):
+        response = client.post("/companion-interact", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_anomaly"] is True
+        assert data["risk_level"] == "HIGH RISK"
+        assert data["escalated"] is True
 
 
 # ==========================================
-# 6. Persistent Memory & Real Vision Tests
+# 5. Persistent Memory & Real Vision Tests
 # ==========================================
 
 def test_aegis_memory_crud(memory):

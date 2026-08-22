@@ -1,8 +1,8 @@
 """
 AEGIS Health Companion - FastAPI Backend
 Provides telemetry ingestion, WESAD physiological ML evaluation,
-live OpenCV MJPEG video streaming (/video-feed), persistent SQLite memory inspection (/memory-records),
-and dynamic non-repetitive Baymax health intelligence (/companion-interact).
+live OpenCV MJPEG video streaming, persistent SQLite memory inspection (/memory-records),
+and pure Ollama local LLaMA model health intelligence (/companion-interact).
 """
 
 from collections import deque
@@ -12,7 +12,6 @@ import logging
 from typing import Optional, List, Dict, Any
 
 import httpx
-import ollama
 from fastapi import FastAPI, BackgroundTasks, status
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,7 +25,7 @@ from aegis_engine import (
 )
 from aegis_memory import AegisMemory
 from aegis_vision import global_scanner
-from baymax_service import DynamicBaymaxEngine, generate_explanation
+from baymax_service import generate_baymax_reply_text, generate_explanation
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("aegis_backend")
@@ -37,7 +36,6 @@ detector: Optional[AnomalyDetector] = None
 wesad_detector: Optional[WESADPhysiologicalDetector] = None
 aegis_memory: Optional[AegisMemory] = None
 telemetry_history: deque = deque(maxlen=60)
-async_ollama_client = ollama.AsyncClient()
 
 
 async def dispatch_webhook_escalation(
@@ -93,8 +91,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="AEGIS Medical Intelligence Workstation Core",
-    version="3.0.0",
-    description="Offline-first clinical intelligence, live camera streaming, WESAD classification, and dynamic voice persona.",
+    version="3.1.0",
+    description="Offline-first clinical intelligence, pure Ollama LLaMA inference, live camera streaming, and WESAD classification.",
     lifespan=lifespan
 )
 
@@ -152,12 +150,11 @@ class CompanionChatResponse(BaseModel):
 def read_root():
     return {
         "service": "AEGIS Clinical Workstation Backend",
-        "version": "3.0.0",
+        "version": "3.1.0",
         "status": "online",
-        "video_stream": "GET /video-feed (MJPEG)",
+        "llm_engine": "Pure Ollama Local LLaMA 3 Model",
         "memory_inspector": "GET /memory-records",
-        "ml_engine": "WESAD Multi-Modal Random Forest + IsolationForest",
-        "nlp_engine": "DynamicBaymaxEngine"
+        "ml_engine": "WESAD Multi-Modal Random Forest + IsolationForest"
     }
 
 
@@ -312,9 +309,8 @@ async def explain_risk(payload: ExplainRiskPayload):
 @app.post("/companion-interact", response_model=CompanionChatResponse)
 async def companion_interact(req: CompanionChatRequest, background_tasks: BackgroundTasks):
     """
-    Two-way interactive Baymax companion endpoint.
-    Evaluates 5-feature WESAD parameters, checks live EAR & fatigue from camera,
-    and synthesizes non-repetitive contextual speech advice.
+    Pure Ollama LLaMA health companion endpoint.
+    Zero canned heuristics. Direct model inference on live biometrics.
     """
     global wesad_detector, aegis_memory
     if wesad_detector is None:
@@ -322,12 +318,12 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
     if aegis_memory is None:
         aegis_memory = AegisMemory(db_path="aegis_core.db")
 
-    # Fetch recent baseline for rolling context
+    # Fetch rolling baseline
     recent_records = aegis_memory.get_recent_baseline(limit=20)
     avg_hr = sum(r[0] for r in recent_records) / max(1, len(recent_records)) if recent_records else req.heart_rate
+    avg_ear = sum(r[1] for r in recent_records) / max(1, len(recent_records)) if recent_records else 0.32
 
-    # Determine EAR and Fatigue
-    ear_val = req.ear if req.ear is not None else 0.30
+    ear_val = req.ear if req.ear is not None else 0.32
     fatigue_detected = bool(ear_val < 0.22)
 
     # 1. WESAD Physiological Evaluation
@@ -356,38 +352,25 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
 
     # Record user message to persistent SQLite memory
     aegis_memory.add_conversation(role="user", content=req.user_speech)
-    recent_convos = aegis_memory.get_conversation_context(limit=6)
 
-    # 2. Dynamic Healthcare Intelligence Synthesis
-    prompt = (
-        f"User speech: '{req.user_speech}'. "
-        f"Vitals: HR={req.heart_rate:.0f} BPM, HRV={req.rmssd:.0f}ms, Temp={req.temperature:.1f}°C, EDA={req.eda:.1f}µS. "
-        f"Vision: EAR={ear_val:.3f}, Drowsiness={fatigue_detected}. "
-        "As Baymax, provide calm, concise medical guidance strictly under 2 sentences."
+    # 2. Pure Ollama Reasoning
+    vitals_dict = {
+        "heart_rate": req.heart_rate,
+        "temperature": req.temperature,
+        "ear": ear_val,
+        "rmssd": req.rmssd,
+        "eda": req.eda
+    }
+    baseline_dict = {
+        "avg_hr": round(avg_hr, 1),
+        "avg_ear": round(avg_ear, 3)
+    }
+
+    reply_text = await generate_baymax_reply_text(
+        user_query=req.user_speech,
+        vitals=vitals_dict,
+        baseline=baseline_dict
     )
-
-    reply_text = ""
-    try:
-        response = await async_ollama_client.chat(
-            model="aegis-baymax",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        reply_text = response.get("message", {}).get("content", "")
-    except Exception:
-        # High-order dynamic synthesis engine
-        reply_text = DynamicBaymaxEngine.synthesize_response(
-            user_speech=req.user_speech,
-            heart_rate=req.heart_rate,
-            rmssd=req.rmssd,
-            temperature=req.temperature,
-            temp_slope=req.temp_slope,
-            eda=req.eda,
-            ear=ear_val,
-            is_fatigued=fatigue_detected,
-            is_anomaly=eval_res.is_anomaly,
-            recent_history=recent_convos,
-            baseline_stats={"avg_hr": avg_hr}
-        )
 
     # Record Baymax reply to persistent SQLite memory
     aegis_memory.add_conversation(role="baymax", content=reply_text)

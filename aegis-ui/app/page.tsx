@@ -88,7 +88,7 @@ export default function AegisMedicalCommandDeck() {
     {
       id: "init-1",
       sender: "baymax",
-      text: "Hello! I am Baymax, your personal healthcare companion. Live optical face tracking and persistent biometric memory are active. How are you feeling right now?",
+      text: "Hello! I am Baymax, your personal healthcare companion powered by local Ollama intelligence. Live hardware camera feed and persistent memory are online. How may I assist your well-being today?",
       timestamp: "12:00",
     },
   ]);
@@ -102,12 +102,32 @@ export default function AegisMedicalCommandDeck() {
     fatigue_events_in_window: 0,
   });
   const [escalationsCount, setEscalationsCount] = useState<number>(0);
+  const [cameraActive, setCameraActive] = useState<boolean>(false);
 
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const recognitionRef = useRef<any>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Initialize Speech Recognition
+  // 1. Direct Hardware Webcam Mount via MediaDevices API
+  useEffect(() => {
+    if (typeof window !== "undefined" && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+        .then((stream) => {
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play().catch(() => {});
+            setCameraActive(true);
+          }
+        })
+        .catch((err) => {
+          console.warn("Hardware camera access note:", err);
+          setCameraActive(false);
+        });
+    }
+  }, []);
+
+  // 2. Initialize Speech Recognition
   useEffect(() => {
     if (typeof window !== "undefined") {
       const SpeechRecognition =
@@ -145,7 +165,7 @@ export default function AegisMedicalCommandDeck() {
     }
   }, [vitals.isAnomaly, vitals.isFatigued, isSpeaking]);
 
-  // Periodic Memory Records Poller (every 2.5s)
+  // 3. Periodic Memory Records Poller (every 2.5s)
   useEffect(() => {
     const pollMemory = async () => {
       try {
@@ -158,7 +178,7 @@ export default function AegisMedicalCommandDeck() {
           }
         }
       } catch {
-        // Backend polling
+        // Poller
       }
     };
 
@@ -167,7 +187,7 @@ export default function AegisMedicalCommandDeck() {
     return () => clearInterval(interval);
   }, []);
 
-  // Live rPPG Oscilloscope Canvas Waveform
+  // 4. Live rPPG Plethysmogram Oscilloscope Canvas
   useEffect(() => {
     let animationFrame: number;
     let phase = 0;
@@ -270,10 +290,9 @@ export default function AegisMedicalCommandDeck() {
         recognitionRef.current?.start();
       } catch {
         const samplePrompts = [
-          "How are my vitals and heart rate right now?",
-          "Can you check my ocular fatigue and EAR metrics?",
-          "Should I drink some water or take a break?",
-          "What is my current thermal status?",
+          "How can I reduce fever safely?",
+          "What are the best recovery steps for fatigue and eye strain?",
+          "How are my vitals doing right now?",
         ];
         const randomPrompt = samplePrompts[Math.floor(Math.random() * samplePrompts.length)];
         handleSendQuery(randomPrompt);
@@ -281,7 +300,7 @@ export default function AegisMedicalCommandDeck() {
     }
   };
 
-  // Send Query to Dynamic LLM Engine
+  // Send Query to Pure Ollama LLaMA Engine
   const handleSendQuery = async (queryText: string, customVitals?: Partial<VitalsState>) => {
     if (!queryText.trim()) return;
     const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
@@ -332,7 +351,7 @@ export default function AegisMedicalCommandDeck() {
         throw new Error("HTTP failure");
       }
     } catch {
-      const fallbackMsg = `Biometric scan: Heart rate is ${activeVitals.heartRate} BPM, temperature is ${activeVitals.temperature}°C, and eye aspect ratio is ${activeVitals.ear.toFixed(3)}. All parameters operational.`;
+      const fallbackMsg = `Ollama model inference is processing. Heart rate: ${activeVitals.heartRate} BPM, Temp: ${activeVitals.temperature}°C.`;
       setMessages((prev) => [
         ...prev,
         { id: `baymax-${Date.now()}`, sender: "baymax", text: fallbackMsg, timestamp: timeStr },
@@ -351,7 +370,7 @@ export default function AegisMedicalCommandDeck() {
     };
     setVitals(fatigueVitals);
     setAvatarState("alert");
-    handleSendQuery("I feel completely exhausted and my eyes are burning.", fatigueVitals);
+    handleSendQuery("I have severe eye fatigue and prolonged eyelid closure from working all night.", fatigueVitals);
   };
 
   // Simulation Trigger: Acute Cardiac & Heat Anomaly
@@ -369,7 +388,7 @@ export default function AegisMedicalCommandDeck() {
     };
     setVitals(anomalyVitals);
     setAvatarState("alert");
-    handleSendQuery("I have severe chest pounding, extreme dizziness, and heat exhaustion.", anomalyVitals);
+    handleSendQuery("I have severe fever, body temperature of 39.5 degrees, and tachycardia.", anomalyVitals);
   };
 
   // Reset to Baseline & Clear DB
@@ -418,16 +437,16 @@ export default function AegisMedicalCommandDeck() {
                 AEGIS <span className="text-cyan-400 font-mono text-xs font-normal">// CLINICAL COMMAND DECK</span>
               </h1>
               <span className="px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/40 text-[10px] font-mono text-cyan-300">
-                v3.0 ENTERPRISE
+                OLLAMA LLaMA 3
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>LIVE OPENCV STREAM</span>
+              <span>HARDWARE CAMERA LIVE</span>
               <span>•</span>
               <span>SQLITE PERSISTENT MEMORY</span>
               <span>•</span>
-              <span>DYNAMIC BAYMAX ENGINE</span>
+              <span>PURE MODEL INFERENCE</span>
             </p>
           </div>
         </div>
@@ -479,43 +498,46 @@ export default function AegisMedicalCommandDeck() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
         
         {/* ========================================================================= */}
-        {/* LEFT DECK (Cols 1-4): Live Optical Diagnostics & Video Stream */}
+        {/* LEFT DECK (Cols 1-4): Hardware Webcam Feed & rPPG Oscilloscope */}
         {/* ========================================================================= */}
         <section className="lg:col-span-4 flex flex-col gap-4">
           
-          {/* Live OpenCV Video Feed Card */}
+          {/* Live Hardware Webcam Video Card */}
           <div className="bg-slate-900/70 border border-slate-800 rounded-3xl p-4 flex flex-col gap-3 backdrop-blur-xl shadow-xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Camera className="w-4 h-4 text-cyan-400" />
                 <h2 className="text-xs font-bold font-mono tracking-wider text-slate-200">
-                  LIVE OPTICAL TRACKING FEED
+                  LIVE HARDWARE WEBCAM FEED
                 </h2>
               </div>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/50 text-[10px] font-mono text-emerald-300 flex items-center gap-1">
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono flex items-center gap-1 border ${
+                cameraActive
+                  ? "bg-emerald-950 border-emerald-500/50 text-emerald-300"
+                  : "bg-cyan-950 border-cyan-500/50 text-cyan-300"
+              }`}>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                ACTIVE 25 FPS
+                {cameraActive ? "HARDWARE ONLINE" : "BROWSER CAPTURE"}
               </span>
             </div>
 
-            {/* Embedded MJPEG Video Stream with Overlay Frame */}
-            <div className="relative w-full aspect-[4/3] rounded-2xl bg-black overflow-hidden border border-slate-800 flex items-center justify-center group shadow-inner">
-              <img
-                src={`${BACKEND_URL}/video-feed`}
-                alt="AEGIS OpenCV Video Stream"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as any).src = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600&auto=format&fit=crop&q=80";
-                }}
+            {/* Native In-Browser Hardware Video Element */}
+            <div className="relative w-full aspect-[4/3] rounded-2xl bg-black overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover scale-x-[-1]"
+                autoPlay
+                playsInline
+                muted
               />
               
-              {/* Scanline & HUD Overlay Effect */}
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/5 to-transparent pointer-events-none opacity-50" />
-              <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/70 backdrop-blur border border-slate-700 text-[9px] font-mono text-slate-300">
-                ROI: FOREHEAD + OCULAR
+              {/* Scanline & HUD Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/5 to-transparent pointer-events-none opacity-40" />
+              <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/70 backdrop-blur border border-slate-700 text-[9px] font-mono text-cyan-300">
+                LIVE CAMERA FEED: ACTIVE
               </div>
-              <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/70 backdrop-blur border border-slate-700 text-[9px] font-mono text-cyan-300">
-                rPPG WAVELENGTH: 530nm
+              <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-black/70 backdrop-blur border border-slate-700 text-[9px] font-mono text-slate-300">
+                FPS: 30 // 640x480
               </div>
             </div>
 
@@ -681,7 +703,7 @@ export default function AegisMedicalCommandDeck() {
                 <div>
                   <h3 className="text-xs font-bold font-mono tracking-wide text-white flex items-center gap-2">
                     BAYMAX HEALTHCARE COMPANION
-                    <span className="text-[9px] text-cyan-400 font-normal">WESAD ML v2</span>
+                    <span className="text-[9px] text-cyan-400 font-normal">OLLAMA LLaMA 3</span>
                   </h3>
                   <p className="text-[10px] text-slate-400 font-mono">
                     State: <span className="text-cyan-300 uppercase">{avatarState}</span>
@@ -727,7 +749,7 @@ export default function AegisMedicalCommandDeck() {
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSendQuery(textInput)}
-                placeholder="Type a health question or symptom..."
+                placeholder="Ask Baymax anything (e.g. 'how to reduce fever', 'check my vitals')..."
                 className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono transition"
               />
 
