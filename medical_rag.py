@@ -108,12 +108,27 @@ CLINICAL_PROTOCOLS: List[Dict[str, Any]] = [
         "summary": "Clinical guidelines for depressive disorders, psychological distress, and supportive third-party interventions.",
         "first_line_action": "Offer non-judgmental, compassionate active listening and presence; encourage scheduling an appointment with a licensed psychiatrist or clinical psychologist; provide local crisis lifeline resources (e.g. 988 / Vandrevala Helpline).",
         "pharmacotherapy": {
-            "first_line": "Antidepressant medications (e.g. SSRIs such as Escitalopram or Sertraline, SNRIs) require a formal psychiatric assessment and a strict clinical prescription.",
+            "first_line": "Antidepressant medications (such as SSRIs like Escitalopram or Sertraline) require a formal psychiatric assessment and a strict clinical prescription.",
             "second_line": "Evidence-based psychotherapy (Cognitive Behavioral Therapy - CBT, Interpersonal Therapy).",
             "contraindicated_drugs": ["over-the-counter mood modifiers", "unprescribed sedatives", "alcohol self-medication", "unmonitored herbal stimulants"],
-            "contraindication_rationale": "Antidepressant pharmacotherapy cannot be recommended or obtained over the counter. SSRIs require strict medical supervision, baseline organ function screening, and titrated dosing to prevent adverse reactions like Serotonin Syndrome or paradoxical worsening."
+            "contraindication_rationale": "Antidepressant pharmacotherapy cannot be obtained over the counter. SSRIs require medical supervision, baseline screening, and careful dosing."
         },
         "escalation_criteria": "Expressions of active suicidal ideation, intent of self-harm, severe psychosis, or acute inability to care for fundamental personal safety."
+    },
+    {
+        "protocol_id": "CLIN-PROT-NEURO-08",
+        "title": "Neurodivergence & ADHD Executive Functioning Protocol",
+        "category": "Neurodevelopmental & Behavioral Health",
+        "keywords": ["adhd", "add", "hyperactivity", "inattention", "attention deficit", "focus", "neurodivergent", "executive dysfunction", "adhd good or bad"],
+        "summary": "Clinical and educational perspectives on Attention Deficit Hyperactivity Disorder (ADHD) and executive functioning.",
+        "first_line_action": "ADHD is a neurodevelopmental trait characterized by differences in dopamine signaling and executive function. It is neither inherently good nor bad: it presents challenges in sustained focus and organization, while frequently offering strengths in creative problem-solving, rapid ideation, and hyperfocus.",
+        "pharmacotherapy": {
+            "first_line": "Cognitive-behavioral coaching, environmental modifications, and consultation with a clinical psychologist or psychiatrist for personalized assessment.",
+            "second_line": "Prescription medications (stimulant or non-stimulant) under clinical supervision.",
+            "contraindicated_drugs": ["unprescribed cognitive stimulants", "unregulated nootropics"],
+            "contraindication_rationale": "Unregulated stimulants carry risks of cardiovascular stress and insomnia."
+        },
+        "escalation_criteria": "Severe impairment in daily vocational or emotional functioning."
     }
 ]
 
@@ -148,8 +163,7 @@ class OfflineMedicalRAG:
             # 1. Exact keyword/phrase match in query
             for kw in keywords:
                 if kw in query_clean:
-                    # Multi-word phrase matches get higher weight
-                    score += 3.0 if " " in kw else 2.0
+                    score += 4.0 if " " in kw else 2.5
                 elif any(q in kw for q in query_tokens if len(q) > 3):
                     score += 0.8
 
