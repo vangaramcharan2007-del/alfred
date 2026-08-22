@@ -1,7 +1,8 @@
 """
 AEGIS Health Companion - FastAPI Backend
-Handles telemetry ingestion, WESAD multi-modal anomaly classification,
-companion voice interaction, persistent SQLite memory tracking, and vision metrics.
+Provides telemetry ingestion, WESAD physiological ML evaluation,
+live OpenCV MJPEG video streaming (/video-feed), persistent SQLite memory inspection (/memory-records),
+and dynamic non-repetitive Baymax health intelligence (/companion-interact).
 """
 
 from collections import deque
@@ -13,6 +14,7 @@ from typing import Optional, List, Dict, Any
 import httpx
 import ollama
 from fastapi import FastAPI, BackgroundTasks, status
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -23,14 +25,14 @@ from aegis_engine import (
     WESADEvaluationResult
 )
 from aegis_memory import AegisMemory
-from baymax_service import generate_explanation
+from aegis_vision import global_scanner
+from baymax_service import DynamicBaymaxEngine, generate_explanation
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("aegis_backend")
 
 WEBHOOK_URL = "http://localhost:5678/webhook/aegis-escalation"
 
-# Global detector & memory instances
 detector: Optional[AnomalyDetector] = None
 wesad_detector: Optional[WESADPhysiologicalDetector] = None
 aegis_memory: Optional[AegisMemory] = None
@@ -45,9 +47,6 @@ async def dispatch_webhook_escalation(
     rmssd: Optional[float] = None,
     eda: Optional[float] = None
 ) -> None:
-    """
-    Fires an asynchronous HTTP POST request to the n8n escalation webhook when an anomaly is detected.
-    """
     payload = {
         "event": "AEGIS_ANOMALY_ESCALATION",
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -70,13 +69,12 @@ async def dispatch_webhook_escalation(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global detector, wesad_detector, aegis_memory
-    logger.info("Initializing AEGIS AnomalyDetector, WESAD Classifier, and SQLite Memory on startup...")
+    logger.info("Initializing AEGIS AnomalyDetector, WESAD Classifier, and SQLite Memory...")
     detector = AnomalyDetector()
     wesad_detector = WESADPhysiologicalDetector()
     aegis_memory = AegisMemory(db_path="aegis_core.db")
-    logger.info("AEGIS Core Systems Ready.")
-    
-    # Populate initial baseline seed data in history buffer
+    logger.info("AEGIS Core Systems Online.")
+
     now = datetime.now(timezone.utc)
     for i in range(5):
         telemetry_history.append({
@@ -94,13 +92,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AEGIS Baymax Companion Core API",
-    version="2.1.0",
-    description="Offline-first physiological intelligence, WESAD classification, Computer Vision scanner, and voice companion engine.",
+    title="AEGIS Medical Intelligence Workstation Core",
+    version="3.0.0",
+    description="Offline-first clinical intelligence, live camera streaming, WESAD classification, and dynamic voice persona.",
     lifespan=lifespan
 )
 
-# Enable CORS for Next.js frontend (localhost:3000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -111,8 +108,8 @@ app.add_middleware(
 
 
 class TelemetryPayload(BaseModel):
-    heart_rate: int = Field(..., description="Heart rate in beats per minute (BPM)")
-    temperature: float = Field(..., description="Body temperature in Celsius (°C)")
+    heart_rate: int = Field(..., description="Heart rate in BPM")
+    temperature: float = Field(..., description="Body temperature in °C")
 
 
 class TelemetryResponse(BaseModel):
@@ -126,19 +123,19 @@ class TelemetryResponse(BaseModel):
 
 
 class ExplainRiskPayload(BaseModel):
-    heart_rate: int = Field(..., description="Heart rate in beats per minute (BPM)")
-    temperature: float = Field(..., description="Body temperature in Celsius (°C)")
-    risk_score: Optional[str] = Field(None, description="Optional pre-evaluated risk score ('Normal' or 'High')")
+    heart_rate: int = Field(...)
+    temperature: float = Field(...)
+    risk_score: Optional[str] = Field(None)
 
 
 class CompanionChatRequest(BaseModel):
-    user_speech: str = Field(..., description="Transcribed user query or voice input")
-    heart_rate: float = Field(72.0, description="Heart rate in BPM")
-    rmssd: float = Field(45.0, description="HRV RMSSD in ms")
-    temperature: float = Field(36.8, description="Skin/Core temperature in °C")
-    temp_slope: float = Field(0.0, description="Temperature slope (°C/min)")
-    eda: float = Field(1.5, description="Electrodermal activity / GSR (µS)")
-    ear: Optional[float] = Field(None, description="Optional Eye Aspect Ratio from Vision Scanner")
+    user_speech: str = Field(..., description="User query or voice transcript")
+    heart_rate: float = Field(72.0)
+    rmssd: float = Field(45.0)
+    temperature: float = Field(36.8)
+    temp_slope: float = Field(0.0)
+    eda: float = Field(1.5)
+    ear: Optional[float] = Field(None)
 
 
 class CompanionChatResponse(BaseModel):
@@ -151,35 +148,34 @@ class CompanionChatResponse(BaseModel):
     fatigue_detected: bool = False
 
 
-class VisionMetricLog(BaseModel):
-    heart_rate: float = Field(..., description="rPPG green channel pulse estimate")
-    ear: float = Field(..., description="Eye Aspect Ratio")
-    is_fatigued: bool = Field(False, description="Drowsiness classification")
-    rppg_signal: float = Field(128.0, description="Raw green channel signal")
-
-
 @app.get("/")
 def read_root():
     return {
-        "service": "AEGIS Baymax Health Companion",
-        "version": "2.1.0",
+        "service": "AEGIS Clinical Workstation Backend",
+        "version": "3.0.0",
         "status": "online",
-        "vision_scanner": "MediaPipe Eye Aspect Ratio + rPPG Active",
-        "memory_layer": "SQLite Persistent (aegis_core.db)",
+        "video_stream": "GET /video-feed (MJPEG)",
+        "memory_inspector": "GET /memory-records",
         "ml_engine": "WESAD Multi-Modal Random Forest + IsolationForest",
-        "companion_persona": "aegis-baymax (Ollama Local LLM)"
+        "nlp_engine": "DynamicBaymaxEngine"
     }
 
 
-@app.get("/telemetry-history", response_model=List[Dict[str, Any]])
-def get_telemetry_history():
-    """Return historical telemetry readings for the Next.js frontend."""
-    return list(telemetry_history)
+@app.get("/video-feed")
+def video_feed():
+    """
+    Live OpenCV MJPEG Video Stream with facial ROI tracking,
+    Eye Aspect Ratio, and Forehead rPPG waveform.
+    """
+    return StreamingResponse(
+        global_scanner.generate_mjpeg_frames(),
+        media_type="multipart/x-mixed-replace; boundary=frame"
+    )
 
 
 @app.get("/live-vision-metrics")
 def get_live_vision_metrics():
-    """Fetch the latest real-time computer vision metrics from SQLite memory."""
+    """Fetch the latest live optical metrics from SQLite memory."""
     global aegis_memory
     if aegis_memory is None:
         aegis_memory = AegisMemory(db_path="aegis_core.db")
@@ -194,34 +190,68 @@ def get_live_vision_metrics():
             "rppg_signal": 128.0,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
-    return {
-        "status": "active",
-        **latest
-    }
+    return {"status": "active", **latest}
 
 
-@app.post("/log-vision-vitals")
-def log_vision_vitals(log: VisionMetricLog):
-    """Log an instantaneous camera frame diagnostic into SQLite memory."""
+@app.get("/memory-records")
+def get_memory_records(limit: int = 30):
+    """
+    Fetch live rows from vitals_log and memory_context with calculated rolling averages.
+    """
     global aegis_memory
     if aegis_memory is None:
         aegis_memory = AegisMemory(db_path="aegis_core.db")
 
-    row_id = aegis_memory.log_vitals(
-        hr=log.heart_rate,
-        ear=log.ear,
-        is_fatigued=log.is_fatigued,
-        rppg_signal=log.rppg_signal
-    )
-    return {"status": "logged", "row_id": row_id}
+    raw_vitals = aegis_memory.get_recent_baseline(limit=limit)
+    vitals_list = []
+    hr_vals, ear_vals = [], []
+    fatigue_count = 0
+
+    for r in raw_vitals:
+        hr_vals.append(r[0])
+        ear_vals.append(r[1])
+        if r[2]:
+            fatigue_count += 1
+        vitals_list.append({
+            "heart_rate": round(r[0], 1),
+            "eye_aspect_ratio": round(r[1], 3),
+            "fatigue_flag": bool(r[2]),
+            "rppg_signal": round(r[3], 1)
+        })
+
+    rolling_stats = {
+        "record_count": len(vitals_list),
+        "avg_heart_rate": round(sum(hr_vals) / max(1, len(hr_vals)), 1) if hr_vals else 72.0,
+        "avg_ear": round(sum(ear_vals) / max(1, len(ear_vals)), 3) if ear_vals else 0.30,
+        "fatigue_events_in_window": fatigue_count
+    }
+
+    conversation_history = aegis_memory.get_conversation_context(limit=10)
+
+    return {
+        "rolling_stats": rolling_stats,
+        "vitals_log": vitals_list,
+        "conversation_context": conversation_history
+    }
 
 
-@app.post("/ingest-telemetry", response_model=TelemetryResponse, status_code=status.HTTP_200_OK)
+@app.post("/clear-memory")
+def clear_memory():
+    """Clear memory logs and reset database baseline."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    aegis_memory.clear_memory()
+    return {"status": "memory_cleared"}
+
+
+@app.get("/telemetry-history", response_model=List[Dict[str, Any]])
+def get_telemetry_history():
+    return list(telemetry_history)
+
+
+@app.post("/ingest-telemetry", response_model=TelemetryResponse)
 async def ingest_telemetry(payload: TelemetryPayload, background_tasks: BackgroundTasks):
-    """
-    Ingest physiological telemetry data, evaluate with ML model,
-    and trigger background escalation webhook if anomaly is detected.
-    """
     global detector
     if detector is None:
         detector = AnomalyDetector()
@@ -231,12 +261,6 @@ async def ingest_telemetry(payload: TelemetryPayload, background_tasks: Backgrou
     current_time_str = datetime.now(timezone.utc).strftime("%H:%M:%S")
 
     if result.is_anomaly:
-        logger.warning(
-            "⚠️ ANOMALY DETECTED: HR=%d BPM, Temp=%.1f°C -> Risk: %s. Scheduling escalation webhook.",
-            payload.heart_rate,
-            payload.temperature,
-            result.risk_score
-        )
         background_tasks.add_task(
             dispatch_webhook_escalation,
             float(payload.heart_rate),
@@ -244,13 +268,6 @@ async def ingest_telemetry(payload: TelemetryPayload, background_tasks: Backgrou
             result.risk_score
         )
         escalated = True
-    else:
-        logger.info(
-            "Normal telemetry: HR=%d BPM, Temp=%.1f°C -> Risk: %s",
-            payload.heart_rate,
-            payload.temperature,
-            result.risk_score
-        )
 
     history_item = {
         "id": len(telemetry_history) + 1,
@@ -276,10 +293,6 @@ async def ingest_telemetry(payload: TelemetryPayload, background_tasks: Backgrou
 
 @app.post("/explain-risk")
 async def explain_risk(payload: ExplainRiskPayload):
-    """
-    Translate telemetry anomalies and risk scores into actionable safety advice
-    streaming from localized aegis-baymax LLM.
-    """
     global detector
     if detector is None:
         detector = AnomalyDetector()
@@ -300,7 +313,8 @@ async def explain_risk(payload: ExplainRiskPayload):
 async def companion_interact(req: CompanionChatRequest, background_tasks: BackgroundTasks):
     """
     Two-way interactive Baymax companion endpoint.
-    Evaluates 5-feature WESAD physiological parameters and produces vocal-ready guidance.
+    Evaluates 5-feature WESAD parameters, checks live EAR & fatigue from camera,
+    and synthesizes non-repetitive contextual speech advice.
     """
     global wesad_detector, aegis_memory
     if wesad_detector is None:
@@ -308,17 +322,15 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
     if aegis_memory is None:
         aegis_memory = AegisMemory(db_path="aegis_core.db")
 
-    # Check for live vision fatigue status in persistent memory
-    latest_vision = aegis_memory.get_latest_vital()
-    fatigue_detected = False
-    ear_val = req.ear
-    if ear_val is None and latest_vision:
-        ear_val = latest_vision.get("eye_aspect_ratio", 0.30)
-        fatigue_detected = bool(latest_vision.get("fatigue_flag", False))
-    elif ear_val is not None:
-        fatigue_detected = bool(ear_val < 0.22)
+    # Fetch recent baseline for rolling context
+    recent_records = aegis_memory.get_recent_baseline(limit=20)
+    avg_hr = sum(r[0] for r in recent_records) / max(1, len(recent_records)) if recent_records else req.heart_rate
 
-    # 1. Multi-modal physiological evaluation
+    # Determine EAR and Fatigue
+    ear_val = req.ear if req.ear is not None else 0.30
+    fatigue_detected = bool(ear_val < 0.22)
+
+    # 1. WESAD Physiological Evaluation
     eval_res: WESADEvaluationResult = wesad_detector.evaluate(
         heart_rate=req.heart_rate,
         rmssd=req.rmssd,
@@ -330,14 +342,6 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
     escalated = False
     if eval_res.is_anomaly or fatigue_detected:
         risk_level = "HIGH RISK"
-        logger.warning(
-            "⚠️ ANOMALY/FATIGUE DETECTED: HR=%.1f, HRV=%.1fms, Temp=%.1f°C, EAR=%.3f, Fatigue=%s",
-            req.heart_rate,
-            req.rmssd,
-            req.temperature,
-            ear_val or 0.30,
-            fatigue_detected
-        )
         background_tasks.add_task(
             dispatch_webhook_escalation,
             req.heart_rate,
@@ -350,17 +354,16 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
     else:
         risk_level = eval_res.risk_level
 
-    # Record dialogue to persistent memory
+    # Record user message to persistent SQLite memory
     aegis_memory.add_conversation(role="user", content=req.user_speech)
+    recent_convos = aegis_memory.get_conversation_context(limit=6)
 
-    # 2. Contextual LLM Voice Prompt
+    # 2. Dynamic Healthcare Intelligence Synthesis
     prompt = (
-        f"User said: '{req.user_speech}'. "
-        f"Vitals: Heart Rate={req.heart_rate:.0f} BPM, HRV/RMSSD={req.rmssd:.0f}ms, Core Temp={req.temperature:.1f}°C, EDA={req.eda:.1f}µS. "
-        f"Vision Metrics: EAR={ear_val or 0.30:.3f}, Drowsiness={fatigue_detected}. "
-        f"Assessed Risk: {risk_level}. "
-        "Reply as Baymax: a calm, soothing personal healthcare companion. "
-        "Speak directly to the user in a gentle, reassuring manner. Keep your response strictly under 2 sentences."
+        f"User speech: '{req.user_speech}'. "
+        f"Vitals: HR={req.heart_rate:.0f} BPM, HRV={req.rmssd:.0f}ms, Temp={req.temperature:.1f}°C, EDA={req.eda:.1f}µS. "
+        f"Vision: EAR={ear_val:.3f}, Drowsiness={fatigue_detected}. "
+        "As Baymax, provide calm, concise medical guidance strictly under 2 sentences."
     )
 
     reply_text = ""
@@ -370,32 +373,23 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
             messages=[{"role": "user", "content": prompt}]
         )
         reply_text = response.get("message", {}).get("content", "")
-    except Exception as exc:
-        logger.warning("Ollama unavailable (%s). Using specialized Baymax offline voice heuristic.", exc)
-        if fatigue_detected:
-            reply_text = (
-                "I observe prolonged eyelid closure indicating acute drowsiness. "
-                "Please pull over or take a restorative rest interval to ensure safety."
-            )
-        elif eval_res.is_anomaly:
-            reply_text = (
-                "I detect an acute elevation in your thermal baseline and sympathetic arousal. "
-                "Please sit down, hydrate with cool water, and allow me to initiate a cooldown protocol."
-            )
-        elif "how" in req.user_speech.lower() and ("am" in req.user_speech.lower() or "vital" in req.user_speech.lower() or "feel" in req.user_speech.lower()):
-            reply_text = (
-                f"Your vitals indicate optimal cardiovascular equilibrium with a heart rate of {int(req.heart_rate)} BPM "
-                f"and healthy heart rate variability. You are in good condition."
-            )
-        elif "hello" in req.user_speech.lower() or "hi" in req.user_speech.lower():
-            reply_text = "Hello, I am Baymax, your personal healthcare companion. How may I assist your well-being today?"
-        else:
-            reply_text = (
-                f"I am monitoring your biometrics. Your heart rate is {int(req.heart_rate)} BPM and temperature is {req.temperature:.1f}°C, "
-                "both within standard resting parameters."
-            )
+    except Exception:
+        # High-order dynamic synthesis engine
+        reply_text = DynamicBaymaxEngine.synthesize_response(
+            user_speech=req.user_speech,
+            heart_rate=req.heart_rate,
+            rmssd=req.rmssd,
+            temperature=req.temperature,
+            temp_slope=req.temp_slope,
+            eda=req.eda,
+            ear=ear_val,
+            is_fatigued=fatigue_detected,
+            is_anomaly=eval_res.is_anomaly,
+            recent_history=recent_convos,
+            baseline_stats={"avg_hr": avg_hr}
+        )
 
-    # Record Baymax reply to persistent memory
+    # Record Baymax reply to persistent SQLite memory
     aegis_memory.add_conversation(role="baymax", content=reply_text)
 
     return CompanionChatResponse(
