@@ -132,6 +132,18 @@ def test_webhook_escalation_dispatcher_handles_connection_error():
         asyncio.run(dispatch_webhook_escalation(heart_rate=135, temperature=39.5, risk_score="High"))
 
 
+def test_api_telemetry_history(client):
+    """Verify GET /telemetry-history returns historical readings."""
+    response = client.get("/telemetry-history")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) > 0
+    assert "heart_rate" in data[0]
+    assert "temperature" in data[0]
+
+
+
 # ==========================================
 # 3. Phase 2: Ollama LLM /explain-risk Tests
 # ==========================================

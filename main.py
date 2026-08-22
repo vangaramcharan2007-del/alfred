@@ -1,16 +1,18 @@
 """
 AEGIS Health Companion - FastAPI Backend
 Handles telemetry ingestion, anomaly evaluation via aegis_engine,
-asynchronous escalation webhook dispatching, and localized LLM streaming via baymax_service.
+asynchronous escalation webhook dispatching, history tracking, and localized LLM streaming via baymax_service.
 """
 
+from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import logging
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 import httpx
 from fastapi import FastAPI, BackgroundTasks, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from aegis_engine import AnomalyDetector, EvaluationResult
@@ -21,8 +23,9 @@ logger = logging.getLogger("aegis_backend")
 
 WEBHOOK_URL = "http://localhost:5678/webhook/aegis-escalation"
 
-# Global detector instance
+# Global detector instance & in-memory history buffer (max 60 data points)
 detector: Optional[AnomalyDetector] = None
+telemetry_history: deque = deque(maxlen=60)
 
 
 async def dispatch_webhook_escalation(heart_rate: int, temperature: float, risk_score: str) -> None:
@@ -52,14 +55,36 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing AEGIS AnomalyDetector ML Core on startup...")
     detector = AnomalyDetector()
     logger.info("AEGIS AnomalyDetector initialized and trained on baseline data.")
+    
+    # Populate initial baseline seed data in history buffer
+    now = datetime.now(timezone.utc)
+    for i in range(5):
+        telemetry_history.append({
+            "id": i + 1,
+            "timestamp": now.strftime("%H:%M:%S"),
+            "heart_rate": 72,
+            "temperature": 36.8,
+            "risk_score": "Normal",
+            "is_anomaly": False,
+            "escalated": False
+        })
     yield
 
 
 app = FastAPI(
     title="AEGIS Offline-First Health Companion API",
-    version="1.1.0",
+    version="1.2.0",
     description="Offline-first telemetry ingestion, anomaly detection, and localized LLM advice engine.",
     lifespan=lifespan
+)
+
+# Enable CORS for Next.js frontend (localhost:3000)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -75,6 +100,7 @@ class TelemetryResponse(BaseModel):
     heart_rate: int
     temperature: float
     escalated: bool = False
+    timestamp: str = ""
 
 
 class ExplainRiskPayload(BaseModel):
@@ -87,11 +113,17 @@ class ExplainRiskPayload(BaseModel):
 def read_root():
     return {
         "service": "AEGIS Health Companion",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "status": "online",
         "engine": "IsolationForest Active",
         "llm_assistant": "aegis-baymax (Ollama)"
     }
+
+
+@app.get("/telemetry-history", response_model=List[Dict[str, Any]])
+def get_telemetry_history():
+    """Return historical telemetry readings for the Next.js Recharts graph."""
+    return list(telemetry_history)
 
 
 @app.post("/ingest-telemetry", response_model=TelemetryResponse, status_code=status.HTTP_200_OK)
@@ -106,6 +138,7 @@ async def ingest_telemetry(payload: TelemetryPayload, background_tasks: Backgrou
 
     result: EvaluationResult = detector.evaluate(payload.heart_rate, payload.temperature)
     escalated = False
+    current_time_str = datetime.now(timezone.utc).strftime("%H:%M:%S")
 
     if result.is_anomaly:
         logger.warning(
@@ -129,13 +162,25 @@ async def ingest_telemetry(payload: TelemetryPayload, background_tasks: Backgrou
             result.risk_score
         )
 
+    history_item = {
+        "id": len(telemetry_history) + 1,
+        "timestamp": current_time_str,
+        "heart_rate": payload.heart_rate,
+        "temperature": payload.temperature,
+        "risk_score": result.risk_score,
+        "is_anomaly": result.is_anomaly,
+        "escalated": escalated
+    }
+    telemetry_history.append(history_item)
+
     return TelemetryResponse(
         status="success",
         risk_score=result.risk_score,
         is_anomaly=result.is_anomaly,
         heart_rate=payload.heart_rate,
         temperature=payload.temperature,
-        escalated=escalated
+        escalated=escalated,
+        timestamp=current_time_str
     )
 
 
