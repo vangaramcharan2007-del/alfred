@@ -1,7 +1,8 @@
 """
 AEGIS Memory Core - Persistent Encapsulated SQLite Database Layer with Clinical EHR
 Stores physiological vital logs, Eye Aspect Ratio (EAR) fatigue events,
-conversation context, multi-patient EHR profiles, and Store-and-Forward FHIR Sync Queue.
+conversation context, multi-patient EHR profiles, Store-and-Forward FHIR Sync Queue,
+and Active Medication Adherence / Reminder Schedules.
 """
 
 import sqlite3
@@ -14,7 +15,7 @@ class AegisMemory:
     """
     Encapsulated Persistent Memory Layer for AEGIS.
     Tracks vitals, optical rPPG signals, conversational context,
-    multi-patient EHR records, and offline Store-and-Forward hospital sync queues in SQLite.
+    multi-patient EHR records, medication schedules, and offline Store-and-Forward hospital sync queues in SQLite.
     """
 
     def __init__(self, db_path: str = "aegis_core.db"):
@@ -23,6 +24,7 @@ class AegisMemory:
         self.cursor = self.conn.cursor()
         self._initialize_tables()
         self._initialize_default_profiles()
+        self._initialize_default_medications()
 
     def _initialize_tables(self) -> None:
         """Initialize database schema with WAL mode for fast concurrent operations."""
@@ -98,6 +100,21 @@ class AegisMemory:
                 synced_at DATETIME
             );
         """)
+
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS medication_schedule (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                patient_uid TEXT NOT NULL,
+                medication_name TEXT NOT NULL,
+                dosage TEXT NOT NULL,
+                frequency TEXT NOT NULL,
+                time_slot TEXT NOT NULL,
+                instructions TEXT DEFAULT 'Take with water after meals',
+                is_taken BOOLEAN DEFAULT 0,
+                last_taken_at DATETIME,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
         self.conn.commit()
 
     def _initialize_default_profiles(self) -> None:
@@ -105,17 +122,17 @@ class AegisMemory:
         patients = [
             (
                 'PAT-RAM-2026', 'Ramcharan', 24, 'Male', 'O+',
-                'Ibuprofen, NSAIDs', 'None', 'Mild Asthmatic Tendency',
+                'Ibuprofen, NSAIDs', 'Salbutamol Inhaler, Vitamin D3', 'Mild Asthmatic Tendency',
                 'District General Clinic - Bed 01', 'Dr. Callaghan', 1
             ),
             (
                 'PAT-SOM-102', 'Somu', 48, 'Male', 'B+',
-                'Penicillin, Amoxicillin', 'Amlodipine 5mg', 'Hypertension, Acute Febrile Onset',
+                'Penicillin, Amoxicillin', 'Amlodipine 5mg, Paracetamol 500mg', 'Hypertension, Acute Febrile Onset',
                 'Warangal Rural PHC Sub-Centre', 'Dr. Rao', 0
             ),
             (
                 'PAT-GIR-304', 'Giri', 22, 'Female', 'A+',
-                'Sulfa Drugs', 'Ferrous Sulfate', 'Dysmenorrhea, Mild Anemia',
+                'Sulfa Drugs', 'Ferrous Sulfate 200mg, Mefenamic Acid 250mg', 'Dysmenorrhea, Mild Anemia',
                 'Karimnagar Mobile Health Camp', 'Nurse Anitha', 0
             )
         ]
@@ -143,6 +160,83 @@ class AegisMemory:
                 """, (uid, bid, p_json))
 
         self.conn.commit()
+
+    def _initialize_default_medications(self) -> None:
+        """Seed clinical medication schedules for registered patients."""
+        self.cursor.execute("SELECT COUNT(*) FROM medication_schedule;")
+        if self.cursor.fetchone()[0] == 0:
+            meds = [
+                ('PAT-RAM-2026', 'Salbutamol Inhaler', '100mcg / 2 Puffs', 'As Needed (PRN)', '08:00 AM', 'Inhale for sudden chest tightness / asthma relief', 0),
+                ('PAT-RAM-2026', 'Vitamin D3', '1000 IU Capsule', 'Once Daily (OD)', '09:00 AM', 'Take with morning meal and water', 1),
+                ('PAT-SOM-102', 'Amlodipine', '5mg Tablet', 'Once Daily (OD)', '08:00 AM', 'Blood pressure management. Take morning with water', 0),
+                ('PAT-SOM-102', 'Paracetamol', '500mg Tablet', 'TDS / 8 Hourly', '02:00 PM', 'Antipyretic for acute fever reduction', 0),
+                ('PAT-GIR-304', 'Ferrous Sulfate', '200mg Tablet', 'Twice Daily (BD)', '01:00 PM', 'Iron deficiency anemia therapy. Take after lunch', 0),
+                ('PAT-GIR-304', 'Mefenamic Acid', '250mg Tablet', 'SOS / As Needed', '08:00 PM', 'Relief of acute menstrual cramp dysmenorrhea', 0),
+            ]
+            for m in meds:
+                self.cursor.execute("""
+                    INSERT INTO medication_schedule (
+                        patient_uid, medication_name, dosage, frequency, time_slot, instructions, is_taken
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?);
+                """, m)
+            self.conn.commit()
+
+    def get_patient_medications(self, patient_uid: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Fetch all active medications and reminder adherence for a patient."""
+        if not patient_uid:
+            active_p = self.get_patient_profile()
+            patient_uid = active_p.get("patient_uid", "PAT-RAM-2026")
+
+        self.cursor.execute("""
+            SELECT id, patient_uid, medication_name, dosage, frequency, time_slot, instructions, is_taken, last_taken_at
+            FROM medication_schedule
+            WHERE patient_uid = ?
+            ORDER BY time_slot ASC;
+        """, (patient_uid,))
+        rows = self.cursor.fetchall()
+        return [
+            {
+                "id": r[0],
+                "patient_uid": r[1],
+                "medication_name": r[2],
+                "dosage": r[3],
+                "frequency": r[4],
+                "time_slot": r[5],
+                "instructions": r[6],
+                "is_taken": bool(r[7]),
+                "last_taken_at": r[8]
+            }
+            for r in rows
+        ]
+
+    def mark_medication_taken(self, medication_id: int) -> Dict[str, Any]:
+        """Record adherence confirmation for a scheduled medication dose."""
+        now_str = datetime.now(timezone.utc).strftime("%H:%M UTC")
+        self.cursor.execute("""
+            UPDATE medication_schedule
+            SET is_taken = 1, last_taken_at = ?
+            WHERE id = ?;
+        """, (now_str, medication_id))
+        self.conn.commit()
+        return {"status": "success", "medication_id": medication_id, "taken_at": now_str}
+
+    def add_medication(
+        self,
+        patient_uid: str,
+        medication_name: str,
+        dosage: str,
+        frequency: str,
+        time_slot: str,
+        instructions: str = "Take with water"
+    ) -> Dict[str, Any]:
+        """Add a new prescription medication reminder."""
+        self.cursor.execute("""
+            INSERT INTO medication_schedule (
+                patient_uid, medication_name, dosage, frequency, time_slot, instructions, is_taken
+            ) VALUES (?, ?, ?, ?, ?, ?, 0);
+        """, (patient_uid, medication_name, dosage, frequency, time_slot, instructions))
+        self.conn.commit()
+        return {"status": "success", "id": self.cursor.lastrowid}
 
     def list_all_patients(self) -> List[Dict[str, Any]]:
         """Retrieve all registered patients in the offline clinic."""
@@ -209,7 +303,7 @@ class AegisMemory:
                 "blood_type": "O+",
                 "allergies": "Ibuprofen, NSAIDs",
                 "allergies_list": ["ibuprofen", "nsaids", "aspirin"],
-                "active_medications": "None",
+                "active_medications": "Salbutamol Inhaler, Vitamin D3",
                 "chronic_conditions": "Mild Asthmatic Tendency",
                 "emergency_contact": "Dr. Callaghan",
                 "location": "District General Clinic"
@@ -350,7 +444,7 @@ class AegisMemory:
         return {
             "heart_rate": row[0],
             "eye_aspect_ratio": row[1],
-            "fatigue_flag": bool(r[2]),
+            "fatigue_flag": bool(row[2]),
             "rppg_signal": row[3],
             "timestamp": row[4]
         }

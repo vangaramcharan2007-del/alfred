@@ -229,6 +229,53 @@ def switch_active_patient(payload: SwitchPatientPayload):
     return aegis_memory.set_active_patient(payload.patient_uid)
 
 
+class TakeMedicationPayload(BaseModel):
+    medication_id: int
+
+
+class AddMedicationPayload(BaseModel):
+    patient_uid: str
+    medication_name: str
+    dosage: str
+    frequency: str
+    time_slot: str
+    instructions: Optional[str] = "Take with water after meals"
+
+
+@app.get("/medications")
+def get_medications(patient_uid: Optional[str] = None):
+    """Retrieve patient medication schedule and adherence."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    return aegis_memory.get_patient_medications(patient_uid)
+
+
+@app.post("/medications/take")
+def take_medication(payload: TakeMedicationPayload):
+    """Mark a scheduled medication dose as taken."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    return aegis_memory.mark_medication_taken(payload.medication_id)
+
+
+@app.post("/medications/add")
+def add_medication(payload: AddMedicationPayload):
+    """Add a new medication reminder to patient schedule."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    return aegis_memory.add_medication(
+        patient_uid=payload.patient_uid,
+        medication_name=payload.medication_name,
+        dosage=payload.dosage,
+        frequency=payload.frequency,
+        time_slot=payload.time_slot,
+        instructions=payload.instructions or "Take with water"
+    )
+
+
 @app.get("/sync-queue/status")
 def get_sync_status():
     """Get offline Store-and-Forward FHIR sync queue metrics."""
