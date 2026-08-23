@@ -3,6 +3,7 @@ AEGIS Health Companion - FastAPI Backend
 Provides telemetry ingestion, WESAD physiological ML evaluation,
 live OpenCV MJPEG video streaming, persistent SQLite memory & EHR inspection (/memory-records, /patient-profile),
 Offline Medical RAG knowledge base (/medical-protocols),
+HL7 / FHIR v4.0.1 Emergency Clinical Handover Export (/clinical-handover/fhir, /clinical-handover/triage-report),
 and Doctor-Level Multi-Turn Ollama LLaMA health intelligence (/companion-interact).
 """
 
@@ -13,8 +14,8 @@ import logging
 from typing import Optional, List, Dict, Any
 
 import httpx
-from fastapi import FastAPI, BackgroundTasks, status
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, BackgroundTasks, status, Response
+from fastapi.responses import StreamingResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -27,6 +28,7 @@ from aegis_engine import (
 from aegis_memory import AegisMemory
 from aegis_vision import global_scanner
 from medical_rag import OfflineMedicalRAG
+from fhir_exporter import generate_fhir_bundle, generate_html_triage_report
 from baymax_service import generate_baymax_reply_text, generate_explanation, is_third_party_query
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -39,6 +41,17 @@ wesad_detector: Optional[WESADPhysiologicalDetector] = None
 aegis_memory: Optional[AegisMemory] = None
 medical_rag: Optional[OfflineMedicalRAG] = None
 telemetry_history: deque = deque(maxlen=60)
+latest_vitals_snapshot: Dict[str, Any] = {
+    "heart_rate": 72.0,
+    "temperature": 36.8,
+    "rmssd": 45.0,
+    "temp_slope": 0.0,
+    "eda": 1.5,
+    "ear": 0.32,
+    "posture_status": "ERECT_NOMINAL",
+    "head_tilt_deg": 0.0,
+    "syncope_detected": False
+}
 
 
 async def dispatch_webhook_escalation(
@@ -46,7 +59,8 @@ async def dispatch_webhook_escalation(
     temperature: float,
     risk_score: str,
     rmssd: Optional[float] = None,
-    eda: Optional[float] = None
+    eda: Optional[float] = None,
+    posture_status: Optional[str] = None
 ) -> None:
     payload = {
         "event": "AEGIS_ANOMALY_ESCALATION",
@@ -56,7 +70,8 @@ async def dispatch_webhook_escalation(
         "rmssd": rmssd,
         "eda": eda,
         "risk_score": risk_score,
-        "message": f"Critical physiological anomaly detected: HR={heart_rate} BPM, Temp={temperature}°C, HRV={rmssd}ms",
+        "posture_status": posture_status or "ERECT_NOMINAL",
+        "message": f"Critical anomaly detected: HR={heart_rate} BPM, Temp={temperature}°C, HRV={rmssd}ms, Posture={posture_status}",
         "system": "AEGIS-WESAD-BaymaxCore"
     }
     try:
@@ -70,12 +85,12 @@ async def dispatch_webhook_escalation(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global detector, wesad_detector, aegis_memory, medical_rag
-    logger.info("Initializing AEGIS AnomalyDetector, WESAD Classifier, SQLite EHR Memory, and Medical RAG...")
+    logger.info("Initializing AEGIS AnomalyDetector, WESAD Classifier with XAI, SQLite EHR Memory, and Medical RAG...")
     detector = AnomalyDetector()
     wesad_detector = WESADPhysiologicalDetector()
     aegis_memory = AegisMemory(db_path="aegis_core.db")
     medical_rag = OfflineMedicalRAG()
-    logger.info("AEGIS Core Doctor-Level Systems Online.")
+    logger.info("AEGIS Core Doctor-Level Systems Online with FHIR & XAI support.")
 
     now = datetime.now(timezone.utc)
     for i in range(5):
@@ -95,8 +110,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="AEGIS Medical Intelligence Workstation Core",
-    version="3.4.0",
-    description="Offline-first clinical intelligence, Multi-Turn Conversation Memory, Offline Medical RAG, and pure Ollama LLaMA inference.",
+    version="3.6.0",
+    description="Offline-first clinical intelligence, HL7/FHIR Handover Export, Explainable AI (XAI), and Syncope Fall Detection.",
     lifespan=lifespan
 )
 
@@ -146,6 +161,9 @@ class CompanionChatRequest(BaseModel):
     temp_slope: float = Field(0.0)
     eda: float = Field(1.5)
     ear: Optional[float] = Field(None)
+    head_tilt_deg: Optional[float] = Field(0.0)
+    syncope_detected: Optional[bool] = Field(False)
+    posture_status: Optional[str] = Field("ERECT_NOMINAL")
 
 
 class CompanionChatResponse(BaseModel):
@@ -154,8 +172,12 @@ class CompanionChatResponse(BaseModel):
     risk_level: str
     confidence: float
     vital_summary: Dict[str, float]
+    feature_contributions: Dict[str, float]
+    top_driver: str
     escalated: bool = False
     fatigue_detected: bool = False
+    syncope_detected: bool = False
+    posture_status: str = "ERECT_NOMINAL"
     matched_protocol: Optional[Dict[str, Any]] = None
     allergy_warning: bool = False
     patient_profile: Optional[Dict[str, Any]] = None
@@ -165,12 +187,13 @@ class CompanionChatResponse(BaseModel):
 def read_root():
     return {
         "service": "AEGIS Doctor-Level Clinical Workstation Backend",
-        "version": "3.4.0",
+        "version": "3.6.0",
         "status": "online",
         "llm_engine": "Ollama Local LLaMA 3 Model",
         "medical_rag": "OfflineMedicalRAG Active",
-        "ehr_memory": "SQLite patient_profile + allergy_records",
-        "ml_engine": "WESAD Multi-Modal Random Forest + IsolationForest"
+        "fhir_interoperability": "HL7 FHIR v4.0.1 Enabled",
+        "xai_engine": "Explainable AI Biomarker Attribution Active",
+        "vision_fall_detection": "Syncope & Head Tilt Posture Detector Active"
     }
 
 
@@ -207,6 +230,84 @@ def get_medical_protocols():
     return medical_rag.list_all_protocols()
 
 
+@app.get("/clinical-handover/fhir")
+def export_fhir_handover():
+    """
+    Generate and export an HL7 / FHIR v4.0.1 compliant Document Bundle JSON
+    containing Patient demographics, AllergyIntolerances, Observation timeline, and CarePlan.
+    """
+    global aegis_memory, medical_rag, wesad_detector, latest_vitals_snapshot
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    if medical_rag is None:
+        medical_rag = OfflineMedicalRAG()
+    if wesad_detector is None:
+        wesad_detector = WESADPhysiologicalDetector()
+
+    patient_ehr = aegis_memory.get_patient_profile()
+    recent_baseline = aegis_memory.get_recent_baseline(limit=20)
+    avg_hr = sum(r[0] for r in recent_baseline) / max(1, len(recent_baseline)) if recent_baseline else 72.0
+
+    # Calculate XAI attributions
+    xai = wesad_detector.calculate_xai_attributions(
+        hr=latest_vitals_snapshot.get("heart_rate", 72.0),
+        rmssd=latest_vitals_snapshot.get("rmssd", 45.0),
+        temp=latest_vitals_snapshot.get("temperature", 36.8),
+        temp_slope=latest_vitals_snapshot.get("temp_slope", 0.0),
+        eda=latest_vitals_snapshot.get("eda", 1.5)
+    )
+
+    matched_proto = medical_rag.retrieve_protocol("fever tachycardia anomaly")
+
+    bundle = generate_fhir_bundle(
+        patient_profile=patient_ehr,
+        vitals=latest_vitals_snapshot,
+        baseline={"avg_hr": avg_hr},
+        matched_protocol=matched_proto,
+        xai_attributions=xai
+    )
+    return bundle
+
+
+@app.get("/clinical-handover/triage-report", response_class=HTMLResponse)
+def export_html_triage_report():
+    """
+    Generate an official, printable Clinical Emergency Triage & Handover HTML Document.
+    """
+    global aegis_memory, medical_rag, wesad_detector, latest_vitals_snapshot
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    if medical_rag is None:
+        medical_rag = OfflineMedicalRAG()
+    if wesad_detector is None:
+        wesad_detector = WESADPhysiologicalDetector()
+
+    patient_ehr = aegis_memory.get_patient_profile()
+    recent_baseline = aegis_memory.get_recent_baseline(limit=20)
+    avg_hr = sum(r[0] for r in recent_baseline) / max(1, len(recent_baseline)) if recent_baseline else 72.0
+
+    xai = wesad_detector.calculate_xai_attributions(
+        hr=latest_vitals_snapshot.get("heart_rate", 72.0),
+        rmssd=latest_vitals_snapshot.get("rmssd", 45.0),
+        temp=latest_vitals_snapshot.get("temperature", 36.8),
+        temp_slope=latest_vitals_snapshot.get("temp_slope", 0.0),
+        eda=latest_vitals_snapshot.get("eda", 1.5)
+    )
+
+    matched_proto = medical_rag.retrieve_protocol(
+        "fever" if latest_vitals_snapshot.get("temperature", 36.8) > 38.0 else "nominal"
+    )
+
+    html_content = generate_html_triage_report(
+        patient_profile=patient_ehr,
+        vitals=latest_vitals_snapshot,
+        baseline={"avg_hr": avg_hr},
+        matched_protocol=matched_proto,
+        xai_attributions=xai
+    )
+    return HTMLResponse(content=html_content)
+
+
 @app.get("/video-feed")
 def video_feed():
     """Live OpenCV MJPEG Video Stream."""
@@ -230,6 +331,9 @@ def get_live_vision_metrics():
             "heart_rate": 72.0,
             "eye_aspect_ratio": 0.30,
             "fatigue_flag": False,
+            "head_tilt_deg": 0.0,
+            "syncope_detected": False,
+            "posture_status": "ERECT_NOMINAL",
             "rppg_signal": 128.0,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
@@ -356,14 +460,9 @@ async def explain_risk(payload: ExplainRiskPayload):
 @app.post("/companion-interact", response_model=CompanionChatResponse)
 async def companion_interact(req: CompanionChatRequest, background_tasks: BackgroundTasks):
     """
-    Doctor-Level Multi-Turn Baymax Companion Endpoint.
-    Integrates:
-    - Multi-turn conversation buffer (retains context across turns)
-    - Third-party inquiry detection
-    - Offline Medical RAG Protocol Index
-    - SQLite EHR Patient Profile & Allergy Records
+    Doctor-Level Multi-Turn Baymax Companion Endpoint with XAI and Syncope Posture support.
     """
-    global wesad_detector, aegis_memory, medical_rag
+    global wesad_detector, aegis_memory, medical_rag, latest_vitals_snapshot
     if wesad_detector is None:
         wesad_detector = WESADPhysiologicalDetector()
     if aegis_memory is None:
@@ -371,7 +470,25 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
     if medical_rag is None:
         medical_rag = OfflineMedicalRAG()
 
-    # 1. Fetch Rolling Baseline, Patient EHR, and Recent Conversation History
+    # 1. Update Snapshot
+    ear_val = req.ear if req.ear is not None else 0.32
+    fatigue_detected = bool(ear_val < 0.22)
+    syncope_detected = bool(req.syncope_detected or (req.head_tilt_deg and req.head_tilt_deg > 35.0))
+    posture_status = "SYNCOPE_COLLAPSE_DETECTED" if syncope_detected else req.posture_status or "ERECT_NOMINAL"
+
+    latest_vitals_snapshot = {
+        "heart_rate": req.heart_rate,
+        "temperature": req.temperature,
+        "rmssd": req.rmssd,
+        "temp_slope": req.temp_slope,
+        "eda": req.eda,
+        "ear": ear_val,
+        "head_tilt_deg": req.head_tilt_deg or 0.0,
+        "syncope_detected": syncope_detected,
+        "posture_status": posture_status
+    }
+
+    # 2. Fetch Rolling Baseline, Patient EHR, and Recent Conversation History
     recent_records = aegis_memory.get_recent_baseline(limit=20)
     avg_hr = sum(r[0] for r in recent_records) / max(1, len(recent_records)) if recent_records else req.heart_rate
     avg_ear = sum(r[1] for r in recent_records) / max(1, len(recent_records)) if recent_records else 0.32
@@ -379,11 +496,9 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
     patient_ehr = aegis_memory.get_patient_profile()
     chat_history = aegis_memory.get_conversation_context(limit=6)
 
-    ear_val = req.ear if req.ear is not None else 0.32
-    fatigue_detected = bool(ear_val < 0.22)
     is_third_party = is_third_party_query(req.user_speech, chat_history)
 
-    # 2. WESAD Physiological Evaluation
+    # 3. WESAD Physiological Evaluation + XAI Decomposition
     eval_res: WESADEvaluationResult = wesad_detector.evaluate(
         heart_rate=req.heart_rate,
         rmssd=req.rmssd,
@@ -393,7 +508,7 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
     )
 
     escalated = False
-    if not is_third_party and (eval_res.is_anomaly or fatigue_detected):
+    if not is_third_party and (eval_res.is_anomaly or fatigue_detected or syncope_detected):
         risk_level = "HIGH RISK"
         background_tasks.add_task(
             dispatch_webhook_escalation,
@@ -401,13 +516,14 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
             req.temperature,
             risk_level,
             req.rmssd,
-            req.eda
+            req.eda,
+            posture_status
         )
         escalated = True
     else:
         risk_level = "THIRD-PARTY ADVISORY" if is_third_party else eval_res.risk_level
 
-    # 3. Medical RAG Protocol & Drug Safety Check
+    # 4. Medical RAG Protocol & Drug Safety Check
     search_query = req.user_speech
     if len(req.user_speech.split()) <= 3 and chat_history:
         for turn in reversed(chat_history):
@@ -418,13 +534,15 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
     matched_protocol = medical_rag.retrieve_protocol(search_query)
     safety_check = medical_rag.evaluate_drug_safety(req.user_speech, patient_ehr.get("allergies_list", []))
 
-    # 4. Doctor-Level Baymax Reasoning with Multi-Turn History
+    # 5. Doctor-Level Baymax Reasoning with Multi-Turn History
     vitals_dict = {
         "heart_rate": req.heart_rate,
         "temperature": req.temperature,
         "ear": ear_val,
         "rmssd": req.rmssd,
-        "eda": req.eda
+        "eda": req.eda,
+        "posture_status": posture_status,
+        "syncope_detected": syncope_detected
     }
     baseline_dict = {
         "avg_hr": round(avg_hr, 1),
@@ -439,18 +557,22 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
         conversation_history=chat_history
     )
 
-    # 5. Record user and Baymax turns to SQLite
+    # 6. Record user and Baymax turns to SQLite
     aegis_memory.add_conversation(role="user", content=req.user_speech)
     aegis_memory.add_conversation(role="baymax", content=reply_text)
 
     return CompanionChatResponse(
         reply_text=reply_text,
-        is_anomaly=(eval_res.is_anomaly or fatigue_detected) if not is_third_party else False,
+        is_anomaly=(eval_res.is_anomaly or fatigue_detected or syncope_detected) if not is_third_party else False,
         risk_level=risk_level,
         confidence=eval_res.confidence,
         vital_summary=eval_res.features,
+        feature_contributions=eval_res.feature_contributions,
+        top_driver=eval_res.top_driver,
         escalated=escalated,
         fatigue_detected=fatigue_detected if not is_third_party else False,
+        syncope_detected=syncope_detected,
+        posture_status=posture_status,
         matched_protocol=matched_protocol,
         allergy_warning=safety_check["is_contraindicated"],
         patient_profile=patient_ehr

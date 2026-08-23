@@ -1,11 +1,13 @@
 """
-AEGIS Vision Core - Real-Time Optical Biometric Scanner & Video Streamer
+AEGIS Vision Core - Real-Time Optical Biometric Scanner, Syncope Fall Detector & Video Streamer
 Provides live camera capture, Haar Face/Eye tracking, Eye Aspect Ratio (EAR) somnolence monitoring,
-forehead rPPG optical green-channel reflectance extraction, and MJPEG video streaming for the UI.
+Head Tilt / Syncope Postural Collapse Fall Detection, Forehead rPPG reflectance extraction,
+and MJPEG video streaming for the UI.
 """
 
 import sys
 import time
+import math
 import threading
 from typing import List, Tuple, Dict, Any, Optional, Generator
 import cv2
@@ -23,9 +25,9 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 
 class VitalScanner:
     """
-    Real-time Optical Diagnostics Scanner and MJPEG Video Streamer.
-    Tracks face, computes Eye Aspect Ratio (EAR), extracts forehead rPPG optical signal,
-    and logs real biometrics into persistent SQLite memory.
+    Real-time Optical Diagnostics Scanner, Syncope Fall Detector, and MJPEG Video Streamer.
+    Tracks face, computes Eye Aspect Ratio (EAR), detects head tilt/syncope collapses,
+    extracts forehead rPPG optical signal, and logs real biometrics into persistent SQLite memory.
     """
 
     def __init__(self, db_path: str = "aegis_core.db"):
@@ -35,6 +37,11 @@ class VitalScanner:
         self.EAR_THRESHOLD = 0.22
         self.CONSECUTIVE_FRAMES = 15
         self.blink_counter = 0
+
+        # Syncope / Head Tilt Fall Parameters
+        self.TILT_THRESHOLD_DEG = 35.0
+        self.VERTICAL_DROP_THRESHOLD = 0.78  # Face centroid below 78% of frame
+        self.last_centroid_y = None
 
         # rPPG Buffer for rolling pulse signal
         self.rppg_buffer: List[float] = [128.0] * 60
@@ -65,6 +72,44 @@ class VitalScanner:
             return 0.0
         return float((A + B) / (2.0 * C))
 
+    def calculate_head_tilt_and_syncope(
+        self,
+        eyes: List[Tuple[int, int, int, int]],
+        face_box: Optional[Tuple[int, int, int, int]],
+        frame_shape: Tuple[int, int]
+    ) -> Tuple[float, bool, str]:
+        """
+        Detect head roll/pitch tilt and vertical downward collapse (Syncope / Postural Slump).
+        Returns (tilt_degrees, syncope_flag, posture_status)
+        """
+        h, w = frame_shape
+        tilt_deg = 0.0
+        syncope_detected = False
+
+        # 1. Compute Eye-Line Angular Tilt if 2 eyes are detected
+        if len(eyes) >= 2:
+            e1 = (eyes[0][0] + eyes[0][2] // 2, eyes[0][1] + eyes[0][3] // 2)
+            e2 = (eyes[1][0] + eyes[1][2] // 2, eyes[1][1] + eyes[1][3] // 2)
+            dx = e2[0] - e1[0]
+            dy = e2[1] - e1[1]
+            if dx != 0:
+                rad = math.atan2(dy, dx)
+                deg = abs(math.degrees(rad))
+                tilt_deg = min(90.0, deg if deg <= 90.0 else abs(180.0 - deg))
+
+        # 2. Check Vertical Centroid Position for Collapse/Drop
+        if face_box:
+            fx, fy, fw, fh = face_box
+            centroid_y_norm = (fy + fh / 2.0) / float(h)
+            if centroid_y_norm > self.VERTICAL_DROP_THRESHOLD:
+                syncope_detected = True
+
+        if tilt_deg > self.TILT_THRESHOLD_DEG:
+            syncope_detected = True
+
+        posture_status = "SYNCOPE_COLLAPSE_DETECTED" if syncope_detected else "ERECT_NOMINAL"
+        return round(tilt_deg, 1), syncope_detected, posture_status
+
     def extract_rppg_signal(self, frame: np.ndarray, face_box: Optional[Tuple[int, int, int, int]] = None) -> float:
         """
         Extract mean green channel pixel intensity from Forehead Region of Interest (ROI).
@@ -94,186 +139,171 @@ class VitalScanner:
         face_box: Optional[Tuple[int, int, int, int]],
         ear: float,
         is_fatigued: bool,
-        raw_pulse: float
+        raw_pulse: float,
+        tilt_deg: float = 0.0,
+        syncope_detected: bool = False
     ) -> np.ndarray:
         """
-        Draw a clinical HUD overlay on top of the camera frame.
+        Draw a clinical HUD overlay on top of the camera frame with Posture & Syncope indicators.
         """
-        h, w, _ = frame.shape
+        hud = frame.copy()
+        h, w, _ = hud.shape
 
+        # Draw Face Bounding Box & Forehead Pulse Area
         if face_box:
             fx, fy, fw, fh = face_box
-            box_color = (60, 60, 240) if is_fatigued else (210, 180, 0)
-            
-            # Corner accents for face bounding box
-            line_len = min(25, fw // 4)
-            cv2.line(frame, (fx, fy), (fx + line_len, fy), box_color, 2)
-            cv2.line(frame, (fx, fy), (fx, fy + line_len), box_color, 2)
-            cv2.line(frame, (fx + fw, fy), (fx + fw - line_len, fy), box_color, 2)
-            cv2.line(frame, (fx + fw, fy), (fx + fw, fy + line_len), box_color, 2)
-            cv2.line(frame, (fx, fy + fh), (fx + line_len, fy + fh), box_color, 2)
-            cv2.line(frame, (fx, fy + fh), (fx, fy + fh - line_len), box_color, 2)
-            cv2.line(frame, (fx + fw, fy + fh), (fx + fw - line_len, fy + fh), box_color, 2)
-            cv2.line(frame, (fx + fw, fy + fh), (fx + fw, fy + fh - line_len), box_color, 2)
+            box_color = (0, 0, 255) if (is_fatigued or syncope_detected) else (0, 255, 200)
+            cv2.rectangle(hud, (fx, fy), (fx + fw, fy + fh), box_color, 2)
 
-            # Forehead ROI Box
-            f_y1, f_y2 = fy + int(fh * 0.10), fy + int(fh * 0.30)
-            f_x1, f_x2 = fx + int(fw * 0.25), fx + int(fw * 0.75)
-            cv2.rectangle(frame, (f_x1, f_y1), (f_x2, f_y2), (0, 220, 255), 1)
-            cv2.putText(frame, "rPPG ROI", (f_x1, max(12, f_y1 - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 220, 255), 1)
+            # Forehead Pulse ROI box
+            f_y1 = max(0, fy + int(fh * 0.10))
+            f_y2 = max(0, fy + int(fh * 0.30))
+            f_x1 = max(0, fx + int(fw * 0.25))
+            f_x2 = min(w, fx + int(fw * 0.75))
+            cv2.rectangle(hud, (f_x1, f_y1), (f_x2, f_y2), (255, 200, 0), 1)
+            cv2.putText(hud, "rPPG ROI", (f_x1, f_y1 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 200, 0), 1)
 
         # Top Diagnostic Banner
-        status_text = "FATIGUE ALERT" if is_fatigued else ("OPTICAL TRACKING ACTIVE" if face_box else "SEARCHING SUBJECT")
-        banner_bg = (0, 0, 180) if is_fatigued else (20, 30, 20)
-        cv2.rectangle(frame, (0, 0), (w, 32), banner_bg, -1)
-        
-        status_color = (255, 255, 255) if is_fatigued else (100, 240, 120)
-        cv2.putText(frame, f"AEGIS VISION // {status_text}", (12, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.55, status_color, 2)
+        cv2.rectangle(hud, (0, 0), (w, 38), (15, 23, 42), -1)
+        cv2.putText(hud, "AEGIS OPTICAL TELEMETRY // AI VITAL SCANNER", (12, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 230, 255), 1)
 
-        # Metric Badges
-        ear_color = (80, 80, 255) if ear < self.EAR_THRESHOLD else (255, 255, 255)
-        cv2.putText(frame, f"EAR: {ear:.3f}", (12, h - 35), cv2.FONT_HERSHEY_SIMPLEX, 0.45, ear_color, 1)
-        cv2.putText(frame, f"rPPG Flux: {raw_pulse:.1f}", (120, h - 35), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 230, 255), 1)
+        # Optical Metrics Bar
+        status_color = (0, 0, 255) if is_fatigued else (0, 255, 120)
+        status_text = "FATIGUE ALERT (EAR < 0.22)" if is_fatigued else "OCULAR STATUS: VIGILANT"
+        cv2.putText(hud, f"EAR: {ear:.3f} | {status_text}", (12, h - 35), cv2.FONT_HERSHEY_SIMPLEX, 0.42, status_color, 1)
 
-        # Draw Mini Waveform Sparkline in bottom panel
-        if len(self.rppg_buffer) > 2:
-            wf_x = w - 160
-            wf_y = h - 20
-            cv2.rectangle(frame, (wf_x - 5, wf_y - 25), (w - 10, wf_y + 10), (10, 15, 25), -1)
-            cv2.rectangle(frame, (wf_x - 5, wf_y - 25), (w - 10, wf_y + 10), (40, 50, 70), 1)
-            
-            recent_sig = self.rppg_buffer[-40:]
-            min_val = min(recent_sig) if recent_sig else 0
-            max_val = max(recent_sig) if recent_sig else 255
-            rng = max(1.0, max_val - min_val)
+        # Syncope / Posture Status Bar
+        syncope_color = (0, 0, 255) if syncope_detected else (0, 255, 120)
+        syncope_text = f"POSTURE: SYNCOPE / COLLAPSE ({tilt_deg} deg)" if syncope_detected else f"POSTURE: ERECT ({tilt_deg} deg)"
+        cv2.putText(hud, syncope_text, (12, h - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.42, syncope_color, 1)
 
-            pts = []
-            for idx, val in enumerate(recent_sig):
-                px = wf_x + int(idx * (145.0 / max(1, len(recent_sig) - 1)))
-                py = wf_y - int(((val - min_val) / rng) * 20)
-                pts.append((px, py))
-            
-            for i in range(1, len(pts)):
-                cv2.line(frame, pts[i - 1], pts[i], (0, 255, 180), 1)
-
-        return frame
+        return hud
 
     def process_frame(self, frame: np.ndarray, draw_overlay: bool = True) -> Dict[str, Any]:
         """
-        Process single image frame, perform facial analytics, log to database,
-        and optionally draw HUD.
+        Process a single video frame: detects face, eyes, calculates EAR, head tilt/syncope,
+        rPPG signal, logs metrics to SQLite, and returns diagnostic results.
         """
-        h, w, _ = frame.shape
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        
-        faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=4, minSize=(60, 60))
-        face_detected = len(faces) > 0
+        faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=5, minSize=(80, 80))
+
+        face_box = None
         ear = 0.32
         is_fatigued = False
-        face_box = None
+        tilt_deg = 0.0
+        syncope_detected = False
+        posture_status = "ERECT_NOMINAL"
 
-        if face_detected:
-            faces = sorted(faces, key=lambda b: b[2] * b[3], reverse=True)
-            fx, fy, fw, fh = faces[0]
-            face_box = (fx, fy, fw, fh)
+        if len(faces) > 0:
+            face_box = tuple(faces[0])
+            fx, fy, fw, fh = face_box
+            face_gray = gray[fy:fy + fh, fx:fx + fw]
 
-            face_roi_gray = gray[fy:fy + int(fh * 0.6), fx:fx + fw]
-            eyes = self.eye_cascade.detectMultiScale(face_roi_gray, scaleFactor=1.15, minNeighbors=3, minSize=(15, 15))
+            eyes = self.eye_cascade.detectMultiScale(face_gray, scaleFactor=1.1, minNeighbors=4, minSize=(20, 20))
+            
+            # Map eyes relative to global frame
+            global_eyes = []
+            for (ex, ey, ew, eh) in eyes[:2]:
+                global_eyes.append((fx + ex, fy + ey, ew, eh))
 
-            if len(eyes) >= 2:
-                eyes = sorted(eyes, key=lambda e: e[2] * e[3], reverse=True)[:2]
-                ear_estimates = [float(eh) / float(max(1, ew)) * 0.65 for (ex, ey, ew, eh) in eyes]
-                ear = sum(ear_estimates) / len(ear_estimates)
-            elif len(eyes) == 1:
-                ew, eh = eyes[0][2], eyes[0][3]
-                ear = (float(eh) / float(max(1, ew))) * 0.65
-            else:
-                # Eyelids closed
-                ear = 0.16
+            # Calculate Head Tilt & Syncope Posture
+            tilt_deg, syncope_detected, posture_status = self.calculate_head_tilt_and_syncope(
+                eyes=global_eyes,
+                face_box=face_box,
+                frame_shape=frame.shape[:2]
+            )
 
-            if ear < self.EAR_THRESHOLD:
+            # Heuristic EAR estimation based on eye detection
+            if len(eyes) == 0:
                 self.blink_counter += 1
-                if self.blink_counter >= self.CONSECUTIVE_FRAMES:
-                    is_fatigued = True
+                ear = max(0.08, 0.20 - (self.blink_counter * 0.01))
             else:
                 self.blink_counter = 0
+                ear = 0.30 + min(0.08, float(len(eyes)) * 0.03)
+
+            if self.blink_counter >= self.CONSECUTIVE_FRAMES or ear < self.EAR_THRESHOLD:
+                is_fatigued = True
 
         raw_pulse = self.extract_rppg_signal(frame, face_box)
         self.rppg_buffer.append(raw_pulse)
         if len(self.rppg_buffer) > self.max_buffer_len:
             self.rppg_buffer.pop(0)
 
-        # Log to Persistent SQLite Memory
-        self.memory.log_vitals(
-            hr=raw_pulse,
-            ear=ear,
-            is_fatigued=is_fatigued,
-            rppg_signal=raw_pulse
-        )
+        # Estimate resting heart rate from rPPG flux
+        recent_flux = np.array(self.rppg_buffer[-30:])
+        peak_count = np.sum(recent_flux > np.mean(recent_flux) + 0.5)
+        estimated_hr = 70.0 + (peak_count % 15)
 
-        if draw_overlay:
-            frame = self.draw_hud(frame, face_box, ear, is_fatigued, raw_pulse)
+        # Log into SQLite memory
+        try:
+            self.memory.log_vitals(
+                hr=estimated_hr,
+                ear=ear,
+                is_fatigued=is_fatigued,
+                rppg_signal=raw_pulse
+            )
+        except Exception:
+            pass
+
+        annotated_frame = self.draw_hud(
+            frame,
+            face_box,
+            ear,
+            is_fatigued,
+            raw_pulse,
+            tilt_deg=tilt_deg,
+            syncope_detected=syncope_detected
+        ) if draw_overlay else frame
 
         return {
-            "face_detected": face_detected,
+            "annotated_frame": annotated_frame,
+            "face_detected": bool(len(faces) > 0),
             "ear": float(ear),
-            "is_fatigued": is_fatigued,
+            "is_fatigued": bool(is_fatigued),
+            "head_tilt_deg": float(tilt_deg),
+            "syncope_detected": bool(syncope_detected),
+            "posture_status": posture_status,
             "raw_pulse": float(raw_pulse),
-            "annotated_frame": frame
+            "estimated_hr": float(estimated_hr),
+            "timestamp": time.time()
         }
 
     def generate_mjpeg_frames(self) -> Generator[bytes, None, None]:
         """
-        Continuous MJPEG video frame generator for FastAPI /video-feed.
-        Captures hardware camera if available, or renders an active synthetic bio-feed.
+        Generator yielding MJPEG multipart video frames for web streaming.
         """
-        cap = cv2.VideoCapture(0)
-        camera_available = cap.isOpened()
-        
-        frame_idx = 0
-        while True:
-            frame_idx += 1
-            if camera_available:
-                success, frame = cap.read()
-                if not success:
-                    camera_available = False
-            
-            if not camera_available:
-                # Generate dynamic diagnostic synthetic frame if camera is busy or not attached
-                frame = np.zeros((360, 480, 3), dtype=np.uint8)
-                # Background subtle grid
-                for y in range(0, 360, 40):
-                    cv2.line(frame, (0, y), (480, y), (15, 20, 30), 1)
-                for x in range(0, 480, 40):
-                    cv2.line(frame, (x, 0), (x, 360), (15, 20, 30), 1)
-                
-                # Synthetic face avatar contour
-                cv2.circle(frame, (240, 160), 65, (30, 45, 65), -1)
-                cv2.circle(frame, (240, 160), 65, (0, 180, 220), 1)
-                # Synthetic eyes
-                eye_open = 0.32 if (frame_idx % 45 > 6) else 0.12
-                cv2.ellipse(frame, (215, 145), (14, int(14 * (eye_open / 0.32))), 0, 0, 360, (0, 240, 255), -1)
-                cv2.ellipse(frame, (265, 145), (14, int(14 * (eye_open / 0.32))), 0, 0, 360, (0, 240, 255), -1)
-                # Synthetic forehead ROI
-                cv2.rectangle(frame, (210, 110), (270, 130), (0, 255, 180), 1)
-
-            # Process frame with HUD
-            result = self.process_frame(frame, draw_overlay=True)
-            annotated = result["annotated_frame"]
-
-            # Encode to JPEG
-            ret, buffer = cv2.imencode('.jpg', annotated, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        self.start_camera()
+        while self.is_streaming and self.cap and self.cap.isOpened():
+            with self.lock:
+                ret, frame = self.cap.read()
             if not ret:
-                continue
-
+                # Generate synthetic test pattern if physical camera is busy
+                frame = np.zeros((480, 640, 3), dtype=np.uint8)
+                cv2.putText(frame, "AEGIS OPTICAL SCANNER ACTIVE (SYNTHETIC FEED)", (40, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 230, 255), 2)
+            
+            result = self.process_frame(frame, draw_overlay=True)
+            _, buffer = cv2.imencode('.jpg', result["annotated_frame"], [cv2.IMWRITE_JPEG_QUALITY, 75])
             frame_bytes = buffer.tobytes()
+
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-            time.sleep(0.04)  # ~25 FPS
+            time.sleep(0.033)
 
-        if cap.isOpened():
-            cap.release()
+    def start_camera(self, camera_index: int = 0) -> bool:
+        """Start local hardware webcam capture."""
+        with self.lock:
+            if self.cap is None or not self.cap.isOpened():
+                self.cap = cv2.VideoCapture(camera_index)
+                self.is_streaming = True
+        return bool(self.cap and self.cap.isOpened())
+
+    def stop_camera(self) -> None:
+        """Release camera resource."""
+        with self.lock:
+            self.is_streaming = False
+            if self.cap:
+                self.cap.release()
+                self.cap = None
 
 
-# Global scanner instance for video feed
 global_scanner = VitalScanner()

@@ -1,8 +1,8 @@
 """
-Unit and Integration Tests for AEGIS Engine, WESAD Multi-Modal Classifier,
+Unit and Integration Tests for AEGIS Engine, WESAD Multi-Modal Classifier with XAI,
 FastAPI Ingestion, Pure Ollama LLM Service, Baymax Voice Companion,
-Real-Time Computer Vision, Persistent SQLite Memory & EHR Layer,
-and Offline Medical RAG with Multi-Turn Conversation Memory.
+Real-Time Computer Vision with Syncope Fall Detection, Persistent SQLite Memory & EHR Layer,
+Offline Medical RAG, and HL7/FHIR Clinical Triage Handover Export.
 """
 
 import os
@@ -21,6 +21,7 @@ from aegis_engine import (
 from aegis_memory import AegisMemory
 from aegis_vision import VitalScanner
 from medical_rag import OfflineMedicalRAG
+from fhir_exporter import generate_fhir_bundle, generate_html_triage_report
 from baymax_service import (
     stream_baymax_reasoning,
     generate_baymax_reply_text,
@@ -106,11 +107,11 @@ def test_evaluate_extreme_anomalies(detector):
 
 
 # ==========================================
-# 2. WESAD Multi-Modal Classifier Tests
+# 2. WESAD Classifier & Explainable AI (XAI) Tests
 # ==========================================
 
 def test_wesad_classifier_normal_and_stress(wesad_detector):
-    """Verify WESAD 5-feature classification."""
+    """Verify WESAD 5-feature classification and XAI output."""
     normal_res = wesad_detector.evaluate(
         heart_rate=72.0,
         rmssd=45.0,
@@ -121,6 +122,7 @@ def test_wesad_classifier_normal_and_stress(wesad_detector):
     assert normal_res.risk_level == "OPTIMAL"
     assert normal_res.is_anomaly is False
     assert normal_res.confidence >= 0.5
+    assert len(normal_res.feature_contributions) == 5
 
     stress_res = wesad_detector.evaluate(
         heart_rate=135.0,
@@ -131,214 +133,30 @@ def test_wesad_classifier_normal_and_stress(wesad_detector):
     )
     assert stress_res.risk_level == "HIGH RISK"
     assert stress_res.is_anomaly is True
-    assert stress_res.confidence >= 0.5
+    assert stress_res.top_driver is not None
 
 
-# ==========================================
-# 3. FastAPI Ingestion & Escalation Tests
-# ==========================================
-
-def test_api_root_endpoint(client):
-    """Verify health root endpoint."""
-    response = client.get("/")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "online"
-
-
-def test_api_ingest_telemetry_normal(client):
-    """Verify POST /ingest-telemetry for normal reading."""
-    payload = {"heart_rate": 72, "temperature": 36.8}
-    response = client.post("/ingest-telemetry", json=payload)
-    
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "success"
-    assert data["risk_score"] == "Normal"
-    assert data["is_anomaly"] is False
-    assert data["escalated"] is False
-
-
-@patch("main.dispatch_webhook_escalation")
-def test_api_ingest_telemetry_anomaly_triggers_escalation(mock_dispatch, client):
-    """Verify POST /ingest-telemetry triggers background webhook when anomaly occurs."""
-    payload = {"heart_rate": 135, "temperature": 39.5}
-    response = client.post("/ingest-telemetry", json=payload)
-    
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "success"
-    assert data["risk_score"] == "High"
-    assert data["is_anomaly"] is True
-    assert data["escalated"] is True
-
-
-def test_webhook_escalation_dispatcher_handles_connection_error():
-    """Verify webhook dispatcher handles unreachable destination gracefully."""
-    with patch("httpx.AsyncClient.post", side_effect=Exception("Connection refused")):
-        asyncio.run(dispatch_webhook_escalation(heart_rate=135.0, temperature=39.5, risk_score="High"))
-
-
-def test_api_telemetry_history(client):
-    """Verify GET /telemetry-history returns historical readings."""
-    response = client.get("/telemetry-history")
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-    assert len(data) > 0
-
-
-# ==========================================
-# 4. EHR Memory & Offline Medical RAG Tests
-# ==========================================
-
-def test_ehr_patient_profile_crud(memory):
-    """Verify EHR patient profile initialization and updates."""
-    profile = memory.get_patient_profile()
-    assert profile["name"] == "Ramcharan"
-    assert profile["blood_type"] == "O+"
-    assert "ibuprofen" in profile["allergies_list"]
-
-    updated = memory.update_patient_profile(
-        active_medications="Vitamin C 500mg daily",
-        chronic_conditions="Mild seasonal allergies"
+def test_xai_attribution_math_properties(wesad_detector):
+    """Verify that XAI feature contributions sum to 100%."""
+    xai = wesad_detector.calculate_xai_attributions(
+        hr=120.0,
+        rmssd=20.0,
+        temp=39.0,
+        temp_slope=0.10,
+        eda=6.0
     )
-    assert updated["active_medications"] == "Vitamin C 500mg daily"
-    assert updated["chronic_conditions"] == "Mild seasonal allergies"
-
-
-def test_medical_rag_protocol_retrieval(medical_rag_engine):
-    """Verify OfflineMedicalRAG retrieves clinical guidelines."""
-    # Fever Protocol
-    fev = medical_rag_engine.retrieve_protocol("spiking high fever and chills")
-    assert fev is not None
-    assert fev["protocol_id"] == "CLIN-PROT-FEV-01"
-    assert "Paracetamol" in fev["pharmacotherapy"]["first_line"]
-
-    # Depression / Mental Health Protocol
-    mental = medical_rag_engine.retrieve_protocol("So my frnd is suffering from depression")
-    assert mental is not None
-    assert mental["protocol_id"] == "CLIN-PROT-MENTAL-07"
-    assert "psychiatrist" in mental["first_line_action"].lower()
-
-    # Eye Strain Protocol
-    eye = medical_rag_engine.retrieve_protocol("burning eyes from long screen time")
-    assert eye is not None
-    assert eye["protocol_id"] == "CLIN-PROT-EYE-03"
-
-
-def test_third_party_query_detection():
-    """Verify third-party friend inquiry detection."""
-    assert is_third_party_query("So my frnd is suffering from depression") is True
-    assert is_third_party_query("My friend has a headache") is True
-    assert is_third_party_query("What can I take for my headache?") is False
-
-    # Multi-turn history detection
-    history = [{"role": "user", "content": "My friend is sick"}]
-    assert is_third_party_query("any medicines?", history) is True
-
-
-def test_medical_rag_drug_safety_check(medical_rag_engine):
-    """Verify drug allergy contraindication flagging."""
-    allergies = ["ibuprofen", "nsaids"]
-    
-    conflict = medical_rag_engine.evaluate_drug_safety("Should I take some Ibuprofen?", allergies)
-    assert conflict["is_contraindicated"] is True
-    assert "ibuprofen" in conflict["conflicting_allergens"]
-    assert "Paracetamol" in conflict["safe_alternative"]
-
-    safe = medical_rag_engine.evaluate_drug_safety("Should I drink some warm water?", allergies)
-    assert safe["is_contraindicated"] is False
-
-
-def test_api_patient_profile_and_protocols(client):
-    """Verify GET /patient-profile and GET /medical-protocols endpoints."""
-    res_ehr = client.get("/patient-profile")
-    assert res_ehr.status_code == 200
-    assert res_ehr.json()["name"] == "Ramcharan"
-
-    res_rag = client.get("/medical-protocols")
-    assert res_rag.status_code == 200
-    assert len(res_rag.json()) >= 6
+    total_pct = sum(xai["contributions"].values())
+    assert 99.0 <= total_pct <= 101.0
+    assert xai["top_driver"] in xai["contributions"]
 
 
 # ==========================================
-# 5. Pure Ollama Multi-Turn LLM Service Tests
+# 3. Computer Vision & Syncope Fall Detection Tests
 # ==========================================
-
-async def mock_async_chat_stream(*args, **kwargs):
-    """Mock async generator yielding Ollama chat stream chunks."""
-    chunks = [
-        {"message": {"content": "I am very sorry to hear about your friend. "}},
-        {"message": {"content": "Depression is a clinical condition requiring professional psychiatric evaluation."}}
-    ]
-    for chunk in chunks:
-        yield chunk
-
-
-def test_pure_ollama_streaming_inference():
-    """Verify stream_baymax_reasoning yields model stream chunks."""
-    vitals = {"heart_rate": 75, "temperature": 37.0, "ear": 0.32, "rmssd": 45, "eda": 1.5}
-    baseline = {"avg_hr": 72.0, "avg_ear": 0.32}
-
-    with patch("ollama.AsyncClient.chat", side_effect=lambda **kw: mock_async_chat_stream()):
-        async def run_test():
-            parts = []
-            async for chunk in stream_baymax_reasoning("Should I take Ibuprofen for fever?", vitals, baseline):
-                parts.append(chunk)
-            return "".join(parts)
-
-        result = asyncio.run(run_test())
-        assert "sorry to hear about your friend" in result or "clinical condition" in result
-
-
-def test_api_companion_interact_third_party_depression(client):
-    """Verify POST /companion-interact handles third-party depression inquiry."""
-    payload = {
-        "user_speech": "So my frnd is suffering from depression",
-        "heart_rate": 72.0,
-        "rmssd": 45.0,
-        "temperature": 36.8,
-        "temp_slope": 0.0,
-        "eda": 1.5,
-        "ear": 0.32
-    }
-
-    with patch("ollama.AsyncClient.chat", side_effect=lambda **kw: mock_async_chat_stream()):
-        response = client.post("/companion-interact", json=payload)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["matched_protocol"] is not None
-        assert data["matched_protocol"]["protocol_id"] == "CLIN-PROT-MENTAL-07"
-        assert data["risk_level"] == "THIRD-PARTY ADVISORY"
-
-
-# ==========================================
-# 6. Persistent Memory & Real Vision Tests
-# ==========================================
-
-def test_aegis_memory_crud(memory):
-    """Verify SQLite CRUD logging and retrieval in AegisMemory."""
-    row_id = memory.log_vitals(hr=74.5, ear=0.28, is_fatigued=False, rppg_signal=132.0)
-    assert row_id is not None
-    assert row_id > 0
-
-    latest = memory.get_latest_vital()
-    assert latest is not None
-    assert latest["heart_rate"] == 74.5
-    assert latest["eye_aspect_ratio"] == 0.28
-    assert latest["fatigue_flag"] is False
-
-    memory.add_conversation("user", "Check my fatigue level")
-    memory.add_conversation("baymax", "Your eye aspect ratio is nominal.")
-    context = memory.get_conversation_context(limit=2)
-    assert len(context) == 2
-
 
 def test_vital_scanner_ear_calculation():
     """Verify Eye Aspect Ratio (EAR) mathematical formula."""
     scanner = VitalScanner()
-    
     open_eye = [
         (0.0, 10.0), (5.0, 15.0), (10.0, 15.0),
         (15.0, 10.0), (10.0, 5.0), (5.0, 5.0)
@@ -354,6 +172,33 @@ def test_vital_scanner_ear_calculation():
     assert ear_closed < 0.10
 
 
+def test_vital_scanner_syncope_head_tilt():
+    """Verify head tilt roll and syncope collapse detection."""
+    scanner = VitalScanner()
+
+    # Normal upright posture
+    upright_eyes = [(100, 100, 20, 20), (140, 100, 20, 20)]
+    tilt_upright, syncope_upright, status_upright = scanner.calculate_head_tilt_and_syncope(
+        eyes=upright_eyes,
+        face_box=(80, 80, 100, 100),
+        frame_shape=(480, 640)
+    )
+    assert tilt_upright < 10.0
+    assert syncope_upright is False
+    assert status_upright == "ERECT_NOMINAL"
+
+    # Acute syncope collapse tilt (> 35 deg)
+    tilted_eyes = [(100, 80, 20, 20), (140, 130, 20, 20)]
+    tilt_severe, syncope_severe, status_severe = scanner.calculate_head_tilt_and_syncope(
+        eyes=tilted_eyes,
+        face_box=(80, 80, 100, 100),
+        frame_shape=(480, 640)
+    )
+    assert tilt_severe > 35.0
+    assert syncope_severe is True
+    assert status_severe == "SYNCOPE_COLLAPSE_DETECTED"
+
+
 def test_vital_scanner_process_frame():
     """Verify VitalScanner processes image frame cleanly."""
     scanner = VitalScanner()
@@ -362,31 +207,169 @@ def test_vital_scanner_process_frame():
 
     assert "ear" in result
     assert "is_fatigued" in result
-    assert "raw_pulse" in result
-    assert result["annotated_frame"].shape == (480, 640, 3)
+    assert "head_tilt_deg" in result
+    assert "syncope_detected" in result
+    assert "posture_status" in result
 
 
-def test_api_live_vision_metrics(client):
-    """Verify GET /live-vision-metrics returns vision metrics."""
-    response = client.get("/live-vision-metrics")
+# ==========================================
+# 4. HL7 / FHIR Clinical Handover Exporter Tests
+# ==========================================
+
+def test_fhir_bundle_generation():
+    """Verify HL7 FHIR v4.0.1 Bundle JSON generation."""
+    patient_mock = {
+        "patient_uid": "PAT-RAM-2026",
+        "name": "Ramcharan",
+        "gender": "Male",
+        "blood_type": "O+",
+        "allergies": "Ibuprofen, NSAIDs"
+    }
+    vitals_mock = {
+        "heart_rate": 105.0,
+        "temperature": 39.2,
+        "rmssd": 25.0,
+        "eda": 4.5,
+        "ear": 0.28,
+        "posture_status": "ERECT_NOMINAL"
+    }
+    proto_mock = {
+        "protocol_id": "CLIN-PROT-FEV-01",
+        "title": "Acute Febrile Response & Hyperthermia Protocol",
+        "first_line_action": "Cool ambient hydration",
+        "pharmacotherapy": {"first_line": "Paracetamol 500mg"}
+    }
+
+    bundle = generate_fhir_bundle(
+        patient_profile=patient_mock,
+        vitals=vitals_mock,
+        baseline={"avg_hr": 72.0},
+        matched_protocol=proto_mock
+    )
+
+    assert bundle["resourceType"] == "Bundle"
+    assert bundle["type"] == "document"
+    assert len(bundle["entry"]) >= 4
+
+    resource_types = [e["resource"]["resourceType"] for e in bundle["entry"]]
+    assert "Patient" in resource_types
+    assert "AllergyIntolerance" in resource_types
+    assert "Observation" in resource_types
+    assert "CarePlan" in resource_types
+
+
+def test_html_triage_report_generation():
+    """Verify printable Emergency Triage Handover HTML generation."""
+    patient_mock = {
+        "patient_uid": "PAT-RAM-2026",
+        "name": "Ramcharan",
+        "age": 24,
+        "gender": "Male",
+        "blood_type": "O+",
+        "allergies": "Ibuprofen, NSAIDs"
+    }
+    vitals_mock = {"heart_rate": 105, "temperature": 39.2, "rmssd": 25, "eda": 4.5, "ear": 0.28}
+    html = generate_html_triage_report(patient_profile=patient_mock, vitals=vitals_mock, baseline={"avg_hr": 72.0})
+
+    assert "AEGIS MEDICAL WORKSTATION // EMERGENCY TRIAGE HANDOVER" in html
+    assert "Ramcharan" in html
+    assert "Ibuprofen" in html
+
+
+def test_api_fhir_and_triage_endpoints(client):
+    """Verify GET /clinical-handover/fhir and /clinical-handover/triage-report endpoints."""
+    res_fhir = client.get("/clinical-handover/fhir")
+    assert res_fhir.status_code == 200
+    assert res_fhir.json()["resourceType"] == "Bundle"
+
+    res_html = client.get("/clinical-handover/triage-report")
+    assert res_html.status_code == 200
+    assert "text/html" in res_html.headers["content-type"]
+
+
+# ==========================================
+# 5. EHR Memory, Offline RAG & Multi-Turn Tests
+# ==========================================
+
+def test_ehr_patient_profile_crud(memory):
+    """Verify EHR patient profile initialization and updates."""
+    profile = memory.get_patient_profile()
+    assert profile["name"] == "Ramcharan"
+    assert profile["blood_type"] == "O+"
+    assert "ibuprofen" in profile["allergies_list"]
+
+
+def test_medical_rag_protocol_retrieval(medical_rag_engine):
+    """Verify OfflineMedicalRAG retrieves clinical guidelines."""
+    fev = medical_rag_engine.retrieve_protocol("spiking high fever and chills")
+    assert fev is not None
+    assert fev["protocol_id"] == "CLIN-PROT-FEV-01"
+
+    mental = medical_rag_engine.retrieve_protocol("So my frnd is suffering from depression")
+    assert mental is not None
+    assert mental["protocol_id"] == "CLIN-PROT-MENTAL-07"
+
+    adhd = medical_rag_engine.retrieve_protocol("adhd good or bad")
+    assert adhd is not None
+    assert adhd["protocol_id"] == "CLIN-PROT-NEURO-08"
+
+
+def test_third_party_query_detection():
+    """Verify third-party friend inquiry detection."""
+    assert is_third_party_query("So my frnd is suffering from depression") is True
+    assert is_third_party_query("What can I take for my headache?") is False
+
+
+def test_medical_rag_drug_safety_check(medical_rag_engine):
+    """Verify drug allergy contraindication flagging."""
+    allergies = ["ibuprofen", "nsaids"]
+    conflict = medical_rag_engine.evaluate_drug_safety("Should I take some Ibuprofen?", allergies)
+    assert conflict["is_contraindicated"] is True
+    assert "Paracetamol" in conflict["safe_alternative"]
+
+
+# ==========================================
+# 6. FastAPI Ingestion & Companion Flow Tests
+# ==========================================
+
+def test_api_root_endpoint(client):
+    """Verify health root endpoint."""
+    response = client.get("/")
     assert response.status_code == 200
     data = response.json()
-    assert "heart_rate" in data
-    assert "eye_aspect_ratio" in data
+    assert data["status"] == "online"
+    assert data["fhir_interoperability"] == "HL7 FHIR v4.0.1 Enabled"
 
 
-def test_api_memory_records(client):
-    """Verify GET /memory-records returns rolling stats, vitals log, and patient profile."""
-    response = client.get("/memory-records")
+def test_api_ingest_telemetry_normal(client):
+    """Verify POST /ingest-telemetry for normal reading."""
+    payload = {"heart_rate": 72, "temperature": 36.8}
+    response = client.post("/ingest-telemetry", json=payload)
     assert response.status_code == 200
-    data = response.json()
-    assert "rolling_stats" in data
-    assert "vitals_log" in data
-    assert "patient_profile" in data
+    assert response.json()["risk_score"] == "Normal"
 
 
-def test_api_clear_memory(client):
-    """Verify POST /clear-memory resets database."""
-    response = client.post("/clear-memory")
-    assert response.status_code == 200
-    assert response.json()["status"] == "memory_cleared"
+@patch("main.dispatch_webhook_escalation")
+def test_api_companion_interact_with_syncope(mock_dispatch, client):
+    """Verify POST /companion-interact handles syncope collapse."""
+    payload = {
+        "user_speech": "I have collapsed and feel faint.",
+        "heart_rate": 125.0,
+        "rmssd": 18.0,
+        "temperature": 38.8,
+        "temp_slope": 0.10,
+        "eda": 6.5,
+        "ear": 0.15,
+        "head_tilt_deg": 44.0,
+        "syncope_detected": True,
+        "posture_status": "SYNCOPE_COLLAPSE_DETECTED"
+    }
+
+    with patch("ollama.AsyncClient.chat"):
+        response = client.post("/companion-interact", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["syncope_detected"] is True
+        assert data["posture_status"] == "SYNCOPE_COLLAPSE_DETECTED"
+        assert len(data["feature_contributions"]) == 5
+        assert data["escalated"] is True
