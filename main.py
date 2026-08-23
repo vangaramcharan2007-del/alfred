@@ -386,10 +386,21 @@ def get_memory_records(limit: int = 30):
 @app.post("/clear-memory")
 def clear_memory():
     """Clear memory logs and reset database baseline."""
-    global aegis_memory
+    global aegis_memory, latest_vitals_snapshot
     if aegis_memory is None:
         aegis_memory = AegisMemory(db_path="aegis_core.db")
     aegis_memory.clear_memory()
+    latest_vitals_snapshot = {
+        "heart_rate": 72.0,
+        "temperature": 36.8,
+        "rmssd": 45.0,
+        "temp_slope": 0.0,
+        "eda": 1.5,
+        "ear": 0.32,
+        "posture_status": "ERECT_NOMINAL",
+        "head_tilt_deg": 0.0,
+        "syncope_detected": False
+    }
     return {"status": "memory_cleared"}
 
 
