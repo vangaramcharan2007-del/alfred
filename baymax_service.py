@@ -2,7 +2,7 @@
 AEGIS Baymax Service - Doctor-Level Multi-Turn Conversational Memory & Offline RAG
 Maintains rolling conversation buffer (last 10 turns), detects third-party inquiries,
 handles conversational acknowledgments naturally, accurately recalls conversational details,
-and retrieves offline clinical protocols.
+case notes, patient summaries, and retrieves offline clinical protocols.
 """
 
 import re
@@ -39,7 +39,7 @@ def is_acknowledgment_or_smalltalk(query: str) -> bool:
 
 def is_third_party_query(query: str, recent_history: Optional[List[Dict[str, str]]] = None) -> bool:
     """
-    Detect if the inquiry is about a friend, relative, or third party.
+    Detect if the inquiry is about a friend, relative, patient case, or third party.
     Disambiguates first-person self reports from third-party inquiries.
     """
     query_lower = query.lower()
@@ -47,7 +47,7 @@ def is_third_party_query(query: str, recent_history: Optional[List[Dict[str, str
     third_party_markers = [
         "friend", "frnd", "someone", "somebody", "my mother", "my father",
         "my brother", "my sister", "my son", "my daughter", "my wife", "my husband",
-        "my partner", "my coworker", "my colleague", "giri", "they", "their", "he is", "she is", "for her", "for him"
+        "my partner", "my coworker", "my colleague", "giri", "somu", "patient 1", "patient 2", "they", "their", "he is", "she is", "for her", "for him"
     ]
 
     # Explicit third party marker in query
@@ -81,8 +81,8 @@ async def stream_baymax_reasoning(
     """
     Multi-Turn Doctor-Level Clinical Inference Engine.
     Handles small talk gracefully, passes conversation history to Ollama,
-    recalls conversational context and names, matches offline RAG protocols,
-    and checks EHR drug-allergy contraindications.
+    recalls conversational context, patient case notes, and names,
+    matches offline RAG protocols, and checks EHR drug-allergy contraindications.
     """
     clean_query = user_query.strip()
     
@@ -144,14 +144,15 @@ async def stream_baymax_reasoning(
 
     # 6. Construct System Prompt
     system_prompt = (
-        "You are Baymax, a personal healthcare companion and caring friend.\n"
+        "You are Baymax, a personal healthcare companion, clinical workstation assistant, and caring friend.\n"
         "Rule 1: DIRECT ANSWERS: When the user asks direct questions about themselves, their friends, or previous conversation (e.g. 'what is my name?', 'what is my friend's name?'), answer directly, simply, and concisely (1 to 2 sentences maximum).\n"
         "- If asked 'what is my name?': Reply 'Your name is Ramcharan.'\n"
         "- If asked 'what is my friend's name?': Look at the chat history. If the user mentioned a friend's name (e.g. Giri), reply directly: 'Your friend's name is Giri.'\n"
         "- Never lecture or give dictionary definitions of everyday words (do not explain what a 'name' is).\n"
-        "Rule 2: WARM & CONCISE: Keep all responses concise (1 to 2 sentences maximum). Be gentle, caring, and helpful. Address the user as 'you' and speak as 'I'.\n"
-        "Rule 3: CLINICAL & ALLERGY ADVICE: When medical symptoms are discussed, offer supportive first-line wellness care. If treatment or medication is mentioned, warn against contraindicated drugs (Ibuprofen for documented allergy) and recommend safe alternatives (Paracetamol).\n"
-        "Rule 4: THIRD-PARTY ADVICE: If the user is asking on behalf of a friend (e.g. 'periods for my friend', 'my friend has depression'), provide practical supportive care for their friend without quoting the user's sensor vitals."
+        "Rule 2: CASE NOTES & MULTI-PATIENT MEMORY: When the user shares notes or details about patients, cases, or individuals (e.g. 'Patient 1 is Somu, he has fever, from Warangal'), treat this as user-provided clinical case notes. When asked 'give me the details of patient 1' or 'who is patient 1?', summarize the exact notes the user provided ('Patient 1 is Somu from Warangal, presenting with fever.') and offer supportive first-line advice. Never refuse or cite privacy consent for user-provided case notes.\n"
+        "Rule 3: WARM & CONCISE: Keep all responses concise (1 to 2 sentences maximum). Be gentle, caring, and helpful. Address the user as 'you' and speak as 'I'.\n"
+        "Rule 4: CLINICAL & ALLERGY ADVICE: When medical symptoms are discussed, offer supportive first-line wellness care. If treatment or medication is mentioned, warn against contraindicated drugs (Ibuprofen for documented allergy) and recommend safe alternatives (Paracetamol).\n"
+        "Rule 5: THIRD-PARTY ADVICE: If the user is asking on behalf of a friend or patient, provide practical supportive care for them without quoting the user's sensor vitals."
     )
 
     ehr_context = (
@@ -161,7 +162,7 @@ async def stream_baymax_reasoning(
     )
 
     rag_context = ""
-    if matched_protocol:
+    if matched_protocol and not is_acknowledgment_or_smalltalk(clean_query):
         rag_context = (
             f"CLINICAL GUIDELINE [{matched_protocol['title']}]:\n"
             f"- Recommended Action: {matched_protocol['first_line_action']}\n"
