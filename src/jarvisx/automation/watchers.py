@@ -7,7 +7,13 @@ import subprocess
 import sys
 import time
 from typing import Dict, Any, List, Optional
-from friday.notifier import notify
+
+try:
+    from friday.notifier import notify
+except Exception:
+    def notify(title: str, message: str) -> None:
+        pass
+
 
 
 class BatteryWatcher:

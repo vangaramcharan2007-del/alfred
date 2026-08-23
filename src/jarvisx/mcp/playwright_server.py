@@ -11,8 +11,11 @@ from __future__ import annotations
 import sys
 import json
 import asyncio
-from typing import Dict, Any, List, Optional
-from playwright.async_api import async_playwright, Browser, Page, Playwright
+try:
+    from playwright.async_api import async_playwright, Browser, Page, Playwright
+except Exception:
+    async_playwright, Browser, Page, Playwright = None, None, None, None
+
 
 # Ensure UTF-8 output on Windows
 if sys.platform == "win32":

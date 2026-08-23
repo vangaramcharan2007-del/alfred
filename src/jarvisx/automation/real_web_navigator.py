@@ -14,7 +14,11 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 import urllib.request
 
-import ollama
+try:
+    import ollama
+except Exception:
+    ollama = None
+
 from jarvisx.mcp.playwright_server import get_playwright_engine, PlaywrightSessionEngine
 
 # Ensure UTF-8 on Windows
