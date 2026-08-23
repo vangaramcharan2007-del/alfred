@@ -37,6 +37,20 @@ def is_acknowledgment_or_smalltalk(query: str) -> bool:
     return clean in ack_words or (len(clean.split()) == 1 and clean in ack_words)
 
 
+def is_recall_query(query: str) -> bool:
+    """
+    Detect if the user is asking to recall previously shared details, names, or patient case notes.
+    """
+    q_lower = query.lower()
+    recall_triggers = [
+        "what is my name", "wt is my name", "what's my name",
+        "what is my friend", "wt is my frnd", "what is my frnds name", "wt is my frnds name",
+        "details of patient", "detail of patient", "who is patient", "about patient",
+        "tell me about patient", "give me the details of", "what did i tell you"
+    ]
+    return any(trig in q_lower for trig in recall_triggers)
+
+
 def is_third_party_query(query: str, recent_history: Optional[List[Dict[str, str]]] = None) -> bool:
     """
     Detect if the inquiry is about a friend, relative, patient case, or third party.
@@ -47,7 +61,7 @@ def is_third_party_query(query: str, recent_history: Optional[List[Dict[str, str
     third_party_markers = [
         "friend", "frnd", "someone", "somebody", "my mother", "my father",
         "my brother", "my sister", "my son", "my daughter", "my wife", "my husband",
-        "my partner", "my coworker", "my colleague", "giri", "somu", "patient 1", "patient 2", "they", "their", "he is", "she is", "for her", "for him"
+        "my partner", "my coworker", "my colleague", "giri", "somu", "patient 1", "patient 2", "patient 3", "they", "their", "he is", "she is", "for her", "for him"
     ]
 
     # Explicit third party marker in query
@@ -125,15 +139,17 @@ async def stream_baymax_reasoning(
             if conversation_history is None:
                 conversation_history = []
 
-    # 3. Match Offline Medical Protocol
-    search_query = clean_query
-    if len(clean_query.split()) <= 3 and conversation_history and not is_acknowledgment_or_smalltalk(clean_query):
-        for turn in reversed(conversation_history):
-            if turn.get("role") == "user":
-                search_query = f"{turn.get('content', '')} {clean_query}"
-                break
-
-    matched_protocol = medical_rag.retrieve_protocol(search_query)
+    # 3. Match Offline Medical Protocol (only if not a pure recall or small talk query)
+    is_recall = is_recall_query(clean_query)
+    matched_protocol = None
+    if not is_recall and not is_acknowledgment_or_smalltalk(clean_query):
+        search_query = clean_query
+        if len(clean_query.split()) <= 3 and conversation_history:
+            for turn in reversed(conversation_history):
+                if turn.get("role") == "user":
+                    search_query = f"{turn.get('content', '')} {clean_query}"
+                    break
+        matched_protocol = medical_rag.retrieve_protocol(search_query)
 
     # 4. Evaluate Drug-Allergy Safety
     allergies_list = patient_profile.get("allergies_list", ["ibuprofen", "nsaids"])
@@ -155,14 +171,8 @@ async def stream_baymax_reasoning(
         "Rule 5: THIRD-PARTY ADVICE: If the user is asking on behalf of a friend or patient, provide practical supportive care for them without quoting the user's sensor vitals."
     )
 
-    ehr_context = (
-        f"PATIENT EHR RECORD:\n"
-        f"- Patient Name: {patient_profile.get('name', 'Ramcharan')}, Age: {patient_profile.get('age', 24)}\n"
-        f"- Documented Allergies: {patient_profile.get('allergies', 'None')}\n"
-    )
-
     rag_context = ""
-    if matched_protocol and not is_acknowledgment_or_smalltalk(clean_query):
+    if matched_protocol and not is_recall and not is_acknowledgment_or_smalltalk(clean_query):
         rag_context = (
             f"CLINICAL GUIDELINE [{matched_protocol['title']}]:\n"
             f"- Recommended Action: {matched_protocol['first_line_action']}\n"
@@ -178,7 +188,7 @@ async def stream_baymax_reasoning(
         )
 
     vitals_context = ""
-    if not is_third_party and (vitals.get("heart_rate", 72) > 100 or vitals.get("temperature", 36.8) > 38.0 or vitals.get("syncope_detected")):
+    if not is_third_party and not is_recall and (vitals.get("heart_rate", 72) > 100 or vitals.get("temperature", 36.8) > 38.0 or vitals.get("syncope_detected")):
         vitals_context = (
             f"LIVE TELEMETRY ALERT: HR={vitals.get('heart_rate')} BPM, Temp={vitals.get('temperature')}°C, Syncope={vitals.get('syncope_detected')}\n"
         )
@@ -198,6 +208,8 @@ async def stream_baymax_reasoning(
     user_turn_content = clean_query
     if rag_context or allergy_alert or vitals_context:
         user_turn_content = f"{rag_context}{allergy_alert}{vitals_context}\n{clean_query}"
+    elif is_recall and "patient" in clean_query.lower():
+        user_turn_content = f"Summarize the exact case notes you were given for the requested patient from the conversation history:\n{clean_query}"
 
     messages.append({"role": "user", "content": user_turn_content})
 
