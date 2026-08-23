@@ -1,59 +1,81 @@
-# 🐧 JARVIS X: UBUNTU LAB VM DEPLOYMENT & ONBOARDING GUIDE
+# 🐧 JARVIS X: LAB-PROOF UBUNTU VM DEPLOYMENT & ONBOARDING GUIDE
 
-Follow these 4 simple steps to provision and attach any Ubuntu Virtual Machine, lab workstation, or cluster node into the **Jarvis X Distributed AI Mesh**.
-
----
-
-## 📋 Prerequisites
-* Ubuntu 22.04 / 24.04 LTS (x86_64)
-* Python 3.10+
-* Dedicated GPU (NVIDIA/AMD) or High-Core CPU
-* Tailscale installed on both Master (Yoga 7i) and the VM.
+> **Status:** Deployment-Ready for Controlled Lab Testing  
+> **Prerequisites Checklist:** Ubuntu 22.04/24.04 LTS, Tailscale, Ollama, Python 3.10+, and an enrollment token.
 
 ---
 
-## ⚡ Step 1: Install Tailscale & Connect to Tailnet
-On the Ubuntu VM:
+## 🛠️ Step 0: Ensure Essential Networking Tools Exist
+Fresh minimal Ubuntu VM images in campus labs often lack `curl`. Run this first:
 ```bash
-# 1. Install Tailscale
-curl -fsSL https://tailscale.com/install.sh | sh
-
-# 2. Authenticate to your Tailnet
-sudo tailscale up
-
-# 3. Check your VM's Tailscale IP
-tailscale ip -4
-# Example Output: 100.88.19.42
+sudo apt update && sudo apt install -y curl wget git python3 python3-pip python3-venv
 ```
 
 ---
 
-## 🦙 Step 2: Install Ollama & Pull Desired Models
-```bash
-# 1. Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
+## ⚡ Step 1: Install Tailscale & Connect to Tailnet
 
-# 2. Ensure Ollama listens on Tailscale network interface
+### Option A: Standard Installer (if `curl` works)
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+```
+
+### Option B: `wget` Fallback (if `curl` fails or hangs)
+```bash
+wget -qO- https://tailscale.com/install.sh | sh
+```
+
+### Option C: Direct APT Repository (if script pipes fail)
+```bash
+sudo mkdir -p --mode=0755 /etc/apt/keyrings
+curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/$(lsb_release -cs).noarmor.gpg | sudo tee /etc/apt/keyrings/tailscale-archive-keyring.gpg >/dev/null
+curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/$(lsb_release -cs).tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
+sudo apt update && sudo apt install -y tailscale
+```
+
+### Connect to Tailnet:
+```bash
+sudo tailscale up
+# Verify your Tailscale IPv4 address:
+tailscale ip -4
+# e.g., 100.88.19.42
+```
+
+---
+
+## 🦙 Step 2: Install Ollama & Bind to Network
+
+### Install Ollama:
+```bash
+# Using curl:
+curl -fsSL https://ollama.com/install.sh | sh
+# OR using wget:
+wget -qO- https://ollama.com/install.sh | sh
+```
+
+### Bind Ollama to all network interfaces (so Tailscale Master can reach it):
+```bash
 sudo mkdir -p /etc/systemd/system/ollama.service.d
 echo '[Service]' | sudo tee /etc/systemd/system/ollama.service.d/environment.conf
 echo 'Environment="OLLAMA_HOST=0.0.0.0:11434"' | sudo tee -a /etc/systemd/system/ollama.service.d/environment.conf
 sudo systemctl daemon-reload
 sudo systemctl restart ollama
+```
 
-# 3. Pull required model families
+### Pull the lightweight, high-performance base model:
+```bash
 ollama pull qwen2.5-coder:1.5b
+# Optional (if GPU VRAM > 6GB):
 ollama pull qwen2.5-coder:7b
-ollama pull llama3.2:latest
 ```
 
 ---
 
-## 🔑 Step 3: Issue an Enrollment Token on Master Coordinator
-On Master (Lenovo Yoga 7i):
+## 🔑 Step 3: Issue an Enrollment Token on Master (Yoga 7i)
+On your Yoga 7i laptop, generate a one-time single-use HMAC token:
 ```powershell
-# Open Jarvis X FastMCP or run Python token generator:
 python -c "from jarvisx.mesh.auto_enrollment import TokenSecurityManager; print('TOKEN:', TokenSecurityManager().issue_token(label='LAB-VM-01'))"
-# Example Output: TOKEN: 7f8a12b394c8e71...
+# Output example: TOKEN: a89f14b29c017d...
 ```
 
 ---
@@ -61,7 +83,11 @@ python -c "from jarvisx.mesh.auto_enrollment import TokenSecurityManager; print(
 ## 🚀 Step 4: Run the One-Liner Worker Bootstrapper
 On the Ubuntu VM:
 ```bash
-# Download and execute the zero-dependency bootstrapper
+# Clone the Alfred/Jarvis repository or copy the standalone bootstrapper:
+git clone https://github.com/vangaramcharan2007-del/alfred.git /tmp/jarvis-worker
+cd /tmp/jarvis-worker
+
+# Run the bootstrapper:
 python3 scripts/mesh_join_worker.py \
     --master 100.105.164.83 \
     --worker-id LAB-VM-01 \
@@ -72,10 +98,8 @@ python3 scripts/mesh_join_worker.py \
 
 ---
 
-## 🟢 Verification in Jarvis X Dashboard
-Once executed, the VM will:
-1. Probe its local hardware & GPU specs.
-2. Run synthetic calibration on `qwen2.5-coder:1.5b` (measuring local TTFT and tokens/sec).
-3. Validate its one-time token with Master.
-4. Appear in the **Jarvis X AI Mesh Observability Dashboard** as `🟢 ONLINE`.
-5. Immediately begin accepting distributed inference workloads!
+## 🟢 Step 5: Verification on Master Dashboard
+Look at the **Jarvis X AI Mesh Observability Hub** on your Yoga 7i:
+1. `LAB-VM-01` will transition from `🟡 STANDBY` to `🟢 ONLINE`.
+2. Calibration will report: `TTFT: ~30-45ms`, `TPS: ~40-60 tok/s` (depending on VM GPU).
+3. The adaptive scheduler will immediately start offloading coding and research tasks to `LAB-VM-01`!
