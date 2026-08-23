@@ -39,7 +39,8 @@ import {
   Users,
   CloudUpload,
   CheckCircle2,
-  Server
+  Server,
+  Globe
 } from "lucide-react";
 
 interface VitalsState {
@@ -103,6 +104,14 @@ interface RollingStats {
   fatigue_events_in_window: number;
 }
 
+const LANGUAGES = [
+  { code: "en", label: "🇬🇧 English", speechCode: "en-IN" },
+  { code: "te", label: "🇮🇳 తెలుగు (Telugu)", speechCode: "te-IN" },
+  { code: "hi", label: "🇮🇳 हिन्दी (Hindi)", speechCode: "hi-IN" },
+  { code: "ta", label: "🇮🇳 தமிழ் (Tamil)", speechCode: "ta-IN" },
+  { code: "kn", label: "🇮🇳 ಕನ್ನಡ (Kannada)", speechCode: "kn-IN" }
+];
+
 const BACKEND_URL = "http://127.0.0.1:8000";
 
 export default function AegisMedicalCommandDeck() {
@@ -132,7 +141,8 @@ export default function AegisMedicalCommandDeck() {
   });
   const [topDriver, setTopDriver] = useState<string>("Thermal Velocity (Slope)");
 
-  // UI & Interaction State
+  // UI & Multi-Lingual State
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
   const [textInput, setTextInput] = useState<string>("");
   const [isListening, setIsListening] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
@@ -142,7 +152,7 @@ export default function AegisMedicalCommandDeck() {
     {
       id: "init-1",
       sender: "baymax",
-      text: "Hello! I am Baymax, your personal healthcare companion. Offline Medical RAG protocols, Explainable AI diagnostics, and your Electronic Health Record (EHR) are active. How may I assist you today?",
+      text: "Hello! I am Baymax, your personal healthcare companion. Multi-lingual Speech & Offline Medical RAG protocols are active. How may I assist you today?",
       timestamp: "12:00",
     },
   ]);
@@ -218,7 +228,7 @@ export default function AegisMedicalCommandDeck() {
     }
   }, []);
 
-  // 2. Initialize Voice Synthesis & Filter for Calm Male Healthcare Companion Voices
+  // 2. Initialize Voice Synthesis
   useEffect(() => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       const updateVoices = () => {
@@ -276,7 +286,7 @@ export default function AegisMedicalCommandDeck() {
     }
   }, []);
 
-  // 3. Initialize Speech Recognition
+  // 3. Initialize Multi-Lingual Speech Recognition (STT)
   useEffect(() => {
     if (typeof window !== "undefined") {
       const SpeechRecognition =
@@ -285,7 +295,8 @@ export default function AegisMedicalCommandDeck() {
         const reco = new SpeechRecognition();
         reco.continuous = false;
         reco.interimResults = false;
-        reco.lang = "en-US";
+        const langObj = LANGUAGES.find((l) => l.code === selectedLanguage);
+        reco.lang = langObj ? langObj.speechCode : "en-US";
 
         reco.onstart = () => {
           setIsListening(true);
@@ -312,7 +323,7 @@ export default function AegisMedicalCommandDeck() {
         recognitionRef.current = reco;
       }
     }
-  }, [vitals.isAnomaly, vitals.isFatigued, vitals.syncopeDetected, isSpeaking]);
+  }, [vitals.isAnomaly, vitals.isFatigued, vitals.syncopeDetected, isSpeaking, selectedLanguage]);
 
   // 4. Periodic Memory Records, Patient List & Sync Queue Poller (every 2.5s)
   useEffect(() => {
@@ -406,13 +417,14 @@ export default function AegisMedicalCommandDeck() {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Speech Synthesis Helper (Calm Baymax Male Persona)
-  const speakText = (text: string) => {
+  // Multi-Lingual Speech Synthesis (TTS)
+  const speakText = (text: string, langOverride?: string) => {
     if (!voiceEnabled || typeof window === "undefined" || !("speechSynthesis" in window)) {
       return;
     }
     window.speechSynthesis.cancel();
 
+    const targetLang = langOverride || selectedLanguage;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = speechRate;
     utterance.pitch = speechPitch;
@@ -420,17 +432,19 @@ export default function AegisMedicalCommandDeck() {
     const voices = window.speechSynthesis.getVoices();
     let chosenVoice: SpeechSynthesisVoice | undefined;
 
-    if (selectedVoiceName) {
+    // Look for matching regional voice (te, hi, ta, kn)
+    const matchingRegional = voices.find((v) => v.lang.toLowerCase().startsWith(targetLang));
+    if (matchingRegional) {
+      chosenVoice = matchingRegional;
+      utterance.lang = matchingRegional.lang;
+    } else if (selectedVoiceName) {
       chosenVoice = voices.find((v) => v.name === selectedVoiceName);
     }
 
     if (!chosenVoice) {
       chosenVoice =
         voices.find((v) => v.name.includes("David")) ||
-        voices.find((v) => v.name.includes("Guy") && v.name.includes("Natural")) ||
-        voices.find((v) => v.name.includes("Mark")) ||
         voices.find((v) => v.name.includes("Google UK English Male")) ||
-        voices.find((v) => v.name.includes("Daniel")) ||
         voices[0];
     }
 
@@ -457,7 +471,13 @@ export default function AegisMedicalCommandDeck() {
   };
 
   const handleTestVoice = () => {
-    speakText(`Hello! I am Baymax. I have reviewed ${patientProfile.name}'s electronic health record. How may I assist your well-being today?`);
+    if (selectedLanguage === "te") {
+      speakText("నమస్కారం! నేను బేమ్యాక్స్, మీ వ్యక్తిగత ఆరోగ్య సంరక్షకుడిని.", "te");
+    } else if (selectedLanguage === "hi") {
+      speakText("नमस्ते! मैं बेमैक्स हूँ, आपका व्यक्तिगत स्वास्थ्य साथी।", "hi");
+    } else {
+      speakText(`Hello! I am Baymax. I have reviewed ${patientProfile.name}'s electronic health record. How may I assist your well-being today?`, "en");
+    }
   };
 
   const toggleListening = () => {
@@ -467,13 +487,13 @@ export default function AegisMedicalCommandDeck() {
       try {
         recognitionRef.current?.start();
       } catch {
-        const samplePrompts = [
-          "Baymax, my core temperature is spiking and I have a fever. Should I take some Ibuprofen?",
-          "How can I reduce fever safely?",
-          "What are the best recovery steps for fatigue and eye strain?",
-        ];
-        const randomPrompt = samplePrompts[Math.floor(Math.random() * samplePrompts.length)];
-        handleSendQuery(randomPrompt);
+        const defaultPrompt =
+          selectedLanguage === "te"
+            ? "నాకు తీవ్రమైన జ్వరం ఉంది. నేను ఇబుప్రోఫెన్ (Ibuprofen) తీసుకోవచ్చా?"
+            : selectedLanguage === "hi"
+            ? "मुझे तेज बुखार है, क्या मैं इबुप्रोफेन (Ibuprofen) ले सकता हूँ?"
+            : "Baymax, my core temperature is spiking and I have a fever. Should I take some Ibuprofen?";
+        handleSendQuery(defaultPrompt);
       }
     }
   };
@@ -502,7 +522,7 @@ export default function AegisMedicalCommandDeck() {
     }
   };
 
-  // Trigger Opportunistic Store-and-Forward FHIR Sync to District Hospital
+  // Trigger Store-and-Forward FHIR Sync to District Hospital
   const handleTriggerSync = async () => {
     setIsSyncing(true);
     setSyncSuccessMsg("");
@@ -525,9 +545,10 @@ export default function AegisMedicalCommandDeck() {
     }
   };
 
-  // Send Query to Doctor-Level Baymax Engine
-  const handleSendQuery = async (queryText: string, customVitals?: Partial<VitalsState>) => {
+  // Send Query to Multi-Lingual Doctor-Level Baymax Engine
+  const handleSendQuery = async (queryText: string, customVitals?: Partial<VitalsState>, langOverride?: string) => {
     if (!queryText.trim()) return;
+    const targetLang = langOverride || selectedLanguage;
     const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
     const activeVitals = { ...vitals, ...customVitals };
 
@@ -551,7 +572,8 @@ export default function AegisMedicalCommandDeck() {
           ear: activeVitals.ear,
           head_tilt_deg: activeVitals.headTiltDeg,
           syncope_detected: activeVitals.syncopeDetected,
-          posture_status: activeVitals.postureStatus
+          posture_status: activeVitals.postureStatus,
+          language: targetLang
         }),
       });
 
@@ -583,7 +605,7 @@ export default function AegisMedicalCommandDeck() {
           setEscalationsCount((c) => c + 1);
         }
 
-        speakText(reply);
+        speakText(reply, targetLang);
       } else {
         throw new Error("HTTP failure");
       }
@@ -593,30 +615,48 @@ export default function AegisMedicalCommandDeck() {
         ...prev,
         { id: `baymax-${Date.now()}`, sender: "baymax", text: fallbackMsg, timestamp: timeStr },
       ]);
-      speakText(fallbackMsg);
+      speakText(fallbackMsg, targetLang);
     }
   };
 
-  // Simulation Trigger 1: Allergy Contraindication Test
-  const triggerAllergyTest = async () => {
+  // Multi-Lingual Quick Simulation Triggers
+  const triggerTeluguTest = () => {
+    setSelectedLanguage("te");
     const feverVitals: VitalsState = {
       ...vitals,
-      heartRate: 105,
-      rmssd: 25,
-      temperature: 39.2,
+      heartRate: 108,
+      rmssd: 22,
+      temperature: 39.1,
       tempSlope: 0.12,
-      eda: 4.5,
+      eda: 4.8,
       ear: 0.28,
       riskLevel: "HIGH RISK",
       isAnomaly: true,
-      isFatigued: false,
     };
     setVitals(feverVitals);
     setAvatarState("alert");
-    handleSendQuery("Baymax, my core temperature is spiking and I have a severe fever. Should I take some Ibuprofen?", feverVitals);
+    handleSendQuery("నాకు తీవ్రమైన జ్వరం ఉంది. నేను ఇబుప్రోఫెన్ (Ibuprofen) వేసుకోవచ్చా?", feverVitals, "te");
   };
 
-  // Simulation Trigger 2: Syncope & Postural Collapse Fall Detection
+  const triggerHindiTest = () => {
+    setSelectedLanguage("hi");
+    const feverVitals: VitalsState = {
+      ...vitals,
+      heartRate: 108,
+      rmssd: 22,
+      temperature: 39.1,
+      tempSlope: 0.12,
+      eda: 4.8,
+      ear: 0.28,
+      riskLevel: "HIGH RISK",
+      isAnomaly: true,
+    };
+    setVitals(feverVitals);
+    setAvatarState("alert");
+    handleSendQuery("मुझे बहुत तेज बुखार है, क्या मैं इबुप्रोफेन (Ibuprofen) ले सकता हूँ?", feverVitals, "hi");
+  };
+
+  // Simulation Trigger: Syncope & Postural Collapse Fall Detection
   const triggerSyncopeTest = async () => {
     const syncopeVitals: VitalsState = {
       ...vitals,
@@ -637,20 +677,25 @@ export default function AegisMedicalCommandDeck() {
     handleSendQuery("Alert: Optical sensor detects acute head tilt of 42.5 degrees and sudden vertical drop indicating syncope and loss of postural control.", syncopeVitals);
   };
 
-  // Simulation Trigger 3: Fatigue (EAR < 0.22)
-  const triggerFatigueSimulation = async () => {
-    const fatigueVitals: VitalsState = {
+  // Simulation Trigger: Allergy Contraindication Test (English)
+  const triggerAllergyTest = async () => {
+    const feverVitals: VitalsState = {
       ...vitals,
-      ear: 0.14,
-      isFatigued: true,
+      heartRate: 105,
+      rmssd: 25,
+      temperature: 39.2,
+      tempSlope: 0.12,
+      eda: 4.5,
+      ear: 0.28,
       riskLevel: "HIGH RISK",
+      isAnomaly: true,
     };
-    setVitals(fatigueVitals);
+    setVitals(feverVitals);
     setAvatarState("alert");
-    handleSendQuery("I have severe eye fatigue and prolonged eyelid closure from working all night.", fatigueVitals);
+    handleSendQuery("Baymax, my core temperature is spiking and I have a severe fever. Should I take some Ibuprofen?", feverVitals, "en");
   };
 
-  // Simulation Trigger 4: Acute Cardiac & Heat Anomaly
+  // Simulation Trigger: Acute Anomaly
   const triggerAnomalySimulation = async () => {
     const anomalyVitals: VitalsState = {
       ...vitals,
@@ -662,7 +707,6 @@ export default function AegisMedicalCommandDeck() {
       ear: 0.26,
       riskLevel: "HIGH RISK",
       isAnomaly: true,
-      isFatigued: false,
     };
     setVitals(anomalyVitals);
     setAvatarState("alert");
@@ -729,61 +773,60 @@ export default function AegisMedicalCommandDeck() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base font-black tracking-wider text-white">
-                AEGIS <span className="text-cyan-400 font-mono text-xs font-normal">// CLINICAL & RURAL HEALTH COMMAND DECK</span>
+                AEGIS <span className="text-cyan-400 font-mono text-xs font-normal">// MULTI-LINGUAL RURAL CLINICAL DECK</span>
               </h1>
               <span className="px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/40 text-[10px] font-mono text-cyan-300">
-                OFFLINE EDGE BOX
+                MULTI-LINGUAL STT/TTS
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>OFFLINE MEDICAL RAG</span>
+              <span>TELUGU / HINDI / TAMIL / KANNADA</span>
               <span>•</span>
-              <span>MULTI-PATIENT EHR</span>
+              <span>OFFLINE RAG</span>
               <span>•</span>
               <span>STORE-AND-FORWARD FHIR</span>
             </p>
           </div>
         </div>
 
-        {/* Quick Action Simulation Controls & Voice Selector */}
+        {/* Language Selector, Quick Simulation Controls & Voice Selector */}
         <div className="flex flex-wrap items-center gap-2">
           
-          {/* Baymax Voice Selector Dropdown */}
-          <div className="flex items-center gap-1.5 bg-slate-950 border border-cyan-900/60 px-2.5 py-1 rounded-xl">
-            <UserCheck className="w-3.5 h-3.5 text-cyan-400" />
+          {/* Multi-Lingual Language Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-950 border border-cyan-500/60 px-2.5 py-1 rounded-xl shadow-[0_0_10px_rgba(6,182,212,0.3)]">
+            <Globe className="w-3.5 h-3.5 text-cyan-400" />
             <select
-              value={selectedVoiceName}
-              onChange={(e) => setSelectedVoiceName(e.target.value)}
-              className="bg-transparent text-[11px] font-mono text-cyan-300 focus:outline-none cursor-pointer max-w-[150px] truncate"
-              title="Select Baymax Synthesized Male Voice"
+              value={selectedLanguage}
+              onChange={(e) => setSelectedLanguage(e.target.value)}
+              className="bg-transparent text-[11px] font-mono font-bold text-cyan-300 focus:outline-none cursor-pointer"
+              title="Select Diagnostic & Voice Language"
             >
-              {availableVoices
-                .filter((v) => {
-                  const n = v.name.toLowerCase();
-                  return (
-                    !n.includes("female") &&
-                    !n.includes("zira") &&
-                    !n.includes("samantha") &&
-                    !n.includes("jenny") &&
-                    !n.includes("victoria") &&
-                    !n.includes("karen")
-                  );
-                })
-                .map((v, i) => (
-                  <option key={i} value={v.name} className="bg-slate-900 text-slate-200">
-                    {v.name.replace("Microsoft ", "").replace("Google ", "")}
-                  </option>
-                ))}
+              {LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code} className="bg-slate-900 text-slate-200">
+                  {l.label}
+                </option>
+              ))}
             </select>
-            <button
-              onClick={handleTestVoice}
-              className="text-[10px] font-mono px-1.5 py-0.5 bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded"
-              title="Test Voice Sample"
-            >
-              Test
-            </button>
           </div>
+
+          {/* Quick Telugu Pitch Button */}
+          <button
+            onClick={triggerTeluguTest}
+            className="px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-amber-950/90 border border-amber-500/70 text-amber-300 hover:bg-amber-900 transition flex items-center gap-1 shadow"
+            title="Demonstrate Live Telugu Clinical RAG & Drug Safety"
+          >
+            <span>🇮🇳 TEST TELUGU (తెలుగు)</span>
+          </button>
+
+          {/* Quick Hindi Pitch Button */}
+          <button
+            onClick={triggerHindiTest}
+            className="px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-orange-950/90 border border-orange-500/70 text-orange-300 hover:bg-orange-900 transition flex items-center gap-1 shadow"
+            title="Demonstrate Live Hindi Clinical RAG & Drug Safety"
+          >
+            <span>🇮🇳 TEST HINDI (हिन्दी)</span>
+          </button>
 
           {/* Export Clinical Handover FHIR / PDF Button */}
           <button
@@ -792,36 +835,17 @@ export default function AegisMedicalCommandDeck() {
             title="Export Standardized HL7/FHIR Clinical Triage Handover Report"
           >
             <Share2 className="w-3.5 h-3.5 text-teal-400" />
-            <span>EXPORT FHIR HANDOVER</span>
+            <span>EXPORT FHIR</span>
           </button>
 
-          {/* Test Syncope & Postural Collapse Fall Button */}
+          {/* Test Syncope Collapse Button */}
           <button
             onClick={triggerSyncopeTest}
-            className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-rose-950/90 border border-rose-500/70 text-rose-300 hover:bg-rose-900 transition flex items-center gap-1.5 shadow-[0_0_15px_rgba(244,63,94,0.4)]"
+            className="px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-rose-950/90 border border-rose-500/70 text-rose-300 hover:bg-rose-900 transition flex items-center gap-1.5 shadow"
             title="Simulate Head Tilt / Syncope Fainting Collapse Fall"
           >
             <AlertTriangle className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
-            <span>TEST SYNCOPE COLLAPSE</span>
-          </button>
-
-          {/* Allergy Contraindication Button */}
-          <button
-            onClick={triggerAllergyTest}
-            className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-indigo-950/90 border border-indigo-500/70 text-indigo-300 hover:bg-indigo-900 transition flex items-center gap-1.5 shadow"
-            title="Test Ibuprofen Allergy Contraindication Pitch Demo"
-          >
-            <AlertOctagon className="w-3.5 h-3.5 text-indigo-400" />
-            <span>TEST ALLERGY</span>
-          </button>
-
-          <button
-            onClick={triggerAnomalySimulation}
-            className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-amber-950/80 border border-amber-500/60 text-amber-300 hover:bg-amber-900 transition flex items-center gap-1.5 shadow"
-            title="Simulate Critical Heat/Cardiac Anomaly"
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>TEST ANOMALY</span>
+            <span>SYNCOPE</span>
           </button>
 
           <button
@@ -830,7 +854,7 @@ export default function AegisMedicalCommandDeck() {
             title="Reset Baseline & Clear Database"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>RESET BASELINE</span>
+            <span>RESET</span>
           </button>
 
           <button
@@ -1099,10 +1123,10 @@ export default function AegisMedicalCommandDeck() {
                 <div>
                   <h3 className="text-xs font-bold font-mono tracking-wide text-white flex items-center gap-2">
                     BAYMAX HEALTHCARE COMPANION
-                    <span className="text-[9px] text-cyan-400 font-normal">DOCTOR-LEVEL RAG</span>
+                    <span className="text-[9px] text-cyan-400 font-normal">MULTI-LINGUAL RAG</span>
                   </h3>
                   <p className="text-[10px] text-slate-400 font-mono">
-                    Patient: <span className="text-cyan-300 font-bold">{patientProfile.name}</span> ({patientProfile.location})
+                    Language: <span className="text-cyan-300 font-bold uppercase">{selectedLanguage}</span> • Patient: <span className="text-white font-bold">{patientProfile.name}</span>
                   </p>
                 </div>
               </div>
@@ -1160,7 +1184,13 @@ export default function AegisMedicalCommandDeck() {
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSendQuery(textInput)}
-                placeholder="Ask Baymax anything (e.g. 'Can I take Ibuprofen for fever?')..."
+                placeholder={
+                  selectedLanguage === "te"
+                    ? "బేమ్యాక్స్‌ను ఏదైనా అడగండి (ఉదా. 'నాకు జ్వరం ఉంది, ఏం చేయాలి?')..."
+                    : selectedLanguage === "hi"
+                    ? "बेमैक्स से कुछ भी पूछें (उदा. 'मुझे बुखार है, क्या करूँ?')..."
+                    : "Ask Baymax anything (e.g. 'Can I take Ibuprofen for fever?')..."
+                }
                 className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono transition"
               />
 
@@ -1180,7 +1210,7 @@ export default function AegisMedicalCommandDeck() {
                     ? "bg-cyan-400 text-slate-950 border-cyan-300 animate-pulse shadow-[0_0_15px_rgba(6,182,212,0.8)]"
                     : "bg-slate-950 border-slate-700 text-cyan-400 hover:bg-slate-800"
                 }`}
-                title="Voice Input (Speech-to-Text)"
+                title="Voice Input (Speech-to-Text in Selected Language)"
               >
                 {isListening ? <Mic className="w-4 h-4 animate-bounce" /> : <Mic className="w-4 h-4" />}
               </button>

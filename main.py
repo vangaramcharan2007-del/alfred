@@ -164,6 +164,7 @@ class CompanionChatRequest(BaseModel):
     head_tilt_deg: Optional[float] = Field(0.0)
     syncope_detected: Optional[bool] = Field(False)
     posture_status: Optional[str] = Field("ERECT_NOMINAL")
+    language: Optional[str] = Field("en", description="Target language code (en, te, hi, ta, kn)")
 
 
 class CompanionChatResponse(BaseModel):
@@ -605,7 +606,8 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
         vitals=vitals_dict,
         baseline=baseline_dict,
         patient_profile=patient_ehr,
-        conversation_history=chat_history
+        conversation_history=chat_history,
+        language=req.language or "en"
     )
 
     # 6. Record user and Baymax turns to SQLite
