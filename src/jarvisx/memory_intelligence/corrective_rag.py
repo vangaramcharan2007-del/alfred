@@ -2,13 +2,14 @@
 Corrective RAG (CRAG) Engine for Jarvis X.
 Adapted and refined from LangGraph / LangChain CRAG architectures (awesome-llm-apps).
 
-Workflow:
+Workflow: Retrieval-Aware Corrective Fallback & Hallucination-Reduction Pipeline.
 1. Retrieve local context from Memory Intelligence Engine / ChromaDB.
 2. Grade relevance & confidence of retrieved context.
 3. If confidence is HIGH (>= 0.65): Synthesize response directly from local verified memory.
 4. If confidence is LOW (< 0.65): Execute autonomous query rewrite + Web Search fallback (DuckDuckGo),
    blend verified web snippets, and synthesize a grounded response with source citations.
 """
+
 
 from __future__ import annotations
 
