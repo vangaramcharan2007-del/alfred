@@ -43,24 +43,17 @@ tailscale ip -4
 
 ---
 
-## 🦙 Step 2: Install Ollama & Bind to Network
+## 🦙 Step 2: Install Ollama (Secure Localhost Loopback)
 
-### Install Ollama:
+### Install & Start Ollama:
 ```bash
 # Using curl:
 curl -fsSL https://ollama.com/install.sh | sh
 # OR using wget:
 wget -qO- https://ollama.com/install.sh | sh
 ```
-
-### Bind Ollama to all network interfaces (so Tailscale Master can reach it):
-```bash
-sudo mkdir -p /etc/systemd/system/ollama.service.d
-echo '[Service]' | sudo tee /etc/systemd/system/ollama.service.d/environment.conf
-echo 'Environment="OLLAMA_HOST=0.0.0.0:11434"' | sudo tee -a /etc/systemd/system/ollama.service.d/environment.conf
-sudo systemctl daemon-reload
-sudo systemctl restart ollama
-```
+> [!NOTE]
+> **Security Best Practice:** Ollama stays bound to `127.0.0.1:11434` (localhost loopback only). It is **never exposed on 0.0.0.0/LAN**. The `Jarvis Worker` agent runs locally on the VM, communicates with Ollama over loopback, and exposes the authenticated Tailscale interface to Master.
 
 ### Pull the lightweight, high-performance base model:
 ```bash
@@ -68,6 +61,7 @@ ollama pull qwen2.5-coder:1.5b
 # Optional (if GPU VRAM > 6GB):
 ollama pull qwen2.5-coder:7b
 ```
+
 
 ---
 
