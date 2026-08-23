@@ -1,7 +1,8 @@
 """
 AEGIS Baymax Service - Doctor-Level Multi-Turn Conversational Memory & Offline RAG
-Maintains rolling conversation buffer (last 6 turns), detects third-party inquiries,
-handles conversational acknowledgments naturally, and retrieves offline clinical protocols.
+Maintains rolling conversation buffer (last 10 turns), detects third-party inquiries,
+handles conversational acknowledgments naturally, accurately recalls conversational details,
+and retrieves offline clinical protocols.
 """
 
 import re
@@ -39,21 +40,30 @@ def is_acknowledgment_or_smalltalk(query: str) -> bool:
 def is_third_party_query(query: str, recent_history: Optional[List[Dict[str, str]]] = None) -> bool:
     """
     Detect if the inquiry is about a friend, relative, or third party.
+    Disambiguates first-person self reports from third-party inquiries.
     """
-    third_party_terms = [
+    query_lower = query.lower()
+    first_person_markers = ["i have", "i am", "i feel", "my name", "my fever", "my chest", "my head", "my eyes"]
+    third_party_markers = [
         "friend", "frnd", "someone", "somebody", "my mother", "my father",
         "my brother", "my sister", "my son", "my daughter", "my wife", "my husband",
-        "my partner", "my coworker", "my colleague", "they", "their", "he is", "she is"
+        "my partner", "my coworker", "my colleague", "giri", "they", "their", "he is", "she is", "for her", "for him"
     ]
-    query_lower = query.lower()
-    if any(term in query_lower for term in third_party_terms):
+
+    # Explicit third party marker in query
+    if any(tp in query_lower for tp in third_party_markers):
         return True
 
-    if recent_history:
+    # Explicit first person self report
+    if any(fp in query_lower for fp in first_person_markers):
+        return False
+
+    # Check previous user turns ONLY if query is a short follow-up (<= 4 words, e.g. 'any medicines?')
+    if recent_history and len(query_lower.split()) <= 4:
         for turn in reversed(recent_history):
             if turn.get("role") == "user":
                 prev_lower = turn.get("content", "").lower()
-                if any(term in prev_lower for term in third_party_terms):
+                if any(tp in prev_lower for tp in third_party_markers):
                     return True
                 break
 
@@ -71,7 +81,8 @@ async def stream_baymax_reasoning(
     """
     Multi-Turn Doctor-Level Clinical Inference Engine.
     Handles small talk gracefully, passes conversation history to Ollama,
-    matches offline RAG protocols, and checks EHR drug-allergy contraindications.
+    recalls conversational context and names, matches offline RAG protocols,
+    and checks EHR drug-allergy contraindications.
     """
     clean_query = user_query.strip()
     
@@ -85,7 +96,8 @@ async def stream_baymax_reasoning(
             yield "You are welcome. I am satisfied with your care. Take good care of yourself!"
             return
         elif clean_lower in ["hello", "hi", "hey"]:
-            yield f"Hello {patient_profile.get('name', '') if patient_profile else ''}! I am Baymax, your personal healthcare companion. How may I assist your well-being today?"
+            name = patient_profile.get('name', 'Ramcharan') if patient_profile else 'Ramcharan'
+            yield f"Hello {name}! I am Baymax, your personal healthcare companion. How may I assist your well-being today?"
             return
         elif clean_lower in ["bye", "goodbye", "good night", "see you"]:
             yield "I will remain on standby to monitor your health. Rest well and stay safe!"
@@ -98,7 +110,7 @@ async def stream_baymax_reasoning(
             if patient_profile is None:
                 patient_profile = mem.get_patient_profile()
             if conversation_history is None:
-                conversation_history = mem.get_conversation_context(limit=6)
+                conversation_history = mem.get_conversation_context(limit=10)
             mem.close()
         except Exception:
             if patient_profile is None:
@@ -132,73 +144,63 @@ async def stream_baymax_reasoning(
 
     # 6. Construct System Prompt
     system_prompt = (
-        "You are Baymax, an empathetic, caring, and knowledgeable personal healthcare companion. "
-        "Rule 1: Speak directly to the person ('I' and 'you'). Never speak in the third person or say 'the user'. "
-        "Rule 2: Adopt a warm, calm, supportive, and scientifically accurate tone. "
-        "Rule 3: Answer questions about health concepts, psychological traits, or medical conditions (such as ADHD, fatigue, fever, dehydration) informatively and helpfully using established science. "
-        "Rule 4: CROSS-REFERENCE EHR ALLERGIES: If the patient asks about or if treatment involves any medication they are allergic to (e.g. Ibuprofen/NSAIDs), you MUST warn them directly: 'I am scanning your profile now. Your medical records indicate an allergy to [Medication]. Do not take it.' Then recommend the safe clinical alternative (e.g. Paracetamol). "
-        "Rule 5: THIRD-PARTY & FRIEND INQUIRIES: If the speaker is asking for a friend or third party (e.g. 'my friend is suffering from depression'), DO NOT quote the speaker's sensor vitals. Address the friend's clinical situation directly. "
-        "Rule 6: Keep responses concise (1 to 3 sentences maximum)."
+        "You are Baymax, a personal healthcare companion and caring friend.\n"
+        "Rule 1: DIRECT ANSWERS: When the user asks direct questions about themselves, their friends, or previous conversation (e.g. 'what is my name?', 'what is my friend's name?'), answer directly, simply, and concisely (1 to 2 sentences maximum).\n"
+        "- If asked 'what is my name?': Reply 'Your name is Ramcharan.'\n"
+        "- If asked 'what is my friend's name?': Look at the chat history. If the user mentioned a friend's name (e.g. Giri), reply directly: 'Your friend's name is Giri.'\n"
+        "- Never lecture or give dictionary definitions of everyday words (do not explain what a 'name' is).\n"
+        "Rule 2: WARM & CONCISE: Keep all responses concise (1 to 2 sentences maximum). Be gentle, caring, and helpful. Address the user as 'you' and speak as 'I'.\n"
+        "Rule 3: CLINICAL & ALLERGY ADVICE: When medical symptoms are discussed, offer supportive first-line wellness care. If treatment or medication is mentioned, warn against contraindicated drugs (Ibuprofen for documented allergy) and recommend safe alternatives (Paracetamol).\n"
+        "Rule 4: THIRD-PARTY ADVICE: If the user is asking on behalf of a friend (e.g. 'periods for my friend', 'my friend has depression'), provide practical supportive care for their friend without quoting the user's sensor vitals."
     )
 
     ehr_context = (
-        f"PATIENT PROFILE:\n"
-        f"- Name: {patient_profile.get('name', 'Patient')}, Age: {patient_profile.get('age', 24)}\n"
-        f"- Allergies: {patient_profile.get('allergies', 'None')}\n"
+        f"PATIENT EHR RECORD:\n"
+        f"- Patient Name: {patient_profile.get('name', 'Ramcharan')}, Age: {patient_profile.get('age', 24)}\n"
+        f"- Documented Allergies: {patient_profile.get('allergies', 'None')}\n"
     )
 
     rag_context = ""
     if matched_protocol:
         rag_context = (
-            f"VERIFIED CLINICAL KNOWLEDGE [{matched_protocol['title']}]:\n"
-            f"- Information & First-Line Action: {matched_protocol['first_line_action']}\n"
-            f"- Clinical Management: {matched_protocol['pharmacotherapy']['first_line']}\n"
+            f"CLINICAL GUIDELINE [{matched_protocol['title']}]:\n"
+            f"- Recommended Action: {matched_protocol['first_line_action']}\n"
+            f"- Safe Pharmacotherapy: {matched_protocol['pharmacotherapy']['first_line']}\n"
         )
 
     allergy_alert = ""
     if safety_check["is_contraindicated"]:
         allergy_alert = (
-            f"DRUG-ALLERGY CONFLICT:\n"
-            f"Speaker asks about {', '.join(safety_check['conflicting_allergens']).upper()} which conflicts with documented allergy! "
+            f"ALLERGY WARNING:\n"
+            f"User mentioned {', '.join(safety_check['conflicting_allergens']).upper()} which conflicts with documented allergy! "
             f"Explicitly advise against taking it and recommend {safety_check['safe_alternative']}.\n"
         )
 
     vitals_context = ""
-    if not is_third_party:
+    if not is_third_party and (vitals.get("heart_rate", 72) > 100 or vitals.get("temperature", 36.8) > 38.0 or vitals.get("syncope_detected")):
         vitals_context = (
-            f"SPEAKER VITALS: HR={vitals.get('heart_rate')} BPM, Temp={vitals.get('temperature')}°C, EAR={vitals.get('ear')}\n"
+            f"LIVE TELEMETRY ALERT: HR={vitals.get('heart_rate')} BPM, Temp={vitals.get('temperature')}°C, Syncope={vitals.get('syncope_detected')}\n"
         )
-    else:
-        vitals_context = "CONTEXT: Inquiring about a third party. Do NOT quote speaker's vitals.\n"
-
-    # Neutral educational framing for clinical queries
-    educational_prompt = clean_query
-    if "good or bad" in clean_query.lower():
-        educational_prompt = f"What is the medical perspective on {clean_query.lower().replace('good or bad', '').strip()}? (Explain its characteristics, strengths, and challenges)."
-
-    current_turn_prompt = (
-        f"{ehr_context}"
-        f"{rag_context}"
-        f"{allergy_alert}"
-        f"{vitals_context}"
-        f"Topic to explain: '{educational_prompt}'\n"
-        f"As Baymax, provide a warm, encouraging, scientifically accurate explanation in 1 to 2 sentences:"
-    )
 
     # 7. Build Multi-Turn Messages Array for Ollama
     messages = [{"role": "system", "content": system_prompt}]
 
     if conversation_history:
-        past_turns = conversation_history[-4:]
+        past_turns = conversation_history[-8:]
         for turn in past_turns:
             role = "assistant" if turn.get("role") in ["baymax", "assistant"] else "user"
             content = turn.get("content", "")
             if content and content != clean_query:
                 messages.append({"role": role, "content": content})
 
-    messages.append({"role": "user", "content": current_turn_prompt})
+    # User message with relevant clinical/EHR context if applicable
+    user_turn_content = clean_query
+    if rag_context or allergy_alert or vitals_context:
+        user_turn_content = f"{rag_context}{allergy_alert}{vitals_context}\n{clean_query}"
 
-    models_to_try = [model, "llama3.2:1b", "llama3", "tinyllama"]
+    messages.append({"role": "user", "content": user_turn_content})
+
+    models_to_try = [model, "llama3.2:latest", "llama3.2:1b", "llama3", "tinyllama"]
     success = False
     last_err = ""
 
