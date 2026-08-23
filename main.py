@@ -199,11 +199,51 @@ def read_root():
 
 @app.get("/patient-profile")
 def get_patient_profile():
-    """Retrieve the patient's Electronic Health Record (EHR)."""
+    """Retrieve the active patient's Electronic Health Record (EHR)."""
     global aegis_memory
     if aegis_memory is None:
         aegis_memory = AegisMemory(db_path="aegis_core.db")
     return aegis_memory.get_patient_profile()
+
+
+@app.get("/patients")
+def list_patients():
+    """List all registered village & hospital patients."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    return aegis_memory.list_all_patients()
+
+
+class SwitchPatientPayload(BaseModel):
+    patient_uid: str
+
+
+@app.post("/patients/switch")
+def switch_active_patient(payload: SwitchPatientPayload):
+    """Switch active patient for offline clinical triage."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    return aegis_memory.set_active_patient(payload.patient_uid)
+
+
+@app.get("/sync-queue/status")
+def get_sync_status():
+    """Get offline Store-and-Forward FHIR sync queue metrics."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    return aegis_memory.get_sync_queue_status()
+
+
+@app.post("/sync-queue/trigger")
+def trigger_hospital_sync():
+    """Trigger opportunistic batch sync to District Hospital / ABDM gateway."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    return aegis_memory.trigger_sync_batch()
 
 
 @app.post("/patient-profile")

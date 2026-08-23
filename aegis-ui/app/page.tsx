@@ -35,7 +35,11 @@ import {
   Printer,
   X,
   BarChart3,
-  Compass
+  Compass,
+  Users,
+  CloudUpload,
+  CheckCircle2,
+  Server
 } from "lucide-react";
 
 interface VitalsState {
@@ -80,6 +84,16 @@ interface PatientProfile {
   active_medications: string;
   chronic_conditions: string;
   emergency_contact: string;
+  location?: string;
+  is_active?: boolean;
+}
+
+interface SyncQueueStatus {
+  pending_offline_count: number;
+  synced_hospital_count: number;
+  total_bundles: number;
+  sync_mode: string;
+  recent_bundles: Array<any>;
 }
 
 interface RollingStats {
@@ -139,7 +153,8 @@ export default function AegisMedicalCommandDeck() {
   const [speechRate, setSpeechRate] = useState<number>(0.90);
   const [speechPitch, setSpeechPitch] = useState<number>(0.90);
 
-  // Patient EHR State
+  // Multi-Patient EHR State
+  const [patientList, setPatientList] = useState<PatientProfile[]>([]);
   const [patientProfile, setPatientProfile] = useState<PatientProfile>({
     patient_uid: "PAT-RAM-2026",
     name: "Ramcharan",
@@ -149,8 +164,20 @@ export default function AegisMedicalCommandDeck() {
     allergies: "Ibuprofen, NSAIDs",
     active_medications: "None",
     chronic_conditions: "Mild Asthmatic Tendency",
-    emergency_contact: "Dr. Callaghan"
+    emergency_contact: "Dr. Callaghan",
+    location: "District General Clinic"
   });
+
+  // Offline Store-and-Forward Sync Queue State
+  const [syncQueue, setSyncQueue] = useState<SyncQueueStatus>({
+    pending_offline_count: 2,
+    synced_hospital_count: 0,
+    total_bundles: 2,
+    sync_mode: "OFFLINE_STORE_AND_FORWARD",
+    recent_bundles: []
+  });
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncSuccessMsg, setSyncSuccessMsg] = useState<string>("");
 
   // Memory Table State
   const [memoryLogs, setMemoryLogs] = useState<MemoryRecord[]>([]);
@@ -287,7 +314,7 @@ export default function AegisMedicalCommandDeck() {
     }
   }, [vitals.isAnomaly, vitals.isFatigued, vitals.syncopeDetected, isSpeaking]);
 
-  // 4. Periodic Memory Records & EHR Poller (every 2.5s)
+  // 4. Periodic Memory Records, Patient List & Sync Queue Poller (every 2.5s)
   useEffect(() => {
     const pollMemory = async () => {
       try {
@@ -301,6 +328,18 @@ export default function AegisMedicalCommandDeck() {
           if (data.patient_profile) {
             setPatientProfile(data.patient_profile);
           }
+        }
+
+        const resPatients = await fetch(`${BACKEND_URL}/patients`);
+        if (resPatients.ok) {
+          const pList = await resPatients.json();
+          setPatientList(pList);
+        }
+
+        const resSync = await fetch(`${BACKEND_URL}/sync-queue/status`);
+        if (resSync.ok) {
+          const sData = await resSync.json();
+          setSyncQueue(sData);
         }
       } catch {
         // Poller
@@ -418,7 +457,7 @@ export default function AegisMedicalCommandDeck() {
   };
 
   const handleTestVoice = () => {
-    speakText("Hello! I am Baymax. I have reviewed your electronic health record. How may I assist your well-being today?");
+    speakText(`Hello! I am Baymax. I have reviewed ${patientProfile.name}'s electronic health record. How may I assist your well-being today?`);
   };
 
   const toggleListening = () => {
@@ -436,6 +475,53 @@ export default function AegisMedicalCommandDeck() {
         const randomPrompt = samplePrompts[Math.floor(Math.random() * samplePrompts.length)];
         handleSendQuery(randomPrompt);
       }
+    }
+  };
+
+  // Switch Active Patient Context
+  const handleSwitchPatient = async (patientUid: string) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/patients/switch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patient_uid: patientUid }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setPatientProfile(updated);
+        const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
+        const switchMsg = `Active consultation switched to ${updated.name} (${updated.patient_uid}) at ${updated.location}. Documented allergies: ${updated.allergies}.`;
+        setMessages((prev) => [
+          ...prev,
+          { id: `switch-${Date.now()}`, sender: "baymax", text: switchMsg, timestamp: timeStr },
+        ]);
+        speakText(`Patient switched to ${updated.name}. Record loaded.`);
+      }
+    } catch (err) {
+      console.warn("Patient switch note:", err);
+    }
+  };
+
+  // Trigger Opportunistic Store-and-Forward FHIR Sync to District Hospital
+  const handleTriggerSync = async () => {
+    setIsSyncing(true);
+    setSyncSuccessMsg("");
+    try {
+      const res = await fetch(`${BACKEND_URL}/sync-queue/trigger`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setTimeout(() => {
+          setIsSyncing(false);
+          setSyncSuccessMsg(`SYNC SUCCESSFUL: ${data.synced_bundles_count} FHIR Bundles pushed to District Hospital / ABDM Gateway!`);
+          setSyncQueue((prev) => ({
+            ...prev,
+            pending_offline_count: 0,
+            synced_hospital_count: prev.synced_hospital_count + data.synced_bundles_count
+          }));
+        }, 1200);
+      }
+    } catch {
+      setIsSyncing(false);
     }
   };
 
@@ -643,19 +729,19 @@ export default function AegisMedicalCommandDeck() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base font-black tracking-wider text-white">
-                AEGIS <span className="text-cyan-400 font-mono text-xs font-normal">// CLINICAL COMMAND DECK</span>
+                AEGIS <span className="text-cyan-400 font-mono text-xs font-normal">// CLINICAL & RURAL HEALTH COMMAND DECK</span>
               </h1>
               <span className="px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/40 text-[10px] font-mono text-cyan-300">
-                FHIR & XAI ENABLED
+                OFFLINE EDGE BOX
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               <span>OFFLINE MEDICAL RAG</span>
               <span>•</span>
-              <span>SYNCOPE DETECTOR</span>
+              <span>MULTI-PATIENT EHR</span>
               <span>•</span>
-              <span>HL7/FHIR HANDOVER</span>
+              <span>STORE-AND-FORWARD FHIR</span>
             </p>
           </div>
         </div>
@@ -775,7 +861,7 @@ export default function AegisMedicalCommandDeck() {
               <div className="flex items-center gap-2">
                 <Camera className="w-4 h-4 text-cyan-400" />
                 <h2 className="text-xs font-bold font-mono tracking-wider text-slate-200">
-                  LIVE HARDWARE WEBCAM FEED
+                  LIVE OPTICAL HARDWARE SCANNER
                 </h2>
               </div>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono flex items-center gap-1 border ${
@@ -806,7 +892,7 @@ export default function AegisMedicalCommandDeck() {
                 <span>HEAD TILT: {vitals.headTiltDeg.toFixed(1)}°</span>
               </div>
               <div className="absolute top-2 right-2 px-2 py-1 rounded bg-black/70 backdrop-blur border border-slate-700 text-[9px] font-mono text-slate-300">
-                FPS: 30 // 640x480
+                PATIENT: {patientProfile.name}
               </div>
 
               {/* Syncope Emergency Alert Banner Overlay */}
@@ -1016,7 +1102,7 @@ export default function AegisMedicalCommandDeck() {
                     <span className="text-[9px] text-cyan-400 font-normal">DOCTOR-LEVEL RAG</span>
                   </h3>
                   <p className="text-[10px] text-slate-400 font-mono">
-                    State: <span className="text-cyan-300 uppercase">{avatarState}</span>
+                    Patient: <span className="text-cyan-300 font-bold">{patientProfile.name}</span> ({patientProfile.location})
                   </p>
                 </div>
               </div>
@@ -1103,128 +1189,123 @@ export default function AegisMedicalCommandDeck() {
         </section>
 
         {/* ========================================================================= */}
-        {/* RIGHT DECK (Cols 10-12): SQLite Persistent EHR Memory & Vitals Inspector */}
+        {/* RIGHT DECK (Cols 10-12): Multi-Patient Selector & Store-and-Forward Sync */}
         {/* ========================================================================= */}
         <section className="lg:col-span-3 flex flex-col gap-4">
           
-          {/* Patient EHR Record Inspector Card */}
+          {/* Patient Examination Ward Switcher Card */}
           <div className="bg-slate-900/70 border border-slate-800 rounded-3xl p-4 flex flex-col gap-3 backdrop-blur-xl shadow-xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-cyan-400" />
+                <Users className="w-4 h-4 text-cyan-400" />
                 <h2 className="text-xs font-bold font-mono tracking-wider text-slate-200">
-                  PATIENT EHR PROFILE (SQLite)
+                  OFFLINE CLINIC WARD QUEUE
                 </h2>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/40 text-[9px] font-mono text-cyan-300">
-                {patientProfile.patient_uid}
+                {patientList.length} PATIENTS
               </span>
             </div>
 
-            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-2">
-              <div className="flex justify-between items-center text-slate-300 border-b border-slate-800/60 pb-1.5">
-                <span className="text-slate-400">Patient:</span>
-                <span className="text-white font-bold">{patientProfile.name} ({patientProfile.age}y, {patientProfile.gender})</span>
-              </div>
-              <div className="flex justify-between items-center text-slate-300 border-b border-slate-800/60 pb-1.5">
+            {/* Selectable Patient List */}
+            <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+              {patientList.map((p) => {
+                const isSelected = p.patient_uid === patientProfile.patient_uid;
+                return (
+                  <button
+                    key={p.patient_uid}
+                    onClick={() => handleSwitchPatient(p.patient_uid)}
+                    className={`w-full text-left p-2.5 rounded-xl border transition flex items-center justify-between font-mono text-[11px] ${
+                      isSelected
+                        ? "bg-cyan-950/80 border-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                        : "bg-slate-950/60 border-slate-800/80 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    }`}
+                  >
+                    <div>
+                      <div className="font-bold flex items-center gap-1.5">
+                        <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-cyan-400" : "bg-slate-600"}`} />
+                        <span>{p.name}</span>
+                        <span className="text-[9px] text-slate-400">({p.patient_uid})</span>
+                      </div>
+                      <div className="text-[9px] text-slate-400 truncate max-w-[170px] mt-0.5">
+                        {p.location}
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500 text-slate-950 font-bold">
+                        ACTIVE
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active Patient EHR Summary */}
+            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-1.5 mt-1">
+              <div className="flex justify-between items-center text-slate-300 border-b border-slate-800/60 pb-1">
                 <span className="text-slate-400">Blood Type:</span>
                 <span className="text-cyan-300 font-bold">{patientProfile.blood_type}</span>
               </div>
-              <div className="flex flex-col gap-1 border-b border-slate-800/60 pb-1.5">
-                <span className="text-slate-400 text-[10px]">DOCUMENTED ALLERGIES:</span>
-                <span className="px-2 py-1 rounded bg-rose-950/80 border border-rose-500/60 text-rose-300 font-bold text-[11px] flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3 text-rose-400" />
-                  {patientProfile.allergies}
+              <div className="flex flex-col gap-0.5 border-b border-slate-800/60 pb-1">
+                <span className="text-slate-400 text-[10px]">ALLERGIES:</span>
+                <span className="px-1.5 py-0.5 rounded bg-rose-950/80 border border-rose-500/60 text-rose-300 font-bold text-[10px] truncate">
+                  ⚠️ {patientProfile.allergies}
                 </span>
               </div>
-              <div className="flex justify-between text-slate-300">
-                <span className="text-slate-400">Active Meds:</span>
-                <span className="text-slate-200">{patientProfile.active_medications}</span>
-              </div>
-              <div className="flex justify-between text-slate-300">
+              <div className="flex justify-between text-slate-300 text-[10px]">
                 <span className="text-slate-400">Conditions:</span>
-                <span className="text-slate-300 text-[10px]">{patientProfile.chronic_conditions}</span>
+                <span className="text-slate-300 truncate max-w-[130px]">{patientProfile.chronic_conditions}</span>
               </div>
             </div>
           </div>
 
-          {/* Persistent Database Inspector Card */}
+          {/* Store-and-Forward Offline FHIR Sync Queue Card */}
           <div className="bg-slate-900/70 border border-slate-800 rounded-3xl p-4 flex flex-col gap-3 backdrop-blur-xl shadow-xl flex-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-cyan-400" />
+                <CloudUpload className="w-4 h-4 text-emerald-400" />
                 <h2 className="text-xs font-bold font-mono tracking-wider text-slate-200">
-                  SQLITE MEMORY (aegis_core.db)
+                  STORE-AND-FORWARD SYNC
                 </h2>
               </div>
-              <span className="text-[10px] font-mono text-slate-400">WAL MODE</span>
+              <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                ABDM READY
+              </span>
             </div>
 
-            {/* Rolling Window Baseline Stats */}
+            {/* Sync Queue Statistics */}
             <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-1.5">
-              <div className="text-[10px] text-slate-400 font-bold">5-MIN ROLLING BASELINE</div>
+              <div className="text-[10px] text-slate-400 font-bold">OFFLINE BUNDLE BUFFER</div>
               <div className="flex justify-between text-slate-300">
-                <span>Total Samples:</span>
-                <span className="text-white font-bold">{rollingStats.record_count}</span>
+                <span>Queued Bundles:</span>
+                <span className="text-amber-400 font-bold">{syncQueue.pending_offline_count} pending</span>
               </div>
               <div className="flex justify-between text-slate-300">
-                <span>Avg Heart Rate:</span>
-                <span className="text-cyan-300 font-bold">{rollingStats.avg_heart_rate} BPM</span>
+                <span>Synced to Hospital:</span>
+                <span className="text-emerald-400 font-bold">{syncQueue.synced_hospital_count} bundles</span>
               </div>
-              <div className="flex justify-between text-slate-300">
-                <span>Avg Ocular EAR:</span>
-                <span className="text-emerald-300 font-bold">{rollingStats.avg_ear}</span>
-              </div>
-              <div className="flex justify-between text-slate-300">
-                <span>Fatigue Flags:</span>
-                <span className={rollingStats.fatigue_events_in_window > 0 ? "text-amber-400 font-bold" : "text-slate-400"}>
-                  {rollingStats.fatigue_events_in_window} events
-                </span>
+              <div className="text-[9px] text-slate-400 mt-1 border-t border-slate-800/60 pt-1">
+                Target: District General Central EHR / ABDM Mesh
               </div>
             </div>
 
-            {/* Live Database Log Table */}
-            <div className="text-[10px] font-mono text-slate-400 font-bold mt-1">
-              LIVE INSERT STREAM (vitals_log):
-            </div>
-            <div className="flex-1 overflow-y-auto max-h-[140px] rounded-2xl bg-slate-950/80 border border-slate-800/80 p-2 text-[10px] font-mono">
-              {memoryLogs.length === 0 ? (
-                <div className="text-slate-500 text-center py-4">Connecting to SQLite stream...</div>
-              ) : (
-                <div className="space-y-1.5">
-                  {memoryLogs.map((log, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-1.5 rounded-lg border flex items-center justify-between ${
-                        log.fatigue_flag
-                          ? "bg-amber-950/40 border-amber-500/50 text-amber-200"
-                          : "bg-slate-900/60 border-slate-800 text-slate-300"
-                      }`}
-                    >
-                      <div>
-                        <span>HR: {log.heart_rate}</span>
-                        <span className="ml-2 text-slate-400">EAR: {log.eye_aspect_ratio}</span>
-                      </div>
-                      <div>
-                        {log.fatigue_flag ? (
-                          <span className="text-amber-400 font-bold">FATIGUE</span>
-                        ) : (
-                          <span className="text-emerald-400">NOMINAL</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            {syncSuccessMsg && (
+              <div className="p-2 rounded-xl bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-[10px] font-mono font-bold flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{syncSuccessMsg}</span>
+              </div>
+            )}
 
-            {/* Clear Memory Trigger */}
+            {/* Opportunistic Sync Trigger Button */}
             <button
-              onClick={handleResetBaseline}
-              className="w-full py-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] font-mono text-slate-400 hover:text-rose-400 transition flex items-center justify-center gap-1.5"
+              onClick={handleTriggerSync}
+              disabled={isSyncing || syncQueue.pending_offline_count === 0}
+              className="w-full py-2.5 rounded-xl bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/60 text-emerald-300 text-xs font-mono font-bold transition flex items-center justify-center gap-2 shadow disabled:opacity-50"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Purge Memory Cache</span>
+              <Server className="w-4 h-4" />
+              <span>{isSyncing ? "UPLINKING FHIR BUNDLES..." : "⚡ SYNC TO DISTRICT HOSPITAL"}</span>
             </button>
           </div>
         </section>
@@ -1312,6 +1393,7 @@ export default function AegisMedicalCommandDeck() {
                       <h4 className="font-mono font-bold text-cyan-400 text-xs">1. PATIENT DEMOGRAPHICS</h4>
                       <div className="text-slate-300"><strong>Name:</strong> {patientProfile.name} ({patientProfile.age}y, {patientProfile.gender})</div>
                       <div className="text-slate-300"><strong>UID:</strong> {patientProfile.patient_uid} • <strong>Blood:</strong> {patientProfile.blood_type}</div>
+                      <div className="text-slate-400 text-[11px]"><strong>Location:</strong> {patientProfile.location}</div>
                       <div className="mt-2 p-2 rounded-lg bg-rose-950/80 border border-rose-500/60 text-rose-300 font-bold">
                         ⚠️ DOCUMENTED ALLERGIES: {patientProfile.allergies}
                       </div>
@@ -1367,7 +1449,7 @@ export default function AegisMedicalCommandDeck() {
 
             {/* Modal Footer */}
             <div className="px-6 py-3 border-t border-slate-800 bg-slate-950 flex items-center justify-between text-xs font-mono text-slate-400">
-              <span>Security: AES-256 Offline Encryption • HIPAA/FHIR Compliant</span>
+              <span>Security: AES-256 Offline Encryption • HIPAA / ABDM Compliant</span>
               <button
                 onClick={() => setIsHandoverModalOpen(false)}
                 className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition"
