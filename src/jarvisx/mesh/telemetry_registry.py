@@ -167,6 +167,11 @@ class EnhancedWorkerRegistry:
         except Exception:
             pass
 
+    def register_worker(self, node: MeshNodeTelemetry) -> None:
+        """Register or overwrite an active worker node."""
+        self.workers[node.worker_id] = node
+        self.save()
+
     def register_or_update(
         self,
         worker_id: str,
@@ -176,6 +181,7 @@ class EnhancedWorkerRegistry:
         gpu_name: Optional[str] = None,
         vram_total_gb: Optional[float] = None,
     ) -> MeshNodeTelemetry:
+
         worker = self.workers.get(worker_id)
         if not worker:
             worker = MeshNodeTelemetry(
