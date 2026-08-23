@@ -373,3 +373,57 @@ def test_api_companion_interact_with_syncope(mock_dispatch, client):
         assert data["posture_status"] == "SYNCOPE_COLLAPSE_DETECTED"
         assert len(data["feature_contributions"]) == 5
         assert data["escalated"] is True
+
+
+# ==========================================
+# 7. Next-Level Point-of-Care Diagnostics & Satellite SOS Tests
+# ==========================================
+
+def test_anemia_pallor_estimation(client):
+    """Verify optical conjunctival colorimetry anemia screening."""
+    payload = {"erythema_index": 2.8, "r_channel_mean": 150.0}
+    response = client.post("/diagnostics/anemia", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "estimated_hemoglobin_g_dl" in data
+    assert data["estimated_hemoglobin_g_dl"] >= 12.0
+    assert data["status"] == "OPTIMAL_HEMOGLOBIN"
+
+
+def test_cough_acoustic_analysis(client):
+    """Verify acoustic cough frequency spectrogram analyzer."""
+    payload = {"spectral_flux": 0.75, "peak_frequency_hz": 1550.0}
+    response = client.post("/diagnostics/cough", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["acoustic_pattern"] == "BRONCHIAL_WHEEZE_ASTHMA"
+    assert data["severity"] == "HIGH"
+
+
+def test_qsofa_sepsis_cds_evaluation(client):
+    """Verify qSOFA early sepsis trajectory prediction."""
+    payload = {
+        "heart_rate": 120.0,
+        "temperature": 39.5,
+        "temp_slope": 0.15,
+        "syncope_detected": True,
+        "respiratory_rate": 26.0,
+        "systolic_bp": 85.0
+    }
+    response = client.post("/diagnostics/qsofa", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["qsofa_score"] == 3
+    assert data["shock_probability"] > 0.70
+    assert data["triage_category"] == "HIGH_SEPSIS_RISK"
+
+
+def test_satellite_sos_micro_packet_generator(client):
+    """Verify 140-byte compact satellite SOS telemetry generator."""
+    payload = {"patient_uid": "PAT-RAM-2026", "gps_coords": "17.9689 N, 79.5941 E"}
+    response = client.post("/diagnostics/satellite-sos", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["byte_size"] <= 140
+    assert data["satellite_compatible"] is True
+    assert data["micro_packet"].startswith("AEGIS!")

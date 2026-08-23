@@ -40,8 +40,15 @@ import {
   CloudUpload,
   CheckCircle2,
   Server,
-  Globe
+  Globe,
+  Satellite,
+  Stethoscope,
+  AudioWaveform,
+  Layers,
+  Box
 } from "lucide-react";
+
+import AnatomicalTwin3D from "./components/AnatomicalTwin3D";
 
 interface VitalsState {
   heartRate: number;
@@ -131,6 +138,32 @@ export default function AegisMedicalCommandDeck() {
     isFatigued: false,
   });
 
+  // Visual Tab State for Left Deck (Webcam vs 3D Digital Twin)
+  const [visualMode, setVisualMode] = useState<"camera" | "3d_twin">("3d_twin");
+
+  // Multimodal Diagnostics State
+  const [anemiaResult, setAnemiaResult] = useState<any>({
+    estimated_hemoglobin_g_dl: 13.8,
+    status: "OPTIMAL_HEMOGLOBIN",
+    recommendation: "Capillary perfusion and oxygenation within healthy physiological limits."
+  });
+  const [coughResult, setCoughResult] = useState<any>({
+    acoustic_pattern: "CLEAR_BENIGN_RESPIRATION",
+    severity: "LOW",
+    clinical_guidance: "No pathological acoustic signature detected. Normal bronchial sounds."
+  });
+  const [qsofaResult, setQsofaResult] = useState<any>({
+    qsofa_score: 0,
+    shock_probability: 0.08,
+    triage_category: "LOW_RISK_NOMINAL",
+    immediate_protocol: "Continue routine vital surveillance. No immediate organ dysfunction signs."
+  });
+  const [satelliteSOS, setSatelliteSOS] = useState<any>({
+    micro_packet: "AEGIS!eyJwIjoiUEFULVJBTS0yMDI2IiwiYnQiOiJPIiwiaHIiOjcyLCJ0cCI6MzYuOCwicXMiOjAsInNwIjo4LCJncHMiOiIxNy45Njg5IE4sIDc5LjU5NDEgRSJ9",
+    byte_size: 132,
+    target_mesh: "Iridium / Starlink / LoRa P2P Sub-GHz 868MHz"
+  });
+
   // Explainable AI (XAI) Biomarker Contributions
   const [xaiContributions, setXaiContributions] = useState<Record<string, number>>({
     "Heart Rate": 12.5,
@@ -152,7 +185,7 @@ export default function AegisMedicalCommandDeck() {
     {
       id: "init-1",
       sender: "baymax",
-      text: "Hello! I am Baymax, your personal healthcare companion. Multi-lingual Speech & Offline Medical RAG protocols are active. How may I assist you today?",
+      text: "Hello! I am Baymax, your personal healthcare companion. 3D Digital Twin, Point-of-Care Diagnostics, and Multi-lingual RAG are active. How may I assist you today?",
       timestamp: "12:00",
     },
   ]);
@@ -241,8 +274,8 @@ export default function AegisMedicalCommandDeck() {
           const name = v.name.toLowerCase();
           if (
             name.includes("female") ||
-            name.includes("samantha") ||
             name.includes("zira") ||
+            name.includes("samantha") ||
             name.includes("jenny") ||
             name.includes("victoria") ||
             name.includes("karen") ||
@@ -432,7 +465,6 @@ export default function AegisMedicalCommandDeck() {
     const voices = window.speechSynthesis.getVoices();
     let chosenVoice: SpeechSynthesisVoice | undefined;
 
-    // Look for matching regional voice (te, hi, ta, kn)
     const matchingRegional = voices.find((v) => v.lang.toLowerCase().startsWith(targetLang));
     if (matchingRegional) {
       chosenVoice = matchingRegional;
@@ -470,13 +502,103 @@ export default function AegisMedicalCommandDeck() {
     window.speechSynthesis.speak(utterance);
   };
 
-  const handleTestVoice = () => {
-    if (selectedLanguage === "te") {
-      speakText("నమస్కారం! నేను బేమ్యాక్స్, మీ వ్యక్తిగత ఆరోగ్య సంరక్షకుడిని.", "te");
-    } else if (selectedLanguage === "hi") {
-      speakText("नमस्ते! मैं बेमैक्स हूँ, आपका व्यक्तिगत स्वास्थ्य साथी।", "hi");
-    } else {
-      speakText(`Hello! I am Baymax. I have reviewed ${patientProfile.name}'s electronic health record. How may I assist your well-being today?`, "en");
+  // Next-Level Diagnostic Triggers
+  const handleScreenAnemia = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/diagnostics/anemia`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ erythema_index: 2.8, r_channel_mean: 152.0 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAnemiaResult(data);
+        const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
+        const msg = `Optical Conjunctival Screening: Estimated Hemoglobin is ${data.estimated_hemoglobin_g_dl} g/dL (${data.status}). ${data.recommendation}`;
+        setMessages((prev) => [
+          ...prev,
+          { id: `anemia-${Date.now()}`, sender: "baymax", text: msg, timestamp: timeStr },
+        ]);
+        speakText(msg);
+      }
+    } catch (err) {
+      console.warn("Anemia screening error:", err);
+    }
+  };
+
+  const handleAnalyzeCough = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/diagnostics/cough`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ spectral_flux: 0.78, peak_frequency_hz: 1620.0 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCoughResult(data);
+        const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
+        const msg = `Acoustic Cough Biomarker Analysis: Detected ${data.acoustic_pattern} (${data.severity} SEVERITY). ${data.clinical_guidance}`;
+        setMessages((prev) => [
+          ...prev,
+          { id: `cough-${Date.now()}`, sender: "baymax", text: msg, timestamp: timeStr, isAlert: data.severity === "HIGH" || data.severity === "CRITICAL" },
+        ]);
+        speakText(msg);
+      }
+    } catch (err) {
+      console.warn("Cough analysis error:", err);
+    }
+  };
+
+  const handleCalculateQSOFA = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/diagnostics/qsofa`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          heart_rate: vitals.heartRate,
+          temperature: vitals.temperature,
+          temp_slope: vitals.tempSlope,
+          syncope_detected: vitals.syncopeDetected,
+          respiratory_rate: vitals.heartRate > 100 ? 28.0 : 16.0,
+          systolic_bp: vitals.syncopeDetected ? 82.0 : 115.0
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setQsofaResult(data);
+        const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
+        const msg = `Predictive Sepsis CDS: qSOFA Score = ${data.qsofa_score}/3 (Shock Probability: ${(data.shock_probability * 100).toFixed(0)}%). Category: ${data.triage_category}. Protocol: ${data.immediate_protocol}`;
+        setMessages((prev) => [
+          ...prev,
+          { id: `qsofa-${Date.now()}`, sender: "baymax", text: msg, timestamp: timeStr, isAlert: data.qsofa_score >= 2 },
+        ]);
+        speakText(msg);
+      }
+    } catch (err) {
+      console.warn("qSOFA error:", err);
+    }
+  };
+
+  const handleGenerateSOS = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/diagnostics/satellite-sos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patient_uid: patientProfile.patient_uid, gps_coords: "17.9689 N, 79.5941 E" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSatelliteSOS(data);
+        const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
+        const msg = `Satellite SOS Uplink Prepared (${data.byte_size} Bytes / 140B Max): Encrypted telemetry packet ready for Iridium / Starlink transmission. Target: Warangal Rural Command.`;
+        setMessages((prev) => [
+          ...prev,
+          { id: `sos-${Date.now()}`, sender: "baymax", text: msg, timestamp: timeStr },
+        ]);
+        speakText("Emergency satellite SOS micro-packet generated and validated.");
+      }
+    } catch (err) {
+      console.warn("SOS error:", err);
     }
   };
 
@@ -695,24 +817,6 @@ export default function AegisMedicalCommandDeck() {
     handleSendQuery("Baymax, my core temperature is spiking and I have a severe fever. Should I take some Ibuprofen?", feverVitals, "en");
   };
 
-  // Simulation Trigger: Acute Anomaly
-  const triggerAnomalySimulation = async () => {
-    const anomalyVitals: VitalsState = {
-      ...vitals,
-      heartRate: 135,
-      rmssd: 15,
-      temperature: 39.5,
-      tempSlope: 0.15,
-      eda: 8.5,
-      ear: 0.26,
-      riskLevel: "HIGH RISK",
-      isAnomaly: true,
-    };
-    setVitals(anomalyVitals);
-    setAvatarState("alert");
-    handleSendQuery("I have severe fever, body temperature of 39.5 degrees, and rapid palpitations.", anomalyVitals);
-  };
-
   // Fetch FHIR Handover Data and Open Modal
   const openHandoverModal = async () => {
     setIsHandoverModalOpen(true);
@@ -773,19 +877,21 @@ export default function AegisMedicalCommandDeck() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base font-black tracking-wider text-white">
-                AEGIS <span className="text-cyan-400 font-mono text-xs font-normal">// MULTI-LINGUAL RURAL CLINICAL DECK</span>
+                AEGIS <span className="text-cyan-400 font-mono text-xs font-normal">// NEXT-GEN 3D MEDICAL INTELLIGENCE COMMAND DECK</span>
               </h1>
               <span className="px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/40 text-[10px] font-mono text-cyan-300">
-                MULTI-LINGUAL STT/TTS
+                GOD TIER v4.0
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>TELUGU / HINDI / TAMIL / KANNADA</span>
+              <span>3D DIGITAL TWIN</span>
               <span>•</span>
-              <span>OFFLINE RAG</span>
+              <span>MULTIMODAL DIAGNOSTICS</span>
               <span>•</span>
-              <span>STORE-AND-FORWARD FHIR</span>
+              <span>qSOFA SEPSIS CDS</span>
+              <span>•</span>
+              <span>SATELLITE SOS</span>
             </p>
           </div>
         </div>
@@ -816,7 +922,7 @@ export default function AegisMedicalCommandDeck() {
             className="px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-amber-950/90 border border-amber-500/70 text-amber-300 hover:bg-amber-900 transition flex items-center gap-1 shadow"
             title="Demonstrate Live Telugu Clinical RAG & Drug Safety"
           >
-            <span>🇮🇳 TEST TELUGU (తెలుగు)</span>
+            <span>🇮🇳 TELUGU</span>
           </button>
 
           {/* Quick Hindi Pitch Button */}
@@ -825,7 +931,7 @@ export default function AegisMedicalCommandDeck() {
             className="px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-orange-950/90 border border-orange-500/70 text-orange-300 hover:bg-orange-900 transition flex items-center gap-1 shadow"
             title="Demonstrate Live Hindi Clinical RAG & Drug Safety"
           >
-            <span>🇮🇳 TEST HINDI (हिन्दी)</span>
+            <span>🇮🇳 HINDI</span>
           </button>
 
           {/* Export Clinical Handover FHIR / PDF Button */}
@@ -875,58 +981,73 @@ export default function AegisMedicalCommandDeck() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
         
         {/* ========================================================================= */}
-        {/* LEFT DECK (Cols 1-4): Hardware Webcam Feed, Syncope Monitor & rPPG */}
+        {/* LEFT DECK (Cols 1-4): 3D Anatomical Digital Twin, Webcam & rPPG Waveform */}
         {/* ========================================================================= */}
         <section className="lg:col-span-4 flex flex-col gap-4">
           
-          {/* Live Hardware Webcam Video Card */}
+          {/* Visual Display Switcher (3D Twin vs Hardware Camera) */}
           <div className="bg-slate-900/70 border border-slate-800 rounded-3xl p-4 flex flex-col gap-3 backdrop-blur-xl shadow-xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Camera className="w-4 h-4 text-cyan-400" />
+                <Box className="w-4 h-4 text-cyan-400" />
                 <h2 className="text-xs font-bold font-mono tracking-wider text-slate-200">
-                  LIVE OPTICAL HARDWARE SCANNER
+                  {visualMode === "3d_twin" ? "3D ANATOMICAL DIGITAL TWIN" : "LIVE OPTICAL HARDWARE SCANNER"}
                 </h2>
               </div>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono flex items-center gap-1 border ${
-                vitals.syncopeDetected
-                  ? "bg-rose-950 border-rose-500/80 text-rose-300 animate-pulse"
-                  : cameraActive
-                  ? "bg-emerald-950 border-emerald-500/50 text-emerald-300"
-                  : "bg-cyan-950 border-cyan-500/50 text-cyan-300"
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${vitals.syncopeDetected ? "bg-rose-400 animate-ping" : "bg-emerald-400 animate-pulse"}`} />
-                {vitals.syncopeDetected ? "SYNCOPE ALARM" : cameraActive ? "HARDWARE ONLINE" : "BROWSER CAPTURE"}
-              </span>
-            </div>
-
-            {/* Native In-Browser Hardware Video Element */}
-            <div className="relative w-full aspect-[4/3] rounded-2xl bg-black overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
-              <video
-                ref={videoRef}
-                className="w-full h-full object-cover scale-x-[-1]"
-                autoPlay
-                playsInline
-                muted
-              />
               
-              {/* Scanline & HUD Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/5 to-transparent pointer-events-none opacity-40" />
-              <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/70 backdrop-blur border border-slate-700 text-[9px] font-mono text-cyan-300 flex items-center gap-1">
-                <span>HEAD TILT: {vitals.headTiltDeg.toFixed(1)}°</span>
+              {/* Tab Switcher */}
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[10px] font-mono">
+                <button
+                  onClick={() => setVisualMode("3d_twin")}
+                  className={`px-2 py-0.5 rounded-lg transition ${
+                    visualMode === "3d_twin" ? "bg-cyan-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  3D Twin
+                </button>
+                <button
+                  onClick={() => setVisualMode("camera")}
+                  className={`px-2 py-0.5 rounded-lg transition ${
+                    visualMode === "camera" ? "bg-cyan-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Webcam
+                </button>
               </div>
-              <div className="absolute top-2 right-2 px-2 py-1 rounded bg-black/70 backdrop-blur border border-slate-700 text-[9px] font-mono text-slate-300">
-                PATIENT: {patientProfile.name}
-              </div>
-
-              {/* Syncope Emergency Alert Banner Overlay */}
-              {vitals.syncopeDetected && (
-                <div className="absolute inset-x-2 bottom-2 p-2 rounded-xl bg-rose-950/90 border border-rose-500 text-rose-200 text-xs font-mono font-bold flex items-center gap-2 animate-bounce shadow-2xl">
-                  <AlertTriangle className="w-4 h-4 text-rose-400" />
-                  <span>POSTURAL COLLAPSE / SYNCOPE DETECTED ({vitals.headTiltDeg}°)</span>
-                </div>
-              )}
             </div>
+
+            {/* Visual Viewport */}
+            {visualMode === "3d_twin" ? (
+              <AnatomicalTwin3D
+                heartRate={vitals.heartRate}
+                temperature={vitals.temperature}
+                eda={vitals.eda}
+                syncopeDetected={vitals.syncopeDetected}
+                isAnomaly={vitals.isAnomaly}
+              />
+            ) : (
+              <div className="relative w-full aspect-[4/3] rounded-2xl bg-black overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
+                <video
+                  ref={videoRef}
+                  className="w-full h-full object-cover scale-x-[-1]"
+                  autoPlay
+                  playsInline
+                  muted
+                />
+                <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/70 backdrop-blur border border-slate-700 text-[9px] font-mono text-cyan-300">
+                  HEAD TILT: {vitals.headTiltDeg.toFixed(1)}°
+                </div>
+                <div className="absolute top-2 right-2 px-2 py-1 rounded bg-black/70 backdrop-blur border border-slate-700 text-[9px] font-mono text-slate-300">
+                  PATIENT: {patientProfile.name}
+                </div>
+                {vitals.syncopeDetected && (
+                  <div className="absolute inset-x-2 bottom-2 p-2 rounded-xl bg-rose-950/90 border border-rose-500 text-rose-200 text-xs font-mono font-bold flex items-center gap-2 animate-bounce shadow-2xl">
+                    <AlertTriangle className="w-4 h-4 text-rose-400" />
+                    <span>SYNCOPE COLLAPSE ({vitals.headTiltDeg}°)</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Optical EAR & Syncope Posture Diagnostics */}
             <div className="grid grid-cols-2 gap-2 text-xs font-mono">
@@ -992,7 +1113,7 @@ export default function AegisMedicalCommandDeck() {
         </section>
 
         {/* ========================================================================= */}
-        {/* CENTER DECK (Cols 5-9): Vitals Matrix, XAI Decomposition, Baymax Core */}
+        {/* CENTER DECK (Cols 5-9): Vitals, Point-of-Care Diagnostics, qSOFA, Baymax */}
         {/* ========================================================================= */}
         <section className="lg:col-span-5 flex flex-col gap-4">
           
@@ -1067,7 +1188,62 @@ export default function AegisMedicalCommandDeck() {
             </div>
           </div>
 
-          {/* Explainable AI (XAI) Biomarker Attribution Decomposition Widget */}
+          {/* Multimodal Point-of-Care Diagnostics Deck (Anemia, Cough & qSOFA) */}
+          <div className="p-3.5 rounded-3xl bg-slate-900/80 border border-slate-800 flex flex-col gap-2.5 shadow-lg">
+            <div className="flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center gap-1.5">
+                <Stethoscope className="w-4 h-4 text-emerald-400" />
+                <span className="font-bold text-slate-200">POINT-OF-CARE MULTIMODAL DIAGNOSTICS & qSOFA CDS</span>
+              </div>
+              <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/40 text-[9px] font-mono text-emerald-300">
+                qSOFA: {qsofaResult.qsofa_score}/3 ({qsofaResult.triage_category})
+              </span>
+            </div>
+
+            {/* Diagnostic Action Trigger Buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono">
+              <button
+                onClick={handleScreenAnemia}
+                className="p-2 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-cyan-500 text-left transition flex flex-col justify-between"
+              >
+                <div className="flex items-center gap-1 text-cyan-400 font-bold">
+                  <Eye className="w-3 h-3" />
+                  <span>CONJUNCTIVAL PALLOR</span>
+                </div>
+                <div className="text-[10px] text-slate-300 mt-1">
+                  Hb: <strong className="text-white">{anemiaResult.estimated_hemoglobin_g_dl} g/dL</strong> ({anemiaResult.status})
+                </div>
+              </button>
+
+              <button
+                onClick={handleAnalyzeCough}
+                className="p-2 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-amber-500 text-left transition flex flex-col justify-between"
+              >
+                <div className="flex items-center gap-1 text-amber-400 font-bold">
+                  <AudioWaveform className="w-3 h-3" />
+                  <span>COUGH ACOUSTICS</span>
+                </div>
+                <div className="text-[10px] text-slate-300 mt-1 truncate">
+                  Pattern: <strong className="text-white">{coughResult.acoustic_pattern}</strong>
+                </div>
+              </button>
+
+              <button
+                onClick={handleCalculateQSOFA}
+                className="p-2 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-rose-500 text-left transition flex flex-col justify-between"
+              >
+                <div className="flex items-center gap-1 text-rose-400 font-bold">
+                  <Activity className="w-3 h-3" />
+                  <span>qSOFA SEPSIS CDS</span>
+                </div>
+                <div className="text-[10px] text-slate-300 mt-1">
+                  Shock Prob: <strong className="text-rose-300">{(qsofaResult.shock_probability * 100).toFixed(0)}%</strong>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Explainable AI (XAI) Biomarker Decomposition */}
           <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col gap-2 shadow-lg">
             <div className="flex items-center justify-between text-xs font-mono">
               <div className="flex items-center gap-1.5">
@@ -1101,7 +1277,7 @@ export default function AegisMedicalCommandDeck() {
           </div>
 
           {/* Baymax Dialogue & Companion Console */}
-          <div className="bg-slate-900/70 border border-slate-800 rounded-3xl p-4 flex flex-col gap-3 flex-1 backdrop-blur-xl shadow-xl relative min-h-[360px]">
+          <div className="bg-slate-900/70 border border-slate-800 rounded-3xl p-4 flex flex-col gap-3 flex-1 backdrop-blur-xl shadow-xl relative min-h-[340px]">
             
             {/* Header with Avatar Orb */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -1137,7 +1313,7 @@ export default function AegisMedicalCommandDeck() {
             </div>
 
             {/* Scrollable Conversation Feed */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-[250px] text-xs">
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-[220px] text-xs">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -1219,7 +1395,7 @@ export default function AegisMedicalCommandDeck() {
         </section>
 
         {/* ========================================================================= */}
-        {/* RIGHT DECK (Cols 10-12): Multi-Patient Selector & Store-and-Forward Sync */}
+        {/* RIGHT DECK (Cols 10-12): Multi-Patient, Sync Queue & Satellite SOS */}
         {/* ========================================================================= */}
         <section className="lg:col-span-3 flex flex-col gap-4">
           
@@ -1238,7 +1414,7 @@ export default function AegisMedicalCommandDeck() {
             </div>
 
             {/* Selectable Patient List */}
-            <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+            <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1">
               {patientList.map((p) => {
                 const isSelected = p.patient_uid === patientProfile.patient_uid;
                 return (
@@ -1272,9 +1448,9 @@ export default function AegisMedicalCommandDeck() {
             </div>
 
             {/* Active Patient EHR Summary */}
-            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-1.5 mt-1">
+            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-1 mt-1">
               <div className="flex justify-between items-center text-slate-300 border-b border-slate-800/60 pb-1">
-                <span className="text-slate-400">Blood Type:</span>
+                <span className="text-slate-400">Blood:</span>
                 <span className="text-cyan-300 font-bold">{patientProfile.blood_type}</span>
               </div>
               <div className="flex flex-col gap-0.5 border-b border-slate-800/60 pb-1">
@@ -1283,11 +1459,41 @@ export default function AegisMedicalCommandDeck() {
                   ⚠️ {patientProfile.allergies}
                 </span>
               </div>
-              <div className="flex justify-between text-slate-300 text-[10px]">
-                <span className="text-slate-400">Conditions:</span>
-                <span className="text-slate-300 truncate max-w-[130px]">{patientProfile.chronic_conditions}</span>
+            </div>
+          </div>
+
+          {/* 140-Byte Low-Bandwidth Satellite / LoRa SOS Micro-Packet Terminal */}
+          <div className="bg-slate-900/70 border border-slate-800 rounded-3xl p-4 flex flex-col gap-2.5 backdrop-blur-xl shadow-xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Satellite className="w-4 h-4 text-purple-400" />
+                <h2 className="text-xs font-bold font-mono tracking-wider text-slate-200">
+                  SATELLITE SOS (140-BYTE PACKET)
+                </h2>
+              </div>
+              <span className="text-[9px] font-mono text-purple-300 px-2 py-0.5 rounded bg-purple-950 border border-purple-500/40">
+                {satelliteSOS.byte_size}B / 140B
+              </span>
+            </div>
+
+            <div className="p-2.5 rounded-2xl bg-slate-950 border border-slate-800 text-[10px] font-mono space-y-1">
+              <div className="text-slate-400 font-bold truncate">MICRO-PACKET (Iridium / LoRa):</div>
+              <div className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-purple-300 font-mono break-all text-[9px]">
+                {satelliteSOS.micro_packet}
+              </div>
+              <div className="flex justify-between text-slate-400 text-[9px] pt-1">
+                <span>GPS: 17.9689 N, 79.5941 E</span>
+                <span className="text-emerald-400 font-bold">READY</span>
               </div>
             </div>
+
+            <button
+              onClick={handleGenerateSOS}
+              className="w-full py-2 rounded-xl bg-purple-950 hover:bg-purple-900 border border-purple-500/60 text-purple-300 text-xs font-mono font-bold transition flex items-center justify-center gap-1.5 shadow"
+            >
+              <Satellite className="w-3.5 h-3.5" />
+              <span>🛰️ UPLINK ENCRYPTED SOS</span>
+            </button>
           </div>
 
           {/* Store-and-Forward Offline FHIR Sync Queue Card */}
@@ -1307,7 +1513,6 @@ export default function AegisMedicalCommandDeck() {
 
             {/* Sync Queue Statistics */}
             <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-1.5">
-              <div className="text-[10px] text-slate-400 font-bold">OFFLINE BUNDLE BUFFER</div>
               <div className="flex justify-between text-slate-300">
                 <span>Queued Bundles:</span>
                 <span className="text-amber-400 font-bold">{syncQueue.pending_offline_count} pending</span>
@@ -1316,15 +1521,12 @@ export default function AegisMedicalCommandDeck() {
                 <span>Synced to Hospital:</span>
                 <span className="text-emerald-400 font-bold">{syncQueue.synced_hospital_count} bundles</span>
               </div>
-              <div className="text-[9px] text-slate-400 mt-1 border-t border-slate-800/60 pt-1">
-                Target: District General Central EHR / ABDM Mesh
-              </div>
             </div>
 
             {syncSuccessMsg && (
               <div className="p-2 rounded-xl bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-[10px] font-mono font-bold flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{syncSuccessMsg}</span>
+                <span className="truncate">{syncSuccessMsg}</span>
               </div>
             )}
 

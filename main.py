@@ -238,6 +238,94 @@ def get_sync_status():
     return aegis_memory.get_sync_queue_status()
 
 
+from aegis_diagnostics import MultimodalDiagnostics
+
+
+class AnemiaScreeningPayload(BaseModel):
+    erythema_index: float = Field(2.5, description="Capillary erythema index")
+    r_channel_mean: float = Field(145.0, description="Red channel optical mean")
+
+
+class CoughAcousticPayload(BaseModel):
+    spectral_flux: float = Field(0.72, description="Acoustic spectral flux")
+    peak_frequency_hz: float = Field(1550.0, description="Peak frequency in Hertz")
+
+
+class QSOFAPayload(BaseModel):
+    heart_rate: float = Field(108.0)
+    temperature: float = Field(39.1)
+    temp_slope: float = Field(0.12)
+    syncope_detected: bool = Field(False)
+    respiratory_rate: float = Field(24.0)
+    systolic_bp: float = Field(88.0)
+
+
+class SatelliteSOSPayload(BaseModel):
+    patient_uid: Optional[str] = None
+    gps_coords: Optional[str] = "17.9689 N, 79.5941 E"
+
+
+@app.post("/diagnostics/anemia")
+def screen_anemia(payload: AnemiaScreeningPayload):
+    """Optical conjunctival & capillary colorimetry anemia screener."""
+    return MultimodalDiagnostics.estimate_anemia_from_pallor(
+        erythema_index=payload.erythema_index,
+        r_channel_mean=payload.r_channel_mean
+    )
+
+
+@app.post("/diagnostics/cough")
+def analyze_cough(payload: CoughAcousticPayload):
+    """Acoustic cough biomarker frequency spectrogram classifier."""
+    return MultimodalDiagnostics.analyze_cough_acoustics(
+        spectral_flux=payload.spectral_flux,
+        peak_frequency_hz=payload.peak_frequency_hz
+    )
+
+
+@app.post("/diagnostics/qsofa")
+def calculate_qsofa_sepsis(payload: QSOFAPayload):
+    """Predictive Clinical Decision Support (CDS) for qSOFA Sepsis Shock Trajectory."""
+    return MultimodalDiagnostics.evaluate_qsofa_sepsis_trajectory(
+        heart_rate=payload.heart_rate,
+        temperature=payload.temperature,
+        temp_slope=payload.temp_slope,
+        syncope_detected=payload.syncope_detected,
+        estimated_respiratory_rate=payload.respiratory_rate,
+        estimated_systolic_bp=payload.systolic_bp
+    )
+
+
+@app.post("/diagnostics/satellite-sos")
+def generate_sos_packet(payload: SatelliteSOSPayload):
+    """Generate 140-byte compact encrypted telemetry string for LoRa / Satellite SOS."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    
+    patient = aegis_memory.get_patient_profile(payload.patient_uid)
+    p_uid = patient.get("patient_uid", "PAT-RAM-2026")
+    b_type = patient.get("blood_type", "O+")
+
+    latest_v = latest_vitals_snapshot or {"heart_rate": 72.0, "temperature": 36.8, "temp_slope": 0.0, "syncope_detected": False}
+    qsofa = MultimodalDiagnostics.evaluate_qsofa_sepsis_trajectory(
+        heart_rate=latest_v.get("heart_rate", 72.0),
+        temperature=latest_v.get("temperature", 36.8),
+        temp_slope=latest_v.get("temp_slope", 0.0),
+        syncope_detected=latest_v.get("syncope_detected", False)
+    )
+
+    return MultimodalDiagnostics.generate_satellite_sos_packet(
+        patient_uid=p_uid,
+        blood_type=b_type,
+        heart_rate=latest_v.get("heart_rate", 72.0),
+        temperature=latest_v.get("temperature", 36.8),
+        qsofa_score=qsofa["qsofa_score"],
+        shock_probability=qsofa["shock_probability"],
+        gps_coords=payload.gps_coords or "17.9689 N, 79.5941 E"
+    )
+
+
 @app.post("/sync-queue/trigger")
 def trigger_hospital_sync():
     """Trigger opportunistic batch sync to District Hospital / ABDM gateway."""
