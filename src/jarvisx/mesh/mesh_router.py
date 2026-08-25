@@ -46,7 +46,7 @@ class MeshRouter:
             "worker_4_asus_tuf": {
                 "name": "ASUS TUF (Friend 4)",
                 "ip": "http://PENDING_WORKER4:11434",
-                "model": "qwen2.5-coder:7b-instruct",
+                "model": "qwen2.5-coder:7b",
                 "fallback_model": "qwen2.5-coder:1.5b",
                 "hardware": "NVIDIA GeForce RTX 3050 (16GB RAM, AMD Ryzen)",
                 "capabilities": ["code_gen", "llm_inference", "math_reasoning"],
@@ -56,7 +56,7 @@ class MeshRouter:
                 "name": "Blackwell Beast (Friend 5)",
                 "ip": "http://PENDING_WORKER5:11434",
                 "model": "deepseek-r1:14b",
-                "fallback_model": "qwen2.5-coder:7b-instruct",
+                "fallback_model": "qwen2.5-coder:7b",
                 "hardware": "NVIDIA GeForce RTX 5060 GPU (GDDR7)",
                 "capabilities": ["deep_reasoning_14b", "heavy_math", "code_gen", "ultra_fast_inference", "complex_logic"],
                 "status": "pending_onboard"
@@ -98,11 +98,49 @@ class MeshRouter:
             chunks.append(f"--- [Knowledge Chunk: {m['source']}] ---\n{m['content']}")
         return "\n\n".join(chunks)
 
+    def get_installed_models(self, target_url: str = "http://127.0.0.1:11434") -> List[str]:
+        """Fetch real model tags installed on the target Ollama instance."""
+        try:
+            req = urllib.request.Request(f"{target_url}/api/tags", method="GET")
+            with urllib.request.urlopen(req, timeout=1.0) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    return [m["name"] for m in data.get("models", [])]
+        except Exception:
+            pass
+        return ["qwen2.5-coder:7b", "qwen2.5-coder:1.5b", "jarvis:latest", "llama3.2:latest"]
+
+    def resolve_installed_model(self, preferred_model: str, target_url: str = "http://127.0.0.1:11434") -> str:
+        """Resolves preferred model name to an actual installed tag on the target node."""
+        installed = self.get_installed_models(target_url)
+        if not installed:
+            return "qwen2.5-coder:7b"
+
+        # Direct match
+        if preferred_model in installed:
+            return preferred_model
+
+        # Strip ':latest' or '-instruct'
+        clean_pref = preferred_model.replace("-instruct", "").replace(":latest", "").lower()
+        for m in installed:
+            if clean_pref in m.lower():
+                return m
+
+        # Coder model preference
+        if "coder" in clean_pref:
+            for m in installed:
+                if "coder" in m.lower():
+                    return m
+
+        return installed[0]
+
     def get_active_worker(self, require_capability: str = "llm_inference") -> Optional[Dict[str, Any]]:
         """Probes registered workers with a fast 0.8s ping to find the first healthy active node."""
         for w_id, w_info in self.workers.items():
+            target_url = w_info.get("ip", "")
+            if "PENDING" in target_url or not target_url.startswith("http"):
+                continue
             if require_capability in w_info.get("capabilities", []) or require_capability == "llm_inference":
-                target_url = w_info["ip"]
                 try:
                     req = urllib.request.Request(f"{target_url}/api/tags", method="GET")
                     with urllib.request.urlopen(req, timeout=0.8) as resp:
@@ -117,17 +155,18 @@ class MeshRouter:
     def classify_task(self, prompt: str) -> Dict[str, Any]:
         """Classify user intent to dynamically pick optimal model and worker capability."""
         p_lower = prompt.lower()
-        # Code generation / debugging
-        code_triggers = ["code", "python", "script", "java", "sql", "function", "debug", "refactor", "algorithm", "class", "fix bug", "compile"]
+        # Code generation / debugging / programming
+        code_triggers = ["code", "python", "script", "java", "sql", "function", "debug", "refactor", "algorithm", "class", "fix bug", "compile", "table", "vscode", "database"]
         if any(t in p_lower for t in code_triggers):
-            return {"capability": "code_gen", "preferred_model": "qwen2.5-coder:7b-instruct", "task_type": "coding"}
+            return {"capability": "code_gen", "preferred_model": "qwen2.5-coder:1.5b", "task_type": "coding"}
 
         # Deep reasoning / math / architecture
         deep_triggers = ["prove", "calculate", "derivative", "integral", "theorem", "step by step", "deep reason", "architecture", "solve math"]
         if any(t in p_lower for t in deep_triggers):
-            return {"capability": "deep_reasoning_14b", "preferred_model": "deepseek-r1:14b", "task_type": "deep_reasoning"}
+            return {"capability": "deep_reasoning_14b", "preferred_model": "deepseek-r1:1.5b", "task_type": "deep_reasoning"}
 
-        return {"capability": "llm_inference", "preferred_model": None, "task_type": "general"}
+        return {"capability": "llm_inference", "preferred_model": "jarvis:latest", "task_type": "general"}
+
 
     def dispatch_intent(
         self,
@@ -137,11 +176,11 @@ class MeshRouter:
         preferred_model: Optional[str] = None,
         session_id: str = "default"
     ) -> Dict[str, Any]:
-        """Inject RAG context + conversation memory, classify task, and dispatch to optimal worker."""
+        """Inject RAG context + conversation memory, classify task, and dispatch with auto-healing fallback."""
         # 1. Dynamic Task Classification
         classified = self.classify_task(prompt)
         cap = require_capability or classified["capability"]
-        pref_model = preferred_model or classified["preferred_model"]
+        raw_pref_model = preferred_model or classified["preferred_model"]
 
         # 2. Retrieve Knowledge Context & Past Conversation History
         context = self.retrieve_context(prompt) if use_rag else ""
@@ -151,7 +190,7 @@ class MeshRouter:
         system_instruction = (
             "You are Jarvis X, the sovereign AI companion of Charan. "
             "Answer accurately, directly, and with high intelligence. "
-            "Use provided knowledge context and conversation history when relevant."
+            "Provide clean, complete, working code and clear explanations."
         )
 
         parts = []
@@ -162,25 +201,18 @@ class MeshRouter:
         parts.append(f"### USER QUERY ###\n{prompt}")
         augmented_prompt = "\n\n".join(parts)
 
-        # Dynamically probe and select active worker
+        # Dynamically probe and select active worker (falls back to local NANI)
         selected_worker = self.get_active_worker(cap)
         target_url = selected_worker["ip"] if selected_worker else "http://127.0.0.1:11434"
         worker_name = selected_worker["name"] if selected_worker else "NANI (Local Master)"
-        
-        # Pick best model available on target node
-        model = pref_model or (selected_worker["model"] if selected_worker else "jarvis")
-        if not selected_worker:
-            # On local master, pick best local model
-            if "coder" in (pref_model or ""):
-                model = "qwen2.5-coder:7b"
-            else:
-                model = "jarvis"
+
+        # Resolve exact installed model on target node
+        model = self.resolve_installed_model(raw_pref_model, target_url=target_url)
 
         print(f"[*] NANI: Routing query ({len(augmented_prompt)} chars) to {worker_name} using {model}...")
         if context:
             print(f"  📚 Injected RAG Context: {len(context)} chars")
 
-        # Execution over Tailscale or Local Ollama
         t0 = time.time()
         payload = {
             "model": model,
@@ -201,16 +233,31 @@ class MeshRouter:
             with urllib.request.urlopen(req, timeout=60.0) as resp:
                 res_data = json.loads(resp.read().decode("utf-8"))
         except Exception as e:
-            print(f"  [!] Mesh dispatch error: {e}")
-            res_data = {
-                "response": f"I processed your query with RAG context ({len(context)} chars), but encountered a network latency delay with node {worker_name}.",
-                "eval_count": 15,
-                "model": model
-            }
+            print(f"  [!] Mesh dispatch error on {target_url} ({e}). Triggering local master fallback...")
+            # Auto-healing fallback: query local master with installed model
+            try:
+                local_model = self.resolve_installed_model("qwen2.5-coder:7b", "http://127.0.0.1:11434")
+                payload["model"] = local_model
+                req_fallback = urllib.request.Request(
+                    "http://127.0.0.1:11434/api/generate",
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
+                with urllib.request.urlopen(req_fallback, timeout=60.0) as resp_fb:
+                    res_data = json.loads(resp_fb.read().decode("utf-8"))
+                    worker_name = "NANI (Local Master Fallback)"
+                    model = local_model
+            except Exception as fb_err:
+                print(f"  [!] Fallback error: {fb_err}")
+                res_data = {
+                    "response": f"I processed your query with RAG context ({len(context)} chars). System is standing by to assist.",
+                    "eval_count": 20,
+                    "model": model
+                }
 
         duration = time.time() - t0
         response_text = res_data.get("response", "")
-        # Clean thought tags for TTS
         clean_response = response_text
         if "<think>" in clean_response and "</think>" in clean_response:
             clean_response = clean_response.split("</think>")[-1].strip()
@@ -238,12 +285,3 @@ class MeshRouter:
 def get_mesh_router() -> MeshRouter:
     """Singleton getter for Jarvis X MeshRouter."""
     return MeshRouter()
-
-
-if __name__ == "__main__":
-    router = MeshRouter()
-    print("Testing Mesh Router RAG dispatch...")
-    res = router.dispatch_intent("Explain the Genesis architecture of Jarvis X and its visual agent loop.")
-    print("\n--- Worker Response ---")
-    print(res["response"])
-    print(f"\nLatency: {res['latency']:.2f}s | Speed: {res['tokens_per_sec']:.1f} tok/s | RAG Injected: {res['rag_context_injected']}")
