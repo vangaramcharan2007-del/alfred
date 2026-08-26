@@ -49,7 +49,15 @@ import {
   Pill,
   Clock,
   Check,
-  Plus
+  Plus,
+  ScanLine,
+  QrCode,
+  Image,
+  Hand,
+  ShieldX,
+  FileSearch,
+  Upload,
+  Scan
 } from "lucide-react";
 
 import AnatomicalTwin3D from "./components/AnatomicalTwin3D";
@@ -179,6 +187,15 @@ export default function AegisMedicalCommandDeck() {
     "EDA Skin Conductance": 20.0
   });
   const [topDriver, setTopDriver] = useState<string>("Thermal Velocity (Slope)");
+
+  // Advanced Clinical Scanner States
+  const [medicineOCRResult, setMedicineOCRResult] = useState<any>(null);
+  const [medicineOCRInput, setMedicineOCRInput] = useState<string>("");
+  const [abhaResult, setAbhaResult] = useState<any>(null);
+  const [abhaInput, setAbhaInput] = useState<string>("");
+  const [xrayResult, setXrayResult] = useState<any>(null);
+  const [handGestureResult, setHandGestureResult] = useState<any>(null);
+  const [activeScannerTab, setActiveScannerTab] = useState<"medicine" | "abha" | "xray" | "hand">("medicine");
 
   // UI & Multi-Lingual State
   const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
@@ -739,6 +756,123 @@ export default function AegisMedicalCommandDeck() {
     }
   };
 
+  // ========== ADVANCED CLINICAL SCANNER HANDLERS ==========
+
+  const handleMedicineOCRScan = async (ocrText?: string) => {
+    const text = ocrText || medicineOCRInput;
+    if (!text.trim()) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/scanner/medicine-ocr`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ocr_text: text }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMedicineOCRResult(data);
+        const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
+        const isAllergy = data.allergy_alert;
+        const msg = isAllergy
+          ? `⚠️ ALLERGY DANGER: ${data.drug_name} is CONTRAINDICATED for this patient. ${data.allergy_warnings?.[0] || ""}`
+          : data.drug_identified
+          ? `Medicine Identified: ${data.drug_name} (${data.drug_class}). Dosage: ${data.detected_dosage}. Schedule: ${data.schedule_suggestion}`
+          : `Could not identify medicine from scanned text. Please re-position the strip.`;
+        setMessages((prev) => [
+          ...prev,
+          { id: `ocr-${Date.now()}`, sender: "baymax", text: msg, timestamp: timeStr, isAlert: isAllergy, allergyWarning: isAllergy },
+        ]);
+        speakText(msg);
+        setMedicineOCRInput("");
+      }
+    } catch (err) {
+      console.warn("Medicine OCR error:", err);
+    }
+  };
+
+  const handleABHAQRScan = async (qrText?: string) => {
+    const payload = qrText || abhaInput;
+    if (!payload.trim()) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/scanner/abha-qr`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ qr_payload: payload }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAbhaResult(data);
+        const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
+        const msg = data.status === "DECODED"
+          ? `ABHA Card Decoded: ${data.name} (${data.gender}). Health ID: ${data.abha_number}. Blood Group: ${data.blood_group || "N/A"}. State: ${data.state || "N/A"}.`
+          : `Invalid ABHA QR code. Please scan an official Ayushman Bharat Digital Health card.`;
+        setMessages((prev) => [
+          ...prev,
+          { id: `abha-${Date.now()}`, sender: "baymax", text: msg, timestamp: timeStr },
+        ]);
+        speakText(msg);
+        setAbhaInput("");
+      }
+    } catch (err) {
+      console.warn("ABHA QR error:", err);
+    }
+  };
+
+  const handleChestXRayScan = async (preset?: string) => {
+    let payload: any = { lung_opacity_ratio: 0.10, upper_lobe_density: 0.08, lower_lobe_density: 0.12 };
+    if (preset === "pneumonia") {
+      payload = { lung_opacity_ratio: 0.42, upper_lobe_density: 0.10, lower_lobe_density: 0.45, cardiac_silhouette_ratio: 0.48 };
+    } else if (preset === "tb") {
+      payload = { lung_opacity_ratio: 0.30, upper_lobe_density: 0.45, lower_lobe_density: 0.12, cardiac_silhouette_ratio: 0.46 };
+    } else if (preset === "viral") {
+      payload = { lung_opacity_ratio: 0.32, upper_lobe_density: 0.15, lower_lobe_density: 0.20, bilateral: true, cardiac_silhouette_ratio: 0.47 };
+    }
+    try {
+      const res = await fetch(`${BACKEND_URL}/scanner/chest-xray`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setXrayResult(data);
+        const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
+        const msg = `Chest X-Ray Analysis: ${data.classification} (${data.severity} severity, ${(data.confidence * 100).toFixed(0)}% confidence). ${data.findings[0]}`;
+        setMessages((prev) => [
+          ...prev,
+          { id: `xray-${Date.now()}`, sender: "baymax", text: msg, timestamp: timeStr, isAlert: data.severity === "HIGH" },
+        ]);
+        speakText(msg);
+      }
+    } catch (err) {
+      console.warn("Chest X-Ray error:", err);
+    }
+  };
+
+  const handleHandGesture = async (tipX: number, tipY: number, wristX: number, wristY: number) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/scanner/hand-gesture`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ index_tip_x: tipX, index_tip_y: tipY, wrist_x: wristX, wrist_y: wristY, hand_detected: true, is_pointing: true }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setHandGestureResult(data);
+        if (data.status === "ORGAN_TARGETED") {
+          setSelectedDisease(data.disease_preset);
+          const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
+          setMessages((prev) => [
+            ...prev,
+            { id: `hand-${Date.now()}`, sender: "baymax", text: data.message, timestamp: timeStr },
+          ]);
+          speakText(`Hand gesture detected. Focusing on ${data.organ}.`);
+        }
+      }
+    } catch (err) {
+      console.warn("Hand gesture error:", err);
+    }
+  };
+
   // Trigger Store-and-Forward FHIR Sync
   const handleTriggerSync = async () => {
     setIsSyncing(true);
@@ -1126,6 +1260,204 @@ export default function AegisMedicalCommandDeck() {
                   Shock: <strong className="text-rose-300">{(qsofaResult.shock_probability * 100).toFixed(0)}%</strong>
                 </div>
               </button>
+            </div>
+          </div>
+
+          {/* Advanced Clinical Scanners: Medicine OCR, ABHA QR, Chest X-Ray, Hand Gesture */}
+          <div className="p-3.5 rounded-3xl bg-[#0c101c]/90 border border-slate-800/80 flex flex-col gap-2.5 shadow-lg">
+            <div className="flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center gap-1.5">
+                <Scan className="w-4 h-4 text-emerald-400" />
+                <span className="font-bold text-slate-200">ADVANCED CLINICAL SCANNERS</span>
+              </div>
+            </div>
+
+            {/* Scanner Tab Selector */}
+            <div className="flex items-center gap-1 bg-[#090b14] p-1 rounded-2xl border border-slate-800 text-[10px] font-mono">
+              {[
+                { key: "medicine" as const, label: "💊 Medicine OCR", icon: <ScanLine className="w-3 h-3" /> },
+                { key: "abha" as const, label: "🪪 ABHA QR", icon: <QrCode className="w-3 h-3" /> },
+                { key: "xray" as const, label: "🩻 Chest X-Ray", icon: <Image className="w-3 h-3" /> },
+                { key: "hand" as const, label: "🖐️ Hand Gesture", icon: <Hand className="w-3 h-3" /> },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveScannerTab(tab.key)}
+                  className={`flex-1 px-2 py-1 rounded-xl transition flex items-center justify-center gap-1 ${
+                    activeScannerTab === tab.key
+                      ? "bg-emerald-600 text-slate-950 font-bold"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Scanner Content Based on Active Tab */}
+            <div className="min-h-[80px]">
+
+              {/* 💊 Medicine Strip OCR Scanner */}
+              {activeScannerTab === "medicine" && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={medicineOCRInput}
+                      onChange={(e) => setMedicineOCRInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleMedicineOCRScan()}
+                      placeholder="Type medicine name (e.g. Paracetamol 500mg)..."
+                      className="flex-1 bg-[#090b14] border border-slate-800 rounded-xl px-3 py-1.5 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"
+                    />
+                    <button onClick={() => handleMedicineOCRScan()} className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-[10px] font-mono font-bold transition">
+                      Scan
+                    </button>
+                  </div>
+                  {/* Quick Demo Buttons */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {["Paracetamol 500mg", "Ibuprofen 400mg", "Amlodipine 5mg", "Dolo 650mg"].map((drug) => (
+                      <button key={drug} onClick={() => handleMedicineOCRScan(drug)} className="px-2 py-0.5 rounded-lg bg-[#090b14] border border-slate-800 text-[9px] font-mono text-slate-400 hover:text-white hover:border-emerald-500/60 transition">
+                        {drug}
+                      </button>
+                    ))}
+                  </div>
+                  {medicineOCRResult && (
+                    <div className={`p-2.5 rounded-xl border text-[10px] font-mono ${
+                      medicineOCRResult.allergy_alert
+                        ? "bg-rose-950/80 border-rose-500 text-rose-200"
+                        : medicineOCRResult.drug_identified
+                        ? "bg-emerald-950/60 border-emerald-500/60 text-emerald-200"
+                        : "bg-slate-900 border-slate-800 text-slate-300"
+                    }`}>
+                      {medicineOCRResult.allergy_alert && <div className="text-rose-300 font-bold mb-1 flex items-center gap-1"><ShieldX className="w-3 h-3" /> ALLERGY DANGER</div>}
+                      {medicineOCRResult.drug_identified && (
+                        <>
+                          <div><strong>{medicineOCRResult.drug_name}</strong> ({medicineOCRResult.drug_class})</div>
+                          <div className="text-slate-400 mt-0.5">Dosage: {medicineOCRResult.detected_dosage} • Confidence: {(medicineOCRResult.confidence * 100).toFixed(0)}%</div>
+                          <div className="text-emerald-300 mt-0.5">{medicineOCRResult.schedule_suggestion}</div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 🪪 ABHA National Health ID QR Scanner */}
+              {activeScannerTab === "abha" && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={abhaInput}
+                      onChange={(e) => setAbhaInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleABHAQRScan()}
+                      placeholder="Paste ABHA QR payload or scan card..."
+                      className="flex-1 bg-[#090b14] border border-slate-800 rounded-xl px-3 py-1.5 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+                    />
+                    <button onClick={() => handleABHAQRScan()} className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-[10px] font-mono font-bold transition">
+                      Decode
+                    </button>
+                  </div>
+                  {/* Demo ABHA Card */}
+                  <div className="flex gap-1.5">
+                    <button onClick={() => handleABHAQRScan('91-1234-5678-9012 name: Ramcharan gender: M dob: 15-03-2002 O+')} className="px-2 py-0.5 rounded-lg bg-[#090b14] border border-slate-800 text-[9px] font-mono text-slate-400 hover:text-white hover:border-cyan-500/60 transition">
+                      Demo: Ramcharan ABHA
+                    </button>
+                    <button onClick={() => handleABHAQRScan(JSON.stringify({hidn: "91-9876-5432-1098", name: "Giri", gender: "Female", bloodGroup: "A+", state: "Telangana"}))} className="px-2 py-0.5 rounded-lg bg-[#090b14] border border-slate-800 text-[9px] font-mono text-slate-400 hover:text-white hover:border-cyan-500/60 transition">
+                      Demo: Giri JSON QR
+                    </button>
+                  </div>
+                  {abhaResult && abhaResult.status === "DECODED" && (
+                    <div className="p-2.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-[10px] font-mono text-cyan-200">
+                      <div className="font-bold text-white flex items-center gap-1"><QrCode className="w-3 h-3 text-cyan-400" /> ABHA VERIFIED</div>
+                      <div className="mt-1">Name: <strong>{abhaResult.name}</strong> ({abhaResult.gender})</div>
+                      <div>Health ID: <strong className="text-cyan-300">{abhaResult.abha_number}</strong></div>
+                      <div>Blood: {abhaResult.blood_group || "N/A"} • {abhaResult.state || "India"}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 🩻 Chest X-Ray Edge Screener */}
+              {activeScannerTab === "xray" && (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-mono text-slate-400">Select radiological preset to simulate CXR feature analysis:</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button onClick={() => handleChestXRayScan("normal")} className="p-2 rounded-xl bg-[#090b14] border border-slate-800 hover:border-emerald-500/60 text-[10px] font-mono text-left transition">
+                      <div className="text-emerald-400 font-bold">Normal CXR</div>
+                      <div className="text-[9px] text-slate-400">Clear lung fields</div>
+                    </button>
+                    <button onClick={() => handleChestXRayScan("pneumonia")} className="p-2 rounded-xl bg-[#090b14] border border-slate-800 hover:border-rose-500/60 text-[10px] font-mono text-left transition">
+                      <div className="text-rose-400 font-bold">Bacterial Pneumonia</div>
+                      <div className="text-[9px] text-slate-400">Lower lobe consolidation</div>
+                    </button>
+                    <button onClick={() => handleChestXRayScan("tb")} className="p-2 rounded-xl bg-[#090b14] border border-slate-800 hover:border-amber-500/60 text-[10px] font-mono text-left transition">
+                      <div className="text-amber-400 font-bold">Pulmonary TB</div>
+                      <div className="text-[9px] text-slate-400">Upper lobe cavitation</div>
+                    </button>
+                    <button onClick={() => handleChestXRayScan("viral")} className="p-2 rounded-xl bg-[#090b14] border border-slate-800 hover:border-purple-500/60 text-[10px] font-mono text-left transition">
+                      <div className="text-purple-400 font-bold">Viral / COVID-19</div>
+                      <div className="text-[9px] text-slate-400">Bilateral ground-glass</div>
+                    </button>
+                  </div>
+                  {xrayResult && (
+                    <div className={`p-2.5 rounded-xl border text-[10px] font-mono ${
+                      xrayResult.severity === "HIGH" ? "bg-rose-950/60 border-rose-500/60 text-rose-200"
+                        : xrayResult.severity === "MODERATE" ? "bg-amber-950/60 border-amber-500/60 text-amber-200"
+                        : "bg-emerald-950/60 border-emerald-500/60 text-emerald-200"
+                    }`}>
+                      <div className="font-bold text-white">{xrayResult.classification} ({(xrayResult.confidence * 100).toFixed(0)}%)</div>
+                      <div className="mt-1 text-slate-300">{xrayResult.findings[0]}</div>
+                      {xrayResult.heatmap_zones?.length > 0 && (
+                        <div className="flex gap-1.5 mt-1.5">
+                          {xrayResult.heatmap_zones.map((z: any, i: number) => (
+                            <span key={i} className="px-1.5 py-0.5 rounded-md text-[9px] border" style={{ borderColor: z.color, color: z.color }}>
+                              {z.zone}: {z.intensity}%
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 🖐️ Hand Gesture Organ Raycast */}
+              {activeScannerTab === "hand" && (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-mono text-slate-400">Simulate pointing gesture at anatomical zones:</div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { label: "🧠 Head / Brain", x: 0.5, y: 0.1, wx: 0.5, wy: 0.7 },
+                      { label: "🫀 Heart", x: 0.45, y: 0.32, wx: 0.45, wy: 0.7 },
+                      { label: "🫁 Lungs", x: 0.62, y: 0.32, wx: 0.5, wy: 0.7 },
+                      { label: "🤰 Abdomen", x: 0.5, y: 0.55, wx: 0.5, wy: 0.8 },
+                      { label: "🦴 Pelvis", x: 0.5, y: 0.75, wx: 0.5, wy: 0.9 },
+                      { label: "❌ No Hand", x: 0.5, y: 0.5, wx: 0.5, wy: 0.5 },
+                    ].map((zone) => (
+                      <button key={zone.label}
+                        onClick={() => zone.label === "❌ No Hand"
+                          ? setHandGestureResult({ status: "NO_HAND_DETECTED", organ: null, gesture: "NONE", message: "No hand detected." })
+                          : handleHandGesture(zone.x, zone.y, zone.wx, zone.wy)
+                        }
+                        className="p-1.5 rounded-xl bg-[#090b14] border border-slate-800 hover:border-emerald-500/60 text-[10px] font-mono text-slate-300 hover:text-white transition text-center"
+                      >
+                        {zone.label}
+                      </button>
+                    ))}
+                  </div>
+                  {handGestureResult && (
+                    <div className={`p-2 rounded-xl border text-[10px] font-mono ${
+                      handGestureResult.status === "ORGAN_TARGETED"
+                        ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-200"
+                        : "bg-slate-900 border-slate-800 text-slate-400"
+                    }`}>
+                      <div className="font-bold text-white">{handGestureResult.status === "ORGAN_TARGETED" ? `🎯 ${handGestureResult.organ}` : "Waiting for gesture..."}</div>
+                      <div className="mt-0.5">{handGestureResult.message}</div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

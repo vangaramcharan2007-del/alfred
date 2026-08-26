@@ -382,6 +382,83 @@ def trigger_hospital_sync():
     return aegis_memory.trigger_sync_batch()
 
 
+# ============================================================================
+# ADVANCED CLINICAL SCANNERS: Medicine OCR, ABHA QR, Chest X-Ray, Hand Gesture
+# ============================================================================
+from aegis_scanners import scan_medicine_strip, decode_abha_qr, classify_chest_xray, map_hand_to_organ
+
+
+class MedicineOCRPayload(BaseModel):
+    ocr_text: str = Field(..., description="Raw OCR text extracted from medicine strip image")
+
+
+class ABHAQRPayload(BaseModel):
+    qr_payload: str = Field(..., description="Raw decoded string from ABHA QR code scanner")
+
+
+class ChestXRayPayload(BaseModel):
+    pixel_intensity_mean: float = Field(128.0)
+    lung_opacity_ratio: float = Field(0.15)
+    contrast_score: float = Field(0.65)
+    cardiac_silhouette_ratio: float = Field(0.48)
+    upper_lobe_density: float = Field(0.12)
+    lower_lobe_density: float = Field(0.18)
+    bilateral: bool = Field(False)
+
+
+class HandGesturePayload(BaseModel):
+    index_tip_x: float = Field(0.5, description="Normalized X of index finger tip (0-1)")
+    index_tip_y: float = Field(0.3, description="Normalized Y of index finger tip (0-1)")
+    wrist_x: float = Field(0.5, description="Normalized X of wrist (0-1)")
+    wrist_y: float = Field(0.7, description="Normalized Y of wrist (0-1)")
+    hand_detected: bool = Field(True)
+    is_pointing: bool = Field(True)
+
+
+@app.post("/scanner/medicine-ocr")
+def scanner_medicine_ocr(payload: MedicineOCRPayload):
+    """Scan medicine strip text via OCR and identify drug, dosage, allergy cross-ref."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    patient = aegis_memory.get_patient_profile()
+    allergies = patient.get("allergies_list", [])
+    return scan_medicine_strip(ocr_text=payload.ocr_text, patient_allergies=allergies)
+
+
+@app.post("/scanner/abha-qr")
+def scanner_abha_qr(payload: ABHAQRPayload):
+    """Decode Ayushman Bharat (ABHA) National Health ID from QR code."""
+    return decode_abha_qr(qr_payload=payload.qr_payload)
+
+
+@app.post("/scanner/chest-xray")
+def scanner_chest_xray(payload: ChestXRayPayload):
+    """Classify chest X-ray features for pneumonia, TB, or cardiomegaly screening."""
+    return classify_chest_xray(
+        pixel_intensity_mean=payload.pixel_intensity_mean,
+        lung_opacity_ratio=payload.lung_opacity_ratio,
+        contrast_score=payload.contrast_score,
+        cardiac_silhouette_ratio=payload.cardiac_silhouette_ratio,
+        upper_lobe_density=payload.upper_lobe_density,
+        lower_lobe_density=payload.lower_lobe_density,
+        bilateral=payload.bilateral,
+    )
+
+
+@app.post("/scanner/hand-gesture")
+def scanner_hand_gesture(payload: HandGesturePayload):
+    """Map hand gesture raycast to anatomical organ zone on 3D Digital Twin."""
+    return map_hand_to_organ(
+        index_tip_x=payload.index_tip_x,
+        index_tip_y=payload.index_tip_y,
+        wrist_x=payload.wrist_x,
+        wrist_y=payload.wrist_y,
+        hand_detected=payload.hand_detected,
+        is_pointing=payload.is_pointing,
+    )
+
+
 @app.post("/patient-profile")
 def update_patient_profile(payload: PatientProfileUpdatePayload):
     """Update patient EHR record."""

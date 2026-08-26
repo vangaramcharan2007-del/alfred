@@ -427,3 +427,111 @@ def test_satellite_sos_micro_packet_generator(client):
     assert data["byte_size"] <= 140
     assert data["satellite_compatible"] is True
     assert data["micro_packet"].startswith("AEGIS!")
+
+
+# ==========================================
+# 8. Advanced Clinical Scanner Tests
+# ==========================================
+
+def test_medicine_ocr_scanner_identifies_paracetamol(client):
+    """Verify medicine strip OCR identifies Paracetamol and detects dosage."""
+    payload = {"ocr_text": "PARACETAMOL 500mg Tablets IP"}
+    response = client.post("/scanner/medicine-ocr", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["drug_identified"] is True
+    assert "Paracetamol" in data["drug_name"]
+    assert data["detected_dosage"] == "500mg"
+    assert data["allergy_alert"] is False
+
+
+def test_medicine_ocr_scanner_flags_ibuprofen_allergy(client):
+    """Verify medicine OCR flags NSAID allergy for Ibuprofen strip on allergic patient."""
+    payload = {"ocr_text": "IBUPROFEN 400mg Film Coated Tablets"}
+    response = client.post("/scanner/medicine-ocr", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["drug_identified"] is True
+    assert data["allergy_alert"] is True
+    assert data["status"] == "ALLERGY_DANGER"
+    assert len(data["allergy_warnings"]) > 0
+
+
+def test_abha_qr_decoder_parses_abha_number(client):
+    """Verify ABHA QR decoder extracts 14-digit health ID."""
+    payload = {"qr_payload": "91-1234-5678-9012 name: Ramcharan gender: M dob: 15-03-2002 O+"}
+    response = client.post("/scanner/abha-qr", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "DECODED"
+    assert data["abha_number"] == "91-1234-5678-9012"
+    assert data["name"] == "Ramcharan"
+    assert data["gender"] == "Male"
+    assert data["blood_group"] == "O+"
+
+
+def test_abha_qr_decoder_handles_json_payload(client):
+    """Verify ABHA QR decoder handles structured JSON ABHA payload."""
+    import json
+    abha_json = json.dumps({"hidn": "91-9876-5432-1098", "name": "Giri", "gender": "Female", "dob": "10-08-2004", "bloodGroup": "A+"})
+    payload = {"qr_payload": abha_json}
+    response = client.post("/scanner/abha-qr", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "DECODED"
+    assert data["abha_number"] == "91-9876-5432-1098"
+    assert data["name"] == "Giri"
+    assert data["gender"] == "Female"
+
+
+def test_chest_xray_normal_classification(client):
+    """Verify normal chest X-ray classification."""
+    payload = {"lung_opacity_ratio": 0.10, "upper_lobe_density": 0.08, "lower_lobe_density": 0.12, "cardiac_silhouette_ratio": 0.45}
+    response = client.post("/scanner/chest-xray", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["classification"] == "NORMAL"
+    assert data["severity"] == "CLEAR"
+
+
+def test_chest_xray_pneumonia_classification(client):
+    """Verify bacterial pneumonia detection with high lower lobe opacity."""
+    payload = {"lung_opacity_ratio": 0.42, "upper_lobe_density": 0.10, "lower_lobe_density": 0.45, "cardiac_silhouette_ratio": 0.48}
+    response = client.post("/scanner/chest-xray", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["classification"] == "BACTERIAL_PNEUMONIA"
+    assert data["severity"] == "HIGH"
+    assert len(data["findings"]) > 0
+    assert len(data["heatmap_zones"]) > 0
+
+
+def test_chest_xray_tuberculosis_classification(client):
+    """Verify pulmonary TB detection with high upper lobe density."""
+    payload = {"lung_opacity_ratio": 0.30, "upper_lobe_density": 0.45, "lower_lobe_density": 0.12, "cardiac_silhouette_ratio": 0.46}
+    response = client.post("/scanner/chest-xray", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["classification"] == "PULMONARY_TUBERCULOSIS"
+    assert data["severity"] == "HIGH"
+
+
+def test_hand_gesture_organ_targeting(client):
+    """Verify hand gesture raycast maps to correct organ zone."""
+    payload = {"index_tip_x": 0.45, "index_tip_y": 0.32, "wrist_x": 0.45, "wrist_y": 0.7, "hand_detected": True, "is_pointing": True}
+    response = client.post("/scanner/hand-gesture", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ORGAN_TARGETED"
+    assert data["organ"] == "Cardiovascular Heart"
+    assert data["disease_preset"] == "CARDIAC_TACHYCARDIA"
+
+
+def test_hand_gesture_no_hand_detected(client):
+    """Verify graceful handling when no hand is detected."""
+    payload = {"index_tip_x": 0.5, "index_tip_y": 0.5, "wrist_x": 0.5, "wrist_y": 0.7, "hand_detected": False, "is_pointing": False}
+    response = client.post("/scanner/hand-gesture", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "NO_HAND_DETECTED"
+
