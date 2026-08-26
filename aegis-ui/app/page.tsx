@@ -226,6 +226,17 @@ export default function AegisMedicalCommandDeck() {
 
   // Multi-Patient EHR State
   const [patientList, setPatientList] = useState<PatientProfile[]>([]);
+  const [showAddPatientModal, setShowAddPatientModal] = useState<boolean>(false);
+  const [newPatientForm, setNewPatientForm] = useState({
+    name: "",
+    age: 26,
+    gender: "Male",
+    blood_type: "O+",
+    allergies: "None Known",
+    active_medications: "Paracetamol 500mg",
+    chronic_conditions: "None Reported",
+    location: "General Ward - Bed 04",
+  });
   const [patientProfile, setPatientProfile] = useState<PatientProfile>({
     patient_uid: "PAT-RAM-2026",
     name: "Ramcharan",
@@ -704,6 +715,56 @@ export default function AegisMedicalCommandDeck() {
       }
     } catch (err) {
       console.warn("Patient switch note:", err);
+    }
+  };
+
+  // Add New Patient to EHR
+  const handleAddPatient = async () => {
+    if (!newPatientForm.name.trim()) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/patients/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...newPatientForm,
+          age: Number(newPatientForm.age) || 25,
+          auto_activate: true,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPatientProfile(data.patient);
+        setPatientList(data.all_patients || []);
+        setShowAddPatientModal(false);
+
+        // Fetch updated medications
+        const resM = await fetch(`${BACKEND_URL}/medications?patient_uid=${data.patient.patient_uid}`);
+        if (resM.ok) {
+          const mData = await resM.json();
+          setMedications(mData);
+        }
+
+        const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
+        const newMsg = `✨ New Patient Registered: ${data.patient.name} (${data.patient.gender}, ${data.patient.age}y, ${data.patient.blood_type}) at ${data.patient.location}. Allergies: ${data.patient.allergies}. 3D Anatomical Twin initialized.`;
+        setMessages((prev) => [
+          ...prev,
+          { id: `newp-${Date.now()}`, sender: "baymax", text: newMsg, timestamp: timeStr },
+        ]);
+        speakText(`Welcome ${data.patient.name}. Medical profile and 3D digital twin active.`);
+        // Reset form
+        setNewPatientForm({
+          name: "",
+          age: 26,
+          gender: "Male",
+          blood_type: "O+",
+          allergies: "None Known",
+          active_medications: "Paracetamol 500mg",
+          chronic_conditions: "None Reported",
+          location: "General Ward - Bed 04",
+        });
+      }
+    } catch (err) {
+      console.warn("Patient add error:", err);
     }
   };
 
@@ -2055,8 +2116,108 @@ export default function AegisMedicalCommandDeck() {
                   CLINIC WARD QUEUE
                 </h2>
               </div>
-              <span className="text-[10px] font-mono text-slate-400">{patientList.length} PATIENTS</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono text-slate-400">{patientList.length} PATIENTS</span>
+                <button
+                  onClick={() => setShowAddPatientModal((prev) => !prev)}
+                  className="px-2 py-0.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-[9px] font-mono transition flex items-center gap-1 shadow"
+                >
+                  {showAddPatientModal ? "✕ Close" : "➕ Add Patient"}
+                </button>
+              </div>
             </div>
+
+            {/* Expandable Add Patient Form */}
+            {showAddPatientModal && (
+              <div className="p-3 rounded-2xl bg-[#090b14] border border-cyan-500/40 space-y-2 font-mono text-[10px] text-slate-300">
+                <div className="font-bold text-cyan-300 border-b border-slate-800 pb-1">Register New Patient to EHR:</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[9px] text-slate-400">Full Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Rahul Verma"
+                      value={newPatientForm.name}
+                      onChange={(e) => setNewPatientForm({ ...newPatientForm, name: e.target.value })}
+                      className="w-full bg-[#06080e] border border-slate-800 rounded-xl px-2 py-1 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 text-[10px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400">Age & Gender</label>
+                    <div className="flex gap-1">
+                      <input
+                        type="number"
+                        placeholder="Age"
+                        value={newPatientForm.age}
+                        onChange={(e) => setNewPatientForm({ ...newPatientForm, age: Number(e.target.value) })}
+                        className="w-1/2 bg-[#06080e] border border-slate-800 rounded-xl px-2 py-1 text-white focus:outline-none focus:border-cyan-500 text-[10px]"
+                      />
+                      <select
+                        value={newPatientForm.gender}
+                        onChange={(e) => setNewPatientForm({ ...newPatientForm, gender: e.target.value })}
+                        className="w-1/2 bg-[#06080e] border border-slate-800 rounded-xl px-1 py-1 text-white focus:outline-none focus:border-cyan-500 text-[10px]"
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[9px] text-slate-400">Blood Group</label>
+                    <select
+                      value={newPatientForm.blood_type}
+                      onChange={(e) => setNewPatientForm({ ...newPatientForm, blood_type: e.target.value })}
+                      className="w-full bg-[#06080e] border border-slate-800 rounded-xl px-2 py-1 text-white focus:outline-none focus:border-cyan-500 text-[10px]"
+                    >
+                      {["O+", "A+", "B+", "AB+", "O-", "A-", "B-", "AB-"].map((bg) => (
+                        <option key={bg} value={bg}>{bg}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400">Documented Allergies</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Sulfa, Penicillin, None"
+                      value={newPatientForm.allergies}
+                      onChange={(e) => setNewPatientForm({ ...newPatientForm, allergies: e.target.value })}
+                      className="w-full bg-[#06080e] border border-slate-800 rounded-xl px-2 py-1 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 text-[10px]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[9px] text-slate-400">Active Medications (comma-separated)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Metformin 500mg, Atorvastatin 10mg"
+                    value={newPatientForm.active_medications}
+                    onChange={(e) => setNewPatientForm({ ...newPatientForm, active_medications: e.target.value })}
+                    className="w-full bg-[#06080e] border border-slate-800 rounded-xl px-2 py-1 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 text-[10px]"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-1.5 pt-1">
+                  <button
+                    onClick={() => setShowAddPatientModal(false)}
+                    className="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddPatient}
+                    disabled={!newPatientForm.name.trim()}
+                    className="px-3 py-1 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-slate-950 font-bold transition shadow"
+                  >
+                    Register Patient
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1.5 max-h-[110px] overflow-y-auto pr-1">
               {patientList.map((p) => {

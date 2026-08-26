@@ -229,6 +229,45 @@ def switch_active_patient(payload: SwitchPatientPayload):
     return aegis_memory.set_active_patient(payload.patient_uid)
 
 
+class CreatePatientPayload(BaseModel):
+    name: str = Field(..., description="Full Name of the patient")
+    age: int = Field(25, description="Age in years")
+    gender: str = Field("Male", description="Gender (Male/Female/Other)")
+    blood_type: str = Field("O+", description="Blood Group (e.g. O+, A+, B+, AB+)")
+    allergies: Optional[str] = Field("None Known", description="Documented Allergies")
+    active_medications: Optional[str] = Field("None", description="Active Medications (comma-separated)")
+    chronic_conditions: Optional[str] = Field("None Reported", description="Chronic Conditions")
+    location: Optional[str] = Field("General Ward - Bed 04", description="Clinic Ward Location")
+    emergency_contact: Optional[str] = Field("Family", description="Emergency Contact")
+    auto_activate: bool = Field(True, description="Automatically activate newly added patient")
+
+
+@app.post("/patients/add")
+def add_patient(payload: CreatePatientPayload):
+    """Register a new patient into SQLite EHR database."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    new_profile = aegis_memory.add_new_patient(
+        name=payload.name,
+        age=payload.age,
+        gender=payload.gender,
+        blood_type=payload.blood_type,
+        allergies=payload.allergies or "None Known",
+        active_medications=payload.active_medications or "None",
+        chronic_conditions=payload.chronic_conditions or "None Reported",
+        location=payload.location or "General Ward - Bed 04",
+        emergency_contact=payload.emergency_contact or "Family",
+    )
+    if payload.auto_activate:
+        aegis_memory.set_active_patient(new_profile["patient_uid"])
+    return {
+        "status": "PATIENT_CREATED",
+        "patient": new_profile,
+        "all_patients": aegis_memory.list_all_patients(),
+    }
+
+
 class TakeMedicationPayload(BaseModel):
     medication_id: int
 

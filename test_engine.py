@@ -659,4 +659,29 @@ def test_mesh_broadcast_sync(client):
     assert "checksum" in data
 
 
+def test_add_new_patient_and_activate(client):
+    """Verify registration and auto-activation of a new patient."""
+    payload = {
+        "name": "Rahul Verma",
+        "age": 29,
+        "gender": "Male",
+        "blood_type": "AB+",
+        "allergies": "Sulfa Drugs",
+        "active_medications": "Metformin 500mg, Pantoprazole 40mg",
+        "chronic_conditions": "Type 2 Diabetes",
+        "location": "Ward 3 - Bed 12",
+        "auto_activate": True
+    }
+    response = client.post("/patients/add", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "PATIENT_CREATED"
+    assert data["patient"]["name"] == "Rahul Verma"
+    assert data["patient"]["blood_type"] == "AB+"
+    
+    # Verify patient list contains Rahul
+    p_res = client.get("/patients")
+    assert any(p["name"] == "Rahul Verma" for p in p_res.json())
+
+
 

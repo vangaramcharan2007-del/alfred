@@ -53,6 +53,71 @@ def detect_language(query: str, requested_lang: Optional[str] = "en") -> str:
     return "en"
 
 
+def localize_patient_name(name: str, lang: str) -> str:
+    """Map patient names into native scripts for zero English voice accent."""
+    if not name:
+        return ""
+    name_clean = name.strip()
+    telugu_names = {
+        "Ramcharan": "రామ్‌చరణ్",
+        "Somu": "సోము",
+        "Giri": "గిరి",
+        "Anitha": "అనిత",
+        "Rahul": "రాహుల్",
+        "Priya": "ప్రియ",
+        "Vikram": "విక్రమ్",
+        "Meera": "మీరా",
+    }
+    hindi_names = {
+        "Ramcharan": "रामचरण",
+        "Somu": "सोमू",
+        "Giri": "गिरी",
+        "Anitha": "अनीता",
+        "Rahul": "राहुल",
+        "Priya": "प्रिया",
+        "Vikram": "विक्रम",
+        "Meera": "मीरा",
+    }
+    tamil_names = {
+        "Ramcharan": "ராம்சரண்",
+        "Somu": "சோமு",
+        "Giri": "கிரி",
+        "Anitha": "அனிதா",
+        "Rahul": "ராகுல்",
+        "Priya": "பிரியா",
+        "Vikram": "விக்ரம்",
+        "Meera": "மீரா",
+    }
+    kannada_names = {
+        "Ramcharan": "ರಾಮ್‌ಚರಣ್",
+        "Somu": "ಸೋಮು",
+        "Giri": "ಗಿರಿ",
+        "Anitha": "ಅನಿತಾ",
+        "Rahul": "ರಾಹುಲ್",
+        "Priya": "ಪ್ರಿಯಾ",
+        "Vikram": "ವಿಕ್ರಮ್",
+        "Meera": "ಮೀರಾ",
+    }
+    
+    if lang == "te":
+        if all(0x0C00 <= ord(c) <= 0x0C7F or c.isspace() for c in name_clean):
+            return name_clean
+        return telugu_names.get(name_clean, "మిత్రమా")
+    elif lang == "hi":
+        if all(0x0900 <= ord(c) <= 0x097F or c.isspace() for c in name_clean):
+            return name_clean
+        return hindi_names.get(name_clean, "मित्र")
+    elif lang == "ta":
+        if all(0x0B80 <= ord(c) <= 0x0BFF or c.isspace() for c in name_clean):
+            return name_clean
+        return tamil_names.get(name_clean, "நண்பரே")
+    elif lang == "kn":
+        if all(0x0C80 <= ord(c) <= 0x0CFF or c.isspace() for c in name_clean):
+            return name_clean
+        return kannada_names.get(name_clean, "ಸ್ನೇಹಿತರೆ")
+    return name_clean
+
+
 def generate_native_regional_response(
     query: str,
     target_lang: str,
@@ -68,11 +133,12 @@ def generate_native_regional_response(
     for Telugu, Hindi, Tamil, and Kannada without ANY English words or Latin letters.
     """
     q_lower = query.lower()
+    loc_name = localize_patient_name(patient_name, target_lang)
     
     # 1. TELUGU (తెలుగు)
     if target_lang == "te":
         if is_syncope or "syncope" in q_lower or "పడిపోయాను" in query or "కళ్ళు తిరిగాయి" in query:
-            return "రామ్‌చరణ్, దయచేసి వెంటనే నేలపై లేదా మంచంపై పడుకోండి మరియు కాళ్ళను కొద్దిగా పైకి ఎత్తండి. నెమ్మదిగా లోతైన శ్వాస తీసుకోండి. నేను మీ హృదయ స్పందనలను నిరంతరం గమనిస్తున్నాను."
+            return f"{loc_name}, దయచేసి వెంటనే నేలపై లేదా మంచంపై పడుకోండి మరియు కాళ్ళను కొద్దిగా పైకి ఎత్తండి. నెమ్మదిగా లోతైన శ్వాస తీసుకోండి. నేను మీ హృదయ స్పందనలను నిరంతరం గమనిస్తున్నాను."
         
         if has_allergy or "ibuprofen" in q_lower or "ఇబుప్రోఫెన్" in query:
             return "హెచ్చరిక: మీ వైద్య రికార్డు ప్రకారం మీకు ఇబుప్రోఫెన్ మందు పడదు, కాబట్టి దీనిని ఖచ్చితంగా తీసుకోకూడదు. జ్వరం మరియు నొప్పి నివారణకు పారాసిటమాల్ సురక్షితమైన ఔషధం."
@@ -84,14 +150,14 @@ def generate_native_regional_response(
             return "దగ్గు ఉపశమనానికి గోరువెచ్చని నీరు త్రాగండి మరియు ఆవిరి పట్టండి. శ్వాస తీసుకోవడంలో ఇబ్బంది ఉంటే వెంటనే సాల్బుటమాల్ ఇన్హేలర్ ఉపయోగించండి."
         
         if "name" in q_lower or "పేరు" in query:
-            return "మీ పేరు రామ్‌చరణ్. నేను బేమ్యాక్స్, మీ వ్యక్తిగత ఆరోగ్య సంరక్షకుడిని."
+            return f"మీ పేరు {loc_name}. నేను బేమ్యాక్స్, మీ వ్యక్తిగత ఆరోగ్య సంరక్షకుడిని."
         
-        return f"నమస్కారం {patient_name}! నేను బేమ్యాక్స్. మీ ఆరోగ్యం మరియు గుండె స్పందనలు స్థిరంగా ఉన్నాయి. మీకు ఏ విధంగా సహాయం చేయగలను?"
+        return f"నమస్కారం {loc_name}! నేను బేమ్యాక్స్. మీ ఆరోగ్యం మరియు గుండె స్పందనలు స్థిరంగా ఉన్నాయి. మీకు ఏ విధంగా సహాయం చేయగలను?"
 
     # 2. HINDI (हिन्दी)
     elif target_lang == "hi":
         if is_syncope or "syncope" in q_lower or "चक्कर" in query or "गिर गया" in query:
-            return "रामचरण, कृपया तुरंत आराम से लेट जाएं और अपने पैरों को थोड़ा ऊपर उठाएं। गहरी सांसें लें। मैं आपकी हृदय गति पर लगातार नज़र रख रहा हूँ।"
+            return f"{loc_name}, कृपया तुरंत आराम से लेट जाएं और अपने पैरों को थोड़ा ऊपर उठाएं। गहरी सांसें लें। मैं आपकी हृदय गति पर लगातार नज़र रख रहा हूँ।"
         
         if has_allergy or "ibuprofen" in q_lower or "इबुप्रोफेन" in query:
             return "चेतावनी: आपके मेडिकल रिकॉर्ड के अनुसार आपको इबुप्रोफेन दवा से एलर्जी है, इसलिए इसे बिल्कुल न लें। बुखार और दर्द के लिए पैरासिटामोल सुरक्षित विकल्प है।"
@@ -103,9 +169,9 @@ def generate_native_regional_response(
             return "खांसी से राहत के लिए गुनगुना पानी पिएं और भाप लें। यदि सांस लेने में कठिनाई हो तो सालबुटामोल इनहेलर का उपयोग करें।"
         
         if "name" in q_lower or "नाम" in query:
-            return "आपका नाम रामचरण है। मैं बेमैक्स हूँ, आपका स्वास्थ्य साथी।"
+            return f"आपका नाम {loc_name} है। मैं बेमैक्स हूँ, आपका स्वास्थ्य साथी।"
         
-        return f"नमस्ते {patient_name}! मैं बेमैक्स हूँ। आपके स्वास्थ्य के सभी संकेत सामान्य हैं। मैं आपकी क्या मदद कर सकता हूँ?"
+        return f"नमस्ते {loc_name}! मैं बेमैक्स हूँ। आपके स्वास्थ्य के सभी संकेत सामान्य हैं। मैं आपकी क्या मदद कर सकता हूँ?"
 
     # 3. TAMIL (தமிழ்)
     elif target_lang == "ta":
@@ -115,7 +181,7 @@ def generate_native_regional_response(
         if "fever" in q_lower or "காய்ச்சல்" in query:
             return "உங்கள் உடல் வெப்பநிலை அதிகமாக உள்ளது. நெற்றியில் குளிர்ந்த நீர் துணியை வைக்கவும், பாராசிட்டமால் எடுத்துக்கொள்ளவும், ஓய்வெடுக்கவும்."
         
-        return f"வணக்கம் {patient_name}! நான் பேமேக்ஸ், உங்கள் சுகாதார தோழன். நான் உங்களுக்கு எவ்வாறு உதவ முடியும்?"
+        return f"வணக்கம் {loc_name}! நான் பேமேக்ஸ், உங்கள் சுகாதார தோழன். நான் உங்களுக்கு எவ்வாறு உதவ முடியும்?"
 
     # 4. KANNADA (ಕನ್ನಡ)
     elif target_lang == "kn":
@@ -125,7 +191,7 @@ def generate_native_regional_response(
         if "fever" in q_lower or "ಜ್ವರ" in query:
             return "ನಿಮ್ಮ ದೇಹದ ಉಷ್ಣತೆ ಹೆಚ್ಚಾಗಿದೆ. ಹಣೆಯ ಮೇಲೆ ತಣ್ಣೀರಿನ ಬಟ್ಟೆಯನ್ನು ಇರಿಸಿ, ಪ್ಯಾರಸಿಟಮಾಲ್ ತೆಗೆದುಕೊಳ್ಳಿ ಮತ್ತು ಸಾಕಷ್ಟು ವಿಶ್ರಾಂತಿ ಪಡೆಯಿರಿ."
         
-        return f"ನಮಸ್ಕಾರ {patient_name}! ನಾನು ಬೇಮ್ಯಾಕ್ಸ್, ನಿಮ್ಮ ಆರೋಗ್ಯ ಸಹಾಯಕ. ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?"
+        return f"ನಮಸ್ಕಾರ {loc_name}! ನಾನು ಬೇಮ್ಯಾಕ್ಸ್, ನಿಮ್ಮ ಆರೋಗ್ಯ ಸಹಾಯಕ. ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?"
 
     return f"Hello {patient_name}! I am Baymax, your personal healthcare companion. How may I assist your well-being today?"
 
@@ -213,16 +279,18 @@ async def stream_baymax_reasoning(
     # 1. Handle Simple Acknowledgments / Small Talk Fast-Path
     if is_acknowledgment_or_smalltalk(clean_query):
         clean_lower = clean_query.lower()
+        raw_pname = patient_profile.get("name", "Ramcharan") if patient_profile else "Ramcharan"
+        loc_name = localize_patient_name(raw_pname, active_lang)
         if active_lang == "te":
             if clean_lower in ["నమస్కారం", "hi", "hello", "hey", "నమస్తే"]:
-                yield f"నమస్కారం {patient_profile.get('name', 'రామ్‌చరణ్') if patient_profile else 'రామ్‌చరణ్'}! నేను బేమ్యాక్స్, మీ వ్యక్తిగత ఆరోగ్య సహాయకుడిని. మీకు ఎలా సహాయపడగలను?"
+                yield f"నమస్కారం {loc_name}! నేను బేమ్యాక్స్, మీ వ్యక్తిగత ఆరోగ్య సహాయకుడిని. మీకు ఎలా సహాయపడగలను?"
                 return
             elif clean_lower in ["ధన్యవాదాలు", "thanks", "thank you"]:
                 yield "మీకు స్వాగతం. మీ ఆరోగ్యం పట్ల జాగ్రత్తగా ఉండండి!"
                 return
         elif active_lang == "hi":
             if clean_lower in ["नमस्ते", "hi", "hello", "hey"]:
-                yield f"नमस्ते {patient_profile.get('name', 'रामचरण') if patient_profile else 'रामचरण'}! मैं बेमैक्स हूँ, आपका स्वास्थ्य साथी। मैं आपकी क्या मदद कर सकता हूँ?"
+                yield f"नमस्ते {loc_name}! मैं बेमैक्स हूँ, आपका स्वास्थ्य साथी। मैं आपकी क्या मदद कर सकता हूँ?"
                 return
             elif clean_lower in ["धन्यवाद", "thanks", "thank you"]:
                 yield "आपका स्वागत है। अपना ख्याल रखें!"

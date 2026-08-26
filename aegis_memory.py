@@ -263,6 +263,49 @@ class AegisMemory:
             for r in rows
         ]
 
+    def add_new_patient(
+        self,
+        name: str,
+        age: int = 25,
+        gender: str = "Male",
+        blood_type: str = "O+",
+        allergies: str = "None Known",
+        active_medications: str = "None",
+        chronic_conditions: str = "None Reported",
+        location: str = "General Ward - Bed 04",
+        emergency_contact: str = "Family",
+        patient_uid: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Register a new patient into the EHR database and seed default medication adherence."""
+        clean_name = name.strip()
+        if not patient_uid:
+            uid_prefix = "".join(c for c in clean_name.upper() if c.isalnum())[:4] or "PAT"
+            patient_uid = f"PAT-{uid_prefix}-{int(datetime.now().timestamp()) % 10000}"
+
+        self.cursor.execute("""
+            INSERT INTO patient_profile (
+                patient_uid, name, age, gender, blood_type,
+                allergies, active_medications, chronic_conditions,
+                location, emergency_contact, is_active
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
+        """, (
+            patient_uid, clean_name, age, gender, blood_type,
+            allergies, active_medications, chronic_conditions,
+            location, emergency_contact
+        ))
+
+        # Add initial medication schedule if medications specified
+        if active_medications and active_medications.lower() != "none":
+            for med in [m.strip() for m in active_medications.split(",") if m.strip()]:
+                self.cursor.execute("""
+                    INSERT INTO medication_schedule (
+                        patient_uid, medication_name, dosage, frequency, time_slot, instructions, is_taken
+                    ) VALUES (?, ?, ?, ?, ?, ?, 0);
+                """, (patient_uid, med, "Standard Dose", "Once Daily (OD)", "09:00 AM", "Take after breakfast"))
+
+        self.conn.commit()
+        return self.get_patient_profile(patient_uid)
+
     def set_active_patient(self, patient_uid: str) -> Dict[str, Any]:
         """Switch the current active patient in the examination workstation."""
         self.cursor.execute("UPDATE patient_profile SET is_active = 0;")
