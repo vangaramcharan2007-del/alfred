@@ -10,6 +10,8 @@ import json
 from typing import List, Tuple, Dict, Any, Optional
 from datetime import datetime, timezone
 
+from aegis_privacy import LocalDataProtector
+
 
 class AegisMemory:
     """
@@ -20,11 +22,32 @@ class AegisMemory:
 
     def __init__(self, db_path: str = "aegis_core.db"):
         self.db_path = db_path
+        self.protector = LocalDataProtector(db_path)
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.cursor = self.conn.cursor()
         self._initialize_tables()
         self._initialize_default_profiles()
         self._initialize_default_medications()
+        self._migrate_sensitive_records()
+
+    def _migrate_sensitive_records(self) -> None:
+        """Encrypt legacy text records once, without changing their public API."""
+        protected_columns = {
+            "patient_profile": ["name", "allergies", "active_medications", "chronic_conditions", "location", "emergency_contact"],
+            "medication_schedule": ["medication_name", "dosage", "frequency", "time_slot", "instructions"],
+            "fhir_sync_queue": ["payload_json"],
+            "memory_context": ["content"],
+        }
+        for table, columns in protected_columns.items():
+            column_list = ", ".join(columns)
+            self.cursor.execute(f"SELECT id, {column_list} FROM {table}")
+            for row in self.cursor.fetchall():
+                encrypted = [self.protector.encrypt(value) if isinstance(value, str) else value for value in row[1:]]
+                if list(row[1:]) == encrypted:
+                    continue
+                assignments = ", ".join(f"{column} = ?" for column in columns)
+                self.cursor.execute(f"UPDATE {table} SET {assignments} WHERE id = ?", (*encrypted, row[0]))
+        self.conn.commit()
 
     def _initialize_tables(self) -> None:
         """Initialize database schema with WAL mode for fast concurrent operations."""
@@ -198,11 +221,11 @@ class AegisMemory:
             {
                 "id": r[0],
                 "patient_uid": r[1],
-                "medication_name": r[2],
-                "dosage": r[3],
-                "frequency": r[4],
-                "time_slot": r[5],
-                "instructions": r[6],
+                "medication_name": self.protector.decrypt(r[2]),
+                "dosage": self.protector.decrypt(r[3]),
+                "frequency": self.protector.decrypt(r[4]),
+                "time_slot": self.protector.decrypt(r[5]),
+                "instructions": self.protector.decrypt(r[6]),
                 "is_taken": bool(r[7]),
                 "last_taken_at": r[8]
             }
@@ -234,7 +257,14 @@ class AegisMemory:
             INSERT INTO medication_schedule (
                 patient_uid, medication_name, dosage, frequency, time_slot, instructions, is_taken
             ) VALUES (?, ?, ?, ?, ?, ?, 0);
-        """, (patient_uid, medication_name, dosage, frequency, time_slot, instructions))
+        """, (
+            patient_uid,
+            self.protector.encrypt(medication_name),
+            self.protector.encrypt(dosage),
+            self.protector.encrypt(frequency),
+            self.protector.encrypt(time_slot),
+            self.protector.encrypt(instructions),
+        ))
         self.conn.commit()
         return {"status": "success", "id": self.cursor.lastrowid}
 
@@ -250,14 +280,14 @@ class AegisMemory:
         return [
             {
                 "patient_uid": r[0],
-                "name": r[1],
+                "name": self.protector.decrypt(r[1]),
                 "age": r[2],
                 "gender": r[3],
                 "blood_type": r[4],
-                "allergies": r[5],
-                "active_medications": r[6],
-                "chronic_conditions": r[7],
-                "location": r[8],
+                "allergies": self.protector.decrypt(r[5]),
+                "active_medications": self.protector.decrypt(r[6]),
+                "chronic_conditions": self.protector.decrypt(r[7]),
+                "location": self.protector.decrypt(r[8]),
                 "is_active": bool(r[9])
             }
             for r in rows
@@ -289,9 +319,9 @@ class AegisMemory:
                 location, emergency_contact, is_active
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0);
         """, (
-            patient_uid, clean_name, age, gender, blood_type,
-            allergies, active_medications, chronic_conditions,
-            location, emergency_contact
+            patient_uid, self.protector.encrypt(clean_name), age, gender, blood_type,
+            self.protector.encrypt(allergies), self.protector.encrypt(active_medications), self.protector.encrypt(chronic_conditions),
+            self.protector.encrypt(location), self.protector.encrypt(emergency_contact)
         ))
 
         # Add initial medication schedule if medications specified
@@ -301,7 +331,14 @@ class AegisMemory:
                     INSERT INTO medication_schedule (
                         patient_uid, medication_name, dosage, frequency, time_slot, instructions, is_taken
                     ) VALUES (?, ?, ?, ?, ?, ?, 0);
-                """, (patient_uid, med, "Standard Dose", "Once Daily (OD)", "09:00 AM", "Take after breakfast"))
+                """, (
+                    patient_uid,
+                    self.protector.encrypt(med),
+                    self.protector.encrypt("Standard Dose"),
+                    self.protector.encrypt("Once Daily (OD)"),
+                    self.protector.encrypt("09:00 AM"),
+                    self.protector.encrypt("Take after breakfast"),
+                ))
 
         self.conn.commit()
         return self.get_patient_profile(patient_uid)
@@ -352,21 +389,22 @@ class AegisMemory:
                 "location": "District General Clinic"
             }
 
-        allergies_str = row[5] or ""
+        name = self.protector.decrypt(row[1]) or "Unknown"
+        allergies_str = self.protector.decrypt(row[5]) or ""
         allergies_list = [a.strip().lower() for a in allergies_str.split(",") if a.strip()]
 
         return {
             "patient_uid": row[0],
-            "name": row[1],
+            "name": name,
             "age": row[2],
             "gender": row[3],
             "blood_type": row[4],
             "allergies": allergies_str,
             "allergies_list": allergies_list,
-            "active_medications": row[6] or "None",
-            "chronic_conditions": row[7] or "None",
-            "emergency_contact": row[8] or "Dr. Callaghan",
-            "location": row[9] or "Village PHC"
+            "active_medications": self.protector.decrypt(row[6]) or "None",
+            "chronic_conditions": self.protector.decrypt(row[7]) or "None",
+            "emergency_contact": self.protector.decrypt(row[8]) or "Dr. Callaghan",
+            "location": self.protector.decrypt(row[9]) or "Village PHC"
         }
 
     def update_patient_profile(
@@ -392,7 +430,14 @@ class AegisMemory:
             UPDATE patient_profile
             SET name = ?, age = ?, allergies = ?, active_medications = ?, chronic_conditions = ?, updated_at = CURRENT_TIMESTAMP
             WHERE patient_uid = ?;
-        """, (new_name, new_age, new_allergies, new_meds, new_conditions, target_uid))
+        """, (
+            self.protector.encrypt(new_name),
+            new_age,
+            self.protector.encrypt(new_allergies),
+            self.protector.encrypt(new_meds),
+            self.protector.encrypt(new_conditions),
+            target_uid,
+        ))
         self.conn.commit()
 
         return self.get_patient_profile(target_uid)
@@ -400,7 +445,7 @@ class AegisMemory:
     def queue_fhir_bundle(self, patient_uid: str, bundle_dict: Dict[str, Any]) -> str:
         """Queue an HL7/FHIR v4.0.1 Document Bundle into local store-and-forward queue."""
         bundle_id = bundle_dict.get("id", f"BUNDLE-{int(datetime.now(timezone.utc).timestamp())}")
-        payload_json = json.dumps(bundle_dict)
+        payload_json = self.protector.encrypt(json.dumps(bundle_dict))
         self.cursor.execute("""
             INSERT INTO fhir_sync_queue (patient_uid, bundle_id, payload_json, status)
             VALUES (?, ?, ?, 'QUEUED_OFFLINE');
@@ -506,7 +551,7 @@ class AegisMemory:
         self.cursor.execute("""
             INSERT INTO memory_context (role, content)
             VALUES (?, ?);
-        """, (role, content))
+        """, (role, self.protector.encrypt(content)))
         self.conn.commit()
 
     def get_conversation_context(self, limit: int = 10) -> List[Dict[str, str]]:
@@ -516,7 +561,7 @@ class AegisMemory:
             ORDER BY id DESC LIMIT ?;
         """, (limit,))
         rows = self.cursor.fetchall()
-        return [{"role": r[0], "content": r[1]} for r in reversed(rows)]
+        return [{"role": r[0], "content": self.protector.decrypt(r[1]) or ""} for r in reversed(rows)]
 
     def clear_memory(self) -> None:
         """Clear vitals_log and memory_context."""

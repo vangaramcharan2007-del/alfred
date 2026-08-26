@@ -21,4 +21,4 @@ workspace/
 config/local.yaml
 .env
 *.env
-
+*.db.key

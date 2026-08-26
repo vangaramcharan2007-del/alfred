@@ -10,12 +10,14 @@ and Doctor-Level Multi-Turn Ollama LLaMA health intelligence (/companion-interac
 from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+import hmac
 import logging
+import os
 from typing import Optional, List, Dict, Any
 
 import httpx
-from fastapi import FastAPI, BackgroundTasks, status, Response
-from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi import FastAPI, BackgroundTasks, Request, status, Response
+from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -30,11 +32,15 @@ from aegis_vision import global_scanner
 from medical_rag import OfflineMedicalRAG
 from fhir_exporter import generate_fhir_bundle, generate_html_triage_report
 from baymax_service import generate_baymax_reply_text, generate_explanation, is_third_party_query
+from aegis_resilience import EnvironmentalReading, assess_environment
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("aegis_backend")
 
-WEBHOOK_URL = "http://localhost:5678/webhook/aegis-escalation"
+# No sensitive health event leaves the device unless a deployment explicitly
+# configures a consented emergency-webhook destination.
+WEBHOOK_URL = os.getenv("AEGIS_ESCALATION_WEBHOOK_URL")
+CLINICAL_NOTICE = "Wellness decision support only — not a medical diagnosis or emergency service."
 
 detector: Optional[AnomalyDetector] = None
 wesad_detector: Optional[WESADPhysiologicalDetector] = None
@@ -62,6 +68,9 @@ async def dispatch_webhook_escalation(
     eda: Optional[float] = None,
     posture_status: Optional[str] = None
 ) -> None:
+    if not WEBHOOK_URL:
+        logger.info("Emergency event retained locally; no consented webhook destination is configured.")
+        return
     payload = {
         "event": "AEGIS_ANOMALY_ESCALATION",
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -109,24 +118,51 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AEGIS Medical Intelligence Workstation Core",
-    version="3.6.0",
-    description="Offline-first clinical intelligence, HL7/FHIR Handover Export, Explainable AI (XAI), and Syncope Fall Detection.",
+    title="AEGIS Personal Health Companion",
+    version="3.7.0",
+    description="Offline-first wellness decision support with local environmental-risk assessment and consented sharing.",
     lifespan=lifespan
 )
 
+_cors_origins = [
+    origin.strip()
+    for origin in os.getenv("AEGIS_CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
+@app.middleware("http")
+async def local_access_guard(request: Request, call_next):
+    """Keep the workstation private unless a remote client presents a configured token."""
+    client_host = request.client.host if request.client else ""
+    local_hosts = {"127.0.0.1", "::1", "localhost", "testclient"}
+    if client_host not in local_hosts:
+        configured_token = os.getenv("AEGIS_API_ACCESS_TOKEN")
+        supplied_token = request.headers.get("X-AEGIS-Token", "")
+        if not configured_token or not hmac.compare_digest(supplied_token, configured_token):
+            return JSONResponse(status_code=403, content={"detail": "AEGIS accepts remote access only with a configured API token."})
+    return await call_next(request)
+
+
+class EnvironmentalPayload(BaseModel):
+    ambient_temperature_c: Optional[float] = Field(None, ge=-30, le=75)
+    humidity_percent: Optional[float] = Field(None, ge=0, le=100)
+    aqi: Optional[int] = Field(None, ge=0, le=500)
+    flood_warning: bool = False
+
+
 class TelemetryPayload(BaseModel):
     heart_rate: int = Field(..., description="Heart rate in BPM")
     temperature: float = Field(..., description="Body temperature in °C")
+    environment: Optional[EnvironmentalPayload] = None
+    consent_to_share_emergency_alert: bool = False
 
 
 class TelemetryResponse(BaseModel):
@@ -137,6 +173,8 @@ class TelemetryResponse(BaseModel):
     temperature: float
     escalated: bool = False
     timestamp: str = ""
+    environmental_assessment: Optional[Dict[str, Any]] = None
+    clinical_notice: str = CLINICAL_NOTICE
 
 
 class ExplainRiskPayload(BaseModel):
@@ -165,6 +203,8 @@ class CompanionChatRequest(BaseModel):
     syncope_detected: Optional[bool] = Field(False)
     posture_status: Optional[str] = Field("ERECT_NOMINAL")
     language: Optional[str] = Field("en", description="Target language code (en, te, hi, ta, kn)")
+    environment: Optional[EnvironmentalPayload] = None
+    consent_to_share_emergency_alert: bool = False
 
 
 class CompanionChatResponse(BaseModel):
@@ -182,19 +222,34 @@ class CompanionChatResponse(BaseModel):
     matched_protocol: Optional[Dict[str, Any]] = None
     allergy_warning: bool = False
     patient_profile: Optional[Dict[str, Any]] = None
+    environmental_assessment: Optional[Dict[str, Any]] = None
+    clinical_notice: str = CLINICAL_NOTICE
+
+
+def environmental_assessment_from(payload: Optional[EnvironmentalPayload]) -> Optional[Dict[str, Any]]:
+    """Convert optional device-supplied readings into an offline assessment."""
+    if payload is None:
+        return None
+    return assess_environment(
+        EnvironmentalReading(
+            ambient_temperature_c=payload.ambient_temperature_c,
+            humidity_percent=payload.humidity_percent,
+            aqi=payload.aqi,
+            flood_warning=payload.flood_warning,
+        )
+    ).to_dict()
 
 
 @app.get("/")
 def read_root():
     return {
-        "service": "AEGIS Doctor-Level Clinical Workstation Backend",
-        "version": "3.6.0",
+        "service": "AEGIS Personal Health Companion Backend",
+        "version": "3.7.0",
         "status": "online",
-        "llm_engine": "Ollama Local LLaMA 3 Model",
-        "medical_rag": "OfflineMedicalRAG Active",
+        "processing": "local-first; no emergency webhook is enabled unless explicitly configured",
+        "sensitive_record_protection": "encrypted profile, conversation, medication, and FHIR payload fields",
         "fhir_interoperability": "HL7 FHIR v4.0.1 Enabled",
-        "xai_engine": "Explainable AI Biomarker Attribution Active",
-        "vision_fall_detection": "Syncope & Head Tilt Posture Detector Active"
+        "clinical_notice": CLINICAL_NOTICE,
     }
 
 
@@ -849,37 +904,42 @@ async def ingest_telemetry(payload: TelemetryPayload, background_tasks: Backgrou
         detector = AnomalyDetector()
 
     result: EvaluationResult = detector.evaluate(payload.heart_rate, payload.temperature)
-    escalated = False
+    environment = environmental_assessment_from(payload.environment)
+    environment_high_risk = bool(environment and environment["level"] == "HIGH")
+    combined_risk = "High" if result.is_anomaly or environment_high_risk else ("Elevated" if environment and environment["level"] == "ELEVATED" else result.risk_score)
+    escalated = bool(result.is_anomaly or environment_high_risk)
     current_time_str = datetime.now(timezone.utc).strftime("%H:%M:%S")
 
-    if result.is_anomaly:
+    if escalated and payload.consent_to_share_emergency_alert:
         background_tasks.add_task(
             dispatch_webhook_escalation,
             float(payload.heart_rate),
             float(payload.temperature),
-            result.risk_score
+            combined_risk
         )
-        escalated = True
 
     history_item = {
         "id": len(telemetry_history) + 1,
         "timestamp": current_time_str,
         "heart_rate": payload.heart_rate,
         "temperature": payload.temperature,
-        "risk_score": result.risk_score,
+        "risk_score": combined_risk,
         "is_anomaly": result.is_anomaly,
-        "escalated": escalated
+        "escalated": escalated,
+        "environmental_assessment": environment,
+        "emergency_sharing_consented": payload.consent_to_share_emergency_alert,
     }
     telemetry_history.append(history_item)
 
     return TelemetryResponse(
         status="success",
-        risk_score=result.risk_score,
+        risk_score=combined_risk,
         is_anomaly=result.is_anomaly,
         heart_rate=payload.heart_rate,
         temperature=payload.temperature,
         escalated=escalated,
-        timestamp=current_time_str
+        timestamp=current_time_str,
+        environmental_assessment=environment,
     )
 
 
@@ -951,19 +1011,22 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
         eda=req.eda
     )
 
+    environment = environmental_assessment_from(req.environment)
+    environment_high_risk = bool(environment and environment["level"] == "HIGH")
     escalated = False
-    if not is_third_party and (eval_res.is_anomaly or fatigue_detected or syncope_detected):
+    if not is_third_party and (eval_res.is_anomaly or fatigue_detected or syncope_detected or environment_high_risk):
         risk_level = "HIGH RISK"
-        background_tasks.add_task(
-            dispatch_webhook_escalation,
-            req.heart_rate,
-            req.temperature,
-            risk_level,
-            req.rmssd,
-            req.eda,
-            posture_status
-        )
         escalated = True
+        if req.consent_to_share_emergency_alert:
+            background_tasks.add_task(
+                dispatch_webhook_escalation,
+                req.heart_rate,
+                req.temperature,
+                risk_level,
+                req.rmssd,
+                req.eda,
+                posture_status
+            )
     else:
         risk_level = "THIRD-PARTY ADVISORY" if is_third_party else eval_res.risk_level
 
@@ -1020,7 +1083,8 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
         posture_status=posture_status,
         matched_protocol=matched_protocol,
         allergy_warning=safety_check["is_contraindicated"],
-        patient_profile=patient_ehr
+        patient_profile=patient_ehr,
+        environmental_assessment=environment,
     )
 
 
