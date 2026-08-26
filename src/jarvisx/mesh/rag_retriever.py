@@ -21,11 +21,23 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-import chromadb
-import ollama
+try:
+    import chromadb
+    CHROMADB_AVAILABLE = True
+except ImportError:
+    chromadb = None
+    CHROMADB_AVAILABLE = False
+
+try:
+    import ollama
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    ollama = None
+    OLLAMA_AVAILABLE = False
 
 DEFAULT_DB_PATH = "./chroma_db"
 EMBEDDING_MODEL = "mxbai-embed-large"
+
 
 
 class BM25Ranker:
@@ -78,14 +90,18 @@ class RAGRetriever:
     def __init__(self, db_path: str = DEFAULT_DB_PATH, embedding_model: str = EMBEDDING_MODEL):
         self.db_path = os.path.abspath(db_path)
         self.embedding_model = embedding_model
-        self.client = chromadb.PersistentClient(path=self.db_path)
-        try:
-            self.collection = self.client.get_collection(name="jarvis_knowledge_base")
-        except Exception:
-            self.collection = None
+        self.client = None
+        self.collection = None
+        if CHROMADB_AVAILABLE and chromadb:
+            try:
+                self.client = chromadb.PersistentClient(path=self.db_path)
+                self.collection = self.client.get_collection(name="jarvis_knowledge_base")
+            except Exception:
+                self.collection = None
 
     def is_ready(self) -> bool:
-        return self.collection is not None and self.collection.count() > 0
+        return self.collection is not None and getattr(self.collection, "count", lambda: 0)() > 0
+
 
     def hybrid_search(self, query: str, top_k: int = 4, rrf_k: int = 60) -> List[Dict[str, Any]]:
         """Executes Hybrid Search combining Dense ChromaDB Embeddings with BM25 Lexical Ranking."""
