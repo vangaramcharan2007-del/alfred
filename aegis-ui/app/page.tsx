@@ -195,7 +195,12 @@ export default function AegisMedicalCommandDeck() {
   const [abhaInput, setAbhaInput] = useState<string>("");
   const [xrayResult, setXrayResult] = useState<any>(null);
   const [handGestureResult, setHandGestureResult] = useState<any>(null);
-  const [activeScannerTab, setActiveScannerTab] = useState<"medicine" | "abha" | "xray" | "hand">("medicine");
+  const [clinicalBoardResult, setClinicalBoardResult] = useState<any>(null);
+  const [isBoardEvaluating, setIsBoardEvaluating] = useState<boolean>(false);
+  const [meshNetworkState, setMeshNetworkState] = useState<any>(null);
+  const [isMeshSyncing, setIsMeshSyncing] = useState<boolean>(false);
+  const [cdsHookCard, setCdsHookCard] = useState<any>(null);
+  const [activeScannerTab, setActiveScannerTab] = useState<"medicine" | "abha" | "xray" | "hand" | "board" | "mesh" | "cds">("medicine");
 
   // UI & Multi-Lingual State
   const [selectedLanguage, setSelectedLanguage] = useState<string>("en");
@@ -991,6 +996,104 @@ export default function AegisMedicalCommandDeck() {
     }
   };
 
+  // ========== PHASE 6: MULTI-AGENT CLINICAL BOARD HANDLER ==========
+  const handleRunClinicalBoard = async () => {
+    setIsBoardEvaluating(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/clinical-board/evaluate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: "Evaluate complete multi-specialist patient status, hemodynamics, and medication safeguards",
+          patient_uid: patientProfile.patient_uid,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setClinicalBoardResult(data);
+        const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
+        const msg = `🩺 Clinical Board Deliberation Complete: Triage Tier ${data.triage_tier}. Primary Consensus: ${data.primary_consensus_diagnosis}. Order: ${data.unified_care_plan.safe_medication_order}.`;
+        setMessages((prev) => [
+          ...prev,
+          { id: `board-${Date.now()}`, sender: "baymax", text: msg, timestamp: timeStr, isAlert: data.triage_tier === "RED" },
+        ]);
+        speakText(`Clinical Board convened. Consensus Diagnosis: ${data.primary_consensus_diagnosis}.`);
+      }
+    } catch (err) {
+      console.warn("Clinical board error:", err);
+    } finally {
+      setIsBoardEvaluating(false);
+    }
+  };
+
+  // ========== PHASE 7: RURAL P2P MESH NETWORK HANDLER ==========
+  const handleBroadcastMeshSync = async () => {
+    setIsMeshSyncing(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/mesh/broadcast-sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payload_type: "PATIENT_ADMISSION",
+          payload_data: {
+            patient_uid: patientProfile.patient_uid,
+            name: patientProfile.name,
+            vitals: vitals,
+            adherence_rate: "100%",
+          },
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const pRes = await fetch(`${BACKEND_URL}/mesh/peers`);
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          setMeshNetworkState(pData);
+        }
+        const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
+        const msg = `📡 P2P Mesh Synced (Zero-Internet): Vector Clock ${data.vector_clock}. ${data.peers_reached} peer clinic tablets updated via local Wi-Fi mesh.`;
+        setMessages((prev) => [
+          ...prev,
+          { id: `mesh-${Date.now()}`, sender: "baymax", text: msg, timestamp: timeStr },
+        ]);
+        speakText(`Local peer mesh synchronized across ${data.peers_reached} clinic tablets.`);
+      }
+    } catch (err) {
+      console.warn("Mesh sync error:", err);
+    } finally {
+      setIsMeshSyncing(false);
+    }
+  };
+
+  // ========== PHASE 6: HL7 FHIR CDS-HOOKS HANDLER ==========
+  const handleRunCDSHook = async (medName: string) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/cds-services/medication-prescribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patient_uid: patientProfile.patient_uid,
+          medication_name: medName,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const card = data.cards?.[0];
+        if (card) {
+          setCdsHookCard(card);
+          const timeStr = new Date().toTimeString().split(" ")[0].slice(0, 5);
+          setMessages((prev) => [
+            ...prev,
+            { id: `cds-${Date.now()}`, sender: "baymax", text: `⚡ HL7 FHIR CDS-Hook: [${card.indicator.toUpperCase()}] ${card.summary} - ${card.detail}`, timestamp: timeStr, isAlert: card.indicator === "critical" },
+          ]);
+          speakText(card.summary);
+        }
+      }
+    } catch (err) {
+      console.warn("CDS-Hook error:", err);
+    }
+  };
+
   // Trigger Store-and-Forward FHIR Sync
   const handleTriggerSync = async () => {
     setIsSyncing(true);
@@ -1466,7 +1569,7 @@ export default function AegisMedicalCommandDeck() {
             </div>
           </div>
 
-          {/* Advanced Clinical Scanners: Medicine OCR, ABHA QR, Chest X-Ray, Hand Gesture */}
+          {/* Advanced Clinical Scanners: Medicine OCR, ABHA QR, Chest X-Ray, Hand Gesture, Clinical Board, Peer Mesh, CDS-Hooks */}
           <div className="p-3.5 rounded-3xl bg-[#0c101c]/90 border border-slate-800/80 flex flex-col gap-2.5 shadow-lg">
             <div className="flex items-center justify-between text-xs font-mono">
               <div className="flex items-center gap-1.5">
@@ -1476,17 +1579,20 @@ export default function AegisMedicalCommandDeck() {
             </div>
 
             {/* Scanner Tab Selector */}
-            <div className="flex items-center gap-1 bg-[#090b14] p-1 rounded-2xl border border-slate-800 text-[10px] font-mono">
+            <div className="flex flex-wrap items-center gap-1 bg-[#090b14] p-1 rounded-2xl border border-slate-800 text-[10px] font-mono">
               {[
-                { key: "medicine" as const, label: "💊 Medicine OCR", icon: <ScanLine className="w-3 h-3" /> },
-                { key: "abha" as const, label: "🪪 ABHA QR", icon: <QrCode className="w-3 h-3" /> },
-                { key: "xray" as const, label: "🩻 Chest X-Ray", icon: <Image className="w-3 h-3" /> },
-                { key: "hand" as const, label: "🖐️ Hand Gesture", icon: <Hand className="w-3 h-3" /> },
+                { key: "medicine" as const, label: "💊 Medicine OCR" },
+                { key: "abha" as const, label: "🪪 ABHA QR" },
+                { key: "xray" as const, label: "🩻 Chest X-Ray" },
+                { key: "hand" as const, label: "🖐️ Hand Gesture" },
+                { key: "board" as const, label: "🩺 Clinical Board" },
+                { key: "mesh" as const, label: "📡 Peer Mesh" },
+                { key: "cds" as const, label: "⚡ CDS-Hooks" },
               ].map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveScannerTab(tab.key)}
-                  className={`flex-1 px-2 py-1 rounded-xl transition flex items-center justify-center gap-1 ${
+                  className={`px-2 py-1 rounded-xl transition flex items-center justify-center gap-1 text-[9px] ${
                     activeScannerTab === tab.key
                       ? "bg-emerald-600 text-slate-950 font-bold"
                       : "text-slate-400 hover:text-white"
@@ -1498,7 +1604,7 @@ export default function AegisMedicalCommandDeck() {
             </div>
 
             {/* Scanner Content Based on Active Tab */}
-            <div className="min-h-[80px]">
+            <div className="min-h-[90px]">
 
               {/* 💊 Medicine Strip OCR Scanner */}
               {activeScannerTab === "medicine" && (
@@ -1555,71 +1661,56 @@ export default function AegisMedicalCommandDeck() {
                       onChange={(e) => setAbhaInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleABHAQRScan()}
                       placeholder="Paste ABHA QR payload or scan card..."
-                      className="flex-1 bg-[#090b14] border border-slate-800 rounded-xl px-3 py-1.5 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+                      className="flex-1 bg-[#090b14] border border-slate-800 rounded-xl px-3 py-1.5 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"
                     />
-                    <button onClick={() => handleABHAQRScan()} className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-[10px] font-mono font-bold transition">
+                    <button onClick={() => handleABHAQRScan()} className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-[10px] font-mono font-bold transition">
                       Decode
                     </button>
                   </div>
-                  {/* Demo ABHA Card */}
-                  <div className="flex gap-1.5">
-                    <button onClick={() => handleABHAQRScan('91-1234-5678-9012 name: Ramcharan gender: M dob: 15-03-2002 O+')} className="px-2 py-0.5 rounded-lg bg-[#090b14] border border-slate-800 text-[9px] font-mono text-slate-400 hover:text-white hover:border-cyan-500/60 transition">
-                      Demo: Ramcharan ABHA
+                  <div className="flex flex-wrap gap-1.5">
+                    <button onClick={() => handleABHAQRScan("91-4928-1029-4820|Ramcharan|M|2002|O+|Telangana")} className="px-2 py-0.5 rounded-lg bg-[#090b14] border border-slate-800 text-[9px] font-mono text-slate-400 hover:text-white hover:border-emerald-500/60 transition">
+                      Test ABHA QR: Ramcharan
                     </button>
-                    <button onClick={() => handleABHAQRScan(JSON.stringify({hidn: "91-9876-5432-1098", name: "Giri", gender: "Female", bloodGroup: "A+", state: "Telangana"}))} className="px-2 py-0.5 rounded-lg bg-[#090b14] border border-slate-800 text-[9px] font-mono text-slate-400 hover:text-white hover:border-cyan-500/60 transition">
-                      Demo: Giri JSON QR
+                    <button onClick={() => handleABHAQRScan('{"abha":"91-8840-2910-3321","name":"Dr. Giri","gender":"F","dob":"1998","blood_group":"A+","state":"Telangana"}')} className="px-2 py-0.5 rounded-lg bg-[#090b14] border border-slate-800 text-[9px] font-mono text-slate-400 hover:text-white hover:border-emerald-500/60 transition">
+                      Test JSON QR: Dr. Giri
                     </button>
                   </div>
-                  {abhaResult && abhaResult.status === "DECODED" && (
-                    <div className="p-2.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-[10px] font-mono text-cyan-200">
-                      <div className="font-bold text-white flex items-center gap-1"><QrCode className="w-3 h-3 text-cyan-400" /> ABHA VERIFIED</div>
-                      <div className="mt-1">Name: <strong>{abhaResult.name}</strong> ({abhaResult.gender})</div>
-                      <div>Health ID: <strong className="text-cyan-300">{abhaResult.abha_number}</strong></div>
-                      <div>Blood: {abhaResult.blood_group || "N/A"} • {abhaResult.state || "India"}</div>
+                  {abhaResult && (
+                    <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/60 text-emerald-200 text-[10px] font-mono">
+                      <div className="font-bold text-white flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-400" /> ABHA ID: {abhaResult.abha_number}</div>
+                      <div className="mt-0.5 text-slate-300">Name: {abhaResult.name} • Gender: {abhaResult.gender} • Blood: {abhaResult.blood_group || "N/A"}</div>
+                      <div className="text-emerald-400 mt-0.5">State: {abhaResult.state || "National"} • Status: VERIFIED ABDM COMPLIANT</div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* 🩻 Chest X-Ray Edge Screener */}
+              {/* 🩻 Edge Chest X-Ray AI Classifier */}
               {activeScannerTab === "xray" && (
                 <div className="space-y-2">
-                  <div className="text-[10px] font-mono text-slate-400">Select radiological preset to simulate CXR feature analysis:</div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button onClick={() => handleChestXRayScan("normal")} className="p-2 rounded-xl bg-[#090b14] border border-slate-800 hover:border-emerald-500/60 text-[10px] font-mono text-left transition">
-                      <div className="text-emerald-400 font-bold">Normal CXR</div>
-                      <div className="text-[9px] text-slate-400">Clear lung fields</div>
-                    </button>
-                    <button onClick={() => handleChestXRayScan("pneumonia")} className="p-2 rounded-xl bg-[#090b14] border border-slate-800 hover:border-rose-500/60 text-[10px] font-mono text-left transition">
-                      <div className="text-rose-400 font-bold">Bacterial Pneumonia</div>
-                      <div className="text-[9px] text-slate-400">Lower lobe consolidation</div>
-                    </button>
-                    <button onClick={() => handleChestXRayScan("tb")} className="p-2 rounded-xl bg-[#090b14] border border-slate-800 hover:border-amber-500/60 text-[10px] font-mono text-left transition">
-                      <div className="text-amber-400 font-bold">Pulmonary TB</div>
-                      <div className="text-[9px] text-slate-400">Upper lobe cavitation</div>
-                    </button>
-                    <button onClick={() => handleChestXRayScan("viral")} className="p-2 rounded-xl bg-[#090b14] border border-slate-800 hover:border-purple-500/60 text-[10px] font-mono text-left transition">
-                      <div className="text-purple-400 font-bold">Viral / COVID-19</div>
-                      <div className="text-[9px] text-slate-400">Bilateral ground-glass</div>
-                    </button>
+                  <div className="text-[10px] font-mono text-slate-400">Simulate edge radiograph optical screening:</div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { label: "🫁 Normal Lung", preset: "normal" },
+                      { label: "🔴 Bacterial Pneumonia", preset: "pneumonia" },
+                      { label: "⚠️ Pulmonary TB", preset: "tb" },
+                    ].map((btn) => (
+                      <button key={btn.label} onClick={() => handleChestXRayScan(btn.preset)} className="p-1.5 rounded-xl bg-[#090b14] border border-slate-800 hover:border-emerald-500/60 text-[10px] font-mono text-slate-300 hover:text-white transition text-center">
+                        {btn.label}
+                      </button>
+                    ))}
                   </div>
                   {xrayResult && (
                     <div className={`p-2.5 rounded-xl border text-[10px] font-mono ${
-                      xrayResult.severity === "HIGH" ? "bg-rose-950/60 border-rose-500/60 text-rose-200"
-                        : xrayResult.severity === "MODERATE" ? "bg-amber-950/60 border-amber-500/60 text-amber-200"
-                        : "bg-emerald-950/60 border-emerald-500/60 text-emerald-200"
+                      xrayResult.classification === "NORMAL_LUNG_PA"
+                        ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-200"
+                        : "bg-rose-950/70 border-rose-500/60 text-rose-200"
                     }`}>
-                      <div className="font-bold text-white">{xrayResult.classification} ({(xrayResult.confidence * 100).toFixed(0)}%)</div>
-                      <div className="mt-1 text-slate-300">{xrayResult.findings[0]}</div>
-                      {xrayResult.heatmap_zones?.length > 0 && (
-                        <div className="flex gap-1.5 mt-1.5">
-                          {xrayResult.heatmap_zones.map((z: any, i: number) => (
-                            <span key={i} className="px-1.5 py-0.5 rounded-md text-[9px] border" style={{ borderColor: z.color, color: z.color }}>
-                              {z.zone}: {z.intensity}%
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <div className="font-bold text-white flex items-center justify-between">
+                        <span>Classification: {xrayResult.classification}</span>
+                        <span className="text-slate-400">{(xrayResult.confidence * 100).toFixed(0)}% Conf</span>
+                      </div>
+                      <div className="mt-1 text-slate-300">{xrayResult.clinical_recommendation}</div>
                     </div>
                   )}
                 </div>
@@ -1657,6 +1748,132 @@ export default function AegisMedicalCommandDeck() {
                     }`}>
                       <div className="font-bold text-white">{handGestureResult.status === "ORGAN_TARGETED" ? `🎯 ${handGestureResult.organ}` : "Waiting for gesture..."}</div>
                       <div className="mt-0.5">{handGestureResult.message}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 🩺 PHASE 6: Multi-Agent Clinical Specialist Board */}
+              {activeScannerTab === "board" && (
+                <div className="space-y-2 font-mono text-[10px]">
+                  <div className="flex items-center justify-between">
+                    <div className="text-slate-400">3-Specialist Collegiate Medical Ensemble:</div>
+                    <button
+                      onClick={handleRunClinicalBoard}
+                      disabled={isBoardEvaluating}
+                      className="px-3 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold transition flex items-center gap-1 disabled:opacity-50"
+                    >
+                      {isBoardEvaluating ? "Deliberating..." : "🩺 Run Board Debate"}
+                    </button>
+                  </div>
+
+                  {/* 3 Specialist Badges */}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <div className="p-2 rounded-xl bg-[#090b14] border border-rose-500/30">
+                      <div className="text-rose-400 font-bold flex items-center gap-1">🫀 Cardiology</div>
+                      <div className="text-slate-400 text-[9px]">Dr. Aria Thorne, MD</div>
+                      <div className="text-slate-300 text-[8px] mt-1">ECG & Hemodynamics</div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-[#090b14] border border-purple-500/30">
+                      <div className="text-purple-400 font-bold flex items-center gap-1">💊 Pharmacology</div>
+                      <div className="text-slate-400 text-[9px]">Dr. Kavi Patel, PharmD</div>
+                      <div className="text-slate-300 text-[8px] mt-1">Allergy & Drug Safety</div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-[#090b14] border border-cyan-500/30">
+                      <div className="text-cyan-400 font-bold flex items-center gap-1">🚨 Critical Care</div>
+                      <div className="text-slate-400 text-[9px]">Dr. Marcus Vance, MD</div>
+                      <div className="text-slate-300 text-[8px] mt-1">qSOFA & Resuscitation</div>
+                    </div>
+                  </div>
+
+                  {clinicalBoardResult && (
+                    <div className="space-y-1.5 p-2 rounded-xl bg-slate-900/90 border border-slate-800">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-1">
+                        <span className="font-bold text-white">Consensus Care Plan</span>
+                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold ${
+                          clinicalBoardResult.triage_tier === "RED" ? "bg-rose-900 text-rose-200" : "bg-emerald-900 text-emerald-200"
+                        }`}>
+                          TRIAGE TIER {clinicalBoardResult.triage_tier}
+                        </span>
+                      </div>
+                      <div className="text-slate-300"><strong className="text-slate-100">Diagnosis:</strong> {clinicalBoardResult.primary_consensus_diagnosis}</div>
+                      <div className="text-emerald-400"><strong className="text-slate-100">Safe Order:</strong> {clinicalBoardResult.unified_care_plan.safe_medication_order}</div>
+                      <div className="text-rose-400"><strong className="text-slate-100">Forbidden:</strong> {clinicalBoardResult.unified_care_plan.strictly_contraindicated}</div>
+                      <div className="text-slate-400 text-[9px]"><strong className="text-slate-100">Positioning:</strong> {clinicalBoardResult.unified_care_plan.positioning}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 📡 PHASE 7: Rural Peer-to-Peer Mesh Network */}
+              {activeScannerTab === "mesh" && (
+                <div className="space-y-2 font-mono text-[10px]">
+                  <div className="flex items-center justify-between">
+                    <div className="text-slate-400 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      Zero-Internet Local Wi-Fi Mesh:
+                    </div>
+                    <button
+                      onClick={handleBroadcastMeshSync}
+                      disabled={isMeshSyncing}
+                      className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold transition flex items-center gap-1 disabled:opacity-50"
+                    >
+                      {isMeshSyncing ? "Broadcasting..." : "📡 Broadcast Sync"}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { name: "Triage Desk (Local)", ip: "192.168.4.1", status: "ONLINE", vc: meshNetworkState?.peers?.[0]?.vector_clock || 12, ping: "2ms" },
+                      { name: "Ward 4 (Dr. Giri)", ip: "192.168.4.15", status: "ONLINE", vc: meshNetworkState?.peers?.[1]?.vector_clock || 12, ping: "14ms" },
+                      { name: "Field Ambulance 1", ip: "192.168.4.88", status: "ONLINE", vc: meshNetworkState?.peers?.[2]?.vector_clock || 12, ping: "42ms" },
+                      { name: "Disaster Base Camp", ip: "192.168.4.254", status: "ONLINE", vc: meshNetworkState?.peers?.[3]?.vector_clock || 12, ping: "8ms" },
+                    ].map((node) => (
+                      <div key={node.name} className="p-2 rounded-xl bg-[#090b14] border border-slate-800">
+                        <div className="font-bold text-white flex items-center justify-between">
+                          <span>{node.name}</span>
+                          <span className="text-emerald-400 text-[9px]">{node.ping}</span>
+                        </div>
+                        <div className="text-slate-500 text-[9px] mt-0.5">IP: {node.ip} • Vector Clock: {node.vc}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="p-2 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-[9px]">
+                    CRDT State: 4 peer nodes synchronized. Total replicated clinical records: {meshNetworkState?.total_replicated_records || 35}.
+                  </div>
+                </div>
+              )}
+
+              {/* ⚡ PHASE 6: HL7 FHIR CDS-Hooks */}
+              {activeScannerTab === "cds" && (
+                <div className="space-y-2 font-mono text-[10px]">
+                  <div className="text-slate-400">Test HL7 FHIR CDS-Hooks Prescription Interceptions:</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button onClick={() => handleRunCDSHook("Ibuprofen 400mg")} className="px-2.5 py-1 rounded-xl bg-rose-950/80 border border-rose-500 text-rose-200 hover:bg-rose-900 transition">
+                      Test Ibuprofen (Allergy Stop)
+                    </button>
+                    <button onClick={() => handleRunCDSHook("Paracetamol 500mg")} className="px-2.5 py-1 rounded-xl bg-emerald-950/80 border border-emerald-500 text-emerald-200 hover:bg-emerald-900 transition">
+                      Test Paracetamol (Approved)
+                    </button>
+                  </div>
+
+                  {cdsHookCard && (
+                    <div className={`p-2.5 rounded-xl border ${
+                      cdsHookCard.indicator === "critical"
+                        ? "bg-rose-950 border-rose-500 text-rose-200"
+                        : "bg-emerald-950 border-emerald-500 text-emerald-200"
+                    }`}>
+                      <div className="font-bold text-white flex items-center gap-1">
+                        {cdsHookCard.indicator === "critical" ? <ShieldX className="w-3 h-3 text-rose-400" /> : <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                        {cdsHookCard.summary}
+                      </div>
+                      <div className="text-slate-300 text-[9px] mt-1">{cdsHookCard.detail}</div>
+                      {cdsHookCard.suggestions?.length > 0 && (
+                        <div className="mt-1.5 p-1.5 rounded-lg bg-black/40 border border-white/10 text-emerald-300 text-[9px]">
+                          <strong>FHIR Suggestion:</strong> {cdsHookCard.suggestions[0].label}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

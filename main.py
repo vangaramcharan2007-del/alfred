@@ -493,6 +493,113 @@ def audio_stt_transcribe(payload: STTPayload):
     return transcribe_audio_payload(audio_b64=payload.audio_b64, lang=payload.language, sample_index=payload.sample_index)
 
 
+# ============================================================================
+# PHASE 6: MULTI-AGENT CLINICAL SPECIALIST BOARD & HL7 FHIR CDS-HOOKS
+# ============================================================================
+from aegis_multiagent import ClinicalBoardSynthesizer
+from cds_hooks import evaluate_patient_view_hook, evaluate_medication_prescribe_hook
+
+clinical_board = ClinicalBoardSynthesizer()
+
+
+class ClinicalBoardEvalPayload(BaseModel):
+    query: str = Field("Evaluate comprehensive clinical condition and medication plan", description="Clinical query or chief complaint")
+    patient_uid: Optional[str] = Field(None, description="Optional patient UID")
+
+
+class CDSPatientViewPayload(BaseModel):
+    patient_uid: Optional[str] = Field("p-001")
+
+
+class CDSMedicationPrescribePayload(BaseModel):
+    patient_uid: Optional[str] = Field("p-001")
+    medication_name: str = Field(..., description="Medication requested to prescribe")
+    dosage: Optional[str] = Field(None)
+
+
+@app.post("/clinical-board/evaluate")
+def run_clinical_board_evaluation(payload: ClinicalBoardEvalPayload):
+    """Convene 3-specialist collegiate medical board (Cardiology, Pharmacology, Critical Care)."""
+    global aegis_memory, global_scanner
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    patient = aegis_memory.get_patient_profile(patient_uid=payload.patient_uid or "p-001")
+    latest = telemetry_history[-1] if len(telemetry_history) > 0 else {}
+    syncope_flag = getattr(global_scanner, "syncope_detected", False) if global_scanner else False
+    posture = getattr(global_scanner, "posture_status", "ERECT_NOMINAL") if global_scanner else "ERECT_NOMINAL"
+    vitals = {
+        "heart_rate": latest.get("heart_rate", 72),
+        "temperature": latest.get("temperature", 36.8),
+        "rmssd": latest.get("rmssd", 45.0),
+        "eda": latest.get("eda", 1.5),
+        "syncope_detected": syncope_flag,
+        "posture_status": posture,
+        "respiratory_rate": 18,
+        "spo2": 98,
+    }
+    return clinical_board.convene_board(
+        query=payload.query,
+        vitals=vitals,
+        ehr_profile=patient,
+    )
+
+
+@app.post("/cds-services/patient-view")
+def cds_hook_patient_view(payload: CDSPatientViewPayload):
+    """HL7 FHIR CDS-Hook for patient chart view."""
+    global aegis_memory, global_scanner
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    patient = aegis_memory.get_patient_profile(patient_uid=payload.patient_uid or "p-001")
+    latest = telemetry_history[-1] if len(telemetry_history) > 0 else {}
+    syncope_flag = getattr(global_scanner, "syncope_detected", False) if global_scanner else False
+    vitals = {
+        "heart_rate": latest.get("heart_rate", 72),
+        "syncope_detected": syncope_flag,
+    }
+    return evaluate_patient_view_hook(patient_profile=patient, vitals=vitals)
+
+
+@app.post("/cds-services/medication-prescribe")
+def cds_hook_medication_prescribe(payload: CDSMedicationPrescribePayload):
+    """HL7 FHIR CDS-Hook for medication ordering safety interception."""
+    global aegis_memory
+    if aegis_memory is None:
+        aegis_memory = AegisMemory(db_path="aegis_core.db")
+    patient = aegis_memory.get_patient_profile(patient_uid=payload.patient_uid or "p-001")
+    return evaluate_medication_prescribe_hook(
+        patient_profile=patient,
+        medication_name=payload.medication_name,
+        dosage=payload.dosage,
+    )
+
+
+# ============================================================================
+# PHASE 7: RURAL CLINIC PEER-TO-PEER MESH NETWORK
+# ============================================================================
+from aegis_mesh_sync import global_mesh_manager
+
+
+class MeshBroadcastPayload(BaseModel):
+    payload_type: str = Field("PATIENT_ADMISSION")
+    payload_data: Optional[Dict[str, Any]] = None
+
+
+@app.get("/mesh/peers")
+def get_mesh_network_peers():
+    """Retrieve active peer topology and zero-internet sync status."""
+    return global_mesh_manager.get_mesh_state()
+
+
+@app.post("/mesh/broadcast-sync")
+def mesh_broadcast_sync(payload: MeshBroadcastPayload):
+    """Broadcast offline clinical update to peer mesh nodes."""
+    return global_mesh_manager.broadcast_sync(
+        payload_type=payload.payload_type,
+        payload_data=payload.payload_data,
+    )
+
+
 @app.post("/patient-profile")
 def update_patient_profile(payload: PatientProfileUpdatePayload):
     """Update patient EHR record."""

@@ -581,3 +581,82 @@ def test_stt_transcribe_hindi_preset(client):
     assert "बुखार" in data["transcript"]
 
 
+# ========================================================
+# 10. Phase 6: Multi-Agent Clinical Board & CDS-Hooks Tests
+# ========================================================
+
+def test_multiagent_clinical_board_evaluation(client):
+    """Verify 3-specialist collegiate medical board deliberations and consensus."""
+    payload = {"query": "Patient with acute high fever requesting medication advice", "patient_uid": "p-001"}
+    response = client.post("/clinical-board/evaluate", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "triage_tier" in data
+    assert len(data["specialist_assessments"]) == 3
+    assert len(data["debate_transcript"]) == 3
+    assert data["unified_care_plan"]["patient_name"] == "Ramcharan"
+    assert "Paracetamol" in data["unified_care_plan"]["safe_medication_order"]
+
+
+def test_cds_hook_patient_view_evaluates_allergy(client):
+    """Verify CDS-Hooks patient-view card generation."""
+    payload = {"patient_uid": "p-001"}
+    response = client.post("/cds-services/patient-view", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "cards" in data
+    assert len(data["cards"]) >= 1
+
+
+def test_cds_hook_medication_prescribe_blocks_ibuprofen_allergy(client):
+    """Verify CDS-Hooks blocks contraindicated ibuprofen prescription."""
+    payload = {"patient_uid": "p-001", "medication_name": "Ibuprofen 400mg"}
+    response = client.post("/cds-services/medication-prescribe", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    cards = data["cards"]
+    assert len(cards) >= 1
+    assert cards[0]["indicator"] == "critical"
+    assert "HARD STOP" in cards[0]["summary"]
+
+
+def test_cds_hook_medication_prescribe_approves_paracetamol(client):
+    """Verify CDS-Hooks approves safe paracetamol prescription."""
+    payload = {"patient_uid": "p-001", "medication_name": "Paracetamol 500mg"}
+    response = client.post("/cds-services/medication-prescribe", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    cards = data["cards"]
+    assert len(cards) >= 1
+    assert cards[0]["indicator"] == "info"
+
+
+# ========================================================
+# 11. Phase 7: Rural Peer-to-Peer Mesh Sync Tests
+# ========================================================
+
+def test_mesh_network_peers_state(client):
+    """Verify retrieval of peer mesh network topology and node statuses."""
+    response = client.get("/mesh/peers")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mesh_status"] == "ACTIVE_MESH_SYNCHRONIZED"
+    assert data["connected_peers_count"] >= 3
+    assert len(data["peers"]) >= 3
+
+
+def test_mesh_broadcast_sync(client):
+    """Verify zero-internet mesh packet broadcast and vector clock increment."""
+    payload = {
+        "payload_type": "PATIENT_ADMISSION",
+        "payload_data": {"patient_uid": "p-003", "name": "Giri", "status": "TRIAGE_ADMITTED"}
+    }
+    response = client.post("/mesh/broadcast-sync", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "BROADCAST_REPLICATED"
+    assert data["peers_reached"] >= 2
+    assert "checksum" in data
+
+
+
