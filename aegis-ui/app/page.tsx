@@ -246,6 +246,8 @@ export default function AegisMedicalCommandDeck() {
   const [syncSuccessMsg, setSyncSuccessMsg] = useState<string>("");
   const [escalationsCount, setEscalationsCount] = useState<number>(0);
   const [cameraActive, setCameraActive] = useState<boolean>(false);
+  const [cameraType, setCameraType] = useState<"direct" | "opencv_ai">("opencv_ai");
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   // FHIR / Clinical Handover Modal State
   const [isHandoverModalOpen, setIsHandoverModalOpen] = useState<boolean>(false);
@@ -258,22 +260,38 @@ export default function AegisMedicalCommandDeck() {
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // 1. Direct Hardware Webcam Mount via MediaDevices API
-  useEffect(() => {
+  const startWebcam = async () => {
     if (typeof window !== "undefined" && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
-        .then((stream) => {
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.play().catch(() => {});
-            setCameraActive(true);
-          }
-        })
-        .catch((err) => {
-          console.warn("Hardware camera access note:", err);
-          setCameraActive(false);
-        });
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        mediaStreamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+        setCameraActive(true);
+      } catch (err) {
+        console.warn("Hardware camera access note:", err);
+        setCameraActive(false);
+      }
     }
+  };
+
+  useEffect(() => {
+    startWebcam();
   }, []);
+
+  // Ensure webcam stream is attached whenever video element mounts or visualMode switches
+  useEffect(() => {
+    if (visualMode === "camera" && cameraType === "direct") {
+      if (videoRef.current && mediaStreamRef.current) {
+        videoRef.current.srcObject = mediaStreamRef.current;
+        videoRef.current.play().catch(() => {});
+      } else {
+        startWebcam();
+      }
+    }
+  }, [visualMode, cameraType]);
 
   // 2. Initialize Voice Synthesis & Refresh Voices
   useEffect(() => {
@@ -450,18 +468,41 @@ export default function AegisMedicalCommandDeck() {
     window.speechSynthesis.cancel();
 
     const targetLang = langOverride || selectedLanguage;
-    const utterance = new SpeechSynthesisUtterance(text);
+    const cleanSpeechText =
+      targetLang !== "en"
+        ? text
+            .replace(/\([A-Za-z0-9\s-]+\)/g, "")
+            .replace(/[A-Za-z]/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+        : text;
+
+    const utterance = new SpeechSynthesisUtterance(cleanSpeechText || text);
     utterance.rate = speechRate;
     utterance.pitch = speechPitch;
+    utterance.lang =
+      targetLang === "te"
+        ? "te-IN"
+        : targetLang === "hi"
+        ? "hi-IN"
+        : targetLang === "ta"
+        ? "ta-IN"
+        : targetLang === "kn"
+        ? "kn-IN"
+        : "en-US";
 
     const voices = window.speechSynthesis.getVoices();
     let chosenVoice: SpeechSynthesisVoice | undefined;
 
     // 1. Regional voice match
-    const matchingRegional = voices.find((v) => v.lang.toLowerCase().startsWith(targetLang));
+    const matchingRegional = voices.find(
+      (v) =>
+        v.lang.toLowerCase().startsWith(targetLang) ||
+        v.lang.toLowerCase().includes(targetLang === "te" ? "telugu" : targetLang === "hi" ? "hindi" : targetLang === "ta" ? "tamil" : "kannada")
+    );
     if (matchingRegional) {
       chosenVoice = matchingRegional;
-      utterance.lang = matchingRegional.lang;
+      utterance.voice = matchingRegional;
     } else if (selectedVoiceName) {
       chosenVoice = voices.find((v) => v.name === selectedVoiceName);
     }
@@ -1001,19 +1042,49 @@ export default function AegisMedicalCommandDeck() {
             </select>
           </div>
 
-          {/* Quick Simulation Actions */}
+          {/* Quick Regional Language Triggers */}
           <button
-            onClick={() => handleSendQuery("నాకు తీవ్రమైన జ్వరం ఉంది. నేను ఇబుప్రోఫెన్ (Ibuprofen) వేసుకోవచ్చా?", undefined, "te")}
-            className="px-3 py-1.5 rounded-2xl text-xs font-mono font-medium bg-amber-950/40 border border-amber-500/40 text-amber-300 hover:bg-amber-900/50 transition"
+            onClick={() => {
+              setSelectedLanguage("te");
+              handleSendQuery("నాకు తీవ్రమైన జ్వరం ఉంది. నేను ఇబుప్రోఫెన్ వేసుకోవచ్చా?", undefined, "te");
+            }}
+            className="px-2.5 py-1.5 rounded-2xl text-xs font-mono font-medium bg-amber-950/40 border border-amber-500/40 text-amber-300 hover:bg-amber-900/50 transition"
+            title="Telugu Healthcare Query"
           >
             🇮🇳 తెలుగు
           </button>
 
           <button
-            onClick={() => handleSendQuery("मुझे तेज बुखार है, क्या मैं इबुप्रोफेन (Ibuprofen) ले सकता हूँ?", undefined, "hi")}
-            className="px-3 py-1.5 rounded-2xl text-xs font-mono font-medium bg-orange-950/40 border border-orange-500/40 text-orange-300 hover:bg-orange-900/50 transition"
+            onClick={() => {
+              setSelectedLanguage("hi");
+              handleSendQuery("मुझे तेज बुखार है, क्या मैं इबुप्रोफेन ले सकता हूँ?", undefined, "hi");
+            }}
+            className="px-2.5 py-1.5 rounded-2xl text-xs font-mono font-medium bg-orange-950/40 border border-orange-500/40 text-orange-300 hover:bg-orange-900/50 transition"
+            title="Hindi Healthcare Query"
           >
             🇮🇳 हिन्दी
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedLanguage("ta");
+              handleSendQuery("எனக்கு கடுமையான காய்ச்சல் உள்ளது. நான் இபுபுரூஃபன் எடுக்கலாما?", undefined, "ta");
+            }}
+            className="px-2.5 py-1.5 rounded-2xl text-xs font-mono font-medium bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/50 transition"
+            title="Tamil Healthcare Query"
+          >
+            🇮🇳 தமிழ்
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedLanguage("kn");
+              handleSendQuery("ನನಗೆ ತೀವ್ರ ಜ್ವರವಿದೆ. ನಾನು ಇಬುಪ್ರೊಫೇನ್ ತೆಗೆದುಕೊಳ್ಳಬಹುದೇ?", undefined, "kn");
+            }}
+            className="px-2.5 py-1.5 rounded-2xl text-xs font-mono font-medium bg-purple-950/40 border border-purple-500/40 text-purple-300 hover:bg-purple-900/50 transition"
+            title="Kannada Healthcare Query"
+          >
+            🇮🇳 ಕನ್ನಡ
           </button>
 
           <button
@@ -1106,13 +1177,68 @@ export default function AegisMedicalCommandDeck() {
                 }}
               />
             ) : (
-              <div className="relative w-full aspect-[4/3] rounded-3xl bg-black overflow-hidden border border-slate-800 flex items-center justify-center">
-                <video ref={videoRef} className="w-full h-full object-cover scale-x-[-1]" autoPlay playsInline muted />
-                <div className="absolute top-2 left-2 px-2.5 py-1 rounded-xl bg-black/80 backdrop-blur border border-slate-700 text-[9px] font-mono text-cyan-300">
-                  HEAD TILT: {vitals.headTiltDeg.toFixed(1)}°
+              <div className="flex flex-col gap-2">
+                {/* Camera Mode Sub-selector */}
+                <div className="flex items-center justify-between text-[10px] font-mono px-1">
+                  <span className="text-slate-400">FEED SOURCE:</span>
+                  <div className="flex gap-1 bg-[#090b14] p-0.5 rounded-xl border border-slate-800">
+                    <button
+                      onClick={() => setCameraType("opencv_ai")}
+                      className={`px-2 py-0.5 rounded-lg transition ${
+                        cameraType === "opencv_ai" ? "bg-emerald-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      AI Face Mesh
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCameraType("direct");
+                        startWebcam();
+                      }}
+                      className={`px-2 py-0.5 rounded-lg transition ${
+                        cameraType === "direct" ? "bg-cyan-600 text-slate-950 font-bold" : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      Direct Webcam
+                    </button>
+                  </div>
                 </div>
-                <div className="absolute top-2 right-2 px-2.5 py-1 rounded-xl bg-black/80 backdrop-blur border border-slate-700 text-[9px] font-mono text-slate-300">
-                  PATIENT: {patientProfile.name}
+
+                {/* Video / Stream Container */}
+                <div className="relative w-full aspect-[4/3] rounded-3xl bg-black overflow-hidden border border-slate-800 flex items-center justify-center">
+                  {cameraType === "opencv_ai" ? (
+                    <img
+                      src={`${BACKEND_URL}/video-feed`}
+                      alt="AEGIS OpenCV Live Face Mesh & Biometric Overlay"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.warn("OpenCV video stream fallback");
+                      }}
+                    />
+                  ) : (
+                    <video ref={videoRef} className="w-full h-full object-cover scale-x-[-1]" autoPlay playsInline muted />
+                  )}
+
+                  {/* Overlays */}
+                  <div className="absolute top-2 left-2 px-2.5 py-1 rounded-xl bg-black/80 backdrop-blur border border-slate-700 text-[9px] font-mono text-cyan-300">
+                    HEAD TILT: {vitals.headTiltDeg.toFixed(1)}° • EAR: {vitals.ear.toFixed(3)}
+                  </div>
+                  <div className="absolute top-2 right-2 px-2.5 py-1 rounded-xl bg-black/80 backdrop-blur border border-slate-700 text-[9px] font-mono text-slate-300">
+                    POSTURE: {vitals.postureStatus.replace("_", " ")}
+                  </div>
+                  <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-lg bg-black/80 backdrop-blur border border-emerald-500/40 text-[9px] font-mono text-emerald-300 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    <span>{cameraType === "opencv_ai" ? "OPENCV AI MESH ACTIVE" : "WEBCAM ACTIVE"}</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={startWebcam}
+                    className="flex-1 py-1.5 rounded-xl bg-[#090b14] border border-slate-800 hover:border-cyan-500/60 text-[10px] font-mono text-slate-300 hover:text-white transition text-center"
+                  >
+                    🔄 Re-initialize Camera
+                  </button>
                 </div>
               </div>
             )}
