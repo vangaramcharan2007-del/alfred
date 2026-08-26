@@ -535,3 +535,49 @@ def test_hand_gesture_no_hand_detected(client):
     data = response.json()
     assert data["status"] == "NO_HAND_DETECTED"
 
+
+# ==========================================
+# 9. Multi-Lingual Audio Suite Tests (TTS / STT)
+# ==========================================
+
+def test_tts_synthesize_telugu(client):
+    """Verify TTS synthesis for Telugu returns audio data URI."""
+    payload = {"text": "మీరు ఎలా ఉన్నారు? నేను బేమ్యాక్స్.", "language": "te"}
+    response = client.post("/audio/tts", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["language"] == "te"
+    assert "audio_data_uri" in data
+
+
+def test_tts_synthesize_hindi(client):
+    """Verify TTS synthesis for Hindi."""
+    payload = {"text": "नमस्ते, मैं बेमैक्स हूँ।", "language": "hi"}
+    response = client.post("/audio/tts", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["language"] == "hi"
+
+
+def test_stt_transcribe_telugu_preset(client):
+    """Verify STT transcription for Telugu."""
+    payload = {"language": "te", "sample_index": 0}
+    response = client.post("/audio/stt", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "TRANSCRIBED"
+    assert data["language"] == "te"
+    assert "జ్వరం" in data["transcript"]
+
+
+def test_stt_transcribe_hindi_preset(client):
+    """Verify STT transcription for Hindi."""
+    payload = {"language": "hi", "sample_index": 0}
+    response = client.post("/audio/stt", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "TRANSCRIBED"
+    assert data["language"] == "hi"
+    assert "बुखार" in data["transcript"]
+
+

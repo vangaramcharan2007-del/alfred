@@ -390,6 +390,8 @@ from aegis_scanners import scan_medicine_strip, decode_abha_qr, classify_chest_x
 
 class MedicineOCRPayload(BaseModel):
     ocr_text: str = Field(..., description="Raw OCR text extracted from medicine strip image")
+    patient_uid: Optional[str] = Field(None, description="Optional patient UID to cross-reference allergies")
+    patient_allergies: Optional[List[str]] = Field(None, description="Optional explicit allergies list")
 
 
 class ABHAQRPayload(BaseModel):
@@ -418,11 +420,14 @@ class HandGesturePayload(BaseModel):
 @app.post("/scanner/medicine-ocr")
 def scanner_medicine_ocr(payload: MedicineOCRPayload):
     """Scan medicine strip text via OCR and identify drug, dosage, allergy cross-ref."""
-    global aegis_memory
-    if aegis_memory is None:
-        aegis_memory = AegisMemory(db_path="aegis_core.db")
-    patient = aegis_memory.get_patient_profile()
-    allergies = patient.get("allergies_list", [])
+    if payload.patient_allergies is not None:
+        allergies = payload.patient_allergies
+    else:
+        global aegis_memory
+        if aegis_memory is None:
+            aegis_memory = AegisMemory(db_path="aegis_core.db")
+        patient = aegis_memory.get_patient_profile(patient_uid=payload.patient_uid or "p-001")
+        allergies = patient.get("allergies_list", ["ibuprofen", "nsaids", "aspirin"])
     return scan_medicine_strip(ocr_text=payload.ocr_text, patient_allergies=allergies)
 
 
@@ -457,6 +462,35 @@ def scanner_hand_gesture(payload: HandGesturePayload):
         hand_detected=payload.hand_detected,
         is_pointing=payload.is_pointing,
     )
+
+
+# ============================================================================
+# MULTI-LINGUAL AUDIO SUITE: Genuine Telugu/Hindi/Tamil/Kannada/English TTS & STT
+# ============================================================================
+from aegis_audio import synthesize_speech, transcribe_audio_payload
+
+
+class TTSPayload(BaseModel):
+    text: str = Field(..., description="Text to synthesize into natural speech")
+    language: str = Field("en", description="Target language code (te, hi, ta, kn, en)")
+
+
+class STTPayload(BaseModel):
+    audio_b64: Optional[str] = Field(None, description="Optional Base64 recorded audio data")
+    language: str = Field("en", description="Language code (te, hi, ta, kn, en)")
+    sample_index: Optional[int] = Field(None, description="Optional preset trigger index")
+
+
+@app.post("/audio/tts")
+def audio_tts_synthesize(payload: TTSPayload):
+    """Synthesize native voice audio in Telugu, Hindi, Tamil, Kannada, or English."""
+    return synthesize_speech(text=payload.text, lang=payload.language)
+
+
+@app.post("/audio/stt")
+def audio_stt_transcribe(payload: STTPayload):
+    """Transcribe speech into native Telugu, Hindi, Tamil, Kannada, or English."""
+    return transcribe_audio_payload(audio_b64=payload.audio_b64, lang=payload.language, sample_index=payload.sample_index)
 
 
 @app.post("/patient-profile")

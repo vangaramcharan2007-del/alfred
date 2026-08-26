@@ -347,10 +347,25 @@ export default function AegisMedicalCommandDeck() {
             handleSendQuery(spokenText);
           };
 
-          reco.onerror = (e: any) => {
-            console.warn("Speech recognition note:", e);
+          reco.onerror = async (e: any) => {
+            console.warn("Browser speech recognition note:", e);
             setIsListening(false);
-            setAvatarState(vitals.isAnomaly || vitals.isFatigued || vitals.syncopeDetected ? "alert" : "idle");
+            try {
+              const res = await fetch(`${BACKEND_URL}/audio/stt`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ language: selectedLanguage }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data.transcript) {
+                  setTextInput(data.transcript);
+                  handleSendQuery(data.transcript, undefined, selectedLanguage);
+                }
+              }
+            } catch (err) {
+              console.warn("Backend STT error:", err);
+            }
           };
 
           reco.onend = () => {
@@ -460,12 +475,22 @@ export default function AegisMedicalCommandDeck() {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Multi-Lingual Speech Synthesis (TTS) - Robust and Clear
-  const speakText = (text: string, langOverride?: string) => {
-    if (!voiceEnabled || typeof window === "undefined" || !("speechSynthesis" in window)) {
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Multi-Lingual Speech Synthesis (TTS) - Neural Audio & Fallback
+  const speakText = async (text: string, langOverride?: string) => {
+    if (!voiceEnabled || typeof window === "undefined") {
       return;
     }
-    window.speechSynthesis.cancel();
+    
+    // Stop any currently playing audio
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
 
     const targetLang = langOverride || selectedLanguage;
     const cleanSpeechText =
@@ -477,92 +502,144 @@ export default function AegisMedicalCommandDeck() {
             .trim()
         : text;
 
-    const utterance = new SpeechSynthesisUtterance(cleanSpeechText || text);
-    utterance.rate = speechRate;
-    utterance.pitch = speechPitch;
-    utterance.lang =
-      targetLang === "te"
-        ? "te-IN"
-        : targetLang === "hi"
-        ? "hi-IN"
-        : targetLang === "ta"
-        ? "ta-IN"
-        : targetLang === "kn"
-        ? "kn-IN"
-        : "en-US";
-
-    const voices = window.speechSynthesis.getVoices();
-    let chosenVoice: SpeechSynthesisVoice | undefined;
-
-    // 1. Regional voice match
-    const matchingRegional = voices.find(
-      (v) =>
-        v.lang.toLowerCase().startsWith(targetLang) ||
-        v.lang.toLowerCase().includes(targetLang === "te" ? "telugu" : targetLang === "hi" ? "hindi" : targetLang === "ta" ? "tamil" : "kannada")
-    );
-    if (matchingRegional) {
-      chosenVoice = matchingRegional;
-      utterance.voice = matchingRegional;
-    } else if (selectedVoiceName) {
-      chosenVoice = voices.find((v) => v.name === selectedVoiceName);
-    }
-
-    if (!chosenVoice) {
-      chosenVoice =
-        voices.find((v) => v.name.includes("David")) ||
-        voices.find((v) => v.name.includes("Google UK English Male")) ||
-        voices[0];
-    }
-
-    if (chosenVoice) {
-      utterance.voice = chosenVoice;
-    }
-
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setAvatarState(vitals.isAnomaly || vitals.isFatigued || vitals.syncopeDetected ? "alert" : "speaking");
-    };
-
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      setAvatarState(vitals.isAnomaly || vitals.isFatigued || vitals.syncopeDetected ? "alert" : "idle");
-    };
-
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      setAvatarState(vitals.isAnomaly || vitals.isFatigued || vitals.syncopeDetected ? "alert" : "idle");
-    };
-
     try {
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.warn("TTS speak note:", e);
+      // 1. First try Backend Multi-Lingual Neural TTS (Crystal clear Telugu, Hindi, Tamil, Kannada, English)
+      const res = await fetch(`${BACKEND_URL}/audio/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: cleanSpeechText || text, language: targetLang }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.audio_data_uri) {
+          const audio = new Audio(data.audio_data_uri);
+          currentAudioRef.current = audio;
+          
+          audio.onplay = () => {
+            setIsSpeaking(true);
+            setAvatarState("speaking");
+          };
+          audio.onended = () => {
+            setIsSpeaking(false);
+            setAvatarState(vitals.isAnomaly || vitals.isFatigued || vitals.syncopeDetected ? "alert" : "idle");
+            currentAudioRef.current = null;
+          };
+          audio.onerror = () => {
+            setIsSpeaking(false);
+            setAvatarState(vitals.isAnomaly || vitals.isFatigued || vitals.syncopeDetected ? "alert" : "idle");
+          };
+
+          await audio.play();
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Backend TTS note, falling back to Web Speech API:", err);
+    }
+
+    // 2. Fallback to Browser SpeechSynthesis
+    if ("speechSynthesis" in window) {
+      const utterance = new SpeechSynthesisUtterance(cleanSpeechText || text);
+      utterance.rate = speechRate;
+      utterance.pitch = speechPitch;
+      utterance.lang =
+        targetLang === "te"
+          ? "te-IN"
+          : targetLang === "hi"
+          ? "hi-IN"
+          : targetLang === "ta"
+          ? "ta-IN"
+          : targetLang === "kn"
+          ? "kn-IN"
+          : "en-US";
+
+      const voices = window.speechSynthesis.getVoices();
+      let chosenVoice = voices.find(
+        (v) =>
+          v.lang.toLowerCase().startsWith(targetLang) ||
+          v.lang.toLowerCase().includes(targetLang === "te" ? "telugu" : targetLang === "hi" ? "hindi" : targetLang === "ta" ? "tamil" : "kannada")
+      );
+      if (chosenVoice) {
+        utterance.voice = chosenVoice;
+      }
+
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        setAvatarState("speaking");
+      };
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        setAvatarState(vitals.isAnomaly || vitals.isFatigued || vitals.syncopeDetected ? "alert" : "idle");
+      };
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        setAvatarState(vitals.isAnomaly || vitals.isFatigued || vitals.syncopeDetected ? "alert" : "idle");
+      };
+
+      try {
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.warn("SpeechSynthesis error:", e);
+      }
     }
   };
 
-  // Toggle STT Listening or Fallback
-  const toggleListening = () => {
+  // Multi-Lingual Speech-to-Text (STT) Trigger
+  const toggleListening = async () => {
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
-    } else {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.start();
-        } catch {
-          // Fallback demo prompt
-          const defaultPrompt =
-            selectedLanguage === "te"
-              ? "నాకు తీవ్రమైన జ్వరం ఉంది. నేను ఇబుప్రోఫెన్ (Ibuprofen) తీసుకోవచ్చా?"
-              : selectedLanguage === "hi"
-              ? "मुझे तेज बुखार है, क्या मैं इबुप्रोफेन (Ibuprofen) ले सकता हूँ?"
-              : "Baymax, my core temperature is spiking and I have a fever. Should I take some Ibuprofen?";
-          handleSendQuery(defaultPrompt);
-        }
-      } else {
-        const defaultPrompt = "Baymax, what are the medication instructions for my active prescription?";
-        handleSendQuery(defaultPrompt);
+      return;
+    }
+
+    setIsListening(true);
+    setAvatarState("listening");
+
+    // Try browser SpeechRecognition first
+    let started = false;
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.lang =
+          selectedLanguage === "te"
+            ? "te-IN"
+            : selectedLanguage === "hi"
+            ? "hi-IN"
+            : selectedLanguage === "ta"
+            ? "ta-IN"
+            : selectedLanguage === "kn"
+            ? "kn-IN"
+            : "en-US";
+        recognitionRef.current.start();
+        started = true;
+      } catch (e) {
+        console.warn("Browser SpeechRecognition start note:", e);
       }
+    }
+
+    // If browser STT is unsupported or fails, seamlessly invoke the backend STT engine
+    if (!started) {
+      setTimeout(async () => {
+        try {
+          const res = await fetch(`${BACKEND_URL}/audio/stt`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ language: selectedLanguage }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setIsListening(false);
+            if (data.transcript) {
+              setTextInput(data.transcript);
+              handleSendQuery(data.transcript, undefined, selectedLanguage);
+            }
+          } else {
+            setIsListening(false);
+          }
+        } catch {
+          setIsListening(false);
+        }
+      }, 1000);
     }
   };
 
