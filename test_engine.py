@@ -684,4 +684,81 @@ def test_add_new_patient_and_activate(client):
     assert any(p["name"] == "Rahul Verma" for p in p_res.json())
 
 
+# ========================================================
+# 12. SIH26181 Engine Tests: Calibration, Tri-Risk & Demo
+# ========================================================
+
+def test_sih_start_and_complete_calibration(client):
+    """Verify 60s personal baseline calibration lifecycle."""
+    res1 = client.post("/sih/calibration/start")
+    assert res1.status_code == 200
+    assert res1.json()["status"] == "CALIBRATION_INITIATED"
+
+    payload = {"hr_mean": 70.5, "temp_mean": 36.7, "rmssd_mean": 48.0, "eda_mean": 1.35}
+    res2 = client.post("/sih/calibration/complete", json=payload)
+    assert res2.status_code == 200
+    data = res2.json()
+    assert data["status"] == "CALIBRATION_LOCKED"
+    assert data["baseline"]["heart_rate_bpm"] == 70.5
+
+
+def test_sih_evaluate_personal_deviation_normal(client):
+    """Verify nominal baseline evaluation with zero alarms."""
+    payload = {
+        "heart_rate": 71.0,
+        "temperature": 36.7,
+        "rmssd": 47.0,
+        "eda": 1.4,
+        "ambient_temp_c": 30.0,
+        "aqi_index": 45.0,
+        "flood_risk_pct": 5.0
+    }
+    res = client.post("/sih/evaluate", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["risk_tier"] == "OPTIMAL_BASELINE"
+    assert data["sos_recommended"] is False
+
+
+def test_sih_evaluate_personal_deviation_heat_aqi_critical(client):
+    """Verify critical alert triggers under severe heatwave & tachycardia deviation."""
+    payload = {
+        "heart_rate": 136.0,
+        "temperature": 39.5,
+        "rmssd": 11.0,
+        "eda": 7.9,
+        "ambient_temp_c": 45.5,
+        "aqi_index": 380.0,
+        "flood_risk_pct": 30.0
+    }
+    res = client.post("/sih/evaluate", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["risk_tier"] == "CRITICAL_HIGH_RISK"
+    assert data["sos_recommended"] is True
+    assert "Shapley" in str(data) or "Ambient Heatwave Impact" in data["shapley_attributions"]
+
+
+def test_sih_demo_stage_1_to_4(client):
+    """Verify all 4 killer SIH26181 demo stages execute deterministically."""
+    for stage_id in [1, 2, 3, 4]:
+        res = client.get(f"/sih/demo-stage/{stage_id}")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["stage"] == stage_id
+        if stage_id == 4:
+            assert data["consent_granted"] is True
+            assert "AEGIS!SOS!" in data["encrypted_micro_sos"]
+
+
+def test_sih_evidence_benchmark_endpoint(client):
+    """Verify offline evidence slide benchmarks and zero-API operation audit."""
+    res = client.get("/sih/evidence-benchmark")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["network_and_cloud_dependency"]["external_api_calls"] == 0
+    assert data["network_and_cloud_dependency"]["true_offline_capable"] is True
+    assert data["measured_latencies_ms"]["edge_physiological_deviation"] < 20.0
+
+
 
