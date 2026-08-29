@@ -158,8 +158,47 @@ class AlfredSituationRoomHUD:
         self.cmd_entry.pack(side="left", fill="x", expand=True, padx=6)
         self.cmd_entry.bind("<Return>", lambda e: self._on_submit_command())
 
+        self.mic_btn = tk.Button(
+            cmd_frame,
+            text="🎙️ TALK (HOLD/CLICK)",
+            font=("Segoe UI", 9, "bold"),
+            bg="#eb4d4b",
+            fg="#ffffff",
+            relief="flat",
+            padx=10,
+            command=self._on_voice_talk_click
+        )
+        self.mic_btn.pack(side="left", padx=4)
+
         btn = tk.Button(cmd_frame, text="DISPATCH 🚀", font=("Segoe UI", 9, "bold"), bg="#00a8ff", fg="#ffffff", relief="flat", padx=12, command=self._on_submit_command)
         btn.pack(side="right")
+
+    def _on_voice_talk_click(self):
+        """Triggered on clicking the microphone button."""
+        self.mic_btn.configure(text="🔴 LISTENING...", bg="#ff7979")
+        self.log_text.insert("end", "\n[VOICE]: 🎙️ Listening to microphone for 4 seconds... (Speak now!)\n")
+        self.log_text.see("end")
+
+        def _record():
+            try:
+                from jarvisx.voice.sovereign_wake_word_engine import get_wakeword_engine
+                engine = get_wakeword_engine()
+                text = engine.record_and_transcribe_manual(duration_sec=3.8)
+                if text:
+                    self.cmd_entry.delete(0, "end")
+                    self.cmd_entry.insert(0, text)
+                    self._on_submit_command()
+                else:
+                    self.log_text.insert("end", "[VOICE]: Inaudible speech detected. Please speak louder.\n")
+                    self.log_text.see("end")
+            except Exception as ex:
+                self.log_text.insert("end", f"[VOICE ERROR]: {ex}\n")
+                self.log_text.see("end")
+            finally:
+                self.mic_btn.configure(text="🎙️ TALK (HOLD/CLICK)", bg="#eb4d4b")
+
+        threading.Thread(target=_record, daemon=True).start()
+
 
     def _start_update_loop(self):
         """Updates telemetry every 1.5 seconds."""
