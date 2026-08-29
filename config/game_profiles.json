@@ -217,5 +217,36 @@
       "process_priority": "High",
       "gpu_preference": "HighPerformance"
     }
+  },
+  "the_last_of_us": {
+    "title": "The Last of Us Part I",
+    "executable": "tlou-i.exe",
+    "category": "aaa_story_action",
+    "target_fps": 60,
+    "recommended_settings": {
+      "display_mode": "Borderless Fullscreen",
+      "resolution": "1920x1080",
+      "render_scale": "Dynamic / Quality (FSR 3 / XeSS)",
+      "v_sync": "Off",
+      "frame_rate_cap": "60 FPS",
+      "texture_quality": "Medium",
+      "texture_filtering": "Anisotropic 4x",
+      "shadow_quality": "Medium / Low",
+      "spot_shadows": "Medium",
+      "ambient_occlusion": "Half-Resolution",
+      "directional_shadows": "Medium",
+      "screen_space_reflections": "Off",
+      "volumetric_fog": "Low",
+      "depth_of_field": "Low",
+      "motion_blur": "0 (Off)",
+      "sharpening": "60%"
+    },
+    "config_pattern": "%USERPROFILE%/Saved Games/The Last of Us Part I/users/default/screeninfo.cfg",
+    "os_optimizations": {
+      "process_priority": "High",
+      "gpu_preference": "HighPerformance",
+      "ram_compaction": true
+    }
   }
 }
+
