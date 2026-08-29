@@ -12,7 +12,7 @@ load_dotenv()
 sid = os.getenv("TWILIO_ACCOUNT_SID")
 token = os.getenv("TWILIO_AUTH_TOKEN")
 from_num = os.getenv("TWILIO_PHONE_NUMBER")
-to_num = "+918712484963"
+to_num = "+917794979595"
 
 client = Client(sid, token)
 

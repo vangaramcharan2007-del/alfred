@@ -973,18 +973,33 @@ class DynamicOrchestrator:
             recipient = "Contact"
             msg_body = "Hello from Charan via Alfred OS"
             
+            # Resolve contact from contacts book if available
+            contact_phone = None
+            try:
+                import json
+                contacts_file = Path("config/contacts.json")
+                if contacts_file.exists():
+                    with open(contacts_file, "r", encoding="utf-8") as f:
+                        c_data = json.load(f)
+                    for key, entry in c_data.items():
+                        if key in recipient.lower() or entry.get("name", "").lower() in recipient.lower():
+                            contact_phone = entry.get("phone")
+                            break
+            except Exception:
+                pass
+
             if is_call:
                 from jarvisx.telephony.telephony_gateway import TelephonyGateway
                 recipient = prompt_lower.replace("call", "").replace("make a call to", "").replace("dial", "").strip().title()
                 if not recipient:
                     recipient = "Emergency Contact"
                 
-                # Check if recipient contains digits (phone number)
-                digits = "".join(filter(str.isdigit, recipient))
+                # Check if recipient is a phone number or resolved contact
+                digits = contact_phone or "".join(filter(str.isdigit, recipient))
                 if len(digits) >= 10:
                     gw = TelephonyGateway.get_instance()
-                    call_res = gw.place_live_carrier_call(digits, say_text="Namaste, this is Alfred, Charan's executive AI assistant calling.")
-                    resp_text = f"Placing real carrier phone call to {recipient} via Twilio Voice (+18703619380)."
+                    call_res = gw.place_live_carrier_call(digits, say_text="నమస్కారం, నేను చరణ్ పర్సనల్ ఏఐ అసిస్టెంట్ ఆల్ఫ్రెడ్ ని మాట్లాడుతున్నాను.")
+                    resp_text = f"Placing real Telugu carrier phone call to {recipient} ({digits}) via Twilio Voice (+18703619380)."
                 else:
                     resp_text = f"Initiating cellular voice call to {recipient} via Android GSM bridge. Telephony Safety Sentinel active."
             else:
@@ -1016,15 +1031,16 @@ class DynamicOrchestrator:
                     act_res = send_whatsapp_live(recipient=clean_recipient, message=clean_msg)
                     return {"status": "success", "subsystem": "WHATSAPP_LIVE", "recipient": clean_recipient, "message": clean_msg, "actuation": act_res}
                 else:
-                    # Real Twilio SMS if phone number provided
-                    digits = "".join(filter(str.isdigit, recipient))
+                    # Real Twilio SMS if phone number or resolved contact
+                    digits = contact_phone or "".join(filter(str.isdigit, recipient))
                     if len(digits) >= 10:
                         from jarvisx.telephony.telephony_gateway import TelephonyGateway
                         gw = TelephonyGateway.get_instance()
                         sms_res = gw.send_sms(digits, msg_body)
-                        resp_text = f"Dispatched live carrier SMS to {recipient} via Twilio (+18703619380): \"{msg_body}\"."
+                        resp_text = f"Dispatched live carrier SMS to {recipient} ({digits}) via Twilio (+18703619380): \"{msg_body}\"."
                     else:
                         resp_text = f"Sending SMS to {recipient}: \"{msg_body}\". Telephony safety checks passed and dispatched via cellular gateway."
+
 
             print(f"\n[JARVIS X]: {resp_text}")
             self.voice_engine.speak(resp_text)

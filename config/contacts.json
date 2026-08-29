@@ -1,0 +1,14 @@
+{
+  "dakshith": {
+    "name": "Dakshith",
+    "phone": "+917794979595",
+    "relation": "Friend",
+    "preferred_language": "te-IN"
+  },
+  "dad": {
+    "name": "Dad",
+    "phone": "+918712484963",
+    "relation": "Father",
+    "preferred_language": "te-IN"
+  }
+}
