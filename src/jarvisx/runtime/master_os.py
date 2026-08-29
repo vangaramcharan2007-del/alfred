@@ -32,6 +32,7 @@ from jarvisx.gaming.adaptive_game_governor import AdaptiveGameGovernor, get_game
 from jarvisx.harness.active_context_sensor import ActiveWindowContextSensor, WindowContext
 from jarvisx.harness.clipboard_sensor import AmbientClipboardSensor, ClipboardEvent
 from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
+from jarvisx.voice.sovereign_wake_word_engine import SovereignWakeWordEngine, get_wakeword_engine
 
 
 class AlfredMasterOS:
@@ -56,13 +57,16 @@ class AlfredMasterOS:
         self.clipboard_sensor = AmbientClipboardSensor()
         self.context_sensor = ActiveWindowContextSensor()
 
+        # 5. Hands-Free Wake Word Engine
+        self.wake_engine = get_wakeword_engine(callback=self._handle_spoken_command)
+
         # Hook event listeners
         self.code_autopilot.add_listener(self._on_code_healed)
         self.clipboard_sensor.add_listener(self._on_clipboard_event)
         self.context_sensor.add_listener(self._on_context_change)
 
     def boot_all_subsystems(self, launch_hud: bool = True):
-        """Launches all 6 sovereign pillars in background."""
+        """Launches all sovereign pillars in background."""
         print("[*] Pillar 1: Initializing Gemini 3.6 Flash Cloud Brain & Voice Engine... [OK]")
         print("[*] Pillar 2: Engaging Real-Time Adaptive Game Governor (2.5s Sentinel)... [OK]")
         self.game_governor.start()
@@ -76,6 +80,9 @@ class AlfredMasterOS:
         print("[*] Pillar 5: Engaging Active Window Environmental Perception... [OK]")
         self.context_sensor.start()
 
+        print("[*] Pillar 6: Engaging Hands-Free Wake-Word Microphone Listener ('Hey Alfred')... [OK]")
+        self.wake_engine.start_listening()
+
         self.voice_engine.speak("Alfred Sovereign Master OS is fully online. All autonomous sentinels are guarding your laptop.")
 
         print("\n" + "=" * 75)
@@ -83,10 +90,20 @@ class AlfredMasterOS:
         print("=" * 75 + "\n")
 
         if launch_hud:
-            print("[*] Pillar 6: Launching Sovereign Situation Room HUD...")
+            print("[*] Pillar 7: Launching Sovereign Situation Room HUD...")
             from jarvisx.runtime.alfred_situation_room_hud import AlfredSituationRoomHUD
             hud = AlfredSituationRoomHUD()
             hud.run()
+
+    def _handle_spoken_command(self, spoken_text: str):
+        """Dispatches spoken hands-free commands to Gemini 3.6 Flash."""
+        print(f"\n[ALFRED VOICE HARNESS]: 🎙️ Processing spoken command: '{spoken_text}'")
+        import asyncio
+        threading.Thread(
+            target=lambda: asyncio.run(self.orchestrator._execute_subsystem("AGENT", spoken_text)),
+            daemon=True
+        ).start()
+
 
     def _on_code_healed(self, ev):
         msg = f"🔧 Auto-healed syntax error in {os.path.basename(ev.file_path)} (Line {ev.line_number})"
