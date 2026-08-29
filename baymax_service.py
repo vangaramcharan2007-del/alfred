@@ -458,7 +458,35 @@ async def stream_baymax_reasoning(
             continue
 
     if not success:
-        # Fallback to intelligent template response if Ollama offline
+        # Try Gemini cloud fallback if available
+        gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
+        if not gemini_key:
+            try:
+                for p in [".env", "friday-tony-stark-demo/.env"]:
+                    if os.path.exists(p):
+                        for line in open(p, encoding="utf-8"):
+                            if line.startswith("GEMINI_API_KEY="):
+                                gemini_key = line.split("=", 1)[1].strip().strip('"').strip("'")
+            except Exception:
+                pass
+
+        if gemini_key:
+            try:
+                from google import genai
+                client = genai.Client(api_key=gemini_key)
+                prompt_text = f"System: {system_prompt}\n\nUser: {user_turn_content}"
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt_text,
+                )
+                if response and response.text:
+                    yield response.text.strip()
+                    success = True
+            except Exception:
+                pass
+
+    if not success:
+        # Fallback to intelligent template response if Ollama & Cloud offline
         if safety_check["is_contraindicated"]:
             yield f"Please be careful! You have a documented allergy to {', '.join(safety_check['conflicting_allergens']).upper()}. Please do not take it. A safe alternative is {safety_check['safe_alternative']}."
         elif is_syncope:
@@ -467,6 +495,7 @@ async def stream_baymax_reasoning(
             yield f"Based on your symptoms, {matched_protocol['first_line_action']}. For medication, {matched_protocol['pharmacotherapy']['first_line']}."
         else:
             yield f"Hello {patient_profile.get('name', 'Ramcharan')}! I am monitoring your vitals closely. Heart rate is {vitals.get('heart_rate', 72)} BPM and core temperature is {vitals.get('temperature', 36.8)}°C. How can I support your health today?"
+
 
 
 async def generate_baymax_reply_text(

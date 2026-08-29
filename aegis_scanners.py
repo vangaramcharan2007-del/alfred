@@ -297,69 +297,58 @@ def classify_chest_xray(
     heatmap_zones = []
 
     # Tuberculosis Detection (upper lobe predominant)
-    if upper_lobe_density > 0.30:
-        classification = "PULMONARY_TUBERCULOSIS"
-        confidence = 0.88
-        severity = "HIGH"
-        findings.append("Upper lobe infiltrates with possible cavitation pattern consistent with pulmonary tuberculosis.")
-        findings.append("Recommend: Sputum AFB smear, GeneXpert MTB/RIF, and chest CT for confirmation.")
-        heatmap_zones = [
-            {"zone": "Right Upper Lobe", "intensity": round(upper_lobe_density * 100, 1), "color": "#ef4444"},
-            {"zone": "Left Upper Lobe", "intensity": round(upper_lobe_density * 85, 1), "color": "#f97316"},
-        ]
+    # ── Trained GradientBoosting Model Inference ──
+    try:
+        import joblib, numpy as np, os
+        model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "xray_model.joblib")
+        if os.path.exists(model_path):
+            bundle = joblib.load(model_path)
+            model = bundle["model"]
+            classes = bundle["classes"]
+            features_vec = np.array([[pixel_intensity_mean, lung_opacity_ratio, contrast_score,
+                                      cardiac_silhouette_ratio, upper_lobe_density, lower_lobe_density,
+                                      1.0 if bilateral else 0.0]])
+            pred_idx = model.predict(features_vec)[0]
+            probas = model.predict_proba(features_vec)[0]
+            classification = classes[pred_idx]
+            confidence = float(probas[pred_idx])
+            model_info = f"GradientBoosting CXR Classifier v2.0 (Acc: {bundle['metrics']['accuracy']:.1%}, F1: {bundle['metrics']['macro_f1']:.1%})"
+        else:
+            raise FileNotFoundError("xray_model.joblib not found, using heuristic fallback")
+    except Exception:
+        # Heuristic fallback
+        if upper_lobe_density > 0.30:
+            classification, confidence = "TUBERCULOSIS", 0.88
+        elif lung_opacity_ratio > 0.35 and lower_lobe_density > 0.30:
+            classification, confidence = "BACTERIAL_PNEUMONIA", 0.91
+        elif bilateral and lung_opacity_ratio > 0.25:
+            classification, confidence = "VIRAL_PNEUMONIA", 0.84
+        elif cardiac_silhouette_ratio > 0.55:
+            classification, confidence = "CARDIOMEGALY", 0.83
+        model_info = "Edge CXR Heuristic Classifier v1.0 (Fallback)"
 
-    # Bacterial Pneumonia Detection (lower lobe consolidation)
-    elif lung_opacity_ratio > 0.35 and lower_lobe_density > 0.30:
-        classification = "BACTERIAL_PNEUMONIA"
-        confidence = 0.91
-        severity = "HIGH"
-        findings.append("Dense lobar consolidation in lower lung fields with air bronchograms suggestive of bacterial pneumonia.")
-        findings.append("Recommend: Blood cultures, CBC with differential, empiric antibiotics (Amoxicillin-Clavulanate or Azithromycin).")
-        heatmap_zones = [
-            {"zone": "Right Lower Lobe", "intensity": round(lower_lobe_density * 100, 1), "color": "#ef4444"},
-            {"zone": "Left Lower Lobe", "intensity": round(lower_lobe_density * 80, 1), "color": "#f97316"},
-        ]
-
-    # Viral / COVID-19 Pneumonia (bilateral ground-glass)
-    elif bilateral and lung_opacity_ratio > 0.25:
-        classification = "VIRAL_PNEUMONIA"
-        confidence = 0.84
-        severity = "MODERATE"
-        findings.append("Bilateral peripheral ground-glass opacities consistent with viral pneumonia (COVID-19 pattern).")
-        findings.append("Recommend: RT-PCR testing, pulse oximetry monitoring, supportive care with O2 if SpO2 < 94%.")
-        heatmap_zones = [
-            {"zone": "Right Peripheral", "intensity": round(lung_opacity_ratio * 100, 1), "color": "#f59e0b"},
-            {"zone": "Left Peripheral", "intensity": round(lung_opacity_ratio * 90, 1), "color": "#f59e0b"},
-        ]
-
-    # Mild opacity / Early infiltrate
-    elif lung_opacity_ratio > 0.20:
-        classification = "EARLY_INFILTRATE"
-        confidence = 0.76
-        severity = "LOW"
-        findings.append("Mild patchy opacity noted. Could represent early pneumonic infiltrate or atelectasis.")
-        findings.append("Recommend: Clinical correlation, repeat CXR in 48-72 hours if symptoms persist.")
-        heatmap_zones = [
-            {"zone": "Lower Lung Fields", "intensity": round(lung_opacity_ratio * 80, 1), "color": "#eab308"},
-        ]
-
-    # Cardiomegaly check
-    elif cardiac_silhouette_ratio > 0.55:
-        classification = "CARDIOMEGALY"
-        confidence = 0.83
-        severity = "MODERATE"
-        findings.append(f"Cardiothoracic ratio {cardiac_silhouette_ratio:.2f} exceeds 0.50 threshold. Suggestive of cardiomegaly.")
-        findings.append("Recommend: Echocardiogram, BNP levels, and cardiology referral.")
-        heatmap_zones = [
-            {"zone": "Cardiac Silhouette", "intensity": round(cardiac_silhouette_ratio * 100, 1), "color": "#a855f7"},
-        ]
-
-    else:
-        findings.append("No significant pulmonary infiltrates, effusions, or consolidation identified.")
-        findings.append("Heart size and mediastinum appear within normal limits.")
-        heatmap_zones = [
-            {"zone": "Bilateral Lung Fields", "intensity": 8.0, "color": "#22c55e"},
-        ]
+    # Clinical findings generation based on classification
+    FINDINGS_MAP = {
+        "NORMAL": (["No significant pulmonary infiltrates, effusions, or consolidation identified.",
+                     "Heart size and mediastinum appear within normal limits."], "LOW",
+                   [{"zone": "Bilateral Lung Fields", "intensity": 8.0, "color": "#22c55e"}]),
+        "TUBERCULOSIS": (["Upper lobe infiltrates with possible cavitation pattern consistent with pulmonary tuberculosis.",
+                          "Recommend: Sputum AFB smear, GeneXpert MTB/RIF, and chest CT for confirmation."], "HIGH",
+                         [{"zone": "Right Upper Lobe", "intensity": round(upper_lobe_density * 100, 1), "color": "#ef4444"}]),
+        "BACTERIAL_PNEUMONIA": (["Dense lobar consolidation in lower lung fields with air bronchograms suggestive of bacterial pneumonia.",
+                                  "Recommend: Blood cultures, CBC with differential, empiric antibiotics."], "HIGH",
+                                [{"zone": "Right Lower Lobe", "intensity": round(lower_lobe_density * 100, 1), "color": "#ef4444"}]),
+        "VIRAL_PNEUMONIA": (["Bilateral peripheral ground-glass opacities consistent with viral pneumonia (COVID-19 pattern).",
+                              "Recommend: RT-PCR testing, pulse oximetry monitoring, supportive care."], "MODERATE",
+                            [{"zone": "Right Peripheral", "intensity": round(lung_opacity_ratio * 100, 1), "color": "#f59e0b"}]),
+        "CARDIOMEGALY": ([f"Cardiothoracic ratio {cardiac_silhouette_ratio:.2f} exceeds 0.50 threshold. Suggestive of cardiomegaly.",
+                          "Recommend: Echocardiogram, BNP levels, and cardiology referral."], "MODERATE",
+                         [{"zone": "Cardiac Silhouette", "intensity": round(cardiac_silhouette_ratio * 100, 1), "color": "#a855f7"}]),
+    }
+    findings_data = FINDINGS_MAP.get(classification, FINDINGS_MAP["NORMAL"])
+    findings = findings_data[0]
+    severity = findings_data[1]
+    heatmap_zones = findings_data[2]
 
     return {
         "classification": classification,
