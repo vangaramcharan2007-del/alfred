@@ -949,11 +949,23 @@ class DynamicOrchestrator:
                     elif len(tokens) == 2:
                         recipient = tokens[1].title()
                 
-                resp_text = f"Sending SMS to {recipient}: \"{msg_body}\". Telephony safety checks passed and dispatched via cellular gateway."
+                if "whatsapp" in prompt_lower or "on whatsapp" in prompt_lower:
+                    from jarvisx.automation.whatsapp_actuation import send_whatsapp_live
+                    # Clean message and recipient
+                    clean_recipient = recipient.replace("In Whatsapp", "").replace("On Whatsapp", "").replace("In Front Of My Eyes Now", "").replace("Now", "").strip()
+                    clean_msg = msg_body.replace("in whatsapp", "").replace("on whatsapp", "").replace("in front of my eyes now", "").replace("now", "").strip()
+                    resp_text = f"Opening WhatsApp right now and sending \"{clean_msg}\" to {clean_recipient} in front of your eyes."
+                    print(f"\n[JARVIS X]: {resp_text}")
+                    self.voice_engine.speak(resp_text)
+                    act_res = send_whatsapp_live(recipient=clean_recipient, message=clean_msg)
+                    return {"status": "success", "subsystem": "WHATSAPP_LIVE", "recipient": clean_recipient, "message": clean_msg, "actuation": act_res}
+                else:
+                    resp_text = f"Sending SMS to {recipient}: \"{msg_body}\". Telephony safety checks passed and dispatched via cellular gateway."
 
             print(f"\n[JARVIS X]: {resp_text}")
             self.voice_engine.speak(resp_text)
             return {"status": "success", "subsystem": "TELEPHONY_COMMUNICATION", "recipient": recipient, "message": msg_body, "result": resp_text}
+
 
         elif category == "ACADEMIC_10CGPA":
             print(f"[*] Subsystem Selected: Friday Academic 10-CGPA Executive")
