@@ -1076,6 +1076,56 @@ class WhatsAppSendTool(Tool):
 
 
 # ---------------------------------------------------------------------------
+# Tool: optimize_game_settings
+# ---------------------------------------------------------------------------
+
+class OptimizeGameSettingsTool(Tool):
+    """Sovereign Game Optimization Tool for tuning graphics, FPS, and Windows performance for any game."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="optimize_game_settings",
+            description="Analyzes laptop hardware and applies optimal in-game graphics settings, elevates process priority to High, trims RAM bloat, and optimizes Windows power plan for maximum FPS.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "game": {
+                        "type": "string",
+                        "description": "Name of the target game (e.g. 'Valorant', 'GTA V', 'CS2', 'Cyberpunk', 'Minecraft', 'Fortnite', 'Apex Legends', 'Genshin Impact', etc.) or 'auto' to detect active game."
+                    }
+                },
+                "required": ["game"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="gaming.optimize"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        game_query = arguments.get("game", "auto")
+        
+        from jarvisx.gaming.game_optimizer_agent import get_game_optimizer
+        optimizer = get_game_optimizer()
+        
+        if game_query.lower() == "auto":
+            active = optimizer.scan_active_running_game()
+            if active:
+                game_query = active[0]
+            else:
+                game_query = "generic_game"
+
+        res = optimizer.optimize_game(game_query)
+        return ToolResult(
+            status="success",
+            tool="optimize_game_settings",
+            result=res.to_dict(),
+        )
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result)
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
 # Registry bootstrap
 # ---------------------------------------------------------------------------
 
@@ -1104,6 +1154,8 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(SendSmsTool())
     registry.register(PlaceCarrierCallTool())
     registry.register(WhatsAppSendTool())
+    registry.register(OptimizeGameSettingsTool())
+
 
 
 

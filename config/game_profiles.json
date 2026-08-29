@@ -1,0 +1,221 @@
+{
+  "valorant": {
+    "title": "VALORANT",
+    "executable": "VALORANT-Win64-Shipping.exe",
+    "category": "competitive_esports",
+    "target_fps": 144,
+    "recommended_settings": {
+      "display_mode": "Fullscreen",
+      "resolution": "1920x1080",
+      "material_quality": "Low",
+      "texture_quality": "Medium",
+      "detail_quality": "Low",
+      "ui_quality": "Low",
+      "vignette": "Off",
+      "vsync": "Off",
+      "anti_aliasing": "MSAA 2x",
+      "anisotropic_filtering": "4x",
+      "improve_clarity": "On",
+      "bloom": "Off",
+      "distortion": "Off",
+      "cast_shadows": "Off",
+      "nvidia_reflex": "On + Boost"
+    },
+    "config_pattern": "%LOCALAPPDATA%/VALORANT/Saved/Config/Windows/GameUserSettings.ini",
+    "os_optimizations": {
+      "process_priority": "High",
+      "gpu_preference": "HighPerformance",
+      "disable_fullscreen_optimizations": true
+    }
+  },
+  "gtav": {
+    "title": "Grand Theft Auto V",
+    "executable": "GTA5.exe",
+    "category": "open_world_action",
+    "target_fps": 60,
+    "recommended_settings": {
+      "directx_version": "DirectX 11",
+      "resolution": "1920x1080",
+      "fxaa": "On",
+      "msaa": "Off",
+      "vsync": "Off",
+      "population_density": "60%",
+      "population_variety": "60%",
+      "distance_scaling": "75%",
+      "texture_quality": "High",
+      "shader_quality": "High",
+      "shadow_quality": "Normal",
+      "reflection_quality": "High",
+      "water_quality": "High",
+      "particles_quality": "Normal",
+      "grass_quality": "Normal",
+      "soft_shadows": "NVIDIA PCSS / Soft",
+      "post_fx": "Normal",
+      "anisotropic_filtering": "X8",
+      "ambient_occlusion": "Normal",
+      "tessellation": "Normal"
+    },
+    "config_pattern": "%USERPROFILE%/Documents/Rockstar Games/GTA V/settings.xml",
+    "os_optimizations": {
+      "process_priority": "High",
+      "gpu_preference": "HighPerformance"
+    }
+  },
+  "cs2": {
+    "title": "Counter-Strike 2",
+    "executable": "cs2.exe",
+    "category": "competitive_esports",
+    "target_fps": 144,
+    "recommended_settings": {
+      "resolution": "1920x1080",
+      "boost_player_contrast": "Enabled",
+      "anti_aliasing": "4X MSAA",
+      "global_shadow_quality": "Medium",
+      "model_texture_detail": "Low",
+      "texture_filtering_mode": "Bilinear",
+      "shader_detail": "Low",
+      "particle_detail": "Low",
+      "ambient_occlusion": "Disabled",
+      "high_dynamic_range": "Performance",
+      "fidelityfx_super_resolution": "Disabled (Highest Quality)",
+      "nvidia_reflex_low_latency": "Enabled + Boost"
+    },
+    "config_pattern": "%LOCALAPPDATA%/Steam/userdata/*/730/local/cfg/cs2_video.txt",
+    "os_optimizations": {
+      "process_priority": "High",
+      "gpu_preference": "HighPerformance"
+    }
+  },
+  "cyberpunk2077": {
+    "title": "Cyberpunk 2077",
+    "executable": "Cyberpunk2077.exe",
+    "category": "aaa_rpg",
+    "target_fps": 60,
+    "recommended_settings": {
+      "resolution": "1920x1080",
+      "crowd_density": "Medium",
+      "volumetric_fog_resolution": "Medium",
+      "volumetric_clouds_quality": "Medium",
+      "screen_space_reflections": "Low",
+      "subsurface_scattering": "Medium",
+      "ambient_occlusion": "Low",
+      "color_precision": "Medium",
+      "cascaded_shadows_resolution": "Medium",
+      "distant_shadows_resolution": "High",
+      "ray_tracing": "Off",
+      "dlss_or_fsr": "Balanced / Quality",
+      "sharpness": "0.50"
+    },
+    "config_pattern": "%LOCALAPPDATA%/CD Projekt Red/Cyberpunk 2077/UserSettings.json",
+    "os_optimizations": {
+      "process_priority": "High",
+      "gpu_preference": "HighPerformance"
+    }
+  },
+  "minecraft": {
+    "title": "Minecraft",
+    "executable": "javaw.exe",
+    "category": "sandbox",
+    "target_fps": 120,
+    "recommended_settings": {
+      "render_distance": "12 chunks",
+      "simulation_distance": "8 chunks",
+      "graphics": "Fancy",
+      "smooth_lighting": "Maximum",
+      "max_framerate": "Unlimited",
+      "view_bobbing": "Off",
+      "gui_scale": "Auto",
+      "attack_indicator": "Crosshair",
+      "clouds": "Fast",
+      "particles": "Decreased",
+      "vsync": "Off",
+      "entity_distance": "100%",
+      "biome_blend": "5x5",
+      "jvm_ram_allocation": "4GB - 6GB"
+    },
+    "config_pattern": "%APPDATA%/.minecraft/options.txt",
+    "os_optimizations": {
+      "process_priority": "AboveNormal",
+      "gpu_preference": "HighPerformance"
+    }
+  },
+  "fortnite": {
+    "title": "Fortnite",
+    "executable": "FortniteClient-Win64-Shipping.exe",
+    "category": "battle_royale",
+    "target_fps": 120,
+    "recommended_settings": {
+      "rendering_mode": "Performance (Lower Graphical Fidelity)",
+      "3d_resolution": "100%",
+      "view_distance": "Medium / Epic",
+      "textures": "Low",
+      "meshes": "Low",
+      "vsync": "Off",
+      "frame_rate_limit": "144 FPS",
+      "nvidia_reflex": "On + Boost"
+    },
+    "config_pattern": "%LOCALAPPDATA%/FortniteGame/Saved/Config/WindowsClient/GameUserSettings.ini",
+    "os_optimizations": {
+      "process_priority": "High",
+      "gpu_preference": "HighPerformance"
+    }
+  },
+  "apex_legends": {
+    "title": "Apex Legends",
+    "executable": "r5apex.exe",
+    "category": "battle_royale",
+    "target_fps": 120,
+    "recommended_settings": {
+      "display_mode": "Full Screen",
+      "aspect_ratio": "16:9",
+      "resolution": "1920x1080",
+      "field_of_view": "104",
+      "v_sync": "Disabled",
+      "anti_aliasing": "TSAA",
+      "texture_streaming_budget": "Very Low (2GB VRAM) / Medium (3GB)",
+      "texture_filtering": "Anisotropic 2X",
+      "ambient_occlusion_quality": "Disabled",
+      "sun_shadow_coverage": "Low",
+      "sun_shadow_detail": "Low",
+      "spot_shadow_detail": "Disabled",
+      "volumetric_lighting": "Disabled",
+      "dynamic_spot_shadows": "Disabled",
+      "model_detail": "Medium",
+      "effects_detail": "Low",
+      "impact_marks": "Disabled",
+      "ragdolls": "Low"
+    },
+    "config_pattern": "%USERPROFILE%/Saved Games/Respawn/Apex/local/videoconfig.txt",
+    "os_optimizations": {
+      "process_priority": "High",
+      "gpu_preference": "HighPerformance"
+    }
+  },
+  "genshin_impact": {
+    "title": "Genshin Impact",
+    "executable": "GenshinImpact.exe",
+    "category": "action_rpg",
+    "target_fps": 60,
+    "recommended_settings": {
+      "resolution": "1920x1080",
+      "display_mode": "Fullscreen",
+      "fps": "60",
+      "render_resolution": "1.0",
+      "shadow_quality": "Medium",
+      "visual_effects": "Medium",
+      "sfx_quality": "Medium",
+      "overall_settings": "Custom",
+      "motion_blur": "Off",
+      "bloom": "On",
+      "anti_aliasing": "SMAA",
+      "crowd_density": "High",
+      "subsurface_scattering": "Medium",
+      "anisotropic_filtering": "4x"
+    },
+    "config_pattern": "%LOCALAPPDATA%/miHoYo/Genshin Impact/config.ini",
+    "os_optimizations": {
+      "process_priority": "High",
+      "gpu_preference": "HighPerformance"
+    }
+  }
+}
