@@ -1155,6 +1155,68 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(PlaceCarrierCallTool())
     registry.register(WhatsAppSendTool())
     registry.register(OptimizeGameSettingsTool())
+    registry.register(AdaptiveGamingGovernorTool())
+
+
+# ---------------------------------------------------------------------------
+# Tool: adaptive_game_governor
+# ---------------------------------------------------------------------------
+
+class AdaptiveGamingGovernorTool(Tool):
+    """Controls the background real-time game governor that continuously adjusts performance and load while gaming."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="adaptive_game_governor",
+            description="Controls or inspects the real-time background game governor that monitors CPU/RAM/GPU load every 2.5s and continuously adapts performance while playing.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["start", "stop", "status"],
+                        "description": "Action to perform: 'start' to engage continuous background governor, 'stop' to pause, 'status' to get real-time gaming telemetry."
+                    }
+                },
+                "required": ["action"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="gaming.governor"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        action = arguments.get("action", "status")
+        
+        from jarvisx.gaming.adaptive_game_governor import get_game_governor
+        gov = get_game_governor()
+
+        if action == "start":
+            gov.start()
+            status = gov.get_status()
+            return ToolResult(
+                status="success",
+                tool="adaptive_game_governor",
+                result={
+                    "status": "RUNNING_IN_BACKGROUND",
+                    "message": "Adaptive Game Governor engaged. Continuously monitoring and tuning performance while gaming.",
+                    "details": status
+                }
+            )
+        elif action == "stop":
+            gov.stop()
+            return ToolResult(
+                status="success",
+                tool="adaptive_game_governor",
+                result={"status": "STOPPED", "message": "Adaptive Game Governor stopped."}
+            )
+        else:
+            status = gov.get_status()
+            return ToolResult(status="success", tool="adaptive_game_governor", result=status)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result)
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
 
 
 
