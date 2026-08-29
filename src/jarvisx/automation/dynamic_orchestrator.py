@@ -871,243 +871,53 @@ class DynamicOrchestrator:
             pass
 
         # Deterministic heuristic fallback
-        prompt_lower = user_prompt.lower().strip()
-        
-        # 1. Quick greetings
-        if prompt_lower in ["yoo", "yo", "hi", "hello", "hey", "sup", "what's up", "good morning", "good evening"]:
-            return "GREETING"
-
-        # 2. Live Desktop Showcase & Capabilities Demonstration
-        # e.g., "showcase what u can do infront of my eyes", "demo capabilities", "what can you do"
-        if any(term in prompt_lower for term in ["showcase", "show case", "what can you do", "what u can do", "show me what you can do", "demo", "demonstrate", "infront of my eyes", "in front of my eyes", "show me"]):
-            return "SHOWCASE_LIVE"
-
-        # 3. Telephony & Communication (SMS, Messages, Calls)
-        # e.g., "send hi to dakshith", "text 8712484963 hello", "call dad", "message rahul"
-        if any(prompt_lower.startswith(p) for p in ["send ", "text ", "call ", "sms ", "msg ", "message "]) or \
-           any(w in prompt_lower for w in ["send a text", "send an sms", "make a call", "phone call"]):
-            if " to " in prompt_lower or any(c.isdigit() for c in prompt_lower) or prompt_lower.startswith("call ") or prompt_lower.startswith("text "):
-                return "TELEPHONY_COMMUNICATION"
-
-
-        # 3. Academic 10-CGPA & Daily Executive
-        if any(term in prompt_lower for term in ["war mode", "10 cgpa", "schedule", "deadlines", "assignment", "syllabus", "study block", "academic"]):
-            return "ACADEMIC_10CGPA"
-
-        # 4. Dev Core & Autonomous Code Healer
-        if any(term in prompt_lower for term in ["fix this code", "heal code", "heal this", "repair code", "run sandbox test", "debug code"]):
-            return "DEV_HEALER"
-
-        # 5. App & Web Launches (e.g. "open youtube", "open paint", "launch vscode")
-        if any(prompt_lower.startswith(prefix) for prefix in ["open ", "launch ", "start ", "play "]):
-            return "APP_LAUNCH"
-
-        # 6. Visual UI Actions
-        if any(term in prompt_lower for term in ["click", "screen", "paint", "window", "draw", "type into", "mouse"]):
-            return "VISUAL_ACTUATION"
-
-        # 7. Web Research
-        elif any(term in prompt_lower for term in ["web", "browse", "url", "http", "website", "search online", "wikipedia"]):
-            return "WEB_RESEARCH"
-
-        # 8. General Knowledge / RAG
-        else:
-            return "KNOWLEDGE_RAG"
+    @property
+    def mission_planner(self):
+        if not hasattr(self, "_mission_planner") or self._mission_planner is None:
+            from jarvisx.missions.unified_mission_planner import UnifiedMissionPlanner
+            from jarvisx.tools.tool_kernel import ToolRegistry
+            from jarvisx.tools.builtin_tools import register_builtin_tools
+            reg = ToolRegistry.get_instance()
+            register_builtin_tools(reg)
+            self._mission_planner = UnifiedMissionPlanner(tool_registry=reg)
+        return self._mission_planner
 
     async def _execute_subsystem(self, category: str, prompt: str) -> Dict[str, Any]:
-        """Dispatches the prompt to the appropriate unified subsystem."""
-        if category == "GREETING":
-            resp_text = f"Hey {self.user_name}! All systems are online and listening. How can I help you right now?"
+        """
+        Pure Autonomous LLM Execution Engine:
+        Routes user goals directly to the LLM-driven Unified Mission Planner.
+        The LLM dynamically selects tools, generates execution steps, and executes them via ToolExecutor.
+        """
+        prompt_lower = prompt.lower().strip()
+        
+        # Fast natural greeting bypass
+        if prompt_lower in ["hi", "hello", "hey", "yo", "sup", "good morning", "good evening"]:
+            resp_text = f"Greetings Charan! Alfred OS is online and standing by. What mission shall we execute?"
             print(f"\n[JARVIS X]: {resp_text}")
             self.voice_engine.speak(resp_text)
             return {"status": "success", "subsystem": "GREETING", "result": resp_text}
 
-        elif category == "SHOWCASE_LIVE":
-            print(f"[*] Subsystem Selected: Live Desktop Actuation Showcase")
-            resp_text = f"Sir, initiating live desktop actuation showcase right now in front of your eyes."
-            print(f"\n[JARVIS X]: {resp_text}")
-            self.voice_engine.speak(resp_text)
-            
-            # 1. Open live visual notepad on screen and type capabilities
-            try:
-                import subprocess, time, webbrowser
-                # Launch Notepad with showcase text
-                showcase_file = "var/ALFRED_LIVE_SHOWCASE.txt"
-                os.makedirs("var", exist_ok=True)
-                with open(showcase_file, "w", encoding="utf-8") as f:
-                    f.write(
-                        "===============================================================\n"
-                        " 👑 ALFRED SOVEREIGN BUTLER & ENGINEERING EXECUTIVE (LIVE)\n"
-                        "===============================================================\n\n"
-                        f"Sir, here are your active operational pillars running live:\n\n"
-                        "1. 📱 TELEPHONY & CELLULAR GATEWAY\n"
-                        "   - Automated SMS and carrier phone calls via Android GSM SIM\n\n"
-                        "2. 💬 WHATSAPP DESKTOP ACTUATION\n"
-                        "   - On-screen visual typing, contact search & message dispatch\n\n"
-                        "3. 🛠️ FRIDAY DEV CORE & CODE HEALER\n"
-                        "   - Autonomous AST bug diagnosis & unit test synthesis\n\n"
-                        "4. 🎯 ACADEMIC 10-CGPA WAR MODE\n"
-                        "   - Syllabus coverage tracking & daily priority queue\n\n"
-                        "5. ⚡ DISTRIBUTED GPU MESH (LAB-VM-01)\n"
-                        "   - Heavy LLM & deep research offload over WireGuard mesh\n\n"
-                        "6. 🛡️ AEGIS CLINICAL & DISASTER WORKSTATION (SIH26181)\n"
-                        "   - 4 trained ML models (X-Ray, Cough, Anemia, WESAD Stress)\n"
-                        "===============================================================\n"
-                    )
-                subprocess.Popen(["notepad.exe", showcase_file])
-                
-                # 2. Also open AEGIS 3D Command Deck in browser
-                webbrowser.open("http://localhost:3000")
-            except Exception as e:
-                print(f"[!] Showcase visual launch note: {e}")
-
-            return {"status": "success", "subsystem": "SHOWCASE_LIVE", "result": resp_text}
-
-        elif category == "TELEPHONY_COMMUNICATION":
-            print(f"[*] Subsystem Selected: Telephony & Cellular Gateway")
-
-            prompt_lower = prompt.lower().strip()
-            
-            # Extract recipient and message
-            is_call = prompt_lower.startswith("call ") or "call" in prompt_lower.split()
-            recipient = "Contact"
-            msg_body = "Hello from Charan via Alfred OS"
-            
-            # Resolve contact from contacts book if available
-            contact_phone = None
-            try:
-                import json
-                contacts_file = Path("config/contacts.json")
-                if contacts_file.exists():
-                    with open(contacts_file, "r", encoding="utf-8") as f:
-                        c_data = json.load(f)
-                    for key, entry in c_data.items():
-                        if key in recipient.lower() or entry.get("name", "").lower() in recipient.lower():
-                            contact_phone = entry.get("phone")
-                            break
-            except Exception:
-                pass
-
-            if is_call:
-                from jarvisx.telephony.telephony_gateway import TelephonyGateway
-                recipient = prompt_lower.replace("call", "").replace("make a call to", "").replace("dial", "").strip().title()
-                if not recipient:
-                    recipient = "Emergency Contact"
-                
-                # Check if recipient is a phone number or resolved contact
-                digits = contact_phone or "".join(filter(str.isdigit, recipient))
-                if len(digits) >= 10:
-                    gw = TelephonyGateway.get_instance()
-                    call_res = gw.place_live_carrier_call(digits, say_text="నమస్కారం, నేను చరణ్ పర్సనల్ ఏఐ అసిస్టెంట్ ఆల్ఫ్రెడ్ ని మాట్లాడుతున్నాను.")
-                    resp_text = f"Placing real Telugu carrier phone call to {recipient} ({digits}) via Twilio Voice (+18703619380)."
-                else:
-                    resp_text = f"Initiating cellular voice call to {recipient} via Android GSM bridge. Telephony Safety Sentinel active."
+        print(f"\n[*] 🧠 ALFRED LLM AGENT REASONING ON: '{prompt}'")
+        
+        # Execute unified mission dynamically through the LLM tool-calling kernel
+        mission_report = await self.mission_planner.execute_mission_async(goal=prompt, persona="ALFRED")
+        
+        # Summarize execution observation
+        resp_text = mission_report.get("response", "")
+        if not resp_text:
+            if mission_report.get("status") == "completed":
+                resp_text = f"Sir, I have completed the task: {prompt}."
             else:
-                # Format: "send <msg> to <recipient>" or "text <recipient> <msg>"
-                if " to " in prompt_lower:
-                    parts = prompt_lower.split(" to ", 1)
-                    # "send hi to dakshith" -> parts[0]="send hi", parts[1]="dakshith"
-                    msg_candidate = parts[0].replace("send", "").replace("text", "").replace("sms", "").replace("a message", "").strip()
-                    recipient_candidate = parts[1].strip()
-                    if recipient_candidate:
-                        recipient = recipient_candidate.title()
-                    if msg_candidate:
-                        msg_body = msg_candidate
-                elif prompt_lower.startswith("text ") or prompt_lower.startswith("sms "):
-                    tokens = prompt.split()
-                    if len(tokens) >= 3:
-                        recipient = tokens[1].title()
-                        msg_body = " ".join(tokens[2:])
-                    elif len(tokens) == 2:
-                        recipient = tokens[1].title()
-                
-                if "whatsapp" in prompt_lower or "on whatsapp" in prompt_lower:
-                    from jarvisx.automation.whatsapp_actuation import send_whatsapp_live
-                    clean_recipient = recipient.replace("In Whatsapp", "").replace("On Whatsapp", "").replace("In Front Of My Eyes Now", "").replace("Now", "").strip()
-                    clean_msg = msg_body.replace("in whatsapp", "").replace("on whatsapp", "").replace("in front of my eyes now", "").replace("now", "").strip()
-                    resp_text = f"Opening WhatsApp right now and sending \"{clean_msg}\" to {clean_recipient} in front of your eyes."
-                    print(f"\n[JARVIS X]: {resp_text}")
-                    self.voice_engine.speak(resp_text)
-                    act_res = send_whatsapp_live(recipient=clean_recipient, message=clean_msg)
-                    return {"status": "success", "subsystem": "WHATSAPP_LIVE", "recipient": clean_recipient, "message": clean_msg, "actuation": act_res}
-                else:
-                    # Real Twilio SMS if phone number or resolved contact
-                    digits = contact_phone or "".join(filter(str.isdigit, recipient))
-                    if len(digits) >= 10:
-                        from jarvisx.telephony.telephony_gateway import TelephonyGateway
-                        gw = TelephonyGateway.get_instance()
-                        sms_res = gw.send_sms(digits, msg_body)
-                        resp_text = f"Dispatched live carrier SMS to {recipient} ({digits}) via Twilio (+18703619380): \"{msg_body}\"."
-                    else:
-                        resp_text = f"Sending SMS to {recipient}: \"{msg_body}\". Telephony safety checks passed and dispatched via cellular gateway."
+                resp_text = f"Sir, execution status: {mission_report.get('status')}."
 
+        print(f"\n[JARVIS X]: {resp_text}")
+        self.voice_engine.speak(resp_text)
+        return mission_report
 
-            print(f"\n[JARVIS X]: {resp_text}")
-            self.voice_engine.speak(resp_text)
-            return {"status": "success", "subsystem": "TELEPHONY_COMMUNICATION", "recipient": recipient, "message": msg_body, "result": resp_text}
-
-
-
-        elif category == "ACADEMIC_10CGPA":
-            print(f"[*] Subsystem Selected: Friday Academic 10-CGPA Executive")
-            from jarvisx.executive.daily_executive import DailyExecutiveSentinel
-            exec_sentinel = DailyExecutiveSentinel()
-            briefing = await exec_sentinel.generate_executive_briefing()
-            
-            top_task = briefing.top_priorities[0].get("title", "High-Yield Study Block") if briefing.top_priorities else "System Architecture Review"
-            resp_text = f"Academic War Mode active. Top priority: {top_task}. System is tracking all assignment deadlines for your 10 CGPA goal."
-            print(f"\n[JARVIS X]: {resp_text}")
-            self.voice_engine.speak(resp_text)
-            return {"status": "success", "subsystem": "ACADEMIC_10CGPA", "briefing": briefing}
-
-        elif category == "DEV_HEALER":
-            print(f"[*] Subsystem Selected: Friday Dev Core Code Healer")
-            resp_text = "Analyzing code in Friday isolated sandbox. Running AST diagnosis and synthesizing unit test suite now."
-            print(f"\n[JARVIS X]: {resp_text}")
-            self.voice_engine.speak(resp_text)
-            return {"status": "success", "subsystem": "DEV_HEALER", "result": resp_text}
-
-        elif category == "APP_LAUNCH":
-            clean_app = prompt.lower().replace("open", "").replace("launch", "").replace("start", "").strip()
-            print(f"[*] Subsystem Selected: Dynamic App Launcher ('{clean_app}')")
-            res = self.find_and_launch_app(clean_app)
-            if res.get("status") in ["LAUNCHED_WEB", "LAUNCHED_PROCESS"]:
-                resp_text = f"Opening {clean_app} for you now."
-            else:
-                resp_text = f"Searching for and launching {clean_app}."
-            print(f"\n[JARVIS X]: {resp_text}")
-            self.voice_engine.speak(resp_text)
-            return {"status": "success", "subsystem": "APP_LAUNCH", "result": res}
-
-        elif category == "KNOWLEDGE_RAG":
-            print("[*] Subsystem Selected: Distributed Mesh (RAG)")
-            res = self.mesh_router.dispatch_intent(prompt)
-            resp_text = res.get("response", str(res))
-            print(f"\n[JARVIS X]: {resp_text}")
-            self.voice_engine.speak(resp_text)
-            return {"status": "success", "subsystem": "KNOWLEDGE_RAG", "result": resp_text}
-
-        elif category == "VISUAL_ACTUATION":
-            print("[*] Subsystem Selected: Vision-Actuation Bridge")
-            self.voice_engine.speak("Executing visual desktop operation.")
-            success = await self.vision_bridge.execute_visual_click(target_description=prompt)
-            msg = f"Visual operation {'succeeded' if success else 'could not locate target'}."
-            self.voice_engine.speak(msg)
-            return {"status": "success" if success else "failed", "subsystem": "VISUAL_ACTUATION", "message": msg}
-
-        elif category == "WEB_RESEARCH":
-            print("[*] Subsystem Selected: Autonomous Web Researcher")
-            self.voice_engine.speak("Navigating the web to research this for you.")
-            web_res = await self.web_researcher.run_research_task(prompt)
-            self.voice_engine.speak("Web research complete. Check your terminal for the detailed synthesis.")
-            return {"status": "success", "subsystem": "WEB_RESEARCH", "result": web_res}
-
-        else:
-            return {"status": "failed", "error": f"Unknown category: {category}"}
 
 
     async def run_continuous_loop_async(self):
-        """The Master Async Control Loop. Listens endlessly for voice/text input and orchestrates."""
+        """The Master Async Control Loop. Listens endlessly for voice/text input and orchestrates via LLM."""
         self.voice_engine.speak("All systems initialized. Jarvis X is online and listening.")
         
         while True:
@@ -1119,13 +929,13 @@ class DynamicOrchestrator:
                     self.voice_engine.speak("Shutting down core processes. Goodbye.")
                     break
 
-                category = self._classify_intent(user_input)
-                print(f"[+] Intent Classified as: {category}")
-                await self._execute_subsystem(category, user_input)
+                # Route directly through LLM Autonomous Tool Calling
+                await self._execute_subsystem("AGENT", user_input)
             except Exception as e:
                 print(f"[!] Orchestrator Error: {e}")
                 self.voice_engine.speak("I encountered an error processing that request.")
                 await asyncio.sleep(1)
+
 
     def run_continuous_loop(self):
         """Synchronous wrapper for run_continuous_loop_async."""

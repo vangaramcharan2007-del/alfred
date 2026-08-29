@@ -288,9 +288,10 @@ class LLMRouter:
             mesh_output = await mesh_router.execute_mesh_inference(
                 prompt=prompt,
                 model=profile.model_name,
-                conversation=conversation,
+                conversation=None,
                 timeout_sec=60.0
             )
+
             if mesh_output.get("status") == "AVAILABLE" and bool(mesh_output.get("response")):
                 resp_preview = mesh_output.get("response", "")[:60].replace("\n", " ")
                 print(f"[LLM] Mesh Response received from {mesh_output.get('worker_name')}: \"{resp_preview}...\" ({len(mesh_output.get('response', ''))} chars)")

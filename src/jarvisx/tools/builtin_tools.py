@@ -915,6 +915,167 @@ class UACCComputerControlTool(Tool):
 
 
 # ---------------------------------------------------------------------------
+# Tool: send_sms
+# ---------------------------------------------------------------------------
+
+class SendSmsTool(Tool):
+    """Sends a real carrier SMS text message via Telephony Gateway / Twilio."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="send_sms",
+            description="Sends a real carrier SMS text message to a phone number or contact name.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "to": {
+                        "type": "string",
+                        "description": "The destination phone number (e.g. '+917794979595' or '7794979595') or contact name (e.g. 'Dakshith', 'Dad')."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "The SMS text message body to send."
+                    }
+                },
+                "required": ["to", "message"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="telephony.sms"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        to_target = arguments.get("to", "")
+        msg = arguments.get("message", "")
+        
+        # Check contact book if name
+        digits = "".join(filter(str.isdigit, to_target))
+        if not digits or len(digits) < 10:
+            try:
+                import json
+                contacts_file = Path("config/contacts.json")
+                if contacts_file.exists():
+                    with open(contacts_file, "r", encoding="utf-8") as f:
+                        c_data = json.load(f)
+                    for key, entry in c_data.items():
+                        if key in to_target.lower() or entry.get("name", "").lower() in to_target.lower():
+                            digits = entry.get("phone", "")
+                            break
+            except Exception:
+                pass
+
+        from jarvisx.telephony.telephony_gateway import TelephonyGateway
+        gw = TelephonyGateway.get_instance()
+        res = gw.send_sms(to_number=digits or to_target, message=msg)
+        status = "success" if res.get("status") == "SENT" else "failed"
+        return ToolResult(status=status, tool="send_sms", result=res, error=res.get("error"))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result)
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tool: place_carrier_call
+# ---------------------------------------------------------------------------
+
+class PlaceCarrierCallTool(Tool):
+    """Places an outbound voice phone call via Telephony Gateway / Twilio."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="place_carrier_call",
+            description="Places a real outbound voice phone call to a contact or phone number.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "to": {
+                        "type": "string",
+                        "description": "The destination phone number or contact name (e.g. 'Dakshith', 'Dad', '7794979595')."
+                    },
+                    "speech_text": {
+                        "type": "string",
+                        "description": "The spoken speech text or objective in Telugu or English."
+                    }
+                },
+                "required": ["to"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="telephony.voice"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        to_target = arguments.get("to", "")
+        say_text = arguments.get("speech_text", "నమస్కారం, నేను చరణ్ పర్సనల్ ఏఐ అసిస్టెంట్ ఆల్ఫ్రెడ్ ని మాట్లాడుతున్నాను.")
+        
+        digits = "".join(filter(str.isdigit, to_target))
+        if not digits or len(digits) < 10:
+            try:
+                import json
+                contacts_file = Path("config/contacts.json")
+                if contacts_file.exists():
+                    with open(contacts_file, "r", encoding="utf-8") as f:
+                        c_data = json.load(f)
+                    for key, entry in c_data.items():
+                        if key in to_target.lower() or entry.get("name", "").lower() in to_target.lower():
+                            digits = entry.get("phone", "")
+                            break
+            except Exception:
+                pass
+
+        from jarvisx.telephony.telephony_gateway import TelephonyGateway
+        gw = TelephonyGateway.get_instance()
+        res = gw.place_live_carrier_call(to_number=digits or to_target, say_text=say_text)
+        status = "success" if res.get("status") == "RINGING" else "failed"
+        return ToolResult(status=status, tool="place_carrier_call", result=res, error=res.get("error"))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result)
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tool: send_whatsapp_message
+# ---------------------------------------------------------------------------
+
+class WhatsAppSendTool(Tool):
+    """Sends a live message / voice note in WhatsApp via visual on-screen desktop actuation."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="send_whatsapp_message",
+            description="Sends a live message and/or voice note to a WhatsApp contact on screen.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "recipient": {
+                        "type": "string",
+                        "description": "The contact name (e.g. 'Dakshith') or phone number."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "The text message content to send."
+                    }
+                },
+                "required": ["recipient", "message"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="desktop.actuate"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        recipient = arguments.get("recipient", "Dakshith")
+        msg = arguments.get("message", "hello")
+        
+        from jarvisx.automation.whatsapp_actuation import send_whatsapp_live
+        res = send_whatsapp_live(recipient=recipient, message=msg)
+        return ToolResult(status="success", tool="send_whatsapp_message", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result)
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
 # Registry bootstrap
 # ---------------------------------------------------------------------------
 
@@ -940,6 +1101,10 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(CoolSystemTool())
     registry.register(CleanDiskSpaceTool())
     registry.register(UACCComputerControlTool())
+    registry.register(SendSmsTool())
+    registry.register(PlaceCarrierCallTool())
+    registry.register(WhatsAppSendTool())
+
 
 
 
