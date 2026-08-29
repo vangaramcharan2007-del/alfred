@@ -135,22 +135,31 @@ class MeshRouter:
         return installed[0]
 
     def get_active_worker(self, require_capability: str = "llm_inference") -> Optional[Dict[str, Any]]:
-        """Probes registered workers with a fast 0.8s ping to find the first healthy active node."""
+        """Probes registered workers with a fast 0.2s ping and 30s TTL cache."""
+        now = time.time()
         for w_id, w_info in self.workers.items():
             target_url = w_info.get("ip", "")
             if "PENDING" in target_url or not target_url.startswith("http"):
                 continue
+
+            last_check = w_info.get("_last_probe_time", 0.0)
+            if now - last_check < 30.0 and w_info.get("status") == "offline":
+                continue  # Skip probing known offline worker within TTL
+
             if require_capability in w_info.get("capabilities", []) or require_capability == "llm_inference":
                 try:
                     req = urllib.request.Request(f"{target_url}/api/tags", method="GET")
-                    with urllib.request.urlopen(req, timeout=0.8) as resp:
+                    with urllib.request.urlopen(req, timeout=0.2) as resp:
                         if resp.status == 200:
                             w_info["status"] = "online"
+                            w_info["_last_probe_time"] = now
                             return w_info
                 except Exception:
                     w_info["status"] = "offline"
+                    w_info["_last_probe_time"] = now
                     continue
         return None
+
 
     def classify_task(self, prompt: str) -> Dict[str, Any]:
         """Classify user intent to dynamically pick optimal model and worker capability."""
@@ -165,7 +174,8 @@ class MeshRouter:
         if any(t in p_lower for t in deep_triggers):
             return {"capability": "deep_reasoning_14b", "preferred_model": "deepseek-r1:1.5b", "task_type": "deep_reasoning"}
 
-        return {"capability": "llm_inference", "preferred_model": "jarvis:latest", "task_type": "general"}
+        return {"capability": "llm_inference", "preferred_model": "qwen2.5-coder:1.5b", "task_type": "general"}
+
 
 
     def dispatch_intent(

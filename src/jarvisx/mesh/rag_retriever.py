@@ -233,6 +233,8 @@ class RAGRetriever:
 
     def save_dialogue_turn(self, user_msg: str, assistant_msg: str, session_id: str = "default") -> None:
         """Persist a conversation turn into persistent ChromaDB memory."""
+        if not self.client:
+            return
         try:
             conv_coll = self.client.get_or_create_collection(name="jarvis_conversation_memory")
             ts = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -243,8 +245,9 @@ class RAGRetriever:
                 metadatas=[{"session_id": session_id, "timestamp": ts, "type": "dialogue"}],
                 ids=[uid]
             )
-        except Exception as e:
-            print(f"[MEMORY] Error saving dialogue turn: {e}")
+        except Exception:
+            pass
+
 
     def get_conversation_history(self, session_id: str = "default", limit: int = 5) -> List[str]:
         """Fetch the most recent dialogue turns for the given session."""
