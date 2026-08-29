@@ -132,7 +132,14 @@ async def async_main():
 def main():
     if len(sys.argv) > 1:
         first_word = sys.argv[1].lower()
-        if first_word in {"desktop", "app", "widget", "waveform", "overlay"}:
+        if first_word in {"live", "master", "harness", "os", "situation", "sentinel"}:
+            from jarvisx.runtime.master_os import launch_master_os
+            try:
+                launch_master_os(launch_hud=True)
+            except KeyboardInterrupt:
+                print("\n[Alfred Master OS]: Closed cleanly.")
+            return 0
+        elif first_word in {"desktop", "app", "widget", "waveform", "overlay"}:
             from jarvisx.automation.glowing_waveform_overlay import launch_sovereign_waveform
             try:
                 launch_sovereign_waveform()
@@ -140,6 +147,7 @@ def main():
                 print("\n[Alfred Overlay]: Closed cleanly.")
             return 0
     asyncio.run(async_main())
+
 
 
 if __name__ == "__main__":
