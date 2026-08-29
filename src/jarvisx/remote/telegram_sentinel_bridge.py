@@ -52,6 +52,8 @@ class MobileMessageResponse:
 class TelegramSentinelBridge:
     """Zero-Trust Telegram & Mobile Remote Gateway for Jarvis X."""
 
+    _instance: Optional[TelegramSentinelBridge] = None
+
     def __init__(
         self,
         authorized_user_ids: Optional[List[str]] = None,
@@ -59,14 +61,27 @@ class TelegramSentinelBridge:
         marketplace: Optional[DynamicAPIMarketplace] = None,
         audit_ledger: Optional[CryptographicAuditLedger] = None,
     ):
-        self.authorized_user_ids = set(authorized_user_ids or ["vangaramcharan", "charan_master", "owner_101"])
+        self.authorized_users = authorized_user_ids or ["charan_master", "5981240182", "admin_01"]
         self.router = mesh_router or get_mesh_router()
         self.marketplace = marketplace or DynamicAPIMarketplace()
         self.audit = audit_ledger or CryptographicAuditLedger(Path("var/db/audit_ledger.db"))
+        self.active_sessions: Dict[str, List[Dict[str, Any]]] = {}
+
+    @classmethod
+    def get_instance(cls) -> TelegramSentinelBridge:
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
 
     def authenticate_user(self, user_id: str) -> bool:
         """Enforces strict allowlisting for mobile access."""
-        return user_id in self.authorized_user_ids
+        return user_id in self.authorized_users
+
+    def handle_command(self, text: str, user_id: str = "charan_master") -> MobileMessageResponse:
+        """Convenience dispatcher for text and slash commands."""
+        req = MobileMessageRequest(user_id=user_id, user_name="Charan", text=text, timestamp=time.time())
+        return self.process_mobile_message(req)
+
 
     def process_mobile_message(self, request: MobileMessageRequest) -> MobileMessageResponse:
         """Processes an incoming mobile command or conversational query."""
