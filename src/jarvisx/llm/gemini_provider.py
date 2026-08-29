@@ -1,49 +1,80 @@
-"""Native Google Gemini Pro & Flash LLM Provider for Jarvis X."""
+"""
+Native Google Gemini 3.6 Pro & Flash LLM Provider for Jarvis X.
+Powered by the official google-genai SDK with full support for new AQ. and AIza authentication keys.
+"""
+
 from __future__ import annotations
+
+import asyncio
+import logging
 import os
 import re
-import json
 import time
-import urllib.error
-import urllib.request
-from typing import Dict, Any, List, Optional
+from pathlib import Path
+from typing import Any, AsyncGenerator, Dict, List, Optional
+
+
 from jarvisx.llm.llm_provider import LLMProvider
+
+logger = logging.getLogger("jarvisx.llm.gemini")
 
 
 class GeminiLLMProvider(LLMProvider):
-    """Direct Google Gemini REST API Gateway Provider (Gemini 1.5 Pro, 2.0 Flash)."""
+    """Google Gemini Cloud Provider (Gemini 3.6 Flash / Pro with 2M context)."""
 
-    DEFAULT_MODEL = "gemini-1.5-pro"
+    DEFAULT_MODEL = "gemini-3.6-flash"
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(name="gemini.google", config=config)
         self.api_key = self.config.get("api_key") or self._load_api_key()
         self.default_model = self.config.get("default_model", self.DEFAULT_MODEL)
         self.available_models = [
-            "gemini-1.5-pro",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-2.0-flash-thinking-exp-01-21"
+            "gemini-3.6-flash",
+            "gemini-3.6-pro",
+            "gemini-flash-latest",
+            "gemini-pro-latest",
         ]
+        self._client = None
+        self._init_client()
+
+    def _init_client(self):
+        """Initializes the official google-genai client."""
+        if self.api_key:
+            try:
+                from google import genai
+                self._client = genai.Client(api_key=self.api_key)
+                self.is_connected = True
+            except Exception as e:
+                logger.error(f"Failed to initialize google-genai Client: {e}")
+                self._client = None
+                self.is_connected = False
 
     def _load_api_key(self) -> str:
-        """Discover Gemini API key from environment, .env file, or TrustEngine vault."""
-        key = (
-            os.environ.get("GEMINI_API_KEY")
-            or os.environ.get("GOOGLE_API_KEY")
-            or os.environ.get("GOOGLE_GENAI_API_KEY")
-            or ""
-        )
-        if not key and os.path.exists(".env"):
-            try:
-                for line in open(".env", encoding="utf-8"):
-                    line = line.strip()
-                    if line.startswith("GEMINI_API_KEY=") or line.startswith("GOOGLE_API_KEY="):
-                        key = line.split("=", 1)[1].strip().strip('"').strip("'")
-                        if key:
-                            break
-            except Exception:
-                pass
+        """Discover Gemini API key from .env file, environment, or TrustEngine."""
+        key = ""
+        env_paths = [Path(".env"), Path("E:/project-jarvis-x/.env"), Path("friday-tony-stark-demo/.env")]
+        for ep in env_paths:
+            if ep.exists():
+                try:
+                    for line in open(ep, encoding="utf-8"):
+                        line = line.strip()
+                        if line.startswith("GEMINI_API_KEY=") or line.startswith("GOOGLE_API_KEY="):
+                            k = line.split("=", 1)[1].strip().strip('"').strip("'")
+                            if k:
+                                key = k
+                                break
+                except Exception:
+                    pass
+            if key:
+                break
+
+        if not key:
+            key = (
+                os.environ.get("GEMINI_API_KEY")
+                or os.environ.get("GOOGLE_API_KEY")
+                or os.environ.get("GOOGLE_GENAI_API_KEY")
+                or ""
+            )
 
         if not key:
             try:
@@ -53,20 +84,15 @@ class GeminiLLMProvider(LLMProvider):
             except Exception:
                 pass
 
-        if key and any(placeholder in key for placeholder in ("YourActualKey", "YourKey", "Your_Key", "your_api_key")):
-            return ""
-
-        if key and not key.startswith("AIza"):
-            # Invalid key format for Generative Language API
-            return ""
-
         return key.strip().strip('"').strip("'")
+
 
     def _sanitize(self, message: str) -> str:
         """Redact API key from error or log messages."""
         if not message:
             return ""
         sanitized = re.sub(r'AIza[0-9A-Za-z-_]{35}', '[REDACTED_GEMINI_KEY]', message)
+        sanitized = re.sub(r'AQ\.[0-9A-Za-z-_]{35,}', '[REDACTED_GEMINI_KEY]', sanitized)
         if self.api_key:
             sanitized = sanitized.replace(self.api_key, "[REDACTED_GEMINI_KEY]")
         return sanitized
@@ -74,44 +100,45 @@ class GeminiLLMProvider(LLMProvider):
     async def connect(self) -> bool:
         if not self.api_key:
             self.api_key = self._load_api_key()
-        self.is_connected = bool(self.api_key and self.api_key.startswith("AIza"))
-        if not self.is_connected:
-            return False
-
-        if self.api_key:
-            try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
-                req = urllib.request.Request(url, method="GET")
-                with urllib.request.urlopen(req, timeout=3.0) as resp:
-                    if resp.status == 200:
-                        data = json.loads(resp.read().decode("utf-8"))
-                        live = [
-                            m["name"].replace("models/", "")
-                            for m in data.get("models", [])
-                            if "generateContent" in m.get("supportedGenerationMethods", [])
-                        ]
-                        if live:
-                            self.available_models = live
-                            if self.default_model not in self.available_models:
-                                self.default_model = self.available_models[0]
-            except Exception:
-                pass
-
-        return True
+        self._init_client()
+        return bool(self._client is not None)
 
     async def disconnect(self) -> bool:
+        self._client = None
         self.is_connected = False
         return True
 
     async def health(self) -> Dict[str, Any]:
-        has_key = bool(self.api_key or self._load_api_key())
+        has_key = bool(self.api_key)
         return {
-            "status": "HEALTHY" if has_key else "DEGRADED",
+            "status": "HEALTHY" if has_key and self._client else "DEGRADED",
             "provider_id": "gemini.google",
             "has_api_key": has_key,
             "available_models": self.available_models,
-            "offline_ready": False
+            "offline_ready": False,
         }
+
+    def metadata(self) -> Dict[str, Any]:
+        return {
+            "provider_id": "gemini.google",
+            "name": "Google Gemini Cloud",
+            "context_window": 2000000,
+            "default_model": self.default_model,
+            "cloud": True,
+        }
+
+    def capabilities(self) -> List[str]:
+        return [
+            "llm_inference",
+            "code_gen",
+            "deep_reasoning",
+            "multimodal_vision",
+            "massive_context_2m",
+        ]
+
+    async def stream(self, prompt: str, model: Optional[str] = None, **kwargs) -> AsyncGenerator[str, None]:
+        res = await self.generate(prompt=prompt, model=model, **kwargs)
+        yield res.get("response", "")
 
     async def generate(
         self,
@@ -120,139 +147,63 @@ class GeminiLLMProvider(LLMProvider):
         conversation: Optional[List[Dict[str, str]]] = None,
         **kwargs
     ) -> Dict[str, Any]:
-        """Generate response via Google Gemini REST API with automatic model failover."""
+        """Generate response via official Google GenAI SDK."""
         start_t = time.time()
 
         if not self.api_key:
             self.api_key = self._load_api_key()
+            self._init_client()
 
-        if not self.api_key:
+        if not self._client:
             return {
                 "status": "NOT_AVAILABLE",
                 "provider_id": "gemini.google",
                 "model": model or self.default_model,
-                "response": "Gemini API key not configured. Set GEMINI_API_KEY in environment or .env file.",
-                "error": "Missing GEMINI_API_KEY",
-                "fallback_used": True
+                "response": "Gemini API client not initialized. Check GEMINI_API_KEY in .env.",
+                "error": "Missing or invalid GEMINI_API_KEY",
+                "fallback_used": True,
             }
 
-        # Candidate models to try in order
-        primary_model = model or self.default_model
-        candidates = [primary_model]
-        for fallback in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro-latest", "gemini-1.5-flash-latest", "gemini-pro"]:
-            if fallback not in candidates:
-                candidates.append(fallback)
+        target_model = model or self.default_model
+        if target_model in ("gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash"):
+            target_model = "gemini-3.6-flash"
+        elif target_model in ("gemini-1.5-pro", "gemini-2.5-pro"):
+            target_model = "gemini-3.6-pro"
 
-        # Format prompt / conversation for Gemini
-        contents = []
-        if conversation:
-            for turn in conversation[-10:]:
-                role = "user" if turn.get("role") in ("user", "human") else "model"
-                contents.append({
-                    "role": role,
-                    "parts": [{"text": turn.get("content", "")}]
-                })
-
-        contents.append({
-            "role": "user",
-            "parts": [{"text": prompt}]
-        })
-
-        payload = {
-            "contents": contents,
-            "generationConfig": {
-                "temperature": kwargs.get("temperature", 0.7),
-                "maxOutputTokens": kwargs.get("max_tokens", 4096),
-            }
-        }
-        data_bytes = json.dumps(payload).encode("utf-8")
-        timeout = kwargs.get("timeout", self.config.get("timeout_seconds", 30.0))
-
-        last_error = ""
-        for chosen_model in candidates:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{chosen_model}:generateContent?key={self.api_key}"
-            req = urllib.request.Request(
-                url,
-                data=data_bytes,
-                headers={"Content-Type": "application/json"},
-                method="POST"
+        try:
+            loop = asyncio.get_running_loop()
+            resp = await loop.run_in_executor(
+                None,
+                lambda: self._client.models.generate_content(
+                    model=target_model,
+                    contents=prompt,
+                )
             )
 
-            try:
-                with urllib.request.urlopen(req, timeout=timeout) as resp:
-                    status_code = resp.status
-                    body = resp.read().decode("utf-8")
+            text = resp.text.strip() if resp and resp.text else ""
+            dur = round(time.time() - start_t, 3)
 
-                    if status_code == 200:
-                        data = json.loads(body)
-                        candidates_list = data.get("candidates", [])
-                        if candidates_list:
-                            parts = candidates_list[0].get("content", {}).get("parts", [])
-                            text = "".join(p.get("text", "") for p in parts)
-                        else:
-                            text = ""
+            return {
+                "status": "AVAILABLE",
+                "provider_id": "gemini.google",
+                "model": target_model,
+                "response": text,
+                "latency": dur,
+                "latency_ms": round(dur * 1000, 1),
+                "cost": 0.0,
+                "fallback_used": False,
+            }
 
-                        latency_sec = round(time.time() - start_t, 3)
-                        latency_ms = round(latency_sec * 1000, 1)
-
-                        return {
-                            "status": "AVAILABLE",
-                            "provider_id": "gemini.google",
-                            "model": chosen_model,
-                            "response": text,
-                            "latency": latency_sec,
-                            "latency_ms": latency_ms,
-                            "prompt_size": len(prompt),
-                            "response_size": len(text),
-                            "cost": 0.0,
-                            "fallback_used": False
-                        }
-            except urllib.error.HTTPError as e:
-                body = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else str(e)
-                last_error = f"Gemini HTTP Error {e.code}: {body}"
-                if e.code in (400, 401):
-                    # Invalid or unauthorized key - disable provider for session
-                    self.api_key = ""
-                    self.is_connected = False
-                    break
-                elif e.code == 404:
-                    # Model not found on this tier, try next candidate
-                    continue
-                else:
-                    break
-            except Exception as ex:
-                last_error = str(ex)
-                break
-
-        hint = ""
-        if "404" in last_error or "NOT_FOUND" in last_error:
-            hint = " (Note: Gemini API requires an API key from Google AI Studio at https://aistudio.google.com/app/apikey starting with 'AIzaSy...')"
-
-        return {
-            "status": "NOT_AVAILABLE",
-            "provider_id": "gemini.google",
-            "model": primary_model,
-            "response": "",
-            "error": self._sanitize(last_error) + hint,
-            "fallback_used": True
-        }
-
-    async def stream(self, prompt: str, model: Optional[str] = None, **kwargs) -> AsyncGenerator[str, None]:
-        """Stream tokens for Gemini generation."""
-        chosen_model = model or self.default_model
-        gen_res = await self.generate(prompt, model=chosen_model, **kwargs)
-        full_text = gen_res.get("response", "")
-        for word in full_text.split(" "):
-            yield word + " "
-
-    def metadata(self) -> Dict[str, Any]:
-        return {
-            "provider_id": "gemini.google",
-            "name": "Google Gemini Gateway",
-            "version": "1.5.0",
-            "type": "cloud_gateway",
-            "available_models": self.available_models
-        }
-
-    def capabilities(self) -> List[str]:
-        return ["chat", "coding", "streaming", "reasoning", "vision", "long_context_2m", "cloud"]
+        except Exception as e:
+            dur = round(time.time() - start_t, 3)
+            logger.error(f"Gemini generation error: {e}")
+            return {
+                "status": "NOT_AVAILABLE",
+                "provider_id": "gemini.google",
+                "model": target_model,
+                "response": "",
+                "error": self._sanitize(str(e)),
+                "latency": dur,
+                "latency_ms": round(dur * 1000, 1),
+                "fallback_used": True,
+            }

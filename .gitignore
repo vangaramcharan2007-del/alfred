@@ -17,5 +17,8 @@ jarvis_workspace/
 workspace/
 
 
-# Local Config
+# Local Config & Secrets
 config/local.yaml
+.env
+*.env
+
