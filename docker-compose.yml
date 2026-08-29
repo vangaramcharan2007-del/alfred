@@ -1,27 +1,60 @@
-version: "3.8"
-
 services:
-  jarvis-api:
-    build: .
-    container_name: jarvis-api
+  aegis-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aegis-backend
     ports:
-      - "8765:8765"
+      - "8000:8000"
     volumes:
-      - jarvis-var:/app/var
-      - jarvis-workspace:/app/jarvis_workspace
-      - cad-workspace:/app/cad_workspace
-      - obsidian-vault:/app/obsidian_vault
+      - aegis-data:/app/var
+      - ./aegis_core.db:/app/aegis_core.db
     environment:
       - PYTHONUNBUFFERED=1
+      - AEGIS_OFFLINE_MODE=true
+      - OLLAMA_HOST=http://host.docker.internal:11434
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/status')"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/status"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
+    networks:
+      - aegis-net
+
+  aegis-ui:
+    build:
+      context: ./aegis-ui
+      dockerfile: Dockerfile
+    container_name: aegis-ui
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://aegis-backend:8000
+    depends_on:
+      aegis-backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - aegis-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: aegis-gateway
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - aegis-backend
+      - aegis-ui
+    restart: unless-stopped
+    networks:
+      - aegis-net
 
 volumes:
-  jarvis-var:
-  jarvis-workspace:
-  cad-workspace:
-  obsidian-vault:
+  aegis-data:
+
+networks:
+  aegis-net:
+    driver: bridge
