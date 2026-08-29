@@ -164,23 +164,33 @@ class GeminiLLMProvider(LLMProvider):
                 "fallback_used": True,
             }
 
-        target_model = model or self.default_model
-        if target_model in ("gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash"):
-            target_model = "gemini-3.6-flash"
-        elif target_model in ("gemini-1.5-pro", "gemini-2.5-pro"):
-            target_model = "gemini-3.6-pro"
+        target_model = "gemini-3.6-flash"
+
 
         try:
             loop = asyncio.get_running_loop()
-            resp = await loop.run_in_executor(
-                None,
-                lambda: self._client.models.generate_content(
-                    model=target_model,
-                    contents=prompt,
-                )
-            )
 
-            text = resp.text.strip() if resp and resp.text else ""
+            def _call_gemini_interactions():
+                # 1. Primary: Google GenAI Interactions API
+                try:
+                    interaction = self._client.interactions.create(
+                        model=target_model,
+                        input=prompt,
+                    )
+                    if hasattr(interaction, "output_text") and interaction.output_text:
+                        return interaction.output_text.strip()
+                    if hasattr(interaction, "text") and interaction.text:
+                        return interaction.text.strip()
+                    return str(interaction)
+                except Exception as ex:
+                    # 2. Fallback: models.generate_content
+                    resp = self._client.models.generate_content(
+                        model=target_model,
+                        contents=prompt,
+                    )
+                    return resp.text.strip() if resp and resp.text else ""
+
+            text = await loop.run_in_executor(None, _call_gemini_interactions)
             dur = round(time.time() - start_t, 3)
 
             return {
@@ -207,3 +217,4 @@ class GeminiLLMProvider(LLMProvider):
                 "latency_ms": round(dur * 1000, 1),
                 "fallback_used": True,
             }
+
