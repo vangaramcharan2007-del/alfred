@@ -877,12 +877,18 @@ class DynamicOrchestrator:
         if prompt_lower in ["yoo", "yo", "hi", "hello", "hey", "sup", "what's up", "good morning", "good evening"]:
             return "GREETING"
 
-        # 2. Telephony & Communication (SMS, Messages, Calls)
+        # 2. Live Desktop Showcase & Capabilities Demonstration
+        # e.g., "showcase what u can do infront of my eyes", "demo capabilities", "what can you do"
+        if any(term in prompt_lower for term in ["showcase", "show case", "what can you do", "what u can do", "show me what you can do", "demo", "demonstrate", "infront of my eyes", "in front of my eyes", "show me"]):
+            return "SHOWCASE_LIVE"
+
+        # 3. Telephony & Communication (SMS, Messages, Calls)
         # e.g., "send hi to dakshith", "text 8712484963 hello", "call dad", "message rahul"
         if any(prompt_lower.startswith(p) for p in ["send ", "text ", "call ", "sms ", "msg ", "message "]) or \
            any(w in prompt_lower for w in ["send a text", "send an sms", "make a call", "phone call"]):
             if " to " in prompt_lower or any(c.isdigit() for c in prompt_lower) or prompt_lower.startswith("call ") or prompt_lower.startswith("text "):
                 return "TELEPHONY_COMMUNICATION"
+
 
         # 3. Academic 10-CGPA & Daily Executive
         if any(term in prompt_lower for term in ["war mode", "10 cgpa", "schedule", "deadlines", "assignment", "syllabus", "study block", "academic"]):
@@ -916,8 +922,50 @@ class DynamicOrchestrator:
             self.voice_engine.speak(resp_text)
             return {"status": "success", "subsystem": "GREETING", "result": resp_text}
 
+        elif category == "SHOWCASE_LIVE":
+            print(f"[*] Subsystem Selected: Live Desktop Actuation Showcase")
+            resp_text = f"Sir, initiating live desktop actuation showcase right now in front of your eyes."
+            print(f"\n[JARVIS X]: {resp_text}")
+            self.voice_engine.speak(resp_text)
+            
+            # 1. Open live visual notepad on screen and type capabilities
+            try:
+                import subprocess, time, webbrowser
+                # Launch Notepad with showcase text
+                showcase_file = "var/ALFRED_LIVE_SHOWCASE.txt"
+                os.makedirs("var", exist_ok=True)
+                with open(showcase_file, "w", encoding="utf-8") as f:
+                    f.write(
+                        "===============================================================\n"
+                        " 👑 ALFRED SOVEREIGN BUTLER & ENGINEERING EXECUTIVE (LIVE)\n"
+                        "===============================================================\n\n"
+                        f"Sir, here are your active operational pillars running live:\n\n"
+                        "1. 📱 TELEPHONY & CELLULAR GATEWAY\n"
+                        "   - Automated SMS and carrier phone calls via Android GSM SIM\n\n"
+                        "2. 💬 WHATSAPP DESKTOP ACTUATION\n"
+                        "   - On-screen visual typing, contact search & message dispatch\n\n"
+                        "3. 🛠️ FRIDAY DEV CORE & CODE HEALER\n"
+                        "   - Autonomous AST bug diagnosis & unit test synthesis\n\n"
+                        "4. 🎯 ACADEMIC 10-CGPA WAR MODE\n"
+                        "   - Syllabus coverage tracking & daily priority queue\n\n"
+                        "5. ⚡ DISTRIBUTED GPU MESH (LAB-VM-01)\n"
+                        "   - Heavy LLM & deep research offload over WireGuard mesh\n\n"
+                        "6. 🛡️ AEGIS CLINICAL & DISASTER WORKSTATION (SIH26181)\n"
+                        "   - 4 trained ML models (X-Ray, Cough, Anemia, WESAD Stress)\n"
+                        "===============================================================\n"
+                    )
+                subprocess.Popen(["notepad.exe", showcase_file])
+                
+                # 2. Also open AEGIS 3D Command Deck in browser
+                webbrowser.open("http://localhost:3000")
+            except Exception as e:
+                print(f"[!] Showcase visual launch note: {e}")
+
+            return {"status": "success", "subsystem": "SHOWCASE_LIVE", "result": resp_text}
+
         elif category == "TELEPHONY_COMMUNICATION":
             print(f"[*] Subsystem Selected: Telephony & Cellular Gateway")
+
             prompt_lower = prompt.lower().strip()
             
             # Extract recipient and message

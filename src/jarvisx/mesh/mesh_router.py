@@ -167,14 +167,15 @@ class MeshRouter:
         # Code generation / debugging / programming
         code_triggers = ["code", "python", "script", "java", "sql", "function", "debug", "refactor", "algorithm", "class", "fix bug", "compile", "table", "vscode", "database"]
         if any(t in p_lower for t in code_triggers):
-            return {"capability": "code_gen", "preferred_model": "qwen2.5-coder:1.5b", "task_type": "coding"}
+            return {"capability": "code_gen", "preferred_model": "alfred", "task_type": "coding"}
 
         # Deep reasoning / math / architecture
         deep_triggers = ["prove", "calculate", "derivative", "integral", "theorem", "step by step", "deep reason", "architecture", "solve math"]
         if any(t in p_lower for t in deep_triggers):
             return {"capability": "deep_reasoning_14b", "preferred_model": "deepseek-r1:1.5b", "task_type": "deep_reasoning"}
 
-        return {"capability": "llm_inference", "preferred_model": "qwen2.5-coder:1.5b", "task_type": "general"}
+        return {"capability": "llm_inference", "preferred_model": "alfred", "task_type": "general"}
+
 
 
 
@@ -290,6 +291,7 @@ class MeshRouter:
             "task_type": classified.get("task_type", "general"),
             "rag_context_injected": bool(context)
         }
+
 
 
 def get_mesh_router() -> MeshRouter:
