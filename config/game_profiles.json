@@ -247,6 +247,41 @@
       "gpu_preference": "HighPerformance",
       "ram_compaction": true
     }
+  },
+  "rdr2": {
+    "title": "Red Dead Redemption 2",
+    "executable": "RDR2.exe",
+    "category": "open_world_action_masterpiece",
+    "target_fps": 60,
+    "recommended_settings": {
+      "api": "Vulkan (Lower CPU overhead & smoother frame times)",
+      "resolution": "1920x1080 Fullscreen",
+      "texture_quality": "Ultra (Essential for crisp world detail)",
+      "anisotropic_filtering": "16x",
+      "shadow_quality": "High",
+      "far_shadow_quality": "Medium",
+      "ssao": "Medium",
+      "reflection_quality": "Medium",
+      "mirror_quality": "High",
+      "water_quality": "Medium",
+      "volumetrics_quality": "Medium / Low (Restores +30% FPS)",
+      "particle_quality": "Medium",
+      "tessellation": "High",
+      "taa": "Medium",
+      "fxaa": "Off",
+      "msaa": "Off",
+      "fsr_or_dlss": "Quality (FSR 2.0 / DLSS)",
+      "tree_quality": "High",
+      "grass_quality": "Medium",
+      "vsync": "Off"
+    },
+    "config_pattern": "%USERPROFILE%/Documents/Rockstar Games/Red Dead Redemption 2/Settings/system.xml",
+    "os_optimizations": {
+      "process_priority": "High",
+      "gpu_preference": "HighPerformance",
+      "ram_compaction": true
+    }
   }
 }
+
 

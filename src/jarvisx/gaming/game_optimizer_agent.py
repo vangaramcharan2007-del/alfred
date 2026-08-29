@@ -168,8 +168,16 @@ class GameOptimizerAgent:
             "the last of us": "the_last_of_us",
             "tlou": "the_last_of_us",
             "tlou1": "the_last_of_us",
+            "rdr2": "rdr2",
+            "rdr 2": "rdr2",
+            "rdr": "rdr2",
+            "red dead": "rdr2",
+            "red dead 2": "rdr2",
+            "red dead redemption": "rdr2",
+            "red dead redemption 2": "rdr2",
         }
         for alias, target in alias_map.items():
+
             if alias in q:
                 if target in self.profiles:
                     return target, self.profiles[target]
