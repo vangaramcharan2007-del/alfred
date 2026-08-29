@@ -974,10 +974,19 @@ class DynamicOrchestrator:
             msg_body = "Hello from Charan via Alfred OS"
             
             if is_call:
+                from jarvisx.telephony.telephony_gateway import TelephonyGateway
                 recipient = prompt_lower.replace("call", "").replace("make a call to", "").replace("dial", "").strip().title()
                 if not recipient:
                     recipient = "Emergency Contact"
-                resp_text = f"Initiating cellular voice call to {recipient} via Android GSM bridge. Telephony Safety Sentinel active."
+                
+                # Check if recipient contains digits (phone number)
+                digits = "".join(filter(str.isdigit, recipient))
+                if len(digits) >= 10:
+                    gw = TelephonyGateway.get_instance()
+                    call_res = gw.place_live_carrier_call(digits, say_text="Namaste, this is Alfred, Charan's executive AI assistant calling.")
+                    resp_text = f"Placing real carrier phone call to {recipient} via Twilio Voice (+18703619380)."
+                else:
+                    resp_text = f"Initiating cellular voice call to {recipient} via Android GSM bridge. Telephony Safety Sentinel active."
             else:
                 # Format: "send <msg> to <recipient>" or "text <recipient> <msg>"
                 if " to " in prompt_lower:
@@ -999,7 +1008,6 @@ class DynamicOrchestrator:
                 
                 if "whatsapp" in prompt_lower or "on whatsapp" in prompt_lower:
                     from jarvisx.automation.whatsapp_actuation import send_whatsapp_live
-                    # Clean message and recipient
                     clean_recipient = recipient.replace("In Whatsapp", "").replace("On Whatsapp", "").replace("In Front Of My Eyes Now", "").replace("Now", "").strip()
                     clean_msg = msg_body.replace("in whatsapp", "").replace("on whatsapp", "").replace("in front of my eyes now", "").replace("now", "").strip()
                     resp_text = f"Opening WhatsApp right now and sending \"{clean_msg}\" to {clean_recipient} in front of your eyes."
@@ -1008,11 +1016,20 @@ class DynamicOrchestrator:
                     act_res = send_whatsapp_live(recipient=clean_recipient, message=clean_msg)
                     return {"status": "success", "subsystem": "WHATSAPP_LIVE", "recipient": clean_recipient, "message": clean_msg, "actuation": act_res}
                 else:
-                    resp_text = f"Sending SMS to {recipient}: \"{msg_body}\". Telephony safety checks passed and dispatched via cellular gateway."
+                    # Real Twilio SMS if phone number provided
+                    digits = "".join(filter(str.isdigit, recipient))
+                    if len(digits) >= 10:
+                        from jarvisx.telephony.telephony_gateway import TelephonyGateway
+                        gw = TelephonyGateway.get_instance()
+                        sms_res = gw.send_sms(digits, msg_body)
+                        resp_text = f"Dispatched live carrier SMS to {recipient} via Twilio (+18703619380): \"{msg_body}\"."
+                    else:
+                        resp_text = f"Sending SMS to {recipient}: \"{msg_body}\". Telephony safety checks passed and dispatched via cellular gateway."
 
             print(f"\n[JARVIS X]: {resp_text}")
             self.voice_engine.speak(resp_text)
             return {"status": "success", "subsystem": "TELEPHONY_COMMUNICATION", "recipient": recipient, "message": msg_body, "result": resp_text}
+
 
 
         elif category == "ACADEMIC_10CGPA":

@@ -77,12 +77,17 @@ class TelephonyGateway:
         audit_ledger: Optional[CryptographicAuditLedger] = None,
     ):
         self.router = mesh_router or get_mesh_router()
-        self.voice = voice_controller or FullDuplexVoiceController()
-        self.audit = audit_ledger or CryptographicAuditLedger(Path("var/db/audit_ledger.db"))
+        # Load environment variables
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except Exception:
+            pass
 
         # Configured Telephony Credentials (from environment or defaults)
         self.twilio_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
         self.twilio_token = os.getenv("TWILIO_AUTH_TOKEN", "")
+        self.twilio_phone = os.getenv("TWILIO_PHONE_NUMBER", "+18703619380")
         self.bland_api_key = os.getenv("BLAND_API_KEY", "")
         self.vapi_api_key = os.getenv("VAPI_API_KEY", "")
 
@@ -102,6 +107,7 @@ class TelephonyGateway:
             return TelephonyProvider.TWILIO
         else:
             return TelephonyProvider.SIMULATOR
+
 
     def generate_opening_turn(self, contact_name: str, objective: str) -> str:
         """Synthesizes respectful opening greeting and objective introduction."""
@@ -215,14 +221,82 @@ class TelephonyGateway:
             audit_hash=audit_entry.current_hash,
         )
 
+    def send_sms(self, to_number: str, message: str) -> Dict[str, Any]:
+        """Sends a real carrier SMS text message via Twilio."""
+        if not self.twilio_sid or not self.twilio_token:
+            return {"status": "FAILED", "error": "Twilio credentials not configured in .env"}
+
+        try:
+            from twilio.rest import Client
+            client = Client(self.twilio_sid, self.twilio_token)
+            
+            # Format number if missing country code
+            clean_num = to_number.strip().replace(" ", "").replace("-", "")
+            if not clean_num.startswith("+"):
+                # Default to India +91 if 10 digits, or US +1
+                clean_num = f"+91{clean_num}" if len(clean_num) == 10 else f"+{clean_num}"
+
+            msg = client.messages.create(
+                body=message,
+                from_=self.twilio_phone,
+                to=clean_num
+            )
+            
+            logger.info(f"SMS dispatched to {clean_num} (SID: {msg.sid}, Status: {msg.status})")
+            return {
+                "status": "SENT",
+                "message_sid": msg.sid,
+                "to": clean_num,
+                "from": self.twilio_phone,
+                "twilio_status": msg.status
+            }
+        except Exception as e:
+            logger.error(f"Failed to send SMS to {to_number}: {e}")
+            return {"status": "ERROR", "error": str(e), "to": to_number}
+
+    def place_live_carrier_call(self, to_number: str, say_text: str) -> Dict[str, Any]:
+        """Places a real carrier outbound voice phone call via Twilio Voice."""
+        if not self.twilio_sid or not self.twilio_token:
+            return {"status": "FAILED", "error": "Twilio credentials not configured in .env"}
+
+        try:
+            from twilio.rest import Client
+            client = Client(self.twilio_sid, self.twilio_token)
+            
+            clean_num = to_number.strip().replace(" ", "").replace("-", "")
+            if not clean_num.startswith("+"):
+                clean_num = f"+91{clean_num}" if len(clean_num) == 10 else f"+{clean_num}"
+
+            # TwiML for dynamic speech synthesis
+            twiml = f'<Response><Say voice="Polly.Aditi" language="en-IN">{say_text}</Say></Response>'
+            call = client.calls.create(
+                twiml=twiml,
+                from_=self.twilio_phone,
+                to=clean_num
+            )
+            
+            logger.info(f"Carrier call initiated to {clean_num} (Call SID: {call.sid}, Status: {call.status})")
+            return {
+                "status": "RINGING",
+                "call_sid": call.sid,
+                "to": clean_num,
+                "from": self.twilio_phone,
+                "twilio_status": call.status
+            }
+        except Exception as e:
+            logger.error(f"Failed to place call to {to_number}: {e}")
+            return {"status": "ERROR", "error": str(e), "to": to_number}
+
     def get_status(self) -> Dict[str, Any]:
         """Provides status summary for FastMCP."""
         return {
             "telephony_engine": "ONLINE",
             "active_provider": self.detect_active_provider().value,
             "twilio_configured": bool(self.twilio_sid),
+            "twilio_phone": self.twilio_phone,
             "bland_ai_configured": bool(self.bland_api_key),
             "vapi_ai_configured": bool(self.vapi_api_key),
             "full_duplex_barge_in": "ENABLED",
             "disclosure_mode": "TRANSPARENT_AI_EXECUTIVE_ASSISTANT",
         }
+
