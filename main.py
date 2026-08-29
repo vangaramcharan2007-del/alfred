@@ -16,7 +16,7 @@ import os
 from typing import Optional, List, Dict, Any
 
 import httpx
-from fastapi import FastAPI, BackgroundTasks, Request, status, Response
+from fastapi import FastAPI, BackgroundTasks, Request, status, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -33,6 +33,15 @@ from medical_rag import OfflineMedicalRAG
 from fhir_exporter import generate_fhir_bundle, generate_html_triage_report
 from baymax_service import generate_baymax_reply_text, generate_explanation, is_third_party_query
 from aegis_resilience import EnvironmentalReading, assess_environment
+from aegis_gov_api import (
+    verify_abha_number,
+    fetch_ndma_alerts,
+    fetch_imd_weather,
+    bhashini_translate,
+    bhashini_tts,
+    get_government_situation_report
+)
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("aegis_backend")
@@ -1180,6 +1189,92 @@ async def companion_interact(req: CompanionChatRequest, background_tasks: Backgr
     )
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Government Integration Endpoints (ABDM, NDMA, IMD, Bhashini)
+# ═══════════════════════════════════════════════════════════════════════
+
+@app.get("/gov/situation-report")
+async def api_gov_situation_report(city: str = "hyderabad", state: str = "telangana"):
+    """Aggregated situation report combining IMD weather, NDMA disaster alerts, and health risk status."""
+    return get_government_situation_report(city=city, state=state)
+
+
+@app.post("/gov/abha/verify")
+async def api_gov_abha_verify(payload: Dict[str, str]):
+    """Verify 14-digit ABHA number via ABDM Sandbox / offline checksum."""
+    abha_num = payload.get("abha_number", "")
+    res = verify_abha_number(abha_num)
+    return res.to_dict()
+
+
+@app.get("/gov/ndma/alerts")
+async def api_gov_ndma_alerts(state: Optional[str] = None):
+    """Real-time active disaster alerts from NDMA SACHET."""
+    res = fetch_ndma_alerts(state=state)
+    return res.to_dict()
+
+
+@app.get("/gov/imd/weather")
+async def api_gov_imd_weather(city: str = "hyderabad"):
+    """Live weather and heatwave indicators from IMD/Open-Meteo."""
+    res = fetch_imd_weather(city=city)
+    return res.to_dict()
+
+
+@app.post("/gov/bhashini/tts")
+async def api_gov_bhashini_tts(payload: Dict[str, str]):
+    """Generate Indian language speech via Bhashini / gTTS."""
+    text = payload.get("text", "")
+    lang = payload.get("language", "hi")
+    res = bhashini_tts(text=text, lang=lang)
+    return res.to_dict()
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Real Hardware Sensor WebSocket Bridge (ESP32 / DHT22 / Phone Sensors)
+# ═══════════════════════════════════════════════════════════════════════
+
+@app.websocket("/ws/telemetry")
+async def websocket_telemetry_endpoint(websocket: WebSocket):
+    """
+    Bi-directional WebSocket for real physical hardware sensors (ESP32, DHT22, BLE Pulse Oximeter, Mobile Companion).
+    Directly streams telemetry into the AEGIS clinical engine with zero polling latency.
+    """
+    await websocket.accept()
+    logger.info("📡 Hardware sensor WebSocket connected.")
+    try:
+        while True:
+            data = await websocket.receive_json()
+            # Update global live snapshot
+            for key in ["heart_rate", "temperature", "rmssd", "temp_slope", "eda", "ear", "head_tilt_deg", "syncope_detected", "posture_status"]:
+                if key in data:
+                    latest_vitals_snapshot[key] = data[key]
+
+            # Run evaluation on live packet
+            hr = float(data.get("heart_rate", 72.0))
+            temp = float(data.get("temperature", 36.8))
+            rmssd = float(data.get("rmssd", 45.0))
+            temp_slope = float(data.get("temp_slope", 0.0))
+            eda = float(data.get("eda", 1.5))
+            
+            res = wesad_detector.evaluate(hr, rmssd, temp, temp_slope, eda)
+            
+            # Send immediate feedback to the sensor/tablet node
+            await websocket.send_json({
+                "status": "INGESTED",
+                "risk_level": res.risk_level,
+                "is_anomaly": res.is_anomaly,
+                "confidence": res.confidence,
+                "top_driver": res.top_driver,
+                "server_timestamp": time.time()
+            })
+    except WebSocketDisconnect:
+        logger.info("Hardware sensor WebSocket disconnected.")
+    except Exception as e:
+        logger.warning(f"Hardware sensor WebSocket error: {e}")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
