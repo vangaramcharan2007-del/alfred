@@ -73,8 +73,60 @@ class DynamicAgentFactory:
 
     async def create_agent_from_prompt_async(self, user_goal: str) -> CustomAgentSpec:
         """
-        Uses Gemini 3.6 Flash to design a complete agent spec from a prompt.
+        Uses Gemini 3.6 Flash / Local Engine with instant high-performance templates.
         """
+        goal_lower = user_goal.lower()
+
+        # 1. Instant High-Intelligence Specialist Templates
+        if "leetcode" in goal_lower or "competitive programming" in goal_lower or "algorithm" in goal_lower or "dsa" in goal_lower:
+            spec = CustomAgentSpec(
+                name="LeetCodeCompetitiveProgrammingAgent",
+                role="Competitive Programming & Algorithmic Specialist",
+                description="Synthesizes optimal O(N) / O(log N) algorithm solutions in Python, C++, and Java, generates edge cases, and optimizes memory complexity.",
+                system_prompt="You are the LeetCode & Competitive Programming Grandmaster. You analyze problem constraints, select optimal data structures (Graphs, DP, Segment Trees, Two Pointers), and output clean, type-hinted code with rigorous time and space complexity breakdowns.",
+                tools=["read_file", "create_file", "list_directory", "get_system_info"]
+            )
+            self.agents[spec.name] = spec
+            self._save_agents()
+            return spec
+
+        if "video editing" in goal_lower or "video" in goal_lower or "ffmpeg" in goal_lower:
+            spec = CustomAgentSpec(
+                name="AutomatedVideoEditingWorkflowAgent",
+                role="Automated Video Editing & Timeline Director",
+                description="Generates automated FFmpeg rendering pipelines, cuts silences, synthesizes subtitle tracks, and orchestrates multi-track video timeline workflows.",
+                system_prompt="You are the Automated Video Editing Director. You synthesize production-grade FFmpeg scripts, automated scene-cut workflows, caption styling, and multi-track audio-video rendering commands.",
+                tools=["create_file", "read_file", "list_directory", "get_system_info", "optimize_game_settings"]
+            )
+            self.agents[spec.name] = spec
+            self._save_agents()
+            return spec
+
+        if "youtube" in goal_lower or "script" in goal_lower:
+            spec = CustomAgentSpec(
+                name="YouTubeTechScriptwriterAgent",
+                role="High-Retention YouTube Scriptwriter",
+                description="Crafts high-converting, viral tech scripts with 5-second hooks, pattern interrupts, visual cue breakdowns, and retention pacing.",
+                system_prompt="You are the YouTube Tech Scriptwriting Maestro. You structure 8-12 minute high-retention video scripts complete with B-roll cues, SFX prompts, and magnetic intros.",
+                tools=["read_file", "create_file", "web_search", "fetch_webpage"]
+            )
+            self.agents[spec.name] = spec
+            self._save_agents()
+            return spec
+
+        if "stock" in goal_lower or "crypto" in goal_lower or "market" in goal_lower:
+            spec = CustomAgentSpec(
+                name="MarketTrendIntelligenceAgent",
+                role="Market & Crypto Intelligence Analyst",
+                description="Scans market movements, crypto liquidity trends, macroeconomic signals, and social sentiment.",
+                system_prompt="You are the Market & Crypto Intelligence Specialist. You synthesize market volatility, moving averages, and news sentiment into actionable intelligence briefings.",
+                tools=["web_search", "fetch_webpage", "get_current_time"]
+            )
+            self.agents[spec.name] = spec
+            self._save_agents()
+            return spec
+
+        # 2. Dynamic Architecture Design via LLM Router
         from jarvisx.llm.llm_router import LLMRouter
         router = LLMRouter()
 
@@ -133,6 +185,7 @@ Respond ONLY with valid JSON in this exact schema:
         self.agents[spec.name] = spec
         self._save_agents()
         return spec
+
 
     async def execute_agent_task_async(self, agent_name: str, task: str) -> Dict[str, Any]:
         """Runs a task through the specified custom agent."""

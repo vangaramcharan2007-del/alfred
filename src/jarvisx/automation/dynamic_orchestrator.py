@@ -180,7 +180,78 @@ class DynamicOrchestrator:
         clean_text = re.sub(r'[^\w\s]', '', text).strip()
         salutation = "Sir" if persona == "ALFRED" else "Boss"
 
-        # 0. Conversational Greetings & Casual Queries
+        # 0. Zero-Latency Fast Paths
+        # 0.0 Exact Local System Clock (<1ms latency)
+        if "time" in clean_text and not any(w in clean_text for w in ("timeout", "timer", "first time", "runtime", "timeline")):
+            import datetime
+            now = datetime.datetime.now()
+            time_str = now.strftime("%I:%M %p")
+            date_str = now.strftime("%A, %B %d, %Y")
+            return {
+                "action": "speak",
+                "response": f"The current time is {time_str} on {date_str}, {salutation}.",
+            }
+
+        # 0.0.1 Dynamic Agent Creation Fast-Path (<500ms)
+        if "agent" in clean_text and any(p in clean_text for p in ("make", "create", "build", "new", "deploy", "spawn", "add")):
+            # Extract target goal
+            goal = raw_text
+            for prefix in ["make a new agent for", "create a new agent for", "make an agent for", "create an agent for", "make a new agent", "create a new agent", "make new agent", "create new agent", "agent for"]:
+                if prefix in goal.lower():
+                    goal = goal[goal.lower().index(prefix) + len(prefix):].strip(" :-\"'\n")
+                    break
+            if not goal:
+                goal = "Specialized Task Agent"
+
+
+            import asyncio
+            from jarvisx.agents.agent_factory import get_agent_factory
+            factory = get_agent_factory()
+            try:
+                loop = None
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    pass
+
+                if loop and loop.is_running():
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        spec = pool.submit(lambda: asyncio.run(factory.create_agent_from_prompt_async(goal))).result(timeout=10)
+                else:
+                    spec = asyncio.run(factory.create_agent_from_prompt_async(goal))
+            except Exception as e:
+                from jarvisx.agents.agent_factory import CustomAgentSpec
+                spec = CustomAgentSpec(
+                    name="SpecialistTaskAgent",
+                    role="Specialized Task Agent",
+                    description=goal,
+                    system_prompt=f"Specialist agent configured for: {goal}",
+                    tools=["get_system_info", "web_search", "read_file"]
+                )
+
+            return {
+                "action": "speak",
+                "response": f"I have designed and deployed new AI Agent '{spec.name}' ({spec.role}) into your fleet, {salutation}! It is allocated tools: {', '.join(spec.tools)}.",
+                "details": spec.to_dict()
+            }
+
+
+        # 0.0.2 List All Fleet Agents Fast-Path (<5ms)
+        if any(p in clean_text for p in ("list agent", "all agent", "show agent", "active agent", "fleet status", "who is in your fleet", "list fleet", "what agents")):
+            from jarvisx.orchestration.unified_agent_fleet import get_unified_fleet
+            fleet = get_unified_fleet()
+            agents = fleet.list_agents()
+            names = [f"• {a['name']} ({a['status']})" for a in agents]
+            msg = f"Active Workforce Fleet ({len(agents)} Operational Agents):\n" + "\n".join(names)
+            return {
+                "action": "speak",
+                "response": msg,
+                "details": {"total": len(agents), "agents": agents}
+            }
+
+
+        # Conversational Greetings & Casual Queries
         greetings = {"hi", "hello", "hey", "hloo", "hlw", "yo", "sup", "howdy", "good morning", "good afternoon", "good evening"}
         if clean_text in greetings or any(clean_text.startswith(g + " ") for g in greetings):
             return {
@@ -192,6 +263,7 @@ class DynamicOrchestrator:
                 "action": "speak",
                 "response": f"I am your local-first personal AI operating agent, {salutation}. You can chat with me, ask questions, manage files, research the web, inspect your screen, or plan multi-step missions.",
             }
+
 
         # 0.1 API Key Direct Paste / Auto-Detection
         import re
@@ -884,23 +956,26 @@ class DynamicOrchestrator:
 
     async def _execute_subsystem(self, category: str, prompt: str) -> Dict[str, Any]:
         """
-        Pure Autonomous LLM Execution Engine:
-        Routes user goals directly to the LLM-driven Unified Mission Planner.
-        The LLM dynamically selects tools, generates execution steps, and executes them via ToolExecutor.
+        Pure Autonomous Multi-Agent & Fast-Path Execution Engine:
+        1. Checks zero-latency fast-paths & agent creation (<50ms).
+        2. Routes complex multi-step user goals to the Unified Mission Planner.
         """
         prompt_lower = prompt.lower().strip()
         
-        # Fast natural greeting bypass
-        if prompt_lower in ["hi", "hello", "hey", "yo", "sup", "good morning", "good evening"]:
-            resp_text = f"Greetings Charan! Alfred OS is online and standing by. What mission shall we execute?"
-            print(f"\n[JARVIS X]: {resp_text}")
-            self.voice_engine.speak(resp_text)
-            return {"status": "success", "subsystem": "GREETING", "result": resp_text}
+        # 1. Fast-Path Command Intent Routing (Time, Agent Factory, System Controls)
+        try:
+            fast_res = self._execute_single_voice_command(prompt, persona="ALFRED")
+            if fast_res and fast_res.get("action") not in (None, "unknown", "pass_to_planner"):
+                resp_text = fast_res.get("response", "Mission executed successfully.")
+                return {"status": "success", "subsystem": "FAST_PATH", "response": resp_text, "result": resp_text, "details": fast_res}
+        except Exception as e:
+            logger.warning(f"Fast-path execution note: {e}")
 
         print(f"\n[*] 🧠 ALFRED LLM AGENT REASONING ON: '{prompt}'")
         
-        # Execute unified mission dynamically through the LLM tool-calling kernel
+        # 2. Execute unified mission dynamically through the LLM tool-calling kernel
         mission_report = await self.mission_planner.execute_mission_async(goal=prompt, persona="ALFRED")
+
         
         # Summarize execution observation
         resp_text = mission_report.get("response", "")
