@@ -158,7 +158,7 @@ class AlfredSituationRoomHUD:
 
         self.log_text = tk.Text(bottom_f, height=6, bg="#080c14", fg="#00ff88", font=("Consolas", 9), relief="flat", padx=8, pady=6)
         self.log_text.pack(fill="both", expand=True, pady=(3, 8))
-        self.log_text.insert("end", "[ALFRED OS] Sovereign Orchestration Kernel Online.\n[ALFRED OS] Gemini 3.6 Flash Brain Connected.\n")
+        self.log_text.insert("end", "[ALFRED OS] Sovereign Orchestration Kernel Online.\n[ALFRED OS] Groq LPU Brain Connected (Qwen 3.8 27B — Sub-second Reflex).\n")
 
         # Command Dispatch Bar
         cmd_frame = tk.Frame(bottom_f, bg="#101726")
@@ -266,13 +266,11 @@ class AlfredSituationRoomHUD:
             return
         self.cmd_entry.delete(0, "end")
         self.log_text.insert("end", f"\n[USER MISSION]: {prompt}\n")
-        self.log_text.insert("end", f"[ALFRED]: ⚡ Acknowledged, Sir. Processing mission in real-time...\n")
+        self.log_text.insert("end", f"[ALFRED]: ⚡ Acknowledged, Sir. Processing via Groq LPU in real-time...\n")
         self.log_text.see("end")
 
         def run_mission():
             import asyncio
-            from jarvisx.voice.sovereign_neural_tts import get_neural_tts
-            tts = get_neural_tts()
 
             async def _run():
                 try:
@@ -282,12 +280,11 @@ class AlfredSituationRoomHUD:
                         lines = [prompt.strip().strip('"\'')]
 
                     for line in lines:
-                        res = await self.orchestrator.dynamic_orchestrator._execute_subsystem("AGENT", line)
+                        from jarvisx.organism import get_organism
+                        res = await get_organism().react_turn(line)
                         resp = res.get("response", "Mission completed.")
                         self.log_text.insert("end", f"[ALFRED RESPONSE]: {resp}\n")
                         self.log_text.see("end")
-                        # Speak via ultra-realistic neural voice
-                        tts.speak(resp, blocking=False)
                 except Exception as ex:
                     err_msg = f"Mission execution notice: {ex}"
                     self.log_text.insert("end", f"[ALFRED ERROR]: {err_msg}\n")
@@ -296,6 +293,7 @@ class AlfredSituationRoomHUD:
             asyncio.run(_run())
 
         threading.Thread(target=run_mission, daemon=True).start()
+
 
 
     def run(self):
