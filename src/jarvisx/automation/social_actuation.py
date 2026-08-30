@@ -71,9 +71,19 @@ def send_whatsapp_voice_note(recipient: str = "Dakshith", message: str = "Hello"
         await comm.save(str(audio_file))
         
     try:
-        asyncio.run(_synth())
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                pool.submit(lambda: asyncio.run(_synth())).result()
+        else:
+            loop.run_until_complete(_synth())
     except Exception:
-        pass
+        try:
+            asyncio.run(_synth())
+        except Exception:
+            pass
+
         
     print(f"[+] Audio voice note generated at: {audio_file}")
     
