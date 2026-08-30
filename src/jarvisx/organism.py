@@ -58,6 +58,7 @@ class Brain:
         prompt: str,
         available_tools: List[Dict[str, Any]],
         observations: Optional[List[Dict[str, Any]]] = None,
+        history: Optional[List[Dict[str, str]]] = None,
     ) -> Dict[str, Any]:
         """
         Autonomously decide whether to speak or execute a tool.
@@ -66,6 +67,7 @@ class Brain:
           P1: available_tools is already filtered by SmartToolSelector (3-8 tools, not 30).
           P5: Response includes both tool decision AND speech in one JSON (no second LLM call).
           P2: observations[] feeds prior tool results back for multi-step ReAct reasoning.
+          Memory: Multi-turn history buffer + Second Brain retrieval.
         """
         salutation = "Sir" if self.persona == "ALFRED" else "Boss"
         
@@ -82,37 +84,115 @@ class Brain:
                     obs_lines.append(f"    Error: {obs['error']}")
             obs_block = "\n\nPrior Actions Already Completed:\n" + "\n".join(obs_lines) + "\n"
 
-        system = f"""You are Alfred OS Brain — an autonomous agentic AI butler for Charan.
+        # Build recent conversation history block
+        hist_block = ""
+        if history:
+            h_lines = []
+            for h in history[-6:]:
+                role = "User" if h.get("role") == "user" else "Alfred"
+                text = h.get("text", "")
+                if len(text) > 300:
+                    text = text[:300] + "..."
+                h_lines.append(f"  {role}: {text}")
+            if h_lines:
+                hist_block = "\nRecent Conversation History:\n" + "\n".join(h_lines) + "\n"
+
+        # Query Second Brain if prompt relates to memory, past context, decisions, or DSA/learning notes
+        memory_context = ""
+        p_lower = prompt.lower()
+        if any(k in p_lower for k in ("memory", "remember", "previous", "failed", "last time", "second brain", "assignment", "decision", "dsa", "course", "why did we")):
+            try:
+                from jarvisx.memory.second_brain import SecondBrain
+                sb = SecondBrain()
+                sb_res = await sb.answer_question(prompt)
+                if sb_res and sb_res.get("answer"):
+                    memory_context = f"\n[Second Brain Knowledge Recall]: {sb_res.get('answer')}\n"
+            except Exception:
+                pass
+
+        system = f"""You are Alfred OS Brain — an autonomous, highly capable agentic AI butler and engineering partner for Charan.
+
+CAPABILITIES:
+- OS & Apps: You can open applications (e.g. VS Code, Chrome, Terminal), manage files, control desktop, and send messages via Available Tools.
+- Knowledge & Coding: You are an elite software engineer and computer science tutor. For coding requests, DSA algorithms (linked lists, trees, graphs, dynamic programming), course planning, explanations, or academic tutoring, provide complete, production-ready, beautiful markdown explanations with clean Python code directly.
+- Multi-Turn Continuity: Maintain continuity with the conversation history. If the user refers to previous context ("why not", "do it again", "what about the code"), use the conversation context.
+
 RULES:
-- NEVER give manual steps or tutorials. You have real tools: USE THEM.
-- If a prior action FAILED, retry with fixed parameters or try an alternate tool.
-- If ALL steps for the user's goal are done, respond with action "speak".
+1. If the user wants you to take an OS action (open an app, send a message, search web, list files): choose action "tool_call".
+2. If the user is asking to learn, write code, plan a course, explain a concept, or converse: choose action "speak" and provide a comprehensive, articulate response.
+3. If a prior action FAILED, adapt by picking an alternate tool or explaining the resolution.
 
 Available Tools:
 {json.dumps(available_tools, indent=1)}
-{obs_block}
+{obs_block}{hist_block}{memory_context}
 User Request: "{prompt}"
 
-Respond ONLY in valid JSON. Include "speech" in tool calls so you don't need a second LLM call:
+Respond ONLY in valid JSON:
 1. Tool Call:
-{{"action":"tool_call","tool":"<name>","args":{{...}},"speech":"<1 sentence to {salutation}>"}}
+{{"action":"tool_call","tool":"<tool_name>","args":{{...}},"speech":"<1 concise spoken update to {salutation}>"}}
 
-2. Task Complete / Conversation:
-{{"action":"speak","response":"<1-2 sentences to {salutation}>"}}
+2. Direct Response / Explanation / Code / Teaching:
+{{"action":"speak","response":"<full markdown explanation, code, or answer for {salutation}>"}}
 """
         router = self._get_router()
         res = await router.route_request(system, require_offline=False)
         raw = res.get("result", {}).get("response", "").strip()
-        
-        # Parse decision
+        return self._parse_decision(raw, salutation)
+
+    def _parse_decision(self, raw: str, salutation: str = "Sir") -> Dict[str, Any]:
+        """Robustly parse LLM JSON responses, handling markdown code blocks, fences, and raw strings."""
         import re
+        text = raw.strip()
+
+        # Strip markdown code fencing if LLM wrapped in ```json ... ```
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*", "", text)
+            text = re.sub(r"\s*```$", "", text)
+            text = text.strip()
+
+        # 1. Direct JSON parse
         try:
-            match = re.search(r'\{.*\}', raw, re.DOTALL)
-            if match:
-                return json.loads(match.group(0))
+            data = json.loads(text)
+            if isinstance(data, dict):
+                return data
         except Exception:
             pass
-        return {"action": "speak", "response": raw or f"Standing by, {salutation}."}
+
+        # 2. Match outer JSON block
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            try:
+                data = json.loads(match.group(0))
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
+
+        # 3. Check for tool_call structure via regex
+        if '"action"' in text and '"tool_call"' in text:
+            tool_name_match = re.search(r'"tool"\s*:\s*"([^"]+)"', text)
+            tool_name = tool_name_match.group(1) if tool_name_match else None
+            speech_match = re.search(r'"speech"\s*:\s*"([^"]+)"', text)
+            speech = speech_match.group(1) if speech_match else f"Executing {tool_name}, {salutation}."
+            args = {}
+            args_match = re.search(r'"args"\s*:\s*(\{.*?\})', text, re.DOTALL)
+            if args_match:
+                try:
+                    args = json.loads(args_match.group(1))
+                except Exception:
+                    pass
+            return {"action": "tool_call", "tool": tool_name, "args": args, "speech": speech}
+
+        # 4. Check for speak / response structure via regex
+        resp_match = re.search(r'"response"\s*:\s*"(.*)', text, re.DOTALL)
+        if resp_match:
+            content = resp_match.group(1)
+            content = re.sub(r'"\s*\}?\s*$', "", content)
+            content = content.replace(r'\"', '"').replace(r'\n', '\n').replace(r'\t', '\t')
+            return {"action": "speak", "response": content}
+
+        # 5. Pure text fallback
+        return {"action": "speak", "response": text or f"Standing by, {salutation}."}
 
 
 
@@ -377,6 +457,7 @@ class AlfredOrganism:
         self.eyes = Eyes()
         self.hands = Hands()
         self.nerves = Nerves()
+        self.conversation_history: List[Dict[str, str]] = []
 
         # Connect internal neural reflexes
         self._wire_nervous_system()
@@ -397,6 +478,7 @@ class AlfredOrganism:
           P2: Multi-Step Autonomy — up to max_steps tool executions per turn.
           P3: Self-Healing — failed tools feed error back to Brain for retry/fallback.
           P5: Merged Speech — tool decision + speech in one LLM call (no second call).
+          Memory: Multi-turn rolling conversation history.
         """
         t0 = time.perf_counter()
 
@@ -411,11 +493,12 @@ class AlfredOrganism:
         last_tool_result = None
 
         for step in range(max_steps):
-            # P2+P3: Brain decides next action with full observation history
+            # P2+P3+Memory: Brain decides next action with full observation history and conversation context
             decision = await self.brain.decide_action(
                 user_intent,
                 filtered_tools,
                 observations=observations if observations else None,
+                history=self.conversation_history,
             )
 
             action = decision.get("action", "speak")
@@ -429,7 +512,7 @@ class AlfredOrganism:
                 tool_args = {k: v for k, v in decision.items() if k not in ("action", "speech")}
                 action = "tool_call"
 
-            # ── SPEAK: Task complete or pure conversation ──
+            # ── SPEAK: Task complete, direct answer, or conversation ──
             if action != "tool_call" or not tool_name:
                 spoken_response = decision.get("response") or decision.get("speech", "")
                 if not spoken_response:
@@ -476,10 +559,16 @@ class AlfredOrganism:
             else:
                 spoken_response = f"All done, {salutation}. Mission accomplished."
 
-        # Mouth speaks!
+        # Mouth speaks voice feedback!
         if spoken_response:
             self.mouth.speak(spoken_response, blocking=False)
             await self.nerves.pulse("speech_uttered", {"text": spoken_response})
+
+        # Update rolling conversation memory
+        self.conversation_history.append({"role": "user", "text": user_intent})
+        self.conversation_history.append({"role": "assistant", "text": spoken_response or "Task complete."})
+        if len(self.conversation_history) > 20:
+            self.conversation_history = self.conversation_history[-20:]
 
         latency = (time.perf_counter() - t0) * 1000.0
         return {
@@ -491,6 +580,7 @@ class AlfredOrganism:
             "steps_executed": len(observations),
             "observations": observations,
             "spoken": spoken_response,
+            "response": spoken_response,
             "tools_injected": len(filtered_tools),
             "tools_total": len(all_schemas),
             "latency_ms": round(latency, 2),

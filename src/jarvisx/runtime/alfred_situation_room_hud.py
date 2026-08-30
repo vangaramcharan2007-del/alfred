@@ -274,17 +274,17 @@ class AlfredSituationRoomHUD:
 
             async def _run():
                 try:
-                    # Clean multi-line inputs if user pasted multiple commands
-                    lines = [line.strip().strip('"\'') for line in prompt.split("\n") if line.strip().strip('"\'')]
-                    if not lines:
-                        lines = [prompt.strip().strip('"\'')]
-
-                    for line in lines:
-                        from jarvisx.organism import get_organism
-                        res = await get_organism().react_turn(line)
-                        resp = res.get("response", "Mission completed.")
-                        self.log_text.insert("end", f"[ALFRED RESPONSE]: {resp}\n")
-                        self.log_text.see("end")
+                    from jarvisx.organism import get_organism
+                    res = await get_organism().react_turn(prompt)
+                    
+                    # Log tool actions if any were taken
+                    if res.get("tool"):
+                        tool_st = res.get("tool_result", {}).get("status", "success")
+                        self.log_text.insert("end", f"[ALFRED ACTION]: {res.get('tool')} -> {tool_st}\n")
+                    
+                    resp = res.get("response") or res.get("spoken") or "Mission completed."
+                    self.log_text.insert("end", f"[ALFRED RESPONSE]: {resp}\n")
+                    self.log_text.see("end")
                 except Exception as ex:
                     err_msg = f"Mission execution notice: {ex}"
                     self.log_text.insert("end", f"[ALFRED ERROR]: {err_msg}\n")

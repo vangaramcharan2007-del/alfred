@@ -45,7 +45,8 @@ class PermissionGateway:
         if level == PermissionLevel.CONFIRM:
             confirmation_text = self._build_confirmation_text(tool_spec, arguments)
 
-            if not interactive or not sys.stdin.isatty():
+            is_tty = bool(sys.stdin and getattr(sys.stdin, "isatty", lambda: False)())
+            if not interactive or not is_tty:
                 return {
                     "allowed": False,
                     "reason": "CONFIRM tool denied: non-interactive session cannot provide user approval.",

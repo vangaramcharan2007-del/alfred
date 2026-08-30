@@ -63,15 +63,16 @@ DOMAIN_KEYWORDS: Dict[str, List[str]] = {
     ],
     "files": [
         "file", "folder", "directory", "read", "create", "write", "pdf",
-        "document", "download", "save", "open file", "list files",
+        "document", "download", "save", "open file", "list files", "script",
     ],
     "browser": [
         "search", "google", "website", "web", "browse", "url", "http",
-        "lookup", "find online", "internet",
+        "lookup", "find online", "internet", "youtube", "tutorial",
     ],
     "desktop": [
         "open", "launch", "start", "click", "type", "window", "app",
-        "screen", "screenshot", "press", "key", "switch",
+        "screen", "screenshot", "press", "key", "switch", "vscode", "code",
+        "terminal", "editor", "ide",
     ],
     "gaming": [
         "game", "fps", "valorant", "fortnite", "minecraft", "performance",
@@ -79,6 +80,7 @@ DOMAIN_KEYWORDS: Dict[str, List[str]] = {
     ],
     "agents": [
         "agent", "create agent", "list agent", "deploy agent", "fleet",
+        "learner agent", "bot", "assistant", "ai helper",
     ],
     "computer": [
         "computer control", "automate", "macro", "uacc",

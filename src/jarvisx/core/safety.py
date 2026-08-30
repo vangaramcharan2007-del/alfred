@@ -52,7 +52,8 @@ User approval required:
 
         if auto_approve_non_interactive:
             print("[Safety Gate]: Legacy non-interactive auto-approval is disabled.")
-        if not sys.stdin.isatty():
+        is_tty = bool(sys.stdin and getattr(sys.stdin, "isatty", lambda: False)())
+        if not is_tty:
             print("[Safety Gate]: Rejected because explicit approval is unavailable.")
             return False
 
