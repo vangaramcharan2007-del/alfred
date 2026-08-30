@@ -165,7 +165,14 @@ class UnifiedAgentFleet:
         except Exception as e:
             logger.warning(f"Could not load SovereignNeuralTTS: {e}")
 
-        # 7. Dynamic Agent Factory & Custom Agents
+        # 7. Omnichannel Social & Communications Sentinel
+        try:
+            from jarvisx.agents.comms_agent import get_comms_agent
+            self.agents["OmnichannelCommunicationsAgent"] = get_comms_agent()
+        except Exception as e:
+            logger.warning(f"Could not load OmnichannelCommunicationsAgent: {e}")
+
+        # 8. Dynamic Agent Factory & Custom Agents
         try:
             from jarvisx.agents.agent_factory import get_agent_factory
             self.agents["DynamicAgentFactory"] = get_agent_factory()
@@ -173,6 +180,7 @@ class UnifiedAgentFleet:
             logger.warning(f"Could not load DynamicAgentFactory: {e}")
 
         logger.info(f"Unified Agent Fleet loaded with {len(self.agents)} active agents.")
+
 
     def get_agent(self, name: str) -> Optional[Any]:
         """Fetches agent by exact or case-insensitive name."""
