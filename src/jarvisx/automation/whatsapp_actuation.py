@@ -2,7 +2,7 @@
 WhatsApp Visual Desktop & Web Actuation Engine for Jarvis X & Alfred OS.
 Executes live on-screen WhatsApp messaging right in front of Charan's eyes:
 1. Deep links to WhatsApp Desktop (`whatsapp://`) and WhatsApp Web (`https://web.whatsapp.com`).
-2. Automates contact lookup, message composition, calibrated visual green button click, and Enter key dispatch via PyAutoGUI & native Windows API.
+2. Automates contact lookup, message composition, hardware Win32 mouse_event click on the green Send button, and VK_RETURN key dispatch.
 """
 
 import os
@@ -11,6 +11,7 @@ import time
 import urllib.parse
 import webbrowser
 import logging
+import ctypes
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
@@ -19,6 +20,25 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
         pass
 
 logger = logging.getLogger("jarvisx.whatsapp")
+
+user32 = ctypes.windll.user32
+
+
+def _hardware_click(x: int, y: int):
+    """Sends a genuine hardware mouse click using Win32 API."""
+    user32.SetCursorPos(x, y)
+    time.sleep(0.08)
+    user32.mouse_event(0x0002, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTDOWN
+    time.sleep(0.05)
+    user32.mouse_event(0x0004, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTUP
+
+
+def _hardware_enter():
+    """Sends a genuine hardware Enter key event using Win32 API."""
+    VK_RETURN = 0x0D
+    user32.keybd_event(VK_RETURN, 0, 0, 0)
+    time.sleep(0.05)
+    user32.keybd_event(VK_RETURN, 0, 2, 0)
 
 
 def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict:
@@ -39,7 +59,7 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
 
     print(f"[*] Launching WhatsApp on your screen...")
     
-    # 1. Try Windows native protocol & browser launch
+    # 1. Launch WhatsApp protocol & browser
     try:
         os.system(f'start "" "{desktop_protocol}"')
     except Exception:
@@ -47,58 +67,53 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
 
     webbrowser.open(url)
 
-    # 2. Wait for WhatsApp window to focus and populate input
-    print("[*] Waiting 3.0 seconds for WhatsApp to focus and populate...")
+    # 2. Wait for WhatsApp to focus and populate input
+    print("[*] Waiting 3.0 seconds for WhatsApp to focus and populate message...")
     time.sleep(3.0)
 
-    # 3. Calibrated Visual Green Send Button Click & Enter Dispatch
+    # 3. Calibrated Physical Screen Targets
     try:
         import pyautogui
         pyautogui.FAILSAFE = False
         sw, sh = pyautogui.size()
-        
-        # Calibrated normalized position from live screen (0.9231, 0.9555) -> (1772, 1146 on 1920x1200)
-        send_x = int(0.9231 * sw)
-        send_y = int(0.9555 * sh)
-        
-        # Step A: Focus input area by clicking input box
-        input_x = int(0.55 * sw)
-        input_y = int(0.9555 * sh)
-        pyautogui.click(input_x, input_y)
-        time.sleep(0.1)
-        
-        # Step B: Send Enter key
-        pyautogui.press('enter')
-        time.sleep(0.1)
-        
-        # Step C: Click the green circular send button directly
-        print(f"[*] Clicking calibrated green send button at ({send_x}, {send_y})...")
-        pyautogui.click(send_x, send_y)
-        time.sleep(0.1)
-        
-        # Step D: Reinforce with Enter
-        pyautogui.press('enter')
-        
-    except Exception as e:
-        logger.debug(f"[WhatsApp] PyAutoGUI dispatch error: {e}")
+    except Exception:
+        sw, sh = (1920, 1200)
 
-    # 4. Native Win32 API Keybd Event (VK_RETURN = 0x0D)
+    # Calibrated coordinates
+    send_x = int(0.9231 * sw)  # 1772 on 1920x1200
+    send_y = int(0.9555 * sh)  # 1146 on 1920x1200
+    input_x = int(0.55 * sw)   # 1056 on 1920x1200
+    input_y = int(0.9555 * sh)
+
+    # Step A: Focus input box by clicking
+    print(f"[*] Focusing input box at ({input_x}, {input_y})...")
+    _hardware_click(input_x, input_y)
+    time.sleep(0.1)
+
+    # Step B: Hardware Enter
+    _hardware_enter()
+    time.sleep(0.15)
+
+    # Step C: Direct hardware click on green Send button
+    print(f"[*] Triggering hardware click on green Send button at ({send_x}, {send_y})...")
+    _hardware_click(send_x, send_y)
+    time.sleep(0.1)
+
+    # Step D: Final Enter pulse
+    _hardware_enter()
+
     try:
-        import ctypes
-        user32 = ctypes.windll.user32
-        VK_RETURN = 0x0D
-        user32.keybd_event(VK_RETURN, 0, 0, 0)
-        time.sleep(0.08)
-        user32.keybd_event(VK_RETURN, 0, 2, 0)
-    except Exception as e:
-        logger.debug(f"[WhatsApp] Win32 keybd_event: {e}")
+        import pyautogui
+        pyautogui.press('enter')
+    except Exception:
+        pass
 
     print(f"\n[WHATSAPP ACTUATION] [OK] Message '{message}' dispatched live on-screen for '{recipient}'!")
     return {
         "status": "DISPATCHED_LIVE",
         "recipient": recipient,
         "message": message,
-        "mode": "CALIBRATED_SEND_BUTTON_CLICK"
+        "mode": "WIN32_HARDWARE_MOUSE_AND_KEYBD"
     }
 
 
