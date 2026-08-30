@@ -537,15 +537,15 @@ class UnifiedMissionPlanner:
 
         # 3. Final Synthesis asynchronously
         synth_prompt = (
-            f"You are Alfred, a loyal AI assistant. Synthesize the findings of this completed mission for the user.\n"
+            f"You are Alfred, Charan's brilliant, charismatic, and loyal AI butler.\n"
+            f"Synthesize the mission results into a concise, natural, and engaging spoken response for {salutation}.\n"
             f"User Goal: {goal}\n\n"
-            f"Executed Mission Steps & Results:\n"
+            f"Execution Results:\n"
             f"{json.dumps(execution_trace, indent=2)}\n\n"
-            f"Requirements:\n"
-            f"1. Accurately reflect the retrieved tool data.\n"
-            f"2. Distinguish factual data from reasoning.\n"
-            f"3. Address the user respectfully as '{salutation}'.\n"
-            f"4. Provide a clear, actionable conclusion.\n"
+            f"Rules:\n"
+            f"1. Speak naturally, concisely, and charismatically as Alfred (e.g. 'I've taken care of that for you, Sir...').\n"
+            f"2. Keep it concise (1 to 3 sentences maximum).\n"
+            f"3. Do NOT output audit steps, bulleted debug lists, raw JSON, or robotic phrases like 'Step 1: Extract and verify' or 'The tool open_app has been verified'.\n"
         )
         synth_resp = await self.router.route_request(synth_prompt, require_offline=False)
         final_answer = ""
@@ -553,6 +553,7 @@ class UnifiedMissionPlanner:
             final_answer = synth_resp["result"]["response"]
         else:
             final_answer = f"Mission executed with status '{plan.status}', {salutation}."
+
 
         if self.memory_engine:
             try:

@@ -41,8 +41,43 @@ class ToolExecutor:
 
         spec = tool.spec()
 
+        # Normalize common LLM argument aliases and clean schema keys
+        normalized_args = dict(arguments)
+        if tool_name == "open_app":
+            if "application" not in normalized_args:
+                for alt in ("app", "app_name", "name", "target"):
+                    if alt in normalized_args:
+                        normalized_args["application"] = normalized_args.pop(alt)
+                        break
+            for k in list(normalized_args.keys()):
+                if k != "application":
+                    normalized_args.pop(k, None)
+        elif tool_name in ("web_search", "google_search"):
+            if "query" not in normalized_args:
+                for alt in ("q", "search_query", "text", "prompt"):
+                    if alt in normalized_args:
+                        normalized_args["query"] = normalized_args.pop(alt)
+                        break
+            for k in list(normalized_args.keys()):
+                if k not in ("query", "num_results"):
+                    normalized_args.pop(k, None)
+        elif tool_name in ("create_file", "write_file"):
+            if "path" not in normalized_args:
+                for alt in ("filename", "file_path", "target_file"):
+                    if alt in normalized_args:
+                        normalized_args["path"] = normalized_args.pop(alt)
+                        break
+            if "content" not in normalized_args and "data" in normalized_args:
+                normalized_args["content"] = normalized_args.pop("data")
+            for k in list(normalized_args.keys()):
+                if k not in ("path", "content"):
+                    normalized_args.pop(k, None)
+        arguments = normalized_args
+
+
         # 2. Argument validation
         validation = self.registry.validate(tool_name, arguments)
+
         if not validation.get("valid"):
             logger.warning(f"[ToolExecutor] Argument validation failed for '{tool_name}': {validation.get('error')}")
             return ToolResult(status="failed", tool=tool_name, error=validation.get("error", "Invalid arguments"))

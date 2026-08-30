@@ -283,9 +283,10 @@ class OpenAppTool(Tool):
         )
 
     def execute(self, arguments: Dict[str, Any]) -> ToolResult:
-        app_name = arguments.get("application", "")
+        app_name = arguments.get("application") or arguments.get("app_name") or arguments.get("name") or arguments.get("app") or ""
         if not app_name:
             return ToolResult(status="failed", tool="open_app", error="Empty application name")
+
 
         try:
             from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator

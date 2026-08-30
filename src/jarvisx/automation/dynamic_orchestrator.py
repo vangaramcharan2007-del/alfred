@@ -1003,40 +1003,137 @@ class DynamicOrchestrator:
             self._mission_planner = UnifiedMissionPlanner(tool_registry=reg)
         return self._mission_planner
 
+    async def execute_llm_react_turn_async(self, prompt: str, persona: str = "ALFRED") -> Dict[str, Any]:
+        """
+        Pure Autonomous LLM ReAct Reasoning & Execution Engine:
+        1. Queries real tool definitions from ToolRegistry.
+        2. LLM reasons on the user's intent and dynamically decides to call a tool or chat.
+        3. If tool call is generated, executes the tool sandbox and returns real results to LLM.
+        4. LLM synthesizes natural, charismatic, British butler spoken response.
+        """
+        import json
+        import re
+        import logging
+        logger = logging.getLogger("jarvisx.orchestrator.react")
+        salutation = "Sir" if persona == "ALFRED" else "Boss"
+
+        from jarvisx.tools.tool_kernel import ToolRegistry
+        from jarvisx.tools.builtin_tools import register_builtin_tools
+        from jarvisx.tools.tool_executor import ToolExecutor
+        from jarvisx.llm.llm_router import LLMRouter
+
+        reg = ToolRegistry.get_instance()
+        register_builtin_tools(reg)
+        executor = ToolExecutor(registry=reg)
+        router = LLMRouter()
+
+        tools_schemas = reg.get_schemas_for_llm()
+        tools_summary = "\n".join([f"- {s['name']}: {s['description']}" for s in tools_schemas])
+
+        system_prompt = f"""You are Alfred, Charan's sovereign AI operating system and intelligent British butler.
+Address Charan respectfully as '{salutation}'.
+
+Available Local OS Tools:
+{tools_summary}
+
+User Directive: "{prompt}"
+
+Decision Rules:
+1. If the user wants to execute an action (e.g. open an application, create an AI agent, list agents, check system info/time, read/write files, search web, control game/cooling), generate a tool call:
+   {{"action": "tool_call", "tool": "<tool_name>", "args": {{...}}}}
+2. If the user is asking a conversational question, inquiring about a topic (e.g. Nepal, coding, history, science), or chatting, respond directly:
+   {{"action": "speak", "response": "<concise, intelligent, charismatic British butler response>"}}
+
+Respond ONLY with valid JSON.
+"""
+
+        print(f"\n[*] 🧠 PURE LLM REACT INFERENCE ON: '{prompt}'")
+        res = await router.route_request(system_prompt, require_offline=False)
+        raw = res.get("result", {}).get("response", "").strip()
+
+        # Parse JSON decision robustly
+        decision = None
+        import re
+        try:
+            match = re.search(r'\{.*\}', raw, re.DOTALL)
+            if match:
+                decision = json.loads(match.group(0))
+        except Exception as e:
+            logger.warning(f"JSON parse error on LLM output: {e}")
+
+        if not decision or not isinstance(decision, dict):
+            # If plain text returned, use it directly as speech
+            clean_speech = raw.replace("```json", "").replace("```", "").strip()
+            return {"status": "success", "action": "speak", "response": clean_speech or f"Standing by for your command, {salutation}."}
+
+
+        # Detect Tool Call from LLM Decision (Supports both tool_call action and direct tool action)
+        tool_name = None
+        tool_args = {}
+
+        if decision.get("action") == "tool_call" and decision.get("tool"):
+            tool_name = decision.get("tool")
+            tool_args = decision.get("args", {})
+        elif decision.get("tool") and decision.get("tool") not in ("speak", "chat", "none"):
+            tool_name = decision.get("tool")
+            tool_args = decision.get("args", decision)
+        elif decision.get("action") and decision.get("action") not in ("speak", "message", "chat", "none", "unknown"):
+            tool_name = decision.get("action")
+            tool_args = {k: v for k, v in decision.items() if k != "action"}
+
+        # Handle Autonomous Tool Call Execution
+        if tool_name and reg.get(tool_name):
+            print(f"    [+] Autonomous Tool Decided by LLM: '{tool_name}' with args {tool_args}")
+            tool_res = executor.execute(tool_name, tool_args)
+            
+            # Pass output back to LLM for charismatic synthesis
+            synthesis_prompt = f"""You are Alfred, Charan's witty, charismatic British AI butler.
+You just executed the tool '{tool_name}' with arguments {json.dumps(tool_args)} for the goal: "{prompt}".
+Tool Output: {json.dumps(tool_res.to_dict(), indent=2)}
+
+Speak conversationally and charismatically to {salutation} in 1 to 2 sentences about the completed action.
+Do NOT mention JSON schemas, validation codes, or raw tool logs.
+"""
+            synth_res = await router.route_request(synthesis_prompt, require_offline=False)
+            spoken = synth_res.get("result", {}).get("response", "").strip()
+            if not spoken:
+                spoken = f"I have taken care of that for you, {salutation}."
+
+            return {
+                "status": "success",
+                "action": "tool_call",
+                "tool": tool_name,
+                "tool_result": tool_res.to_dict(),
+                "response": spoken
+            }
+
+        # Handle Direct Conversational Speech
+
+        if decision.get("action") == "speak" and decision.get("response"):
+            return {
+                "status": "success",
+                "action": "speak",
+                "response": decision.get("response")
+            }
+
+        return {"status": "success", "action": "speak", "response": raw}
+
     async def _execute_subsystem(self, category: str, prompt: str) -> Dict[str, Any]:
         """
-        Pure Autonomous Multi-Agent & Fast-Path Execution Engine:
-        1. Checks zero-latency fast-paths & agent creation (<50ms).
-        2. Routes complex multi-step user goals to the Unified Mission Planner.
+        Pure Autonomous LLM Multi-Agent Reasoning Engine.
+        Executes single-turn and multi-step directives through genuine LLM reasoning and ToolExecutor.
         """
-        prompt_lower = prompt.lower().strip()
-        
-        # 1. Fast-Path Command Intent Routing (Time, Agent Factory, System Controls)
-        try:
-            fast_res = self._execute_single_voice_command(prompt, persona="ALFRED")
-            if fast_res and fast_res.get("action") not in (None, "unknown", "pass_to_planner"):
-                resp_text = fast_res.get("response", "Mission executed successfully.")
-                return {"status": "success", "subsystem": "FAST_PATH", "response": resp_text, "result": resp_text, "details": fast_res}
-        except Exception as e:
-            logger.warning(f"Fast-path execution note: {e}")
+        prompt_clean = prompt.strip()
+        if not prompt_clean:
+            return {"status": "success", "response": "Standing by, Sir."}
 
-        print(f"\n[*] 🧠 ALFRED LLM AGENT REASONING ON: '{prompt}'")
-        
-        # 2. Execute unified mission dynamically through the LLM tool-calling kernel
-        mission_report = await self.mission_planner.execute_mission_async(goal=prompt, persona="ALFRED")
-
-        
-        # Summarize execution observation
-        resp_text = mission_report.get("response", "")
-        if not resp_text:
-            if mission_report.get("status") == "completed":
-                resp_text = f"Sir, I have completed the task: {prompt}."
-            else:
-                resp_text = f"Sir, execution status: {mission_report.get('status')}."
+        # 1. Pure LLM ReAct Turn (Autonomous Tool Selection + Conversational Speech)
+        react_res = await self.execute_llm_react_turn_async(prompt_clean, persona="ALFRED")
+        resp_text = react_res.get("response", "Mission completed.")
 
         print(f"\n[JARVIS X]: {resp_text}")
-        self.voice_engine.speak(resp_text)
-        return mission_report
+        return react_res
+
 
 
 
