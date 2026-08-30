@@ -44,7 +44,7 @@ class VoiceDuplexEngine:
             self.recognizer.dynamic_energy_threshold = True
 
     def speak(self, text: str, sync: bool = False):
-        """Speak out text aloud through laptop speakers and print cleanly."""
+        """Speak out text aloud through laptop speakers using Neural Voice Engine."""
         if not text or not text.strip():
             return
         clean_text = text.strip()
@@ -56,7 +56,16 @@ class VoiceDuplexEngine:
         def _speak_thread():
             spoken = clean_text.replace("*", "").replace("#", "").replace("`", "").replace("[", "").replace("]", "").replace("\n", " ")
             
-            # Method 1: Windows Native SAPI with COM Initialized
+            # Method 1: Ultra-Realistic Microsoft Edge Neural TTS (Priority 1)
+            try:
+                from jarvisx.voice.sovereign_neural_tts import get_neural_tts
+                neural_tts = get_neural_tts()
+                neural_tts.speak(spoken[:500], blocking=True)
+                return
+            except Exception as ne:
+                pass
+
+            # Method 2: Windows Native SAPI with COM Initialized (Fallback)
             if HAVE_SAPI:
                 try:
                     pythoncom.CoInitialize()
@@ -67,7 +76,7 @@ class VoiceDuplexEngine:
                 except Exception:
                     pass
 
-            # Method 2: PowerShell System.Speech Synthesizer (Zero-dependency Fallback)
+            # Method 3: PowerShell System.Speech Synthesizer (Zero-dependency Fallback)
             try:
                 safe_spoken = spoken[:300].replace('"', ' ').replace("'", " ")
                 cmd = f'Add-Type -AssemblyName System.Speech; $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; $synth.Speak("{safe_spoken}")'
@@ -83,6 +92,7 @@ class VoiceDuplexEngine:
             _speak_thread()
         else:
             threading.Thread(target=_speak_thread, daemon=True).start()
+
 
     def listen_and_transcribe(self) -> str:
         """Listens from live microphone, falling back to keyboard input if silent."""
