@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alfred OS Companion</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="alfred-popup-container">
+    <!-- Header -->
+    <header class="alfred-header">
+      <div class="alfred-brand">
+        <div class="alfred-iris-orb"></div>
+        <div class="alfred-brand-text">
+          <span class="alfred-name">ALFRED OS</span>
+          <span class="alfred-sub">Sovereign Browser Companion</span>
+        </div>
+      </div>
+      <div id="connection-status" class="alfred-status-badge status-offline">
+        <span class="status-dot"></span>
+        <span id="status-label">OFFLINE</span>
+      </div>
+    </header>
+
+    <!-- Active Tab Context Card -->
+    <div class="tab-context-card">
+      <div class="context-label">ACTIVE PAGE CONTEXT</div>
+      <div id="page-title" class="page-title-text">Loading page context...</div>
+      <div id="context-tag" class="context-pill">General Web</div>
+    </div>
+
+    <!-- Quick Action Grid -->
+    <div class="quick-actions-grid">
+      <button id="btn-solve-leetcode" class="action-btn action-leetcode">
+        <span class="btn-icon">⚡</span>
+        <span class="btn-title">Solve in VS Code</span>
+      </button>
+      <button id="btn-summarize-page" class="action-btn action-summarize">
+        <span class="btn-icon">📝</span>
+        <span class="btn-title">Summarize Page</span>
+      </button>
+      <button id="btn-save-brain" class="action-btn action-brain">
+        <span class="btn-icon">📚</span>
+        <span class="btn-title">Save to Brain</span>
+      </button>
+      <button id="btn-remind-me" class="action-btn action-remind">
+        <span class="btn-icon">⏰</span>
+        <span class="btn-title">Set Reminder</span>
+      </button>
+    </div>
+
+    <!-- Response Window -->
+    <div id="response-container" class="response-container hidden">
+      <div class="response-header">
+        <span class="response-title">⚡ ALFRED INTELLIGENCE</span>
+        <button id="btn-copy-response" class="btn-copy">Copy</button>
+      </div>
+      <div id="response-text" class="response-content"></div>
+    </div>
+
+    <!-- Chat Prompt Input -->
+    <div class="prompt-section">
+      <div class="input-wrapper">
+        <input type="text" id="user-prompt-input" placeholder="Ask Alfred anything about this page..." />
+        <button id="btn-send-prompt" class="btn-send">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Footer Vitals -->
+    <footer class="alfred-footer">
+      <span id="hardware-vitals">Groq LPU Qwen 27B Brain Connected</span>
+      <span class="version">v1.0.0</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
