@@ -271,6 +271,49 @@ class Hands:
             if "dakshith" in to_val and not any(c.isdigit() for c in to_val):
                 args["to"] = "+917794979595"
 
+        # WhatsApp Voice Note Normalization
+        if tool_name in ("send_whatsapp_voice_note", "whatsapp_voice_note", "voice_note_whatsapp"):
+            tool_name = "send_whatsapp_voice_note"
+            if "recipient" not in args:
+                for alt in ("to", "target", "contact", "person", "name"):
+                    if alt in args:
+                        args["recipient"] = args[alt]
+                        break
+            if "message" not in args:
+                for alt in ("text", "msg", "content", "prompt", "speech"):
+                    if alt in args:
+                        args["message"] = args[alt]
+                        break
+            recip = str(args.get("recipient", "")).lower()
+            if "dakshith" in recip and not any(c.isdigit() for c in recip):
+                args["recipient"] = "917794979595"
+
+        # WhatsApp Call Normalization
+        if tool_name in ("call_whatsapp", "whatsapp_call", "call_on_whatsapp"):
+            tool_name = "call_whatsapp"
+            if "recipient" not in args:
+                for alt in ("to", "target", "contact", "person", "name"):
+                    if alt in args:
+                        args["recipient"] = args[alt]
+                        break
+            recip = str(args.get("recipient", "")).lower()
+            if "dakshith" in recip and not any(c.isdigit() for c in recip):
+                args["recipient"] = "917794979595"
+
+        # Instagram DM Normalization
+        if tool_name in ("send_instagram_dm", "instagram_dm", "dm_instagram", "instagram_message", "instagram"):
+            tool_name = "send_instagram_dm"
+            if "username" not in args:
+                for alt in ("to", "target", "user", "recipient", "person"):
+                    if alt in args:
+                        args["username"] = args[alt]
+                        break
+            if "message" not in args:
+                for alt in ("text", "msg", "content", "body"):
+                    if alt in args:
+                        args["message"] = args[alt]
+                        break
+
         # Voice Note Generation Normalization
         if tool_name in ("create_voice_note", "record_audio", "generate_voice_note", "voice_note", "audio_note"):
             tool_name = "create_voice_note"
@@ -284,6 +327,7 @@ class Hands:
                     if alt in args:
                         args["recipient"] = args[alt]
                         break
+
 
         res = self.executor.execute(tool_name, args)
         return res.to_dict()

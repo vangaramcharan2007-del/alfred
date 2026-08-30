@@ -1229,6 +1229,115 @@ class CreateVoiceNoteAudioTool(Tool):
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
 
 
+class SendWhatsAppVoiceNoteTool(Tool):
+    """Generates an ultra-realistic neural audio voice note and pastes it into WhatsApp."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="send_whatsapp_voice_note",
+            description="Generates an ultra-realistic neural audio voice note (.mp3) in Telugu, English, or Hindi and pastes it directly into WhatsApp chat.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "recipient": {
+                        "type": "string",
+                        "description": "Recipient contact name (e.g. 'Dakshith', 'Mom') or phone number."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Speech message to synthesize into the voice note."
+                    },
+                    "language": {
+                        "type": "string",
+                        "description": "Language ('telugu', 'english', 'hindi').",
+                        "default": "english"
+                    }
+                },
+                "required": ["recipient", "message"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="whatsapp.voice_note"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.automation.social_actuation import send_whatsapp_voice_note
+        recip = arguments.get("recipient", "Dakshith")
+        msg = arguments.get("message", "Hello")
+        lang = arguments.get("language", "english")
+        res = send_whatsapp_voice_note(recipient=recip, message=msg, language=lang)
+        return ToolResult(status="success", tool="send_whatsapp_voice_note", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=True)
+
+
+class CallWhatsAppTool(Tool):
+    """Initiates a live WhatsApp Voice Call to a contact."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="call_whatsapp",
+            description="Initiates a live on-screen WhatsApp voice call to a contact (e.g. 'Dakshith').",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "recipient": {
+                        "type": "string",
+                        "description": "The contact name or phone number to call on WhatsApp."
+                    }
+                },
+                "required": ["recipient"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="whatsapp.call"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.automation.social_actuation import call_whatsapp_voice
+        recip = arguments.get("recipient", "Dakshith")
+        res = call_whatsapp_voice(recipient=recip)
+        return ToolResult(status="success", tool="call_whatsapp", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=True)
+
+
+class SendInstagramDMTool(Tool):
+    """Sends or composes an Instagram Direct Message."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="send_instagram_dm",
+            description="Opens Instagram Direct Messages, prepares the message for a user, and navigates to their profile/chat.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "username": {
+                        "type": "string",
+                        "description": "Instagram username (e.g. 'dakshith', '@dakshith_official')."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "The message body to send."
+                    }
+                },
+                "required": ["username", "message"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="instagram.dm"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.automation.social_actuation import send_instagram_dm
+        user = arguments.get("username", "dakshith")
+        msg = arguments.get("message", "Hi")
+        res = send_instagram_dm(username=user, message=msg)
+        return ToolResult(status="success", tool="send_instagram_dm", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=True)
+
+
 def register_builtin_tools(registry: "ToolRegistry") -> None:
     """Register all built-in tools into the given registry."""
     from jarvisx.tools.tool_kernel import ToolRegistry as _TR
@@ -1254,11 +1363,15 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(SendSmsTool())
     registry.register(PlaceCarrierCallTool())
     registry.register(WhatsAppSendTool())
+    registry.register(SendWhatsAppVoiceNoteTool())
+    registry.register(CallWhatsAppTool())
+    registry.register(SendInstagramDMTool())
     registry.register(CreateVoiceNoteAudioTool())
     registry.register(OptimizeGameSettingsTool())
     registry.register(AdaptiveGamingGovernorTool())
     registry.register(CreateAIAgentTool())
     registry.register(ListAIAgentsTool())
+
 
 
 
