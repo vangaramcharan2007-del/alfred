@@ -1156,6 +1156,9 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(WhatsAppSendTool())
     registry.register(OptimizeGameSettingsTool())
     registry.register(AdaptiveGamingGovernorTool())
+    registry.register(CreateAIAgentTool())
+    registry.register(ListAIAgentsTool())
+
 
 
 # ---------------------------------------------------------------------------
@@ -1216,6 +1219,99 @@ class AdaptiveGamingGovernorTool(Tool):
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
         verified = result.status == "success" and bool(result.result)
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tool: create_ai_agent & list_ai_agents
+# ---------------------------------------------------------------------------
+
+class CreateAIAgentTool(Tool):
+    """Dynamically creates and deploys a new specialized autonomous AI agent."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="create_ai_agent",
+            description="Dynamically designs, configures, and instantiates a new specialized autonomous AI agent (e.g. YouTubeScriptAgent, CryptoAgent, VideoEditingAgent, ResearchSentinel) on the fly using Gemini 3.6 Flash.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "goal_or_specialty": {
+                        "type": "string",
+                        "description": "Description of what new agent should specialize in and execute."
+                    },
+                    "agent_name": {
+                        "type": "string",
+                        "description": "Optional name for the agent (CamelCase)."
+                    }
+                },
+                "required": ["goal_or_specialty"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="agents.create"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        goal = arguments.get("goal_or_specialty", "General Assistant Agent")
+        
+        import asyncio
+        from jarvisx.agents.agent_factory import get_agent_factory
+        factory = get_agent_factory()
+
+        try:
+            loop = None
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+
+            if loop and loop.is_running():
+                future = asyncio.run_coroutine_threadsafe(factory.create_agent_from_prompt_async(goal), loop)
+                spec = future.result(timeout=20)
+            else:
+                spec = asyncio.run(factory.create_agent_from_prompt_async(goal))
+
+            return ToolResult(
+                status="success",
+                tool="create_ai_agent",
+                result={
+                    "status": "AGENT_DEPLOYED",
+                    "agent_name": spec.name,
+                    "role": spec.role,
+                    "description": spec.description,
+                    "tools_allocated": spec.tools,
+                    "message": f"Successfully created and deployed new AI Agent: '{spec.name}' ({spec.role})."
+                }
+            )
+        except Exception as e:
+            return ToolResult(status="error", tool="create_ai_agent", error=str(e))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and "agent_name" in (result.result or {})
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+class ListAIAgentsTool(Tool):
+    """Lists all active and custom AI agents in the fleet."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="list_ai_agents",
+            description="Lists all dynamically created and built-in AI agents in the Alfred OS fleet.",
+            input_schema={"type": "object", "properties": {}, "required": []},
+            permission_level=PermissionLevel.SAFE,
+            required_scope="agents.list"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.agents.agent_factory import get_agent_factory
+        factory = get_agent_factory()
+        agents = factory.list_all_agents()
+        return ToolResult(status="success", tool="list_ai_agents", result={"custom_agents_count": len(agents), "agents": agents})
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success"
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
 
 
 
