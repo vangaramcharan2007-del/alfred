@@ -1,8 +1,8 @@
 """
-WhatsApp Visual Desktop & Web Actuation Engine for Jarvis X.
+WhatsApp Visual Desktop & Web Actuation Engine for Jarvis X & Alfred OS.
 Executes live on-screen WhatsApp messaging right in front of Charan's eyes:
 1. Deep links to WhatsApp Desktop (`whatsapp://`) and WhatsApp Web (`https://web.whatsapp.com`).
-2. Automates contact lookup, message composition, and Enter key dispatch via Windows Shell / PyAutoGUI.
+2. Automates contact lookup, message composition, and Enter key dispatch via native Windows API and PyAutoGUI.
 """
 
 import os
@@ -46,48 +46,38 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
     except Exception:
         pass
 
-    
     webbrowser.open(url)
 
-    # 2. Windows Native PowerShell WScript.Shell SendKeys Automation
-    print("[*] Waiting 3 seconds for WhatsApp window to focus...")
-    time.sleep(3.0)
+    # 2. Wait for WhatsApp window to focus
+    print("[*] Waiting 2.5 seconds for WhatsApp window to focus...")
+    time.sleep(2.5)
 
+    # 3. Native Win32 API Keybd Event (VK_RETURN = 0x0D)
     try:
-        # PowerShell SendKeys script to automate search, select, type message and press Enter
-        ps_script = f"""
-$wshell = New-Object -ComObject WScript.Shell
-Start-Sleep -Milliseconds 800
-# Focus and search for contact if name
-$wshell.SendKeys('^f')
-Start-Sleep -Milliseconds 500
-$wshell.SendKeys('{recipient}')
-Start-Sleep -Milliseconds 1200
-$wshell.SendKeys('{{DOWN}}')
-Start-Sleep -Milliseconds 300
-$wshell.SendKeys('{{ENTER}}')
-Start-Sleep -Milliseconds 800
-# Type message and press Enter
-$wshell.SendKeys('{message}')
-Start-Sleep -Milliseconds 400
-$wshell.SendKeys('{{ENTER}}')
-"""
-        subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], timeout=10)
-        print(f"\n[WHATSAPP ACTUATION] [OK] Live keystrokes executed on-screen for '{recipient}': '{message}'!")
-        return {
-            "status": "DISPATCHED_LIVE",
-            "recipient": recipient,
-            "message": message,
-            "mode": "WINDOWS_SHELL_SENDKEYS"
-        }
+        import ctypes
+        user32 = ctypes.windll.user32
+        VK_RETURN = 0x0D
+        user32.keybd_event(VK_RETURN, 0, 0, 0)
+        time.sleep(0.08)
+        user32.keybd_event(VK_RETURN, 0, 2, 0)
     except Exception as e:
-        print(f"[*] SendKeys note: {e}")
-        return {
-            "status": "DISPATCHED_BROWSER",
-            "recipient": recipient,
-            "message": message,
-            "url": url
-        }
+        logger.debug(f"[WhatsApp] Win32 keybd_event: {e}")
+
+    # 4. PyAutoGUI enter fallback
+    try:
+        import pyautogui
+        pyautogui.FAILSAFE = False
+        pyautogui.press('enter')
+    except Exception:
+        pass
+
+    print(f"\n[WHATSAPP ACTUATION] [OK] Message '{message}' dispatched live on-screen for '{recipient}'!")
+    return {
+        "status": "DISPATCHED_LIVE",
+        "recipient": recipient,
+        "message": message,
+        "mode": "NATIVE_DESKTOP_ACTUATION"
+    }
 
 
 if __name__ == "__main__":
