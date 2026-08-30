@@ -51,40 +51,41 @@ class DynamicOrchestrator:
         return self._memory_engine
 
     def find_and_launch_app(self, app_name: str) -> Dict[str, Any]:
-        """Dynamically search Windows Start Menu, PATH, and Registry for any app name."""
+        """Dynamically search Windows protocols, Start Menu, PATH, and Registry for any app name."""
         clean_name = app_name.lower().replace("open", "").replace("launch", "").replace("start", "").strip()
         if not clean_name:
             return {"status": "FAILED", "reason": "Empty app name"}
 
-        # Common Web Applications & Social Services
-        web_apps = {
-            "youtube": "https://www.youtube.com",
-            "u tube": "https://www.youtube.com",
-            "urube": "https://www.youtube.com",
-            "youtbe": "https://www.youtube.com",
-            "yt": "https://www.youtube.com",
-            "instagram": "https://www.instagram.com",
-            "insta": "https://www.instagram.com",
-            "whatsapp": "https://web.whatsapp.com",
-            "spotify": "https://open.spotify.com",
-            "github": "https://github.com",
-            "gmail": "https://mail.google.com",
-            "google": "https://www.google.com",
-            "twitter": "https://twitter.com",
-            "x": "https://x.com",
-            "chatgpt": "https://chatgpt.com",
-            "facebook": "https://www.facebook.com",
-            "reddit": "https://www.reddit.com",
-            "linkedin": "https://www.linkedin.com",
-            "netflix": "https://www.netflix.com",
+        # 1. Native Windows Protocol Schemes (Launches direct native desktop apps)
+        native_protocols = {
+            "whatsapp": "whatsapp:",
+            "spotify": "spotify:",
+            "discord": "discord:",
+            "telegram": "tg:",
+            "calc": "calc:",
+            "calculator": "calc:",
+            "settings": "ms-settings:",
+            "store": "ms-windows-store:",
+            "notepad": "notepad",
+            "terminal": "wt",
+            "cmd": "cmd",
+            "code": "code",
+            "vscode": "code",
+            "chrome": "chrome",
+            "edge": "msedge",
+            "file explorer": "explorer",
+            "explorer": "explorer",
         }
 
-        for key, url in web_apps.items():
-            if key in clean_name:
-                webbrowser.open(url)
-                return {"status": "LAUNCHED_WEB", "target": key, "url": url}
+        for key, proto in native_protocols.items():
+            if key == clean_name or clean_name in key:
+                try:
+                    subprocess.Popen(f"start {proto}", shell=True)
+                    return {"status": "LAUNCHED_DESKTOP", "target": key, "protocol": proto, "app_name": key.title()}
+                except Exception:
+                    pass
 
-        # Search Windows Start Menu Shortcuts (.lnk)
+        # 2. Search Windows Start Menu Shortcuts (.lnk) and Executables
         _home = os.path.expanduser("~")
         search_paths = [
             r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs",
@@ -100,6 +101,7 @@ class DynamicOrchestrator:
             if not os.path.exists(base_path):
                 continue
             for root, dirs, files in os.walk(base_path):
+                dirs[:] = [d for d in dirs if d not in ('.git', '.venv', '__pycache__', 'node_modules')]
                 for f in files:
                     if clean_name in f.lower() and (f.endswith(".lnk") or f.endswith(".exe")):
                         found_path = os.path.join(root, f)
@@ -108,6 +110,38 @@ class DynamicOrchestrator:
                     break
             if found_path:
                 break
+
+        if found_path:
+            try:
+                os.startfile(found_path)
+                return {"status": "LAUNCHED_DESKTOP", "target": clean_name, "path": found_path, "app_name": clean_name.title()}
+            except Exception as e:
+                logger.warning(f"Could not open file {found_path}: {e}")
+
+        # 3. Fallback: Common Web Applications
+        web_apps = {
+            "youtube": "https://www.youtube.com",
+            "u tube": "https://www.youtube.com",
+            "instagram": "https://www.instagram.com",
+            "insta": "https://www.instagram.com",
+            "whatsapp": "https://web.whatsapp.com",
+            "github": "https://github.com",
+            "gmail": "https://mail.google.com",
+            "google": "https://www.google.com",
+            "twitter": "https://twitter.com",
+            "x": "https://x.com",
+            "chatgpt": "https://chatgpt.com",
+            "facebook": "https://www.facebook.com",
+            "reddit": "https://www.reddit.com",
+            "linkedin": "https://www.linkedin.com",
+            "netflix": "https://www.netflix.com",
+        }
+
+        for key, url in web_apps.items():
+            if key in clean_name:
+                webbrowser.open(url)
+                return {"status": "LAUNCHED_WEB", "target": key, "url": url, "app_name": key.title()}
+
 
         if found_path:
             try:
@@ -181,7 +215,20 @@ class DynamicOrchestrator:
         salutation = "Sir" if persona == "ALFRED" else "Boss"
 
         # 0. Zero-Latency Fast Paths
-        # 0.0 Exact Local System Clock (<1ms latency)
+        # 0.0.0 Direct App Launch Fast-Path (<5ms)
+        if any(clean_text.startswith(p) for p in ("open ", "launch ", "start ")) and not any(w in clean_text for w in ("agent", "mission", "chess", "dsa", "camera", "terminal script")):
+            target = re.sub(r'^(open|launch|start)\s+', '', clean_text).strip()
+            if target:
+                res = self.find_and_launch_app(target)
+                app_disp = res.get("app_name", target.title())
+                if res.get("status") in ("LAUNCHED_DESKTOP", "LAUNCHED_LOCAL", "LAUNCHED_WEB", "LAUNCHED_WEB_DIRECT"):
+                    return {
+                        "action": "open_app",
+                        "response": f"Opening {app_disp} for you now, {salutation}.",
+                        "details": res
+                    }
+
+        # 0.0.1 Exact Local System Clock (<1ms latency)
         if "time" in clean_text and not any(w in clean_text for w in ("timeout", "timer", "first time", "runtime", "timeline")):
             import datetime
             now = datetime.datetime.now()
@@ -192,7 +239,8 @@ class DynamicOrchestrator:
                 "response": f"The current time is {time_str} on {date_str}, {salutation}.",
             }
 
-        # 0.0.1 Dynamic Agent Creation Fast-Path (<500ms)
+        # 0.0.2 Dynamic Agent Creation Fast-Path (<500ms)
+
         if "agent" in clean_text and any(p in clean_text for p in ("make", "create", "build", "new", "deploy", "spawn", "add", "propose", "suggest")):
             # Extract target goal
             goal = raw_text
