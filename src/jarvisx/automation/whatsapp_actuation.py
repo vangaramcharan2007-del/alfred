@@ -2,7 +2,7 @@
 WhatsApp Visual Desktop & Web Actuation Engine for Jarvis X & Alfred OS.
 Executes live on-screen WhatsApp messaging right in front of Charan's eyes:
 1. Deep links to WhatsApp Desktop (`whatsapp://`) and WhatsApp Web (`https://web.whatsapp.com`).
-2. Dispatches genuine Windows kernel hardware scan code inputs via Win32 `SendInput` API (Enter scan code 0x1C + absolute hardware mouse click at 1772, 1146).
+2. Pastes clean message via system clipboard (Ctrl+A -> Ctrl+V) and triggers Enter key & Send button click.
 """
 
 import os
@@ -13,6 +13,10 @@ import webbrowser
 import logging
 import ctypes
 from ctypes import wintypes
+import pyperclip
+import pyautogui
+
+pyautogui.FAILSAFE = False
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
@@ -21,7 +25,6 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
         pass
 
 logger = logging.getLogger("jarvisx.whatsapp")
-
 user32 = ctypes.windll.user32
 
 
@@ -77,11 +80,9 @@ def send_hardware_scan_enter():
     """Dispatches real hardware keyboard scan code 0x1C (Enter) via SendInput."""
     scan = user32.MapVirtualKeyW(0x0D, 0) or 0x1C
     
-    # Key Down (KEYEVENTF_SCANCODE = 0x0008)
     inp_down = INPUT(type=1)
     inp_down.u.ki = KEYBDINPUT(wVk=0x0D, wScan=scan, dwFlags=0x0008, time=0, dwExtraInfo=None)
     
-    # Key Up (KEYEVENTF_SCANCODE = 0x0008 | KEYEVENTF_KEYUP = 0x0002)
     inp_up = INPUT(type=1)
     inp_up.u.ki = KEYBDINPUT(wVk=0x0D, wScan=scan, dwFlags=0x0008 | 0x0002, time=0, dwExtraInfo=None)
     
@@ -97,19 +98,16 @@ def send_hardware_absolute_click(x: int, y: int):
     norm_x = int((x * 65535) / sw)
     norm_y = int((y * 65535) / sh)
     
-    # Move Cursor
     inp_move = INPUT(type=0)
     inp_move.u.mi = MOUSEINPUT(dx=norm_x, dy=norm_y, mouseData=0, dwFlags=0x8000 | 0x0001, time=0, dwExtraInfo=None)
     user32.SendInput(1, ctypes.byref(inp_move), ctypes.sizeof(INPUT))
     time.sleep(0.04)
     
-    # Click Down (MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_LEFTDOWN = 0x8000 | 0x0002)
     inp_down = INPUT(type=0)
     inp_down.u.mi = MOUSEINPUT(dx=norm_x, dy=norm_y, mouseData=0, dwFlags=0x8000 | 0x0002, time=0, dwExtraInfo=None)
     user32.SendInput(1, ctypes.byref(inp_down), ctypes.sizeof(INPUT))
     time.sleep(0.06)
     
-    # Click Up (MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_LEFTUP = 0x8000 | 0x0004)
     inp_up = INPUT(type=0)
     inp_up.u.mi = MOUSEINPUT(dx=norm_x, dy=norm_y, mouseData=0, dwFlags=0x8000 | 0x0004, time=0, dwExtraInfo=None)
     user32.SendInput(1, ctypes.byref(inp_up), ctypes.sizeof(INPUT))
@@ -131,9 +129,15 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
         url = f"https://web.whatsapp.com/send?text={encoded_msg}"
         desktop_protocol = f"whatsapp://send?text={encoded_msg}"
 
+    # 1. Copy message to system clipboard
+    try:
+        pyperclip.copy(message)
+    except Exception:
+        pass
+
     print(f"[*] Launching WhatsApp on your screen...")
     
-    # 1. Launch WhatsApp protocol & browser
+    # 2. Launch WhatsApp protocol & browser
     try:
         os.system(f'start "" "{desktop_protocol}"')
     except Exception:
@@ -141,11 +145,11 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
 
     webbrowser.open(url)
 
-    # 2. Wait for WhatsApp to focus and populate input
-    print("[*] Waiting 3.0 seconds for WhatsApp to focus and populate message...")
-    time.sleep(3.0)
+    # 3. Wait for WhatsApp to focus
+    print("[*] Waiting 2.5 seconds for WhatsApp window to focus...")
+    time.sleep(2.5)
 
-    # 3. Calibrated Screen Metrics (Physical 1920x1200)
+    # 4. Calibrated Screen Metrics (Physical 1920x1200)
     sw = user32.GetSystemMetrics(0) or 1920
     sh = user32.GetSystemMetrics(1) or 1200
     
@@ -164,34 +168,41 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
     # Step A: Focus input box by hardware click
     print(f"[*] Focusing input box at ({input_x}, {input_y})...")
     send_hardware_absolute_click(input_x, input_y)
-    time.sleep(0.2)
-
-    # Step B: Send Hardware Scan Code Enter (0x1C)
-    print("[*] Dispatched hardware scan code 0x1C (Enter)...")
-    send_hardware_scan_enter()
-    time.sleep(0.2)
-
-    # Step C: Direct hardware click on green Send button (1772, 1146)
-    print(f"[*] Triggering hardware click on green Send button at ({send_x}, {send_y})...")
-    send_hardware_absolute_click(send_x, send_y)
     time.sleep(0.15)
 
-    # Step D: Final Enter pulse via SendInput and PyAutoGUI
-    send_hardware_scan_enter()
+    # Step B: Clear any accumulated text with Ctrl+A and Paste Clean Message with Ctrl+V
+    print("[*] Replacing input text with clean message via Ctrl+A and Ctrl+V...")
     try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        pyautogui.press('enter')
+        pyautogui.hotkey('ctrl', 'a')
+        time.sleep(0.1)
+        pyautogui.hotkey('ctrl', 'v')
+        time.sleep(0.15)
     except Exception:
         pass
 
+    # Step C: Send Hardware Scan Code Enter (0x1C)
+    print("[*] Dispatched hardware scan code 0x1C (Enter)...")
+    send_hardware_scan_enter()
+    time.sleep(0.15)
+
+    # Step D: Direct hardware click on green Send button (1772, 1146)
+    print(f"[*] Triggering hardware click on green Send button at ({send_x}, {send_y})...")
+    send_hardware_absolute_click(send_x, send_y)
+    time.sleep(0.1)
+
+    # Step E: Final Enter pulse via PyAutoGUI & SendInput
+    send_hardware_scan_enter()
+    try:
+        pyautogui.press('enter')
+    except Exception:
+        pass
 
     print(f"\n[WHATSAPP ACTUATION] [OK] Message '{message}' dispatched live on-screen for '{recipient}'!")
     return {
         "status": "DISPATCHED_LIVE",
         "recipient": recipient,
         "message": message,
-        "mode": "WIN32_SENDINPUT_HARDWARE_SCANCODE"
+        "mode": "CLIPBOARD_PASTE_AND_ENTER"
     }
 
 
