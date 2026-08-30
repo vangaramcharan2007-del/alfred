@@ -53,30 +53,52 @@ class Brain:
         res = await router.route_request(full_prompt, require_offline=False)
         return res.get("result", {}).get("response", "").strip() or f"At your service, {salutation}."
 
-    async def decide_action(self, prompt: str, available_tools: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Autonomously decide whether to speak or execute a tool."""
+    async def decide_action(
+        self,
+        prompt: str,
+        available_tools: List[Dict[str, Any]],
+        observations: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Autonomously decide whether to speak or execute a tool.
+        
+        Pillars implemented:
+          P1: available_tools is already filtered by SmartToolSelector (3-8 tools, not 30).
+          P5: Response includes both tool decision AND speech in one JSON (no second LLM call).
+          P2: observations[] feeds prior tool results back for multi-step ReAct reasoning.
+        """
         salutation = "Sir" if self.persona == "ALFRED" else "Boss"
-        system = f"""You are the central Brain of Alfred OS — an autonomous agentic system.
-CRITICAL MANDATE: NEVER give manual steps, tutorials, or textual instructions. You are an autonomous agent with real hands: ALWAYS execute the appropriate tool directly to do the work for the user!
+        
+        # Build observation history for ReAct loop
+        obs_block = ""
+        if observations:
+            obs_lines = []
+            for obs in observations:
+                status = "✓" if obs.get("result", {}).get("status") == "success" else "✗ FAILED"
+                obs_lines.append(
+                    f"  Step {obs['step']}: {obs['tool']}({json.dumps(obs.get('args', {}))}) → {status}"
+                )
+                if obs.get("error"):
+                    obs_lines.append(f"    Error: {obs['error']}")
+            obs_block = "\n\nPrior Actions Already Completed:\n" + "\n".join(obs_lines) + "\n"
+
+        system = f"""You are Alfred OS Brain — an autonomous agentic AI butler for Charan.
+RULES:
+- NEVER give manual steps or tutorials. You have real tools: USE THEM.
+- If a prior action FAILED, retry with fixed parameters or try an alternate tool.
+- If ALL steps for the user's goal are done, respond with action "speak".
 
 Available Tools:
-{json.dumps(available_tools, indent=2)}
-
+{json.dumps(available_tools, indent=1)}
+{obs_block}
 User Request: "{prompt}"
 
-You must respond ONLY in valid JSON matching one of these formats:
-1. Tool Call (for actions like sending WhatsApp messages, opening apps, searching, controlling PC, running agents):
-{{
-  "action": "tool_call",
-  "tool": "<tool_name>",
-  "args": {{ "<param>": "<value>" }}
-}}
+Respond ONLY in valid JSON. Include "speech" in tool calls so you don't need a second LLM call:
+1. Tool Call:
+{{"action":"tool_call","tool":"<name>","args":{{...}},"speech":"<1 sentence to {salutation}>"}}
 
-2. Conversational Speech (ONLY for pure questions/pleasantries like 'how are you'):
-{{
-  "action": "speak",
-  "response": "<1-2 sentences of charismatic speech to {salutation}>"
-}}
+2. Task Complete / Conversation:
+{{"action":"speak","response":"<1-2 sentences to {salutation}>"}}
 """
         router = self._get_router()
         res = await router.route_request(system, require_offline=False)
@@ -210,127 +232,90 @@ class Hands:
         """Get all JSON schemas of available tools for the Brain."""
         return self.registry.get_schemas_for_llm()
 
+    def _resolve_contact_phone(self, name_or_number: str) -> str:
+        """
+        Pillar 7: Centralized contact book resolution from config/contacts.json.
+        Eliminates all hardcoded phone numbers from Python code.
+        """
+        # If it's already mostly digits, return as-is
+        digits = "".join(filter(str.isdigit, name_or_number))
+        if len(digits) >= 10:
+            return name_or_number
+        
+        try:
+            contacts_file = Path("config/contacts.json")
+            if contacts_file.exists():
+                with open(contacts_file, "r", encoding="utf-8") as f:
+                    contacts = json.load(f)
+                name_lower = name_or_number.lower()
+                for key, entry in contacts.items():
+                    if key in name_lower or entry.get("name", "").lower() in name_lower:
+                        return entry.get("phone", name_or_number).lstrip("+")
+        except Exception:
+            pass
+        return name_or_number
+
+    # ── Tool Name & Argument Normalization Tables ──
+    _TOOL_ALIASES = {
+        "whatsapp_send": "send_whatsapp_message", "send_whatsapp": "send_whatsapp_message", "whatsapp": "send_whatsapp_message",
+        "whatsapp_voice_note": "send_whatsapp_voice_note", "voice_note_whatsapp": "send_whatsapp_voice_note",
+        "whatsapp_call": "call_whatsapp", "call_on_whatsapp": "call_whatsapp",
+        "instagram_dm": "send_instagram_dm", "dm_instagram": "send_instagram_dm", "instagram_message": "send_instagram_dm", "instagram": "send_instagram_dm",
+        "make_phone_call": "place_carrier_call", "call_phone": "place_carrier_call", "call": "place_carrier_call", "phone_call": "place_carrier_call",
+        "sms_send": "send_sms", "sms": "send_sms", "text_message": "send_sms",
+        "record_audio": "create_voice_note", "generate_voice_note": "create_voice_note", "voice_note": "create_voice_note", "audio_note": "create_voice_note",
+    }
+
+    _ARG_ALIASES = {
+        "recipient": ["to", "target", "contact", "person", "name"],
+        "message": ["text", "msg", "content", "body", "prompt", "speech"],
+        "to": ["recipient", "target", "contact", "person", "number", "phone"],
+        "application": ["app", "app_name", "name", "target"],
+        "username": ["to", "target", "user", "recipient", "person"],
+        "speech_text": ["message", "text", "msg", "prompt", "say"],
+    }
+
     def act(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a tool or agent action with full safety verification."""
         args = dict(arguments)
-        if tool_name == "open_app" and "application" not in args:
-            for alt in ("app", "app_name", "name", "target"):
-                if alt in args:
-                    args["application"] = args[alt]
-                    break
-        
-        # WhatsApp & Messaging Normalization
-        if tool_name in ("send_whatsapp_message", "whatsapp_send", "send_whatsapp", "whatsapp"):
-            tool_name = "send_whatsapp_message"
-            if "recipient" not in args:
-                for alt in ("to", "target", "contact", "person", "name"):
-                    if alt in args:
-                        args["recipient"] = args[alt]
-                        break
-            if "message" not in args:
-                for alt in ("text", "msg", "content", "body"):
-                    if alt in args:
-                        args["message"] = args[alt]
-                        break
-            recip = str(args.get("recipient", "")).lower()
-            if "dakshith" in recip and not any(c.isdigit() for c in recip):
-                args["recipient"] = "917794979595"
 
-        # Telephony & Calling Normalization
+        # Normalize tool name aliases
+        tool_name = self._TOOL_ALIASES.get(tool_name, tool_name)
 
-        if tool_name in ("place_carrier_call", "make_phone_call", "call_phone", "call", "phone_call"):
-            tool_name = "place_carrier_call"
-            if "to" not in args:
-                for alt in ("recipient", "target", "contact", "person", "number", "phone"):
-                    if alt in args:
-                        args["to"] = args[alt]
-                        break
-            if "speech_text" not in args:
-                for alt in ("message", "text", "msg", "prompt", "say"):
-                    if alt in args:
-                        args["speech_text"] = args[alt]
-                        break
-            to_val = str(args.get("to", "")).lower()
-            if "dakshith" in to_val and not any(c.isdigit() for c in to_val):
-                args["to"] = "+917794979595"
-
-        # SMS Normalization
-        if tool_name in ("send_sms", "sms_send", "sms", "text_message"):
-            tool_name = "send_sms"
-            if "to" not in args:
-                for alt in ("recipient", "target", "contact", "person", "number", "phone"):
-                    if alt in args:
-                        args["to"] = args[alt]
-                        break
-            if "message" not in args:
-                for alt in ("text", "msg", "body", "content"):
-                    if alt in args:
-                        args["message"] = args[alt]
-                        break
-            to_val = str(args.get("to", "")).lower()
-            if "dakshith" in to_val and not any(c.isdigit() for c in to_val):
-                args["to"] = "+917794979595"
-
-        # WhatsApp Voice Note Normalization
-        if tool_name in ("send_whatsapp_voice_note", "whatsapp_voice_note", "voice_note_whatsapp"):
-            tool_name = "send_whatsapp_voice_note"
-            if "recipient" not in args:
-                for alt in ("to", "target", "contact", "person", "name"):
-                    if alt in args:
-                        args["recipient"] = args[alt]
-                        break
-            if "message" not in args:
-                for alt in ("text", "msg", "content", "prompt", "speech"):
-                    if alt in args:
-                        args["message"] = args[alt]
-                        break
-            recip = str(args.get("recipient", "")).lower()
-            if "dakshith" in recip and not any(c.isdigit() for c in recip):
-                args["recipient"] = "917794979595"
-
-        # WhatsApp Call Normalization
-        if tool_name in ("call_whatsapp", "whatsapp_call", "call_on_whatsapp"):
-            tool_name = "call_whatsapp"
-            if "recipient" not in args:
-                for alt in ("to", "target", "contact", "person", "name"):
-                    if alt in args:
-                        args["recipient"] = args[alt]
-                        break
-            recip = str(args.get("recipient", "")).lower()
-            if "dakshith" in recip and not any(c.isdigit() for c in recip):
-                args["recipient"] = "917794979595"
-
-        # Instagram DM Normalization
-        if tool_name in ("send_instagram_dm", "instagram_dm", "dm_instagram", "instagram_message", "instagram"):
-            tool_name = "send_instagram_dm"
-            if "username" not in args:
-                for alt in ("to", "target", "user", "recipient", "person"):
-                    if alt in args:
-                        args["username"] = args[alt]
-                        break
-            if "message" not in args:
-                for alt in ("text", "msg", "content", "body"):
-                    if alt in args:
-                        args["message"] = args[alt]
-                        break
-
-        # Voice Note Generation Normalization
-        if tool_name in ("create_voice_note", "record_audio", "generate_voice_note", "voice_note", "audio_note"):
-            tool_name = "create_voice_note"
-            if "message" not in args:
-                for alt in ("text", "msg", "content", "prompt", "speech"):
-                    if alt in args:
-                        args["message"] = args[alt]
-                        break
-            if "recipient" not in args:
-                for alt in ("to", "target", "contact"):
-                    if alt in args:
-                        args["recipient"] = args[alt]
-                        break
-
+        # Normalize argument aliases based on tool requirements
+        if tool_name == "open_app":
+            self._fill_arg(args, "application")
+        elif tool_name in ("send_whatsapp_message", "send_whatsapp_voice_note", "call_whatsapp"):
+            self._fill_arg(args, "recipient")
+            if tool_name != "call_whatsapp":
+                self._fill_arg(args, "message")
+            args["recipient"] = self._resolve_contact_phone(str(args.get("recipient", "")))
+        elif tool_name in ("place_carrier_call", "send_sms"):
+            self._fill_arg(args, "to")
+            if tool_name == "place_carrier_call":
+                self._fill_arg(args, "speech_text")
+            else:
+                self._fill_arg(args, "message")
+            args["to"] = self._resolve_contact_phone(str(args.get("to", "")))
+        elif tool_name == "send_instagram_dm":
+            self._fill_arg(args, "username")
+            self._fill_arg(args, "message")
+        elif tool_name == "create_voice_note":
+            self._fill_arg(args, "message")
+            self._fill_arg(args, "recipient")
 
         res = self.executor.execute(tool_name, args)
         return res.to_dict()
+
+    def _fill_arg(self, args: Dict[str, Any], target_key: str) -> None:
+        """Fill a missing argument from its known aliases."""
+        if target_key in args:
+            return
+        for alt in self._ARG_ALIASES.get(target_key, []):
+            if alt in args:
+                args[target_key] = args[alt]
+                return
+
 
 
 
@@ -403,46 +388,93 @@ class AlfredOrganism:
         # When visual anomaly happens, notify brain
         self.nerves.on("visual_pulse", lambda e: logger.debug(f"[Nerves] Visual pulse received: {e.data}"))
 
-    async def react_turn(self, user_intent: str) -> Dict[str, Any]:
+    async def react_turn(self, user_intent: str, max_steps: int = 5) -> Dict[str, Any]:
         """
-        Execute a complete end-to-end reflex cycle:
-        1. Brain evaluates user_intent with Hands tool schemas.
-        2. If tool required, Hands act upon the world.
-        3. If speech required, Brain synthesizes and Mouth speaks.
+        ReAct Agent Loop: Reason → Act → Observe → Repeat until done.
+
+        Pillars:
+          P1: Smart Tool Selection — only 3-8 relevant tools injected (not all 30).
+          P2: Multi-Step Autonomy — up to max_steps tool executions per turn.
+          P3: Self-Healing — failed tools feed error back to Brain for retry/fallback.
+          P5: Merged Speech — tool decision + speech in one LLM call (no second call).
         """
         t0 = time.perf_counter()
-        tools = self.hands.get_tool_schemas()
-        decision = await self.brain.decide_action(user_intent, tools)
-        
-        action = decision.get("action", "speak")
-        tool_name = decision.get("tool")
-        tool_args = decision.get("args", {})
-        
-        # Handle flexible LLM output formats
-        if action not in ("speak", "message", "chat") and action in [t["name"] for t in tools]:
-            tool_name = action
-            tool_args = {k: v for k, v in decision.items() if k != "action"}
-            action = "tool_call"
 
-        tool_result = None
+        # P1: Smart Tool Selection — filter 30 tools down to 3-8 relevant ones
+        from jarvisx.tools.tool_selector import select_tools_for_intent
+        all_schemas = self.hands.get_tool_schemas()
+        filtered_tools = select_tools_for_intent(user_intent, all_schemas)
+        
+        observations: List[Dict[str, Any]] = []
         spoken_response = ""
+        last_tool = None
+        last_tool_result = None
 
-        if action == "tool_call" and tool_name:
+        for step in range(max_steps):
+            # P2+P3: Brain decides next action with full observation history
+            decision = await self.brain.decide_action(
+                user_intent,
+                filtered_tools,
+                observations=observations if observations else None,
+            )
+
+            action = decision.get("action", "speak")
+            tool_name = decision.get("tool")
+            tool_args = decision.get("args", {})
+            
+            # Handle flexible LLM output formats
+            tool_names_set = {t["name"] for t in filtered_tools}
+            if action not in ("speak", "message", "chat") and action in tool_names_set:
+                tool_name = action
+                tool_args = {k: v for k, v in decision.items() if k not in ("action", "speech")}
+                action = "tool_call"
+
+            # ── SPEAK: Task complete or pure conversation ──
+            if action != "tool_call" or not tool_name:
+                spoken_response = decision.get("response") or decision.get("speech", "")
+                if not spoken_response:
+                    spoken_response = await self.brain.think(user_intent)
+                break
+
+            # ── TOOL CALL: Execute the chosen tool ──
             if tool_name == "open_app" and not tool_args.get("application"):
                 inferred = user_intent.lower().replace("open", "").replace("launch", "").replace("start", "").strip()
                 if inferred:
                     tool_args["application"] = inferred
 
-            # Hands act!
             tool_result = self.hands.act(tool_name, tool_args)
-            
-            # Brain synthesizes charismatic reaction
-            salutation = "Sir" if self.persona == "ALFRED" else "Boss"
-            synth_prompt = f"Alfred butler speech: you just executed '{tool_name}' for Charan's goal: '{user_intent}'. Say 1 charismatic sentence to {salutation}."
-            spoken_response = await self.brain.think(synth_prompt, context=tool_result)
+            last_tool = tool_name
+            last_tool_result = tool_result
 
-        else:
-            spoken_response = decision.get("response") or await self.brain.think(user_intent)
+            # P2: Record observation for next iteration
+            obs_entry = {
+                "step": step + 1,
+                "tool": tool_name,
+                "args": tool_args,
+                "result": {"status": tool_result.get("status", "unknown")},
+            }
+
+            # P3: If tool failed, feed error into observations for self-healing
+            if tool_result.get("status") == "failed":
+                obs_entry["error"] = tool_result.get("error", "Unknown error")
+                observations.append(obs_entry)
+                # Brain will see the error on next iteration and can retry or pick alternate tool
+                continue
+
+            observations.append(obs_entry)
+
+            # P5: Use pre-merged speech from this decision (no second LLM call)
+            merged_speech = decision.get("speech", "")
+            if merged_speech:
+                spoken_response = merged_speech
+
+        # If we exhausted steps without a speak, synthesize final response
+        if not spoken_response and observations:
+            salutation = "Sir" if self.persona == "ALFRED" else "Boss"
+            if any(o.get("error") for o in observations):
+                spoken_response = f"I encountered some difficulty, {salutation}, but I've done my best with the available tools."
+            else:
+                spoken_response = f"All done, {salutation}. Mission accomplished."
 
         # Mouth speaks!
         if spoken_response:
@@ -453,11 +485,15 @@ class AlfredOrganism:
         return {
             "status": "success",
             "intent": user_intent,
-            "decision": action,
-            "tool": tool_name,
-            "tool_result": tool_result,
+            "decision": "tool_call" if observations else "speak",
+            "tool": last_tool,
+            "tool_result": last_tool_result,
+            "steps_executed": len(observations),
+            "observations": observations,
             "spoken": spoken_response,
-            "latency_ms": round(latency, 2)
+            "tools_injected": len(filtered_tools),
+            "tools_total": len(all_schemas),
+            "latency_ms": round(latency, 2),
         }
 
 

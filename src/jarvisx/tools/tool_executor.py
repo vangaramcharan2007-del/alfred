@@ -30,8 +30,17 @@ class ToolExecutor:
         arguments: Dict[str, Any],
         interactive: bool = True,
     ) -> ToolResult:
-        """Full pipeline: lookup → validate → permission → execute → verify."""
+        """Full pipeline: lookup → cache → validate → permission → execute → verify → cache store."""
         t0 = time.perf_counter()
+
+        # 0. Cache check (before any work)
+        from jarvisx.tools.tool_cache import ToolResultCache
+        cache = ToolResultCache.get_instance()
+        cached = cache.get(tool_name, arguments)
+        if cached is not None:
+            elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+            logger.info(f"[ToolExecutor] {tool_name} served from cache in {elapsed_ms}ms")
+            return cached
 
         # 1. Registry lookup
         tool = self.registry.get(tool_name)
@@ -104,6 +113,10 @@ class ToolExecutor:
                 status=result.status, tool=tool_name,
                 result=result.result, verified=False, error=f"Verification error: {e}",
             )
+
+        # 6. Cache store (only successful, verified results)
+        if verified_result.status == "success":
+            cache.put(tool_name, arguments, verified_result)
 
         elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
         logger.info(f"[ToolExecutor] {tool_name} completed in {elapsed_ms}ms — verified={verified_result.verified}")

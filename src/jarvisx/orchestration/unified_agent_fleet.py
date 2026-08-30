@@ -290,6 +290,110 @@ class UnifiedAgentFleet:
                 "real_agent_invoked": True
             }
 
+    # -----------------------------------------------------------------------
+    # Pillar 6: Fleet Supervisor — Health Heartbeats & Auto-Restart
+    # -----------------------------------------------------------------------
+
+    # Import paths for respawning crashed agents
+    _AGENT_IMPORT_REGISTRY: Dict[str, tuple] = {
+        "CodingAgent":                    ("jarvisx.agents.coding", "CodingAgent"),
+        "ResearchAgent":                  ("jarvisx.agents.research", "ResearchAgent"),
+        "DevOpsAgent":                    ("jarvisx.agents.devops", "DevOpsAgent"),
+        "TestingAgent":                   ("jarvisx.agents.testing", "TestingAgent"),
+        "ProductivityAgent":              ("jarvisx.agents.productivity", "ProductivityAgent"),
+        "SynthesizerAgent":               ("jarvisx.agents.synthesizer", "SynthesizerAgent"),
+        "StepPlanner":                    ("jarvisx.agents.planner", "StepPlanner"),
+        "GoalDecomposer":                 ("jarvisx.agents.goal_decomposer", "GoalDecomposer"),
+        "GuardianAgent":                  ("jarvisx.agents.guardian", "GuardianAgent"),
+        "RedTeamVerifier":                ("jarvisx.agents.red_team", "RedTeamVerifier"),
+        "OmnichannelCommunicationsAgent": ("jarvisx.agents.comms_agent", "get_comms_agent"),
+        "DynamicAgentFactory":            ("jarvisx.agents.agent_factory", "get_agent_factory"),
+    }
+
+    def start_fleet_supervisor(self) -> None:
+        """Starts a background daemon thread that sweeps agent health every 30 seconds."""
+        import threading
+        if getattr(self, "_supervisor_running", False):
+            return
+        self._supervisor_running = True
+        self._supervisor_thread = threading.Thread(
+            target=self._supervisor_loop,
+            daemon=True,
+            name="FleetSupervisorThread"
+        )
+        self._supervisor_thread.start()
+        logger.info("[FleetSupervisor] 🛡️ Background health heartbeat started (30s interval).")
+
+    def _supervisor_loop(self) -> None:
+        """Periodic health sweep: check agents, restart crashed ones."""
+        while getattr(self, "_supervisor_running", False):
+            try:
+                self._health_sweep()
+            except Exception as e:
+                logger.error(f"[FleetSupervisor] Sweep error: {e}")
+            time.sleep(30)
+
+    def _health_sweep(self) -> None:
+        """Check every agent's health and auto-restart crashed ones."""
+        for name in list(self.agents.keys()):
+            agent = self.agents[name]
+            try:
+                if hasattr(agent, "get_status"):
+                    status = agent.get_status()
+                    if isinstance(status, dict) and status.get("status") in ("CRASHED", "ERRORED", "DEAD"):
+                        logger.warning(f"[FleetSupervisor] Agent '{name}' reported {status.get('status')}. Restarting...")
+                        self._restart_agent(name)
+            except Exception as e:
+                logger.warning(f"[FleetSupervisor] Agent '{name}' health check failed ({e}). Restarting...")
+                self._restart_agent(name)
+
+    def _restart_agent(self, name: str) -> None:
+        """Kill and re-import/re-instantiate a crashed agent."""
+        registry = self._AGENT_IMPORT_REGISTRY.get(name)
+        if not registry:
+            logger.debug(f"[FleetSupervisor] No import registry entry for '{name}', cannot auto-restart.")
+            return
+        module_path, class_or_factory = registry
+        try:
+            import importlib
+            mod = importlib.import_module(module_path)
+            factory = getattr(mod, class_or_factory)
+            if callable(factory):
+                new_agent = factory() if class_or_factory.startswith("get_") else factory()
+            else:
+                new_agent = factory
+            self.agents[name] = new_agent
+            logger.info(f"[FleetSupervisor] ✅ Agent '{name}' restarted successfully.")
+        except Exception as e:
+            logger.error(f"[FleetSupervisor] ❌ Failed to restart '{name}': {e}")
+
+    def fleet_health_report(self) -> Dict[str, Any]:
+        """Returns a summary health report of the entire fleet."""
+        healthy = 0
+        unhealthy = 0
+        report = {}
+        for name, agent in self.agents.items():
+            try:
+                if hasattr(agent, "get_status"):
+                    s = agent.get_status()
+                    status = s.get("status", "ONLINE") if isinstance(s, dict) else "ONLINE"
+                else:
+                    status = "ONLINE"
+                healthy += 1
+            except Exception:
+                status = "UNREACHABLE"
+                unhealthy += 1
+            report[name] = status
+        return {
+            "total": len(self.agents),
+            "healthy": healthy,
+            "unhealthy": unhealthy,
+            "agents": report,
+        }
+
 
 def get_unified_fleet() -> UnifiedAgentFleet:
-    return UnifiedAgentFleet.get_instance()
+    fleet = UnifiedAgentFleet.get_instance()
+    fleet.start_fleet_supervisor()
+    return fleet
+
