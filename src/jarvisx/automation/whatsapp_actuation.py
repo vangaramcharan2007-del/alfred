@@ -2,7 +2,7 @@
 WhatsApp Visual Desktop & Web Actuation Engine for Jarvis X & Alfred OS.
 Executes live on-screen WhatsApp messaging right in front of Charan's eyes:
 1. Deep links to WhatsApp Desktop (`whatsapp://`) and WhatsApp Web (`https://web.whatsapp.com`).
-2. Automates contact lookup, message composition, direct Send button click, and Enter key dispatch via native Windows API and PyAutoGUI.
+2. Automates contact lookup, message composition, calibrated visual green button click, and Enter key dispatch via PyAutoGUI & native Windows API.
 """
 
 import os
@@ -48,26 +48,39 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
     webbrowser.open(url)
 
     # 2. Wait for WhatsApp window to focus and populate input
-    print("[*] Waiting 3.0 seconds for WhatsApp window to focus and populate message...")
+    print("[*] Waiting 3.0 seconds for WhatsApp to focus and populate...")
     time.sleep(3.0)
 
-    # 3. Direct Send Button Visual Click via PyAutoGUI
+    # 3. Calibrated Visual Green Send Button Click & Enter Dispatch
     try:
         import pyautogui
         pyautogui.FAILSAFE = False
         sw, sh = pyautogui.size()
         
-        # WhatsApp Web / Desktop green send button location is at bottom-right
-        send_x = sw - 40
-        send_y = sh - 35
-        print(f"[*] Clicking green send button at ({send_x}, {send_y})...")
-        pyautogui.click(send_x, send_y)
-        time.sleep(0.2)
+        # Calibrated normalized position from live screen (0.9231, 0.9555) -> (1772, 1146 on 1920x1200)
+        send_x = int(0.9231 * sw)
+        send_y = int(0.9555 * sh)
         
-        # Press Enter as reinforcement
+        # Step A: Focus input area by clicking input box
+        input_x = int(0.55 * sw)
+        input_y = int(0.9555 * sh)
+        pyautogui.click(input_x, input_y)
+        time.sleep(0.1)
+        
+        # Step B: Send Enter key
         pyautogui.press('enter')
+        time.sleep(0.1)
+        
+        # Step C: Click the green circular send button directly
+        print(f"[*] Clicking calibrated green send button at ({send_x}, {send_y})...")
+        pyautogui.click(send_x, send_y)
+        time.sleep(0.1)
+        
+        # Step D: Reinforce with Enter
+        pyautogui.press('enter')
+        
     except Exception as e:
-        logger.debug(f"[WhatsApp] PyAutoGUI click error: {e}")
+        logger.debug(f"[WhatsApp] PyAutoGUI dispatch error: {e}")
 
     # 4. Native Win32 API Keybd Event (VK_RETURN = 0x0D)
     try:
@@ -85,7 +98,7 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
         "status": "DISPATCHED_LIVE",
         "recipient": recipient,
         "message": message,
-        "mode": "VISUAL_SEND_BUTTON_CLICK"
+        "mode": "CALIBRATED_SEND_BUTTON_CLICK"
     }
 
 
