@@ -95,7 +95,7 @@ Available Tools:
 
         elif tool_name == "search_web":
             q = args.get("query", "")
-            webbrowser.open(f"https://www.youtube.com/results?search_query={q}")
+            webbrowser.open(f"https://www.google.com/search?q={q}")
             return {"status": "SUCCESS", "response": speech}
 
         elif tool_name == "clean_pc":
@@ -131,11 +131,11 @@ Available Tools:
 
     def heuristic_fallback(self, text: str, salutation: str) -> Dict[str, Any]:
         """Offline fallback when LLM gateway is offline."""
-        t = text.lower()
-        if "instagram" in t:
+        t = text.lower().strip()
+        if t.startswith(("open instagram", "launch instagram")):
             webbrowser.open("https://www.instagram.com")
             return {"status": "SUCCESS", "response": f"Opening Instagram for you, {salutation}."}
-        if "youtube" in t:
+        if t.startswith(("open youtube", "launch youtube")):
             webbrowser.open("https://www.youtube.com")
             return {"status": "SUCCESS", "response": f"Opening YouTube, {salutation}."}
         return {"status": "SUCCESS", "response": f"Understood, {salutation}. Processing request."}
