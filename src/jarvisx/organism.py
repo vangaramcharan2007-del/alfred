@@ -344,15 +344,19 @@ class Hands:
         "make_phone_call": "place_carrier_call", "call_phone": "place_carrier_call", "call": "place_carrier_call", "phone_call": "place_carrier_call",
         "sms_send": "send_sms", "sms": "send_sms", "text_message": "send_sms",
         "record_audio": "create_voice_note", "generate_voice_note": "create_voice_note", "voice_note": "create_voice_note", "audio_note": "create_voice_note",
+        "reminder": "set_reminder", "set_alarm": "set_reminder", "alarm": "set_reminder", "schedule_reminder": "set_reminder", "timer": "set_reminder", "create_reminder": "set_reminder", "add_reminder": "set_reminder",
+        "show_reminders": "list_reminders", "get_reminders": "list_reminders",
     }
 
     _ARG_ALIASES = {
         "recipient": ["to", "target", "contact", "person", "name"],
-        "message": ["text", "msg", "content", "body", "prompt", "speech"],
+        "message": ["text", "msg", "content", "body", "prompt", "speech", "task", "reminder", "note"],
         "to": ["recipient", "target", "contact", "person", "number", "phone"],
         "application": ["app", "app_name", "name", "target"],
         "username": ["to", "target", "user", "recipient", "person"],
         "speech_text": ["message", "text", "msg", "prompt", "say"],
+        "time": ["time_spec", "at", "when", "target_time", "alarm_time", "schedule_time"],
+        "identifier": ["id", "keyword", "reminder_id", "message", "name"],
     }
 
     def act(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -383,6 +387,11 @@ class Hands:
         elif tool_name == "create_voice_note":
             self._fill_arg(args, "message")
             self._fill_arg(args, "recipient")
+        elif tool_name == "set_reminder":
+            self._fill_arg(args, "message")
+            self._fill_arg(args, "time")
+        elif tool_name == "cancel_reminder":
+            self._fill_arg(args, "identifier")
 
         res = self.executor.execute(tool_name, args)
         return res.to_dict()

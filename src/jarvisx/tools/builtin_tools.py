@@ -1371,6 +1371,9 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(AdaptiveGamingGovernorTool())
     registry.register(CreateAIAgentTool())
     registry.register(ListAIAgentsTool())
+    registry.register(SetReminderTool())
+    registry.register(ListRemindersTool())
+    registry.register(CancelReminderTool())
 
 
 
@@ -1526,6 +1529,113 @@ class ListAIAgentsTool(Tool):
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
         verified = result.status == "success"
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tools: Reminders, Alarms & Notifications
+# ---------------------------------------------------------------------------
+
+class SetReminderTool(Tool):
+    """Sets a real-time timed reminder or alarm with vocal speech alert and desktop toast."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="set_reminder",
+            description="Schedules a reminder, alarm, or alert at a specific time (e.g. '5:24 PM', '17:30', 'tomorrow at 9am') or relative delay (e.g. 'in 10 minutes', 'in 1 hour'). When due, Alfred speaks the reminder aloud and displays a Windows desktop toast.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "What to remind the user about (e.g. 'get ready for packing today', 'take a study break')."
+                    },
+                    "time": {
+                        "type": "string",
+                        "description": "When to trigger the reminder (e.g. '5:24 PM', '17:24', 'in 15 minutes', '5pm', '10m')."
+                    },
+                    "date": {
+                        "type": "string",
+                        "description": "Optional date if not today (e.g. 'today', 'tomorrow', '2026-08-31')."
+                    }
+                },
+                "required": ["message", "time"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="reminders.set"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        message = arguments.get("message") or arguments.get("text") or arguments.get("task") or arguments.get("reminder") or ""
+        time_spec = arguments.get("time") or arguments.get("at") or arguments.get("when") or arguments.get("target_time") or "10 minutes"
+        date_spec = arguments.get("date")
+
+        if not message:
+            return ToolResult(status="failed", tool="set_reminder", error="No reminder message provided.")
+
+        from jarvisx.automation.reminder_engine import get_reminder_engine
+        engine = get_reminder_engine()
+        res = engine.set_reminder(message=message, time_spec=str(time_spec), date_spec=date_spec)
+        return ToolResult(status="success", tool="set_reminder", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and "id" in (result.result or {})
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+class ListRemindersTool(Tool):
+    """Lists all active scheduled reminders."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="list_reminders",
+            description="Lists all currently pending scheduled reminders and alarms.",
+            input_schema={"type": "object", "properties": {}, "required": []},
+            permission_level=PermissionLevel.SAFE,
+            required_scope="reminders.list"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.automation.reminder_engine import get_reminder_engine
+        engine = get_reminder_engine()
+        reminders = engine.list_reminders(pending_only=True)
+        return ToolResult(status="success", tool="list_reminders", result={"pending_count": len(reminders), "reminders": reminders})
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class CancelReminderTool(Tool):
+    """Cancels a scheduled reminder."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="cancel_reminder",
+            description="Cancels a scheduled reminder by its ID or keyword in the reminder message.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "identifier": {
+                        "type": "string",
+                        "description": "Reminder ID (e.g. 'rem_123456') or message keyword to cancel."
+                    }
+                },
+                "required": ["identifier"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="reminders.cancel"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        identifier = arguments.get("identifier") or arguments.get("id") or arguments.get("keyword") or arguments.get("message") or ""
+        from jarvisx.automation.reminder_engine import get_reminder_engine
+        engine = get_reminder_engine()
+        res = engine.cancel_reminder(str(identifier))
+        status = "success" if res.get("status") == "success" else "failed"
+        return ToolResult(status=status, tool="cancel_reminder", result=res, error=res.get("error"))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success", error=result.error)
+
 
 
 

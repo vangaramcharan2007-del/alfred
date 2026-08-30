@@ -41,6 +41,9 @@ TOOL_DOMAINS: Dict[str, List[str]] = {
     "agents": [
         "create_ai_agent", "list_ai_agents",
     ],
+    "reminders": [
+        "set_reminder", "list_reminders", "cancel_reminder", "get_current_time",
+    ],
     "computer": [
         "uacc_computer_control",
     ],
@@ -55,6 +58,11 @@ DOMAIN_KEYWORDS: Dict[str, List[str]] = {
         "whatsapp", "message", "msg", "call", "dm", "instagram", "insta",
         "sms", "text", "voice note", "send", "reply", "dakshith", "phone",
         "contact", "ring", "greet", "hi to", "say to", "tell",
+    ],
+    "reminders": [
+        "remind", "reminder", "alarm", "timer", "schedule", "alert", "notify",
+        "at", "pm", "am", "clock", "countdown", "packing", "wake me", "due",
+        "in 5", "in 10", "in 15", "in 20", "in 30", "in 1", "in 2",
     ],
     "system": [
         "battery", "cpu", "ram", "memory", "temp", "temperature", "cool",
