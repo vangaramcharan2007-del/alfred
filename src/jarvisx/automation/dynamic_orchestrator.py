@@ -193,15 +193,16 @@ class DynamicOrchestrator:
             }
 
         # 0.0.1 Dynamic Agent Creation Fast-Path (<500ms)
-        if "agent" in clean_text and any(p in clean_text for p in ("make", "create", "build", "new", "deploy", "spawn", "add")):
+        if "agent" in clean_text and any(p in clean_text for p in ("make", "create", "build", "new", "deploy", "spawn", "add", "propose", "suggest")):
             # Extract target goal
             goal = raw_text
-            for prefix in ["make a new agent for", "create a new agent for", "make an agent for", "create an agent for", "make a new agent", "create a new agent", "make new agent", "create new agent", "agent for"]:
+            for prefix in ["propose a new agent and build it", "propose a new agent", "suggest a new agent", "propose an agent", "suggest an agent", "make a new agent for", "create a new agent for", "make an agent for", "create an agent for", "make a new agent", "create a new agent", "make new agent", "create new agent", "agent for"]:
                 if prefix in goal.lower():
                     goal = goal[goal.lower().index(prefix) + len(prefix):].strip(" :-\"'\n")
                     break
             if not goal:
-                goal = "Specialized Task Agent"
+                goal = "Autonomous Bug Hunter & AST Code Healer"
+
 
 
             import asyncio

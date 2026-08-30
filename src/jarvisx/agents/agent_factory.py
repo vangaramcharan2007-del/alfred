@@ -126,6 +126,19 @@ class DynamicAgentFactory:
             self._save_agents()
             return spec
 
+        if "propose" in goal_lower or "suggest" in goal_lower or "bug" in goal_lower or "debug" in goal_lower or "hunter" in goal_lower:
+            spec = CustomAgentSpec(
+                name="AutonomousBugHunterSentinelAgent",
+                role="Autonomous Bug Hunter & AST Code Healer",
+                description="Monitors runtime crashes, terminal stderr logs, and git diffs, isolates root causes, and generates AST-verified self-healing patches automatically.",
+                system_prompt="You are the Autonomous Bug Hunter Sentinel. You analyze runtime crashes, unhandled exceptions, and syntax regressions, locate the exact file and line, and synthesize surgical AST-validated self-healing code diffs.",
+                tools=["read_file", "create_file", "list_directory", "get_system_info", "web_search"]
+            )
+            self.agents[spec.name] = spec
+            self._save_agents()
+            return spec
+
+
         # 2. Dynamic Architecture Design via LLM Router
         from jarvisx.llm.llm_router import LLMRouter
         router = LLMRouter()
