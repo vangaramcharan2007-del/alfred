@@ -154,23 +154,37 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
     input_x = int(0.55 * sw)   # 1056 on 1920x1200
     input_y = int(0.9555 * sh)
 
+    # Step 0: Force Window Focus by clicking middle of chat area
+    chat_x = int(0.55 * sw)
+    chat_y = int(0.50 * sh)
+    print(f"[*] Forcing window focus at ({chat_x}, {chat_y})...")
+    send_hardware_absolute_click(chat_x, chat_y)
+    time.sleep(0.2)
+
     # Step A: Focus input box by hardware click
     print(f"[*] Focusing input box at ({input_x}, {input_y})...")
     send_hardware_absolute_click(input_x, input_y)
-    time.sleep(0.1)
+    time.sleep(0.2)
 
     # Step B: Send Hardware Scan Code Enter (0x1C)
     print("[*] Dispatched hardware scan code 0x1C (Enter)...")
     send_hardware_scan_enter()
-    time.sleep(0.15)
+    time.sleep(0.2)
 
     # Step C: Direct hardware click on green Send button (1772, 1146)
     print(f"[*] Triggering hardware click on green Send button at ({send_x}, {send_y})...")
     send_hardware_absolute_click(send_x, send_y)
-    time.sleep(0.1)
+    time.sleep(0.15)
 
-    # Step D: Final Enter pulse
+    # Step D: Final Enter pulse via SendInput and PyAutoGUI
     send_hardware_scan_enter()
+    try:
+        import pyautogui
+        pyautogui.FAILSAFE = False
+        pyautogui.press('enter')
+    except Exception:
+        pass
+
 
     print(f"\n[WHATSAPP ACTUATION] [OK] Message '{message}' dispatched live on-screen for '{recipient}'!")
     return {
