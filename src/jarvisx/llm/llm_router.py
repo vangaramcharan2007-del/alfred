@@ -10,6 +10,8 @@ from jarvisx.llm.ollama_provider import OllamaLLMProvider
 from jarvisx.llm.omniroute_provider import OmniRouteLLMProvider
 from jarvisx.llm.openrouter_provider import OpenRouterLLMProvider
 from jarvisx.llm.gemini_provider import GeminiLLMProvider
+from jarvisx.llm.groq_provider import GroqLLMProvider
+
 
 
 class LLMRouter:
@@ -30,12 +32,15 @@ class LLMRouter:
     def _ensure_default_providers(self):
         if not self.registry.get("ollama.local"):
             self.registry.register(OllamaLLMProvider())
+        if not self.registry.get("groq.cloud"):
+            self.registry.register(GroqLLMProvider())
         if not self.registry.get("gemini.google"):
             self.registry.register(GeminiLLMProvider())
         if not self.registry.get("omniroute.gateway"):
             self.registry.register(OmniRouteLLMProvider())
         if not self.registry.get("openrouter.gateway"):
             self.registry.register(OpenRouterLLMProvider())
+
 
     def _populate_profiles(self):
         self.profiles = [
@@ -220,6 +225,36 @@ class LLMRouter:
         else:
             profile, score = self.select_model(prompt, require_offline=require_offline)
 
+        # Direct Groq LPU Cloud Route (Ultra-fast ~300ms inference)
+        has_groq_key = bool(os.environ.get("GROQ_API_KEY"))
+        groq_provider = self.registry.get("groq.cloud")
+        if not has_groq_key and groq_provider:
+            has_groq_key = bool(getattr(groq_provider, "api_key", ""))
+
+        if has_groq_key and not require_offline:
+            if groq_provider:
+                groq_model = "qwen/qwen3.8-27b"
+                print(f"[LLM] Primary Ultra-Fast LPU Route -> Provider: groq.cloud | Model: {groq_model}")
+                try:
+                    await groq_provider.connect()
+                    groq_output = await groq_provider.generate(prompt=prompt, model=groq_model)
+                    if groq_output.get("status") == "HEALTHY" and bool(groq_output.get("response")):
+                        resp_preview = groq_output.get("response", "")[:60].replace("\n", " ")
+                        print(f"[LLM] Groq LPU response received in {groq_output.get('latency_ms')}ms: \"{resp_preview}...\" ({len(groq_output.get('response', ''))} chars)")
+                        return {
+                            "status": "success",
+                            "selected_model": groq_model,
+                            "provider_id": "groq.cloud",
+                            "score": score,
+                            "task_category": task_cat,
+                            "fallback_used": False,
+                            "result": groq_output
+                        }
+                    else:
+                        print(f"[LLM] Groq provider degraded ({groq_output.get('error')}). Falling back to next provider...")
+                except Exception as e:
+                    print(f"[LLM] Groq request failed ({e}). Falling back...")
+
         # Direct Gemini 3.6 Cloud Route (Primary when GEMINI_API_KEY is present)
         has_gemini_key = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
         gemini_provider = self.registry.get("gemini.google")
@@ -234,7 +269,7 @@ class LLMRouter:
                 try:
                     await gemini_provider.connect()
                     gem_output = await gemini_provider.generate(prompt=prompt, model=gemini_model)
-                    if gem_output.get("status") == "AVAILABLE" and bool(gem_output.get("response")):
+                    if gem_output.get("status") == "HEALTHY" and bool(gem_output.get("response")):
                         resp_preview = gem_output.get("response", "")[:60].replace("\n", " ")
                         print(f"[LLM] Gemini response received: \"{resp_preview}...\" ({len(gem_output.get('response', ''))} chars)")
                         return {
@@ -250,6 +285,7 @@ class LLMRouter:
                         print(f"[LLM] Gemini provider not active ({gem_output.get('error', 'no key')}). Falling back to local Ollama.")
                 except Exception as e:
                     print(f"[LLM] Gemini request failed ({e}). Falling back to local Ollama.")
+
 
 
         # Direct OpenRouter Request or Cloud Priority
