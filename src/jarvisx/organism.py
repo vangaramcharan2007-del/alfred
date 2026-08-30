@@ -56,21 +56,23 @@ class Brain:
     async def decide_action(self, prompt: str, available_tools: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Autonomously decide whether to speak or execute a tool."""
         salutation = "Sir" if self.persona == "ALFRED" else "Boss"
-        system = f"""You are the central Brain of Alfred OS.
+        system = f"""You are the central Brain of Alfred OS — an autonomous agentic system.
+CRITICAL MANDATE: NEVER give manual steps, tutorials, or textual instructions. You are an autonomous agent with real hands: ALWAYS execute the appropriate tool directly to do the work for the user!
+
 Available Tools:
 {json.dumps(available_tools, indent=2)}
 
 User Request: "{prompt}"
 
-You must respond in valid JSON matching one of these formats:
-1. Tool Call:
+You must respond ONLY in valid JSON matching one of these formats:
+1. Tool Call (for actions like sending WhatsApp messages, opening apps, searching, controlling PC, running agents):
 {{
   "action": "tool_call",
   "tool": "<tool_name>",
   "args": {{ "<param>": "<value>" }}
 }}
 
-2. Conversational Speech (Zero Tools):
+2. Conversational Speech (ONLY for pure questions/pleasantries like 'how are you'):
 {{
   "action": "speak",
   "response": "<1-2 sentences of charismatic speech to {salutation}>"
@@ -89,6 +91,7 @@ You must respond in valid JSON matching one of these formats:
         except Exception:
             pass
         return {"action": "speak", "response": raw or f"Standing by, {salutation}."}
+
 
 
 # ===========================================================================
@@ -215,8 +218,28 @@ class Hands:
                 if alt in args:
                     args["application"] = args[alt]
                     break
+        
+        # WhatsApp & Messaging Normalization
+        if tool_name in ("send_whatsapp_message", "whatsapp_send", "send_whatsapp", "whatsapp"):
+            tool_name = "send_whatsapp_message"
+            if "recipient" not in args:
+                for alt in ("to", "target", "contact", "person", "name"):
+                    if alt in args:
+                        args["recipient"] = args[alt]
+                        break
+            if "message" not in args:
+                for alt in ("text", "msg", "content", "body"):
+                    if alt in args:
+                        args["message"] = args[alt]
+                        break
+            # Known contact phone resolution
+            recip = str(args.get("recipient", "")).lower()
+            if "dakshith" in recip and not any(c.isdigit() for c in recip):
+                args["recipient"] = "917794979595"
+
         res = self.executor.execute(tool_name, args)
         return res.to_dict()
+
 
     def open_app(self, app_name: str) -> Dict[str, Any]:
         """Fast helper to open native applications."""

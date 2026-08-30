@@ -117,9 +117,12 @@ async def async_main():
             res = await runtime.cli.handle_command_async(raw_cmd)
         elif first_word == "mission":
             mission_args = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else ""
-            res = await runtime.cli.handle_command_async(f"mission {mission_args}")
+            from jarvisx.organism import get_organism
+            res = await get_organism().react_turn(mission_args)
         else:
-            res = await runtime.cli.handle_command_async(f"mission {raw_cmd}")
+            from jarvisx.organism import get_organism
+            res = await get_organism().react_turn(raw_cmd)
+
 
         if first_word in {"status", "history"}:
             print(json.dumps(res, indent=2))

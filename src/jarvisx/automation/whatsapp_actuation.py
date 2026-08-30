@@ -42,9 +42,10 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
     
     # 1. Try Windows native protocol & browser launch
     try:
-        os.system(f'start {desktop_protocol}')
+        os.system(f'start "" "{desktop_protocol}"')
     except Exception:
         pass
+
     
     webbrowser.open(url)
 

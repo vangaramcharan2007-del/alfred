@@ -96,13 +96,15 @@ class AlfredMasterOS:
             hud.run()
 
     def _handle_spoken_command(self, spoken_text: str):
-        """Dispatches spoken hands-free commands to Gemini 3.6 Flash."""
-        print(f"\n[ALFRED VOICE HARNESS]: 🎙️ Processing spoken command: '{spoken_text}'")
+        """Dispatches spoken or typed commands directly to Alfred Living Organism with Groq LPU + Hands."""
+        print(f"\n[ALFRED VOICE HARNESS]: 🎙️ Processing command: '{spoken_text}'")
+        from jarvisx.organism import get_organism
         import asyncio
         threading.Thread(
-            target=lambda: asyncio.run(self.orchestrator._execute_subsystem("AGENT", spoken_text)),
+            target=lambda: asyncio.run(get_organism().react_turn(spoken_text)),
             daemon=True
         ).start()
+
 
 
     def _on_code_healed(self, ev):

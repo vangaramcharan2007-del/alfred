@@ -1130,9 +1130,14 @@ Do NOT mention JSON schemas, validation codes, or raw tool logs.
         # 1. Pure LLM ReAct Turn (Autonomous Tool Selection + Conversational Speech)
         react_res = await self.execute_llm_react_turn_async(prompt_clean, persona="ALFRED")
         resp_text = react_res.get("response", "Mission completed.")
+        try:
+            self.voice_engine.speak(resp_text)
+        except Exception:
+            pass
 
         print(f"\n[JARVIS X]: {resp_text}")
         return react_res
+
 
 
 
