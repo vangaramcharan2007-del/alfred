@@ -173,3 +173,22 @@ def start_extension_server() -> ExtensionBridgeServer:
     server = ExtensionBridgeServer.get_instance()
     server.start()
     return server
+
+
+if __name__ == "__main__":
+    import time
+    print("\n" + "=" * 60)
+    print("   ALFRED OS — CHROME EXTENSION BRIDGE SERVER")
+    print("   Listening at: http://127.0.0.1:8765")
+    print("=" * 60 + "\n")
+    server = start_extension_server()
+    if server.running:
+        print("[OK] Bridge Server online. Press Ctrl+C to terminate.\n")
+        try:
+            while True:
+                time.sleep(1.0)
+        except KeyboardInterrupt:
+            print("\n[!] Shutting down Bridge Server...")
+            server.stop()
+    else:
+        print("[ERROR] Could not start Bridge Server on port 8765.")
