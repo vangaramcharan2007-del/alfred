@@ -71,6 +71,14 @@ class GameOptimizerAgent:
             cls._instance = cls()
         return cls._instance
 
+    def execute(self, task: Dict[str, Any] | str) -> Dict[str, Any]:
+        """Adheres to the OperationalAgent execution contract."""
+        query = task.get("game", "Valorant") if isinstance(task, dict) else str(task)
+        res = self.optimize_game(query)
+        return res.to_dict()
+
+
+
     def _load_profiles(self) -> Dict[str, Any]:
         if self.profiles_path.exists():
             try:

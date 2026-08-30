@@ -13,8 +13,15 @@ class ScreenCaptureEngine:
         return "var/screenshots/primary.png"
 
 class ScreenAnalyzer:
+    def __init__(self, capture_engine: Optional[ScreenCaptureEngine] = None):
+        self.capture = capture_engine or ScreenCaptureEngine()
+
     def analyze_ui_elements(self, image_path: str) -> Dict[str, Any]:
         return {"elements": [], "status": "ANALYZED"}
+
+    def analyze_screen(self) -> Dict[str, Any]:
+        img = self.capture.capture_primary_display()
+        return {"snapshot": {"active_window": "Windows Desktop", "image": img}, "status": "ANALYZED"}
 
 from jarvisx.automation.computer_control import ComputerController
 
@@ -33,6 +40,8 @@ class ComputerVisionAgent:
         self.capture = capture_engine or ScreenCaptureEngine()
         self.analyzer = analyzer or ScreenAnalyzer(capture_engine=self.capture)
         self.controller = controller or ComputerController()
+        self.capabilities = ["screen_capture", "ui_detection", "observe_reason_act_verify"]
+
 
     def run_observe_reason_act_verify_loop(self, task_description: str) -> Dict[str, Any]:
         print(f"\n[Vision Agent] Starting Observe-Reason-Act-Verify Loop for: '{task_description}'\n")

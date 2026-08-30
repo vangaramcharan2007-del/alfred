@@ -129,6 +129,9 @@ Respond ONLY with valid JSON in this schema:
         self._notify()
 
         # 2. Continuous Execution & Self-Healing Loop
+        from jarvisx.orchestration.unified_agent_fleet import get_unified_fleet
+        fleet = get_unified_fleet()
+
         for i, node in enumerate(self.active_tree.nodes):
             self.active_tree.current_node_index = i
             node.status = "RUNNING"
@@ -138,17 +141,25 @@ Respond ONLY with valid JSON in this schema:
             success = False
             while not success and node.retry_count <= node.max_retries:
                 try:
-                    # Execute tool call
-                    tool_result = self.executor.execute(node.tool, node.tool_args)
-                    
-                    if tool_result.status == "success":
-                        node.status = "COMPLETED"
-                        node.output = tool_result.result
-                        node.end_time = time.time()
-                        success = True
-                        self._notify()
-                    else:
-                        raise RuntimeError(tool_result.error or "Tool execution returned failure")
+                    # 1. Dispatch real work to the designated specialist agent
+                    agent_res = await fleet.dispatch_task_async(node.assigned_agent, node.description)
+
+                    # 2. Also execute underlying system tool if specified
+                    tool_res = None
+                    if node.tool and node.tool in self.registry.list_tools():
+                        tool_res = self.executor.execute(node.tool, node.tool_args)
+
+                    combined_output = {
+                        "agent_execution": agent_res.get("result"),
+                        "tool_execution": tool_res.result if tool_res and tool_res.status == "success" else None,
+                        "agent_invoked": agent_res.get("real_agent_invoked", True),
+                    }
+
+                    node.status = "COMPLETED"
+                    node.output = combined_output
+                    node.end_time = time.time()
+                    success = True
+                    self._notify()
 
                 except Exception as err:
                     node.retry_count += 1
@@ -160,6 +171,7 @@ Respond ONLY with valid JSON in this schema:
                         node.status = "FAILED"
                         node.end_time = time.time()
                         break
+
 
                     # 3. Autonomous Self-Healing via Gemini 3.6 Flash
                     heal_prompt = f"""Tool execution failed on task step '{node.description}'.

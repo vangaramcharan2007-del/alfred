@@ -109,34 +109,46 @@ class AlfredSituationRoomHUD:
         self.mode_var = tk.StringVar(value="Governor Policy: STANDBY_HIGH_PERFORMANCE")
         tk.Label(left_col, textvariable=self.mode_var, font=("Consolas", 10), fg="#4cd137", bg="#0d1320").pack(anchor="w")
 
-        # Right Column: 20-Agent Workforce Matrix
+        # Right Column: Unified Agent Workforce Matrix (22+ Agents)
         right_col = tk.Frame(body, bg="#0d1320", padx=15, pady=12, relief="ridge", bd=1)
         right_col.pack(side="right", fill="both", expand=True, padx=(8, 0))
 
         tk.Label(
             right_col,
-            text="🤖 ACTIVE AGENT WORKFORCE (20 AGENTS)",
+            text="🤖 UNIFIED ACTIVE AGENT FLEET (22+ WORKERS)",
             font=("Segoe UI", 11, "bold"),
             fg="#a29bfe",
             bg="#0d1320"
-        ).pack(anchor="w", pady=(0, 8))
+        ).pack(anchor="w", pady=(0, 6))
 
-        agent_list = [
-            ("DynamicOrchestrator", "ONLINE", "#00ff88"),
-            ("UnifiedMissionPlanner", "READY (Gemini 3.6 Flash)", "#00d2ff"),
-            ("GameOptimizerAgent", "STANDBY", "#fbc531"),
-            ("AdaptiveGameGovernor", "ACTIVE_MONITORING", "#00ff88"),
-            ("CodingAgent", "IDLE_ON_DEMAND", "#c8d6e5"),
-            ("ResearchAgent", "IDLE_ON_DEMAND", "#c8d6e5"),
-            ("ComputerVisionAgent", "READY", "#c8d6e5"),
-            ("GuardianAgent (Security)", "GUARDING", "#00ff88"),
-        ]
+        # Scrollable container for agents
+        canvas = tk.Canvas(right_col, bg="#0d1320", highlightthickness=0, height=210)
+        scrollbar = ttk.Scrollbar(right_col, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg="#0d1320")
 
-        for name, st, col in agent_list:
-            r = tk.Frame(right_col, bg="#121a2b", padx=8, pady=3)
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        from jarvisx.orchestration.unified_agent_fleet import get_unified_fleet
+        fleet = get_unified_fleet()
+        all_agents = fleet.list_agents()
+
+        for a in all_agents:
+            name = a["name"]
+            st = a["status"]
+            col = "#00ff88" if "Governor" in name or "Autopilot" in name or "Coding" in name else "#00d2ff"
+            r = tk.Frame(scrollable_frame, bg="#121a2b", padx=8, pady=3)
             r.pack(fill="x", pady=2)
-            tk.Label(r, text=f"• {name}:", font=("Segoe UI", 9, "bold"), fg="#e0e0e0", bg="#121a2b", width=22, anchor="w").pack(side="left")
-            tk.Label(r, text=st, font=("Consolas", 9, "bold"), fg=col, bg="#121a2b").pack(side="left")
+            tk.Label(r, text=f"• {name}:", font=("Segoe UI", 9, "bold"), fg="#e0e0e0", bg="#121a2b", width=24, anchor="w").pack(side="left")
+            tk.Label(r, text=st, font=("Consolas", 8, "bold"), fg=col, bg="#121a2b").pack(side="left")
+
 
         # 3. Bottom Activity Log & Interactive Command Input
         bottom_f = tk.Frame(self.root, bg="#101726", padx=15, pady=10)

@@ -33,8 +33,9 @@ class WorkerMeshRouter:
         prompt: str,
         model: Optional[str] = None,
         conversation: Optional[List[Dict[str, str]]] = None,
-        timeout_sec: float = 60.0
+        timeout_sec: float = 2.0
     ) -> Dict[str, Any]:
+
         """Dispatch inference request to the optimal available remote mesh worker."""
         available_workers = self.registry.get_available_workers(model_name=model)
         

@@ -69,8 +69,7 @@ class LiveCodeAutopilot:
     def _init_file_mtimes(self):
         """Records initial modification timestamps for all python files."""
         for root, dirs, files in os.walk(self.watch_dir):
-            if any(p in root for p in (".git", ".venv", "__pycache__", "node_modules", ".pytest_cache")):
-                continue
+            dirs[:] = [d for d in dirs if d not in ('.git', '.venv', '__pycache__', 'node_modules', '.pytest_cache')]
             for f in files:
                 if f.endswith(".py"):
                     full_path = os.path.join(root, f)
@@ -89,8 +88,7 @@ class LiveCodeAutopilot:
 
     def _check_file_changes(self):
         for root, dirs, files in os.walk(self.watch_dir):
-            if any(p in root for p in (".git", ".venv", "__pycache__", "node_modules", ".pytest_cache")):
-                continue
+            dirs[:] = [d for d in dirs if d not in ('.git', '.venv', '__pycache__', 'node_modules', '.pytest_cache')]
             for f in files:
                 if f.endswith(".py"):
                     full_path = os.path.join(root, f)
@@ -106,6 +104,7 @@ class LiveCodeAutopilot:
                             self._file_mtimes[full_path] = mtime
                     except Exception:
                         pass
+
 
     def _validate_and_heal_file(self, file_path: str):
         """Validates Python AST and triggers self-healing if broken."""
