@@ -164,55 +164,39 @@ class GeminiLLMProvider(LLMProvider):
                 "fallback_used": True,
             }
 
-        target_model = "gemini-3.6-flash"
-        target_model = model or self.DEFAULT_MODEL
-
+        target_model = model or self.DEFAULT_MODEL or "gemini-3.6-flash"
 
         try:
             loop = asyncio.get_running_loop()
 
             def _call_gemini_interactions():
-                models_to_try = [
-                    "gemini-3.7-flash",
-                    "gemini-3.5-flash",
-                    "gemini-flash-latest",
-                    "gemini-2.5-flash",
-                    "gemini-3.5-flash-lite",
-                ]
-
-
-                last_err = None
-                for m in models_to_try:
-                    try:
-                        # 1. Primary: Google GenAI Interactions API
-                        interaction = self._client.interactions.create(
-                            model=m,
-                            input=prompt,
-                        )
-                        if hasattr(interaction, "output_text") and interaction.output_text:
-                            return interaction.output_text.strip()
-                        if hasattr(interaction, "text") and interaction.text:
-                            return interaction.text.strip()
-                        return str(interaction)
-                    except Exception as ex1:
-                        # 2. Fallback: models.generate_content
-                        try:
-                            resp = self._client.models.generate_content(
-                                model=m,
-                                contents=prompt,
-                            )
-                            if hasattr(resp, "text") and resp.text:
-                                return resp.text.strip()
-                        except Exception as ex2:
-                            last_err = ex2
-                            continue
-
-                if last_err:
-                    raise last_err
-                return "Gemini response empty."
+                # 1. Primary: Google GenAI Interactions API (Fastest)
+                try:
+                    interaction = self._client.interactions.create(
+                        model=target_model,
+                        input=prompt,
+                    )
+                    if hasattr(interaction, "output_text") and interaction.output_text:
+                        return interaction.output_text.strip()
+                    if hasattr(interaction, "text") and interaction.text:
+                        return interaction.text.strip()
+                    return str(interaction)
+                except Exception as ex1:
+                    err_str = str(ex1).lower()
+                    if "quota" in err_str or "rate" in err_str or "429" in err_str:
+                        raise ex1
+                    # 2. Fallback to models.generate_content
+                    resp = self._client.models.generate_content(
+                        model=target_model,
+                        contents=prompt,
+                    )
+                    if hasattr(resp, "text") and resp.text:
+                        return resp.text.strip()
+                    raise ex1
 
             raw_text = await loop.run_in_executor(None, _call_gemini_interactions)
             elapsed_ms = (time.time() - start_t) * 1000
+
 
             return {
                 "status": "HEALTHY",
