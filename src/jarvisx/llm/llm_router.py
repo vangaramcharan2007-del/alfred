@@ -286,7 +286,8 @@ class LLMRouter:
                 prompt=prompt,
                 model=profile.model_name,
                 conversation=None,
-                timeout_sec=60.0
+                timeout_sec=2.5
+
             )
 
             if mesh_output.get("status") == "AVAILABLE" and bool(mesh_output.get("response")):
