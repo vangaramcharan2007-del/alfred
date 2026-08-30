@@ -1163,6 +1163,7 @@ class CreateVoiceNoteAudioTool(Tool):
     def execute(self, arguments: Dict[str, Any]) -> ToolResult:
         import asyncio
         import edge_tts
+        import time
         
         recip = arguments.get("recipient", "Sir")
         text = arguments.get("message", "Hello")
