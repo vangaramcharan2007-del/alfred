@@ -232,13 +232,62 @@ class Hands:
                     if alt in args:
                         args["message"] = args[alt]
                         break
-            # Known contact phone resolution
             recip = str(args.get("recipient", "")).lower()
             if "dakshith" in recip and not any(c.isdigit() for c in recip):
                 args["recipient"] = "917794979595"
 
+        # Telephony & Calling Normalization
+
+        if tool_name in ("place_carrier_call", "make_phone_call", "call_phone", "call", "phone_call"):
+            tool_name = "place_carrier_call"
+            if "to" not in args:
+                for alt in ("recipient", "target", "contact", "person", "number", "phone"):
+                    if alt in args:
+                        args["to"] = args[alt]
+                        break
+            if "speech_text" not in args:
+                for alt in ("message", "text", "msg", "prompt", "say"):
+                    if alt in args:
+                        args["speech_text"] = args[alt]
+                        break
+            to_val = str(args.get("to", "")).lower()
+            if "dakshith" in to_val and not any(c.isdigit() for c in to_val):
+                args["to"] = "+917794979595"
+
+        # SMS Normalization
+        if tool_name in ("send_sms", "sms_send", "sms", "text_message"):
+            tool_name = "send_sms"
+            if "to" not in args:
+                for alt in ("recipient", "target", "contact", "person", "number", "phone"):
+                    if alt in args:
+                        args["to"] = args[alt]
+                        break
+            if "message" not in args:
+                for alt in ("text", "msg", "body", "content"):
+                    if alt in args:
+                        args["message"] = args[alt]
+                        break
+            to_val = str(args.get("to", "")).lower()
+            if "dakshith" in to_val and not any(c.isdigit() for c in to_val):
+                args["to"] = "+917794979595"
+
+        # Voice Note Generation Normalization
+        if tool_name in ("create_voice_note", "record_audio", "generate_voice_note", "voice_note", "audio_note"):
+            tool_name = "create_voice_note"
+            if "message" not in args:
+                for alt in ("text", "msg", "content", "prompt", "speech"):
+                    if alt in args:
+                        args["message"] = args[alt]
+                        break
+            if "recipient" not in args:
+                for alt in ("to", "target", "contact"):
+                    if alt in args:
+                        args["recipient"] = args[alt]
+                        break
+
         res = self.executor.execute(tool_name, args)
         return res.to_dict()
+
 
 
     def open_app(self, app_name: str) -> Dict[str, Any]:

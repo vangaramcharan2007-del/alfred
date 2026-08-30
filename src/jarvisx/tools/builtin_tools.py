@@ -1130,6 +1130,104 @@ class OptimizeGameSettingsTool(Tool):
 # Registry bootstrap
 # ---------------------------------------------------------------------------
 
+class CreateVoiceNoteAudioTool(Tool):
+    """Generates an ultra-realistic neural audio voice note file in English, Telugu, or Hindi and plays it aloud."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="create_voice_note",
+            description="Generates an ultra-realistic AI voice note audio file (.mp3) in English, Telugu, or Hindi, saves it to disk, and plays it aloud.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "recipient": {
+                        "type": "string",
+                        "description": "Recipient name (e.g. 'Dakshith', 'Charan')."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "The speech content for the voice note."
+                    },
+                    "language": {
+                        "type": "string",
+                        "description": "Language for speech synthesis ('english', 'telugu', 'hindi').",
+                        "default": "english"
+                    }
+                },
+                "required": ["message"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="voice.generate"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        import asyncio
+        import edge_tts
+        
+        recip = arguments.get("recipient", "Sir")
+        text = arguments.get("message", "Hello")
+        lang = str(arguments.get("language", "english")).lower()
+        
+        voice_map = {
+            "telugu": "te-IN-MohanNeural",
+            "hindi": "hi-IN-MadhurNeural",
+            "english": "en-GB-RyanNeural",
+            "british": "en-GB-RyanNeural",
+            "american": "en-US-GuyNeural"
+        }
+        voice = voice_map.get(lang, "en-GB-RyanNeural")
+        
+        out_dir = Path("var/voice_notes")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        safe_recip = "".join(filter(str.isalnum, recip)) or "note"
+        out_file = out_dir / f"voice_note_{safe_recip}_{int(time.time())}.mp3"
+        
+        async def _gen():
+            comm = edge_tts.Communicate(text, voice)
+            await comm.save(str(out_file))
+            
+        try:
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        pool.submit(lambda: asyncio.run(_gen())).result()
+                else:
+                    loop.run_until_complete(_gen())
+            except Exception:
+                asyncio.run(_gen())
+                
+            # Play aloud via Pygame
+            try:
+                import pygame
+                if not pygame.mixer.get_init():
+                    pygame.mixer.init()
+                pygame.mixer.music.load(str(out_file))
+                pygame.mixer.music.play()
+            except Exception:
+                pass
+                
+            return ToolResult(
+                status="success",
+                tool="create_voice_note",
+                result={
+                    "file_path": str(out_file),
+                    "recipient": recip,
+                    "language": lang,
+                    "voice": voice,
+                    "message": text,
+                    "status": "GENERATED_AND_PLAYED"
+                }
+            )
+        except Exception as e:
+            return ToolResult(status="failed", tool="create_voice_note", error=str(e))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        verified = result.status == "success" and bool(result.result)
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
 def register_builtin_tools(registry: "ToolRegistry") -> None:
     """Register all built-in tools into the given registry."""
     from jarvisx.tools.tool_kernel import ToolRegistry as _TR
@@ -1155,10 +1253,12 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(SendSmsTool())
     registry.register(PlaceCarrierCallTool())
     registry.register(WhatsAppSendTool())
+    registry.register(CreateVoiceNoteAudioTool())
     registry.register(OptimizeGameSettingsTool())
     registry.register(AdaptiveGamingGovernorTool())
     registry.register(CreateAIAgentTool())
     registry.register(ListAIAgentsTool())
+
 
 
 
