@@ -2,11 +2,10 @@
 WhatsApp Visual Desktop & Web Actuation Engine for Jarvis X & Alfred OS.
 Executes live on-screen WhatsApp messaging right in front of Charan's eyes:
 1. Deep links to WhatsApp Desktop (`whatsapp://`) and WhatsApp Web (`https://web.whatsapp.com`).
-2. Automates contact lookup, message composition, and Enter key dispatch via native Windows API and PyAutoGUI.
+2. Automates contact lookup, message composition, direct Send button click, and Enter key dispatch via native Windows API and PyAutoGUI.
 """
 
 import os
-import subprocess
 import sys
 import time
 import urllib.parse
@@ -48,11 +47,29 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
 
     webbrowser.open(url)
 
-    # 2. Wait for WhatsApp window to focus
-    print("[*] Waiting 2.5 seconds for WhatsApp window to focus...")
-    time.sleep(2.5)
+    # 2. Wait for WhatsApp window to focus and populate input
+    print("[*] Waiting 3.0 seconds for WhatsApp window to focus and populate message...")
+    time.sleep(3.0)
 
-    # 3. Native Win32 API Keybd Event (VK_RETURN = 0x0D)
+    # 3. Direct Send Button Visual Click via PyAutoGUI
+    try:
+        import pyautogui
+        pyautogui.FAILSAFE = False
+        sw, sh = pyautogui.size()
+        
+        # WhatsApp Web / Desktop green send button location is at bottom-right
+        send_x = sw - 40
+        send_y = sh - 35
+        print(f"[*] Clicking green send button at ({send_x}, {send_y})...")
+        pyautogui.click(send_x, send_y)
+        time.sleep(0.2)
+        
+        # Press Enter as reinforcement
+        pyautogui.press('enter')
+    except Exception as e:
+        logger.debug(f"[WhatsApp] PyAutoGUI click error: {e}")
+
+    # 4. Native Win32 API Keybd Event (VK_RETURN = 0x0D)
     try:
         import ctypes
         user32 = ctypes.windll.user32
@@ -63,20 +80,12 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
     except Exception as e:
         logger.debug(f"[WhatsApp] Win32 keybd_event: {e}")
 
-    # 4. PyAutoGUI enter fallback
-    try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        pyautogui.press('enter')
-    except Exception:
-        pass
-
     print(f"\n[WHATSAPP ACTUATION] [OK] Message '{message}' dispatched live on-screen for '{recipient}'!")
     return {
         "status": "DISPATCHED_LIVE",
         "recipient": recipient,
         "message": message,
-        "mode": "NATIVE_DESKTOP_ACTUATION"
+        "mode": "VISUAL_SEND_BUTTON_CLICK"
     }
 
 
