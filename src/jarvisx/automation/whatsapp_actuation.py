@@ -153,13 +153,14 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
     sw = user32.GetSystemMetrics(0) or 1920
     sh = user32.GetSystemMetrics(1) or 1200
     
-    send_x = int(0.9231 * sw)  # 1772 on 1920x1200
-    send_y = int(0.9555 * sh)  # 1146 on 1920x1200
-    input_x = int(0.55 * sw)   # 1056 on 1920x1200
-    input_y = int(0.9555 * sh)
+    # Exact calibrated normalized ratios from live screenshot analysis (0.93945, 0.9585)
+    send_x = int(0.93945 * sw)  # 1803 on 1920x1200
+    send_y = int(0.95850 * sh)  # 1150 on 1920x1200
+    input_x = int(0.50 * sw)    # 960 on 1920x1200
+    input_y = int(0.95850 * sh) # 1150 on 1920x1200
 
     # Step 0: Force Window Focus by clicking middle of chat area
-    chat_x = int(0.55 * sw)
+    chat_x = int(0.50 * sw)
     chat_y = int(0.50 * sh)
     print(f"[*] Forcing window focus at ({chat_x}, {chat_y})...")
     send_hardware_absolute_click(chat_x, chat_y)
@@ -180,22 +181,28 @@ def send_whatsapp_live(recipient: str = "Dakshith", message: str = "hi") -> dict
     except Exception:
         pass
 
-    # Step C: Send Hardware Scan Code Enter (0x1C)
+    # Step C: Send Hardware Scan Code Enter (0x1C) & PyAutoGUI Enter
     print("[*] Dispatched hardware scan code 0x1C (Enter)...")
-    send_hardware_scan_enter()
-    time.sleep(0.15)
-
-    # Step D: Direct hardware click on green Send button (1772, 1146)
-    print(f"[*] Triggering hardware click on green Send button at ({send_x}, {send_y})...")
-    send_hardware_absolute_click(send_x, send_y)
-    time.sleep(0.1)
-
-    # Step E: Final Enter pulse via PyAutoGUI & SendInput
     send_hardware_scan_enter()
     try:
         pyautogui.press('enter')
     except Exception:
         pass
+    time.sleep(0.15)
+
+    # Step D: Direct hardware click on exact green Send button center (1803, 1150)
+    print(f"[*] Triggering hardware click on exact green Send button at ({send_x}, {send_y})...")
+    try:
+        pyautogui.moveTo(send_x, send_y, duration=0.2)
+        pyautogui.click(send_x, send_y)
+    except Exception:
+        pass
+    send_hardware_absolute_click(send_x, send_y)
+    time.sleep(0.1)
+
+    # Step E: Final Enter pulse
+    send_hardware_scan_enter()
+
 
     print(f"\n[WHATSAPP ACTUATION] [OK] Message '{message}' dispatched live on-screen for '{recipient}'!")
     return {
