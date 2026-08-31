@@ -1382,6 +1382,8 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(SurgicalRepoIntegrateTool())
     registry.register(FetchRepoFileTool())
     registry.register(AutonomousAssimilateRepoTool())
+    registry.register(StartEngineeringSentinelTool())
+    registry.register(GetEngineeringSentinelStatusTool())
 
 
 
@@ -2006,6 +2008,60 @@ class AutonomousAssimilateRepoTool(Tool):
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success", error=result.error)
+
+
+class StartEngineeringSentinelTool(Tool):
+    """Starts the background Autonomous Continuous Engineering Sentinel."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="start_autonomous_engineer",
+            description="Activates the background Autonomous Engineering Sentinel that monitors project goals, identifies gaps, autonomously searches GitHub for solutions, and assimilates clean features continuously.",
+            input_schema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="engineer.sentinel"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.engineering.autonomous_engineering_daemon import get_engineering_sentinel
+        sentinel = get_engineering_sentinel()
+        res = sentinel.start_sentinel()
+        status = "success" if res.get("status") in ("started", "already_running") else "failed"
+        return ToolResult(status=status, tool="start_autonomous_engineer", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class GetEngineeringSentinelStatusTool(Tool):
+    """Checks the status and recent feature assimilations of the Engineering Sentinel."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="get_autonomous_engineer_status",
+            description="Retrieves the status, check interval, and list of recently assimilated features from the Autonomous Engineering Sentinel.",
+            input_schema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="engineer.status"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.engineering.autonomous_engineering_daemon import get_engineering_sentinel
+        sentinel = get_engineering_sentinel()
+        res = sentinel.get_status()
+        return ToolResult(status="success", tool="get_autonomous_engineer_status", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
 
 
 

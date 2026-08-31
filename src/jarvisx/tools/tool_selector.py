@@ -45,7 +45,7 @@ TOOL_DOMAINS: Dict[str, List[str]] = {
         "set_reminder", "list_reminders", "cancel_reminder", "get_current_time",
     ],
     "developer": [
-        "assimilate_repo_feature", "integrate_repo", "surgical_integrate_repo", "fetch_repo_file", "git_clone", "git_sync", "git_status", "run_command", "read_file", "create_file", "list_directory",
+        "assimilate_repo_feature", "integrate_repo", "surgical_integrate_repo", "fetch_repo_file", "git_clone", "git_sync", "git_status", "run_command", "read_file", "create_file", "list_directory", "start_autonomous_engineer", "get_autonomous_engineer_status",
     ],
     "computer": [
         "uacc_computer_control",
@@ -76,6 +76,7 @@ DOMAIN_KEYWORDS: Dict[str, List[str]] = {
         "surgical", "extract", "delete clone", "clean clone", "save space", "only what we need",
         "fetch file", "raw file", "purge", "assimilate", "think and add", "think",
         "features automatically", "add features", "auto integrate", "what is needed",
+        "continuously", "continuous", "give repo name", "sentinel", "autonomous engineer",
     ],
     "system": [
         "battery", "cpu", "ram", "memory", "temp", "temperature", "cool",
