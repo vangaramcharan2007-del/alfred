@@ -1384,6 +1384,8 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(AutonomousAssimilateRepoTool())
     registry.register(StartEngineeringSentinelTool())
     registry.register(GetEngineeringSentinelStatusTool())
+    registry.register(TrainAgentFleetTool())
+    registry.register(BenchmarkAgentsTool())
 
 
 
@@ -2061,6 +2063,60 @@ class GetEngineeringSentinelStatusTool(Tool):
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class TrainAgentFleetTool(Tool):
+    """Trains and synchronizes all subagents with current tools, integrations, and distilled few-shot prompts."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="train_agent_fleet",
+            description="Autonomous fine-tuner and trainer: scans current project tools and integrations, distills optimized system prompts and few-shot examples for each subagent (Athena, Vulcan, Hermes, Aegis), and updates fleet profiles.",
+            input_schema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="agents.train"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.agents.agent_trainer_engine import get_agent_trainer
+        trainer = get_agent_trainer()
+        res = trainer.train_and_update_fleet()
+        status = "success" if res.get("status") == "success" else "failed"
+        return ToolResult(status=status, tool="train_agent_fleet", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class BenchmarkAgentsTool(Tool):
+    """Runs capability, reasoning, and tool mastery benchmarks across the subagent fleet."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="benchmark_agents",
+            description="Evaluates all subagents in the fleet across standard reasoning, tool usage, and speed benchmarks, calculating mastery scores.",
+            input_schema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="agents.benchmark"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.agents.agent_trainer_engine import get_agent_trainer
+        trainer = get_agent_trainer()
+        res = trainer.benchmark_fleet()
+        return ToolResult(status="success", tool="benchmark_agents", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
 
 
 

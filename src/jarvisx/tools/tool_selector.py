@@ -39,7 +39,7 @@ TOOL_DOMAINS: Dict[str, List[str]] = {
         "optimize_game_settings", "adaptive_game_governor",
     ],
     "agents": [
-        "create_ai_agent", "list_ai_agents",
+        "create_ai_agent", "list_ai_agents", "train_agent_fleet", "benchmark_agents",
     ],
     "reminders": [
         "set_reminder", "list_reminders", "cancel_reminder", "get_current_time",
@@ -101,8 +101,11 @@ DOMAIN_KEYWORDS: Dict[str, List[str]] = {
         "governor", "optimize", "gaming", "lag", "ping",
     ],
     "agents": [
-        "agent", "create agent", "list agent", "deploy agent", "fleet",
-        "learner agent", "bot", "assistant", "ai helper",
+        "agent", "agents", "create agent", "list agent", "deploy agent", "fleet",
+        "learner agent", "bot", "assistant", "ai helper", "train", "training", "trainer",
+        "train agent", "train agents", "train fleet", "train our", "train agent fleet",
+        "fine tune", "fine-tune", "fine tuning", "benchmark", "benchmarking",
+        "benchmark agent", "update agent", "train other agents", "subagents",
     ],
     "computer": [
         "computer control", "automate", "macro", "uacc",

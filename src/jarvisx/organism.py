@@ -304,8 +304,7 @@ class Hands:
         from jarvisx.tools.tool_executor import ToolExecutor
         
         self.registry = ToolRegistry.get_instance()
-        if not self.registry.list_tools():
-            register_builtin_tools(self.registry)
+        register_builtin_tools(self.registry)
         self.executor = ToolExecutor(registry=self.registry)
 
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
@@ -351,6 +350,8 @@ class Hands:
         "surgical_extract": "surgical_integrate_repo", "extract_repo": "surgical_integrate_repo", "extract_and_purge": "surgical_integrate_repo", "surgical_clone": "surgical_integrate_repo",
         "fetch_file": "fetch_repo_file", "download_repo_file": "fetch_repo_file", "get_file": "fetch_repo_file",
         "assimilate": "assimilate_repo_feature", "assimilate_feature": "assimilate_repo_feature", "auto_integrate": "assimilate_repo_feature", "smart_integrate": "assimilate_repo_feature", "think_and_add": "assimilate_repo_feature",
+        "train_agents": "train_agent_fleet", "train_fleet": "train_agent_fleet", "fine_tune_agents": "train_agent_fleet", "train_subagents": "train_agent_fleet",
+        "benchmark_fleet": "benchmark_agents", "evaluate_agents": "benchmark_agents",
         "execute_command": "run_command", "run_shell": "run_command", "terminal": "run_command", "shell": "run_command", "command": "run_command", "cmd": "run_command",
     }
 
