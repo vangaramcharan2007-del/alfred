@@ -98,7 +98,7 @@ class AutonomousEngineeringSentinel:
 
         # Example proactive discovery candidates
         candidates = [
-            {"goal": "Add an asynchronous Token Bucket rate limiter utility", "repo": "https://github.com/laurentS/async-lru", "module": "async_token_limiter.py"},
+            {"goal": "Add an asynchronous Token Bucket rate limiter utility", "repo": "https://github.com/aio-libs/async-lru", "module": "async_token_limiter.py"},
             {"goal": "Add an LRU Memory cache decorator for LLM prompts", "repo": "https://github.com/grantjenks/python-diskcache", "module": "prompt_lru_cache.py"},
         ]
 
