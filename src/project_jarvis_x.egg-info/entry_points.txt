@@ -1,0 +1,3 @@
+[console_scripts]
+friday = friday.__main__:main
+jarvisx = jarvisx.__main__:main
