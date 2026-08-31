@@ -350,6 +350,7 @@ class Hands:
         "integrate_repository": "integrate_repo", "integrate": "integrate_repo",
         "surgical_extract": "surgical_integrate_repo", "extract_repo": "surgical_integrate_repo", "extract_and_purge": "surgical_integrate_repo", "surgical_clone": "surgical_integrate_repo",
         "fetch_file": "fetch_repo_file", "download_repo_file": "fetch_repo_file", "get_file": "fetch_repo_file",
+        "assimilate": "assimilate_repo_feature", "assimilate_feature": "assimilate_repo_feature", "auto_integrate": "assimilate_repo_feature", "smart_integrate": "assimilate_repo_feature", "think_and_add": "assimilate_repo_feature",
         "execute_command": "run_command", "run_shell": "run_command", "terminal": "run_command", "shell": "run_command", "command": "run_command", "cmd": "run_command",
     }
 
@@ -369,6 +370,8 @@ class Hands:
         "extract_paths": ["paths", "files", "modules", "targets"],
         "repo_owner_name": ["repo", "owner_repo", "repository", "url"],
         "file_path_in_repo": ["path", "file", "file_path", "target_file"],
+        "feature_goal": ["goal", "feature", "intent", "description", "task"],
+        "target_module_name": ["module_name", "filename", "target_name", "name"],
     }
 
     def act(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -417,6 +420,9 @@ class Hands:
         elif tool_name == "fetch_repo_file":
             self._fill_arg(args, "repo_owner_name")
             self._fill_arg(args, "file_path_in_repo")
+        elif tool_name == "assimilate_repo_feature":
+            self._fill_arg(args, "repo_url")
+            self._fill_arg(args, "feature_goal")
 
         res = self.executor.execute(tool_name, args)
         return res.to_dict()

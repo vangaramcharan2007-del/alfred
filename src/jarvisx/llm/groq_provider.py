@@ -136,7 +136,7 @@ class GroqLLMProvider(LLMProvider):
         payload = {
             "model": target_model,
             "messages": messages,
-            "max_tokens": kwargs.get("max_tokens", 800),
+            "max_tokens": kwargs.get("max_tokens", 4096),
             "temperature": kwargs.get("temperature", 0.7),
             "stream": True,
         }
@@ -191,7 +191,7 @@ class GroqLLMProvider(LLMProvider):
         payload = {
             "model": target_model,
             "messages": messages,
-            "max_tokens": kwargs.get("max_tokens", 800),
+            "max_tokens": kwargs.get("max_tokens", 4096),
             "temperature": kwargs.get("temperature", 0.7),
         }
 

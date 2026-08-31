@@ -1381,6 +1381,7 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(ExecuteCommandTool())
     registry.register(SurgicalRepoIntegrateTool())
     registry.register(FetchRepoFileTool())
+    registry.register(AutonomousAssimilateRepoTool())
 
 
 
@@ -1954,6 +1955,58 @@ class FetchRepoFileTool(Tool):
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success", error=result.error)
+
+
+class AutonomousAssimilateRepoTool(Tool):
+    """Autonomously analyzes an external repository, decides what features to extract vs discard using LLM reasoning, writes native code, tests it, and purges the clone."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="assimilate_repo_feature",
+            description="Autonomous LLM feature assimilation: clones a repository ephemerally, uses LLM reasoning to decide what code/features are needed vs bloat, synthesizes clean native code for Alfred OS, verifies it with tests, and purges all clone bloat from disk.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "repo_url": {
+                        "type": "string",
+                        "description": "GitHub/GitLab repository URL or shorthand (e.g. 'https://github.com/owner/repo.git' or 'owner/repo')."
+                    },
+                    "feature_goal": {
+                        "type": "string",
+                        "description": "What specific capability or feature to extract and adapt (e.g. 'extract Dijkstra shortest path algorithm and adapt to Jarvis X')."
+                    },
+                    "target_module_name": {
+                        "type": "string",
+                        "description": "Optional name for the generated module (e.g. 'dijkstra_solver.py')."
+                    }
+                },
+                "required": ["repo_url"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="repo.assimilate"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        repo_url = arguments.get("repo_url") or arguments.get("url") or arguments.get("repo") or ""
+        feature_goal = arguments.get("feature_goal") or arguments.get("goal") or "Extract core features and adapt natively"
+        target_module_name = arguments.get("target_module_name") or arguments.get("module_name")
+
+        if not repo_url:
+            return ToolResult(status="failed", tool="assimilate_repo_feature", error="No repository URL provided.")
+
+        from jarvisx.engineering.autonomous_feature_assimilator import get_feature_assimilator
+        assimilator = get_feature_assimilator()
+        res = assimilator.assimilate_feature_from_repo(
+            repo_url=repo_url,
+            feature_goal=feature_goal,
+            target_module_name=target_module_name,
+        )
+        status = "success" if res.get("status") == "success" else "failed"
+        return ToolResult(status=status, tool="assimilate_repo_feature", result=res, error=res.get("error"))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success", error=result.error)
+
 
 
 
