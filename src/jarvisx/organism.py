@@ -346,6 +346,9 @@ class Hands:
         "record_audio": "create_voice_note", "generate_voice_note": "create_voice_note", "voice_note": "create_voice_note", "audio_note": "create_voice_note",
         "reminder": "set_reminder", "set_alarm": "set_reminder", "alarm": "set_reminder", "schedule_reminder": "set_reminder", "timer": "set_reminder", "create_reminder": "set_reminder", "add_reminder": "set_reminder",
         "show_reminders": "list_reminders", "get_reminders": "list_reminders",
+        "clone_repo": "git_clone", "clone": "git_clone", "git_pull": "git_sync", "git_push": "git_sync", "pull_repo": "git_sync", "push_repo": "git_sync", "commit": "git_sync",
+        "integrate_repository": "integrate_repo", "integrate": "integrate_repo",
+        "execute_command": "run_command", "run_shell": "run_command", "terminal": "run_command", "shell": "run_command", "command": "run_command", "cmd": "run_command",
     }
 
     _ARG_ALIASES = {
@@ -357,6 +360,10 @@ class Hands:
         "speech_text": ["message", "text", "msg", "prompt", "say"],
         "time": ["time_spec", "at", "when", "target_time", "alarm_time", "schedule_time"],
         "identifier": ["id", "keyword", "reminder_id", "message", "name"],
+        "repo_url": ["url", "repo", "repository", "git_url", "target"],
+        "repo_url_or_path": ["repo", "url", "path", "repository", "target"],
+        "commit_message": ["message", "msg", "commit", "text", "description"],
+        "command": ["cmd", "script", "shell_command", "cli", "run"],
     }
 
     def act(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -392,6 +399,14 @@ class Hands:
             self._fill_arg(args, "time")
         elif tool_name == "cancel_reminder":
             self._fill_arg(args, "identifier")
+        elif tool_name == "git_clone":
+            self._fill_arg(args, "repo_url")
+        elif tool_name == "git_sync":
+            self._fill_arg(args, "commit_message")
+        elif tool_name == "integrate_repo":
+            self._fill_arg(args, "repo_url_or_path")
+        elif tool_name == "run_command":
+            self._fill_arg(args, "command")
 
         res = self.executor.execute(tool_name, args)
         return res.to_dict()

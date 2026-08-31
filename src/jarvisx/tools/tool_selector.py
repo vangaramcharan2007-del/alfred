@@ -44,6 +44,9 @@ TOOL_DOMAINS: Dict[str, List[str]] = {
     "reminders": [
         "set_reminder", "list_reminders", "cancel_reminder", "get_current_time",
     ],
+    "developer": [
+        "integrate_repo", "git_clone", "git_sync", "git_status", "run_command", "read_file", "create_file", "list_directory",
+    ],
     "computer": [
         "uacc_computer_control",
     ],
@@ -63,6 +66,13 @@ DOMAIN_KEYWORDS: Dict[str, List[str]] = {
         "remind", "reminder", "alarm", "timer", "schedule", "alert", "notify",
         "at", "pm", "am", "clock", "countdown", "packing", "wake me", "due",
         "in 5", "in 10", "in 15", "in 20", "in 30", "in 1", "in 2",
+    ],
+    "developer": [
+        "repo", "repos", "repository", "repositories", "git", "github", "gitlab",
+        "integrate", "clone", "pull", "push", "commit", "merge", "branch",
+        "codebase", "cli", "terminal", "npm", "pip", "pytest", "run command",
+        "execute command", "build", "script", "integrate repo", "integrate repos",
+        "sync repo", "push repo", "pull repo", "clone repo",
     ],
     "system": [
         "battery", "cpu", "ram", "memory", "temp", "temperature", "cool",
@@ -117,8 +127,8 @@ def select_relevant_domains(user_intent: str, max_domains: int = 3) -> List[str]
             scores[domain] = score
 
     if not scores:
-        # Fallback: include communication + desktop + system (most common)
-        return ["communication", "desktop", "system"]
+        # Fallback: include developer + desktop + system (most versatile)
+        return ["developer", "desktop", "system"]
 
     # Sort by score descending, take top N
     ranked = sorted(scores.items(), key=lambda x: -x[1])

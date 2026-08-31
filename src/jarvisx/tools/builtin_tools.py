@@ -1374,6 +1374,11 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(SetReminderTool())
     registry.register(ListRemindersTool())
     registry.register(CancelReminderTool())
+    registry.register(GitCloneTool())
+    registry.register(GitSyncTool())
+    registry.register(GitStatusTool())
+    registry.register(IntegrateRepoTool())
+    registry.register(ExecuteCommandTool())
 
 
 
@@ -1635,6 +1640,210 @@ class CancelReminderTool(Tool):
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success", error=result.error)
+
+
+# ---------------------------------------------------------------------------
+# Tools: Git, Repository Integration & Developer CLI
+# ---------------------------------------------------------------------------
+
+class GitCloneTool(Tool):
+    """Clones a remote Git repository into the local workspace."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="git_clone",
+            description="Clones a remote Git repository (GitHub/GitLab) into the local workspace.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "repo_url": {
+                        "type": "string",
+                        "description": "Git repository URL or shorthand (e.g. 'https://github.com/owner/repo.git' or 'owner/repo')."
+                    },
+                    "target_dir": {
+                        "type": "string",
+                        "description": "Optional destination directory name."
+                    },
+                    "branch": {
+                        "type": "string",
+                        "description": "Optional specific branch or tag to clone."
+                    }
+                },
+                "required": ["repo_url"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="git.clone"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        repo_url = arguments.get("repo_url") or arguments.get("url") or arguments.get("repo") or ""
+        target_dir = arguments.get("target_dir") or arguments.get("dir")
+        branch = arguments.get("branch")
+
+        if not repo_url:
+            return ToolResult(status="failed", tool="git_clone", error="No repository URL provided.")
+
+        from jarvisx.tools.git_repo_integrator import get_git_integrator
+        integrator = get_git_integrator()
+        res = integrator.clone_repository(repo_url=repo_url, target_dir=target_dir, branch=branch)
+        status = "success" if res.get("status") == "success" else "failed"
+        return ToolResult(status=status, tool="git_clone", result=res, error=res.get("error"))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success", error=result.error)
+
+
+class GitSyncTool(Tool):
+    """Stages all changes, creates a commit, and pushes to remote repository."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="git_sync",
+            description="Stages all modified files, commits with a message, and pushes to the Git repository.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "commit_message": {
+                        "type": "string",
+                        "description": "Commit message describing the changes made."
+                    },
+                    "repo_dir": {
+                        "type": "string",
+                        "description": "Directory of the repository (defaults to root workspace '.')."
+                    },
+                    "push": {
+                        "type": "boolean",
+                        "description": "Whether to push commits to remote (default: true)."
+                    }
+                },
+                "required": ["commit_message"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="git.sync"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        msg = arguments.get("commit_message") or arguments.get("message") or "Update from Alfred OS"
+        repo_dir = arguments.get("repo_dir") or "."
+        push = arguments.get("push", True)
+
+        from jarvisx.tools.git_repo_integrator import get_git_integrator
+        integrator = get_git_integrator()
+        res = integrator.sync_repository(repo_dir=repo_dir, commit_message=msg, push=push)
+        status = "success" if res.get("status") == "success" else "failed"
+        return ToolResult(status=status, tool="git_sync", result=res, error=res.get("error"))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success", error=result.error)
+
+
+class GitStatusTool(Tool):
+    """Inspects Git repository status, modified files, and branch info."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="git_status",
+            description="Retrieves current Git branch, modified files, uncommitted changes, and latest commit.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "repo_dir": {
+                        "type": "string",
+                        "description": "Directory of the repository (defaults to root workspace '.')."
+                    }
+                },
+                "required": []
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="git.status"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        repo_dir = arguments.get("repo_dir") or "."
+        from jarvisx.tools.git_repo_integrator import get_git_integrator
+        integrator = get_git_integrator()
+        res = integrator.get_repo_status(repo_dir=repo_dir)
+        status = "success" if res.get("status") == "success" else "failed"
+        return ToolResult(status=status, tool="git_status", result=res, error=res.get("error"))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success", error=result.error)
+
+
+class IntegrateRepoTool(Tool):
+    """Deeply analyzes and integrates a Git repository into Alfred OS."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="integrate_repo",
+            description="Integrates a repository (clones if remote, scans architecture, entry points, and tech stack) into Alfred OS.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "repo_url_or_path": {
+                        "type": "string",
+                        "description": "GitHub/GitLab URL or local directory path of the repository to integrate."
+                    }
+                },
+                "required": ["repo_url_or_path"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="repo.integrate"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        target = arguments.get("repo_url_or_path") or arguments.get("repo") or arguments.get("url") or "."
+        from jarvisx.tools.git_repo_integrator import get_git_integrator
+        integrator = get_git_integrator()
+        res = integrator.integrate_repository(repo_url_or_path=str(target))
+        status = "success" if res.get("status") == "success" else "failed"
+        return ToolResult(status=status, tool="integrate_repo", result=res, error=res.get("error"))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success", error=result.error)
+
+
+class ExecuteCommandTool(Tool):
+    """Executes a CLI / shell terminal command safely in the workspace."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="run_command",
+            description="Executes a shell/CLI command (e.g. git, npm, python, pytest, pip) within the workspace directory.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "Shell command to execute."
+                    },
+                    "cwd": {
+                        "type": "string",
+                        "description": "Working directory (defaults to current workspace)."
+                    }
+                },
+                "required": ["command"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="cli.execute"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        cmd = arguments.get("command") or arguments.get("cmd") or ""
+        cwd = arguments.get("cwd")
+
+        if not cmd:
+            return ToolResult(status="failed", tool="run_command", error="No command provided.")
+
+        from jarvisx.tools.git_repo_integrator import get_git_integrator
+        integrator = get_git_integrator()
+        res = integrator.execute_terminal_command(command=cmd, cwd=cwd)
+        status = "success" if res.get("status") == "success" else "failed"
+        return ToolResult(status=status, tool="run_command", result=res, error=res.get("error"))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success", error=result.error)
+
 
 
 
