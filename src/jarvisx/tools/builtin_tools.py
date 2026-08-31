@@ -1379,6 +1379,8 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(GitStatusTool())
     registry.register(IntegrateRepoTool())
     registry.register(ExecuteCommandTool())
+    registry.register(SurgicalRepoIntegrateTool())
+    registry.register(FetchRepoFileTool())
 
 
 
@@ -1843,6 +1845,116 @@ class ExecuteCommandTool(Tool):
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success", error=result.error)
+
+
+class SurgicalRepoIntegrateTool(Tool):
+    """Clones a repository into an ephemeral sandbox, extracts only needed files, and instantly purges clone bloat."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="surgical_integrate_repo",
+            description="Zero-disk-bloat repository integration: clones ephemerally, extracts only the required modules/algorithms into your workspace, and instantly deletes all cloned files and .git history.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "repo_url": {
+                        "type": "string",
+                        "description": "GitHub repository URL or shorthand (e.g. 'https://github.com/owner/repo.git' or 'owner/repo')."
+                    },
+                    "extract_paths": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Specific files or directories to extract (e.g. ['dsa/trees.py', 'src/models'])."
+                    },
+                    "target_destination": {
+                        "type": "string",
+                        "description": "Destination directory in local project (defaults to 'src/integrations')."
+                    },
+                    "feature_intent": {
+                        "type": "string",
+                        "description": "Natural language description of what code/features to extract (e.g. 'linked list implementation')."
+                    }
+                },
+                "required": ["repo_url"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="repo.surgical"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        repo_url = arguments.get("repo_url") or arguments.get("url") or arguments.get("repo") or ""
+        extract_paths = arguments.get("extract_paths") or arguments.get("paths") or arguments.get("files")
+        target_destination = arguments.get("target_destination") or arguments.get("destination") or "src/integrations"
+        feature_intent = arguments.get("feature_intent") or arguments.get("intent")
+
+        if not repo_url:
+            return ToolResult(status="failed", tool="surgical_integrate_repo", error="No repository URL provided.")
+
+        from jarvisx.tools.surgical_repo_extractor import get_surgical_extractor
+        extractor = get_surgical_extractor()
+        res = extractor.extract_and_integrate(
+            repo_url=repo_url,
+            extract_paths=extract_paths,
+            target_destination=target_destination,
+            feature_intent=feature_intent,
+        )
+        status = "success" if res.get("status") == "success" else "failed"
+        return ToolResult(status=status, tool="surgical_integrate_repo", result=res, error=res.get("error"))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success", error=result.error)
+
+
+class FetchRepoFileTool(Tool):
+    """Directly downloads a single file from GitHub without cloning the repository (0 MB clone)."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="fetch_repo_file",
+            description="Downloads a specific file from a GitHub repository directly via raw URL with zero cloning (0 MB disk bloat).",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "repo_owner_name": {
+                        "type": "string",
+                        "description": "GitHub repository in 'owner/repo' format (e.g. 'TheAlgorithms/Python')."
+                    },
+                    "file_path_in_repo": {
+                        "type": "string",
+                        "description": "File path inside the repository (e.g. 'data_structures/linked_list/singly_linked_list.py')."
+                    },
+                    "target_local_path": {
+                        "type": "string",
+                        "description": "Optional local destination path."
+                    }
+                },
+                "required": ["repo_owner_name", "file_path_in_repo"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="repo.fetch"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        repo = arguments.get("repo_owner_name") or arguments.get("repo") or arguments.get("url") or ""
+        file_path = arguments.get("file_path_in_repo") or arguments.get("path") or arguments.get("file") or ""
+        target_local_path = arguments.get("target_local_path") or arguments.get("destination")
+
+        if not repo or not file_path:
+            return ToolResult(status="failed", tool="fetch_repo_file", error="Both repo and file path are required.")
+
+        from jarvisx.tools.surgical_repo_extractor import get_surgical_extractor
+        extractor = get_surgical_extractor()
+        res = extractor.fetch_raw_github_file(
+            repo_owner_name=repo,
+            file_path_in_repo=file_path,
+            target_local_path=target_local_path,
+        )
+        status = "success" if res.get("status") == "success" else "failed"
+        return ToolResult(status=status, tool="fetch_repo_file", result=res, error=res.get("error"))
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success", error=result.error)
+
 
 
 

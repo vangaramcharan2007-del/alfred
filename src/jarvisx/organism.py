@@ -348,6 +348,8 @@ class Hands:
         "show_reminders": "list_reminders", "get_reminders": "list_reminders",
         "clone_repo": "git_clone", "clone": "git_clone", "git_pull": "git_sync", "git_push": "git_sync", "pull_repo": "git_sync", "push_repo": "git_sync", "commit": "git_sync",
         "integrate_repository": "integrate_repo", "integrate": "integrate_repo",
+        "surgical_extract": "surgical_integrate_repo", "extract_repo": "surgical_integrate_repo", "extract_and_purge": "surgical_integrate_repo", "surgical_clone": "surgical_integrate_repo",
+        "fetch_file": "fetch_repo_file", "download_repo_file": "fetch_repo_file", "get_file": "fetch_repo_file",
         "execute_command": "run_command", "run_shell": "run_command", "terminal": "run_command", "shell": "run_command", "command": "run_command", "cmd": "run_command",
     }
 
@@ -364,6 +366,9 @@ class Hands:
         "repo_url_or_path": ["repo", "url", "path", "repository", "target"],
         "commit_message": ["message", "msg", "commit", "text", "description"],
         "command": ["cmd", "script", "shell_command", "cli", "run"],
+        "extract_paths": ["paths", "files", "modules", "targets"],
+        "repo_owner_name": ["repo", "owner_repo", "repository", "url"],
+        "file_path_in_repo": ["path", "file", "file_path", "target_file"],
     }
 
     def act(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -407,6 +412,11 @@ class Hands:
             self._fill_arg(args, "repo_url_or_path")
         elif tool_name == "run_command":
             self._fill_arg(args, "command")
+        elif tool_name == "surgical_integrate_repo":
+            self._fill_arg(args, "repo_url")
+        elif tool_name == "fetch_repo_file":
+            self._fill_arg(args, "repo_owner_name")
+            self._fill_arg(args, "file_path_in_repo")
 
         res = self.executor.execute(tool_name, args)
         return res.to_dict()
