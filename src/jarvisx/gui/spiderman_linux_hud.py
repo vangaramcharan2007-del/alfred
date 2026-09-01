@@ -624,6 +624,15 @@ class SpiderManHTTPHandler(http.server.BaseHTTPRequestHandler):
                     res = linux.toolchain.compile_source("int main() { return 0; }", "c", "spidey_app.out")
                     output = f"Binary: {res.get('binary_path')} | Status: {res.get('status')}"
 
+                # Speak out loud using ultra-realistic Microsoft Neural Voice
+                if ev_speech:
+                    try:
+                        import threading
+                        from jarvisx.automation.ev_neural_voice import speak_ev_neural
+                        threading.Thread(target=speak_ev_neural, args=(ev_speech,), daemon=True).start()
+                    except Exception:
+                        pass
+
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
