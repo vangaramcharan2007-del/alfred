@@ -329,10 +329,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <div style="margin-top: 18px;">
                     <div class="card-title" style="margin-bottom: 8px;">⚡ QUICK SPIDEY ACTIONS</div>
                     <div class="action-grid">
+                        <button class="btn-action" onclick="triggerAction('math_snap')">📐 Snap & Solve Math</button>
+                        <button class="btn-action" onclick="triggerAction('math_formulas')">📘 M3 Formulas</button>
                         <button class="btn-action" onclick="triggerAction('cyber_scan')">🛡️ Cyber Sentinel</button>
-                        <button class="btn-action" onclick="triggerAction('ai_train')">🧠 Train Vision AI</button>
-                        <button class="btn-action" onclick="triggerAction('devops')">📦 Launch Microservice</button>
-                        <button class="btn-action" onclick="triggerAction('turbo_cool')">❄️ 1-Click Turbo Cool</button>
+                        <button class="btn-action" onclick="triggerAction('turbo_cool')">❄️ Turbo Cool</button>
                     </div>
                 </div>
             </div>
@@ -619,8 +619,22 @@ class SpiderManHTTPHandler(http.server.BaseHTTPRequestHandler):
                     ev_speech = EV_SYSTEM_PROMPTS["turbo_cool"]
                     linux.execute_bash("sync; echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true")
                     output = "Linux RAM caches purged. Hardware temperature dropping."
+                elif action == "math_snap":
+                    from jarvisx.agents.transforms_math_agent import TransformsMathAgent
+                    sol = TransformsMathAgent.get_instance().solve_1d_wave_equation()
+                    ev_speech = "Spider-Sense Math Vision solved the 1D Wave Equation from E. Suresh! Step-by-step Fourier derivation is ready on your screen, boss!"
+                    output = sol.to_markdown()
+                elif action == "math_formulas":
+                    ev_speech = "Here are the top formulas and scoring tips for Units 1 to 5 from E. Suresh!"
+                    output = (
+                        "# 📘 Dr. E. Suresh M3 Formula Cheat-Sheet\n\n"
+                        "### Unit 1: PDEs\n- Lagrange's Equation: P p + Q q = R => dx/P = dy/Q = dz/R\n\n"
+                        "### Unit 2: Fourier Series\n- a0 = (1/l) int f(x)dx\n- an = (1/l) int f(x) cos(n pi x / l)dx\n- bn = (1/l) int f(x) sin(n pi x / l)dx\n\n"
+                        "### Unit 3: 1D Wave & Heat Equations\n- 1D Wave: y_tt = a^2 y_xx => y(x,t) = sum bn sin(n pi x / l) cos(n pi a t / l)\n- 1D Heat: u_t = alpha^2 u_xx => u(x,t) = sum cn sin(n pi x / l) exp(-n^2 pi^2 alpha^2 t / l^2)\n\n"
+                        "### Unit 4 & 5: Transforms\n- Z{a^n} = z / (z - a)\n- Z{n} = z / (z - 1)^2"
+                    )
                 elif action == "compile":
-                    ev_speech = EV_SYSTEM_PROMPTS["compile"]
+                    ev_speech = EV_SYSTEM_PROMPTS.get("compile", "Compiling...")
                     res = linux.toolchain.compile_source("int main() { return 0; }", "c", "spidey_app.out")
                     output = f"Binary: {res.get('binary_path')} | Status: {res.get('status')}"
 
