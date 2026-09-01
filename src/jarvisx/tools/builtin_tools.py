@@ -1386,6 +1386,8 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(GetEngineeringSentinelStatusTool())
     registry.register(TrainAgentFleetTool())
     registry.register(BenchmarkAgentsTool())
+    registry.register(ExecuteLinuxBashTool())
+    registry.register(GetLinuxSystemInfoTool())
 
 
 
@@ -2116,6 +2118,63 @@ class BenchmarkAgentsTool(Tool):
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class ExecuteLinuxBashTool(Tool):
+    """Executes arbitrary bash scripts/commands inside the sovereign Linux Bridge environment."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="execute_linux_bash",
+            description="Executes bash commands or scripts inside the Linux environment (WSL2 or VirtualBox Linux Mint VM), capturing return code, stdout, and execution time.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "The bash shell command or script to execute in Linux."}
+                },
+                "required": ["command"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="linux.bash"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.agents.linux_agent import LinuxBridgeAgent
+        agent = LinuxBridgeAgent.get_instance()
+        cmd = arguments.get("command", "")
+        res = agent.execute_bash(cmd)
+        status = res.get("status", "failed")
+        return ToolResult(status=status, tool="execute_linux_bash", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class GetLinuxSystemInfoTool(Tool):
+    """Retrieves kernel version, distribution, CPU, memory, and disk telemetry from the Linux environment."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="get_linux_system_info",
+            description="Probes the Linux environment for kernel version (uname -r), distribution name, RAM pressure, and disk metrics.",
+            input_schema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="linux.info"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.agents.linux_agent import LinuxBridgeAgent
+        agent = LinuxBridgeAgent.get_instance()
+        telemetry = agent.get_system_info()
+        return ToolResult(status="success", tool="get_linux_system_info", result=telemetry.to_dict())
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
 
 
 

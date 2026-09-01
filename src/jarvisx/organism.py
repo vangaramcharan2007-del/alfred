@@ -505,6 +505,10 @@ class AlfredOrganism:
         self.sentinel = AutonomicReflexSentinel.get_instance()
         self.sentinel.start()
 
+        # 🐧 Sovereign Linux Bridge Agent
+        from jarvisx.agents.linux_agent import LinuxBridgeAgent
+        self.linux_agent = LinuxBridgeAgent.get_instance()
+
         # Connect internal neural reflexes
         self._wire_nervous_system()
 
