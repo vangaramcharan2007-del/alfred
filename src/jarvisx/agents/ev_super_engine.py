@@ -224,7 +224,7 @@ class EVMobileNeuralBridge:
     _instance: Optional["EVMobileNeuralBridge"] = None
 
     def __init__(self) -> None:
-        self.registered_phone: str = "+91 88850 14923"
+        self.registered_phone: str = "+91 8074881520"
         self.message_history: List[Dict[str, Any]] = []
 
     @classmethod

@@ -58,7 +58,7 @@ def test_ev_mobile_neural_bridge():
     mobile = EVMobileNeuralBridge.get_instance()
     res = mobile.send_mobile_update("Linux model training finished with 95% accuracy!", is_voice_note=True)
     assert res["status"] == "success"
-    assert "88850 14923" in res["recipient"]
+    assert "807481520" in res["recipient"]
 
 
 def test_ev_holographic_visor():
