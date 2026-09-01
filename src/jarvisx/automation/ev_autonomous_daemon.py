@@ -76,6 +76,7 @@ def run_alfred_doctor_automation():
 
 def on_press(key):
     try:
+        # Direct F-Keys
         if key == keyboard.Key.f9:
             threading.Thread(target=run_math_vision_automation, daemon=True).start()
         elif key == keyboard.Key.f10:
@@ -88,19 +89,48 @@ def on_press(key):
         print(f"[!] Hotkey handler exception: {e}")
 
 
+def on_global_hotkey_math():
+    threading.Thread(target=run_math_vision_automation, daemon=True).start()
+
+
+def on_global_hotkey_cool():
+    threading.Thread(target=run_turbo_cool_automation, daemon=True).start()
+
+
+def on_global_hotkey_quest():
+    threading.Thread(target=run_adhd_quest_automation, daemon=True).start()
+
+
+def on_global_hotkey_alfred():
+    threading.Thread(target=run_alfred_doctor_automation, daemon=True).start()
+
+
 def main():
     print("=" * 78)
-    print(" ⚡ E-V & ALFRED PURE AUTOMATION DAEMON (HEADLESS & MINIMALIST)")
+    print(" ⚡ E-V & ALFRED PURE AUTOMATION DAEMON (MULTI-HOTKEY ENGINE)")
     print("=" * 78)
-    print(" [F8]  -> 🦇 Alfred Sovereign System Doctor")
-    print(" [F9]  -> 📸 Spider-Sense Math Vision (Snap & Solve Screen)")
-    print(" [F10] -> ❄️ 1-Key Turbo Cool (Purge RAM & Drop Temp)")
-    print(" [F11] -> ⚡ 5-Minute ADHD Focus Sprint")
+    print(" [Alt+S] or [F9]  -> 📸 Spider-Sense Math Vision (Snap & Solve Screen)")
+    print(" [Alt+C] or [F10] -> ❄️ 1-Key Turbo Cool (Purge RAM & Drop Temp)")
+    print(" [Alt+Q] or [F11] -> ⚡ 5-Minute ADHD Focus Sprint")
+    print(" [Alt+A] or [F8]  -> 🦇 Alfred Sovereign System Doctor")
     print("=" * 78)
-    print("[*] Listening for global hotkeys in background...")
+    print("[*] Listening for global hotkeys (Alt+S, Alt+C, Alt+Q, Alt+A & F8-F11)...")
 
     # Initial boot voice greeting
-    speak_ev_neural("Automation daemon active, boss! Press F9 anytime to solve screen math, or F10 to cool your system!")
+    speak_ev_neural("Automation daemon active, boss! Press Alt+S or F9 anytime to solve screen math, or Alt+C to cool your system!")
+
+    # Global Hotkey Listener (Handles both Alt combinations and standard F-keys)
+    hotkeys = keyboard.GlobalHotKeys({
+        '<alt>+s': on_global_hotkey_math,
+        '<ctrl>+<shift>+s': on_global_hotkey_math,
+        '<alt>+c': on_global_hotkey_cool,
+        '<ctrl>+<shift>+c': on_global_hotkey_cool,
+        '<alt>+q': on_global_hotkey_quest,
+        '<ctrl>+<shift>+q': on_global_hotkey_quest,
+        '<alt>+a': on_global_hotkey_alfred,
+        '<ctrl>+<shift>+a': on_global_hotkey_alfred,
+    })
+    hotkeys.start()
 
     with keyboard.Listener(on_press=on_press) as listener:
         listener.join()
