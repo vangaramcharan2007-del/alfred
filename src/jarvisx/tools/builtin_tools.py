@@ -1395,6 +1395,9 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(CompileLinuxSourceTool())
     registry.register(LaunchSpiderManEVHUDTool())
     registry.register(DeployLinuxNativeHUDTool())
+    registry.register(EVFlowQuestTool())
+    registry.register(EVVoiceCodeTool())
+    registry.register(EVSpiderSenseVisionTool())
 
 
 
@@ -2402,6 +2405,99 @@ class DeployLinuxNativeHUDTool(Tool):
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class EVFlowQuestTool(Tool):
+    """Manages ADHD focus flow, context recovery, and gamified Spider-Quests."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="manage_ev_flow_quest",
+            description="Tracks ADHD coding focus, recovers lost context, and manages gamified Spider-Quests.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["status", "complete", "recover"], "description": "Action to perform."},
+                    "quest_id": {"type": "string", "description": "Quest ID to complete."}
+                },
+                "required": ["action"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="ev.flow"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.agents.ev_super_engine import EVFlowGuardian
+        flow = EVFlowGuardian.get_instance()
+        action = arguments.get("action", "status")
+        if action == "complete":
+            res = flow.complete_quest(arguments.get("quest_id", "q1"))
+        elif action == "recover":
+            res = {"prompt": flow.recover_focus_prompt()}
+        else:
+            res = flow.get_flow_status()
+        return ToolResult(status="success", tool="manage_ev_flow_quest", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class EVVoiceCodeTool(Tool):
+    """Synthesizes code from voice intents and auto-fixes runtime errors."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="generate_ev_voice_code",
+            description="Synthesizes Python/Bash code directly from natural voice prompts and fixes syntax errors.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "prompt": {"type": "string", "description": "Voice coding prompt."},
+                    "language": {"type": "string", "description": "Target language (default: python)."}
+                },
+                "required": ["prompt"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="ev.code"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.agents.ev_super_engine import EVVoicePairProgrammer
+        coder = EVVoicePairProgrammer.get_instance()
+        res = coder.synthesize_code_from_voice(arguments.get("prompt", ""), arguments.get("language", "python"))
+        return ToolResult(status="success", tool="generate_ev_voice_code", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class EVSpiderSenseVisionTool(Tool):
+    """Visual screen perception and code homework OCR explainer."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="scan_ev_spider_sense",
+            description="Perceives active screen content, analyzes problems, and verifies code state.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "focus_area": {"type": "string", "description": "Focus region of screen."}
+                },
+                "required": []
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="ev.vision"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.agents.ev_super_engine import EVSpiderSenseVision
+        vision = EVSpiderSenseVision.get_instance()
+        res = vision.analyze_screen_snapshot(arguments.get("focus_area", "full"))
+        return ToolResult(status="success", tool="scan_ev_spider_sense", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
 
 
 
