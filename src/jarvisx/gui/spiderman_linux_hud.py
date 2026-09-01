@@ -30,12 +30,12 @@ logger = logging.getLogger("jarvisx.spiderman_ev")
 PORT = 5050
 
 EV_SYSTEM_PROMPTS = {
-    "greeting": "Hey boss! EV here! Ready to sling some Linux magic? What are we building today?",
-    "cyber_scan": "Zooming through your local network like web-swinging across Manhattan! Scanning ports right now!",
-    "ai_train": "Ooh, training time! Teaching our neural net some epic moves in isolated Linux RAM. Zero lag for you, I promise!",
-    "devops": "Spun up your microservice, boss! It's running smooth and clean in Linux. You're unstoppable today!",
-    "turbo_cool": "Activating Turbo Cool! Dropping temperatures and kicking out background lag monsters. Ahh, refreshing!",
-    "compile": "Compiled that native Linux binary in a flash! Boom! You're a rockstar!",
+    "greeting": "Hey boss! E-V here! Ready to sling some Linux magic? What are we building today?",
+    "cyber_scan": "Zooming through your local network like web-swinging across Manhattan! E-V is scanning ports right now!",
+    "ai_train": "Ooh, training time! Teaching our neural net some epic moves in isolated Linux RAM. E-V has your back, zero lag for you!",
+    "devops": "Spun up your microservice, boss! E-V has it running smooth and clean in Linux. You're unstoppable today!",
+    "turbo_cool": "E-V is activating Turbo Cool! Dropping temperatures and kicking out background lag monsters. Ahh, refreshing!",
+    "compile": "E-V compiled that native Linux binary in a flash! Boom! You're a rockstar!",
 }
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -390,14 +390,25 @@ $ </div>
             if (!window.speechSynthesis) return;
             window.speechSynthesis.cancel();
             
-            // Clean text of "EV:" prefix
-            const cleanText = text.replace(/^[A-Za-z]+:\s*/, '');
+            // Clean text of "EV:" prefix and ensure phonetic "E-V" pronunciation
+            let cleanText = text.replace(/^[A-Za-z]+:\s*/, '');
+            cleanText = cleanText.replace(/\bEV\b/g, 'E-V').replace(/\bev\b/g, 'E-V').replace(/\bEv\b/g, 'E-V');
+
             const utter = new SpeechSynthesisUtterance(cleanText);
-            utter.rate = 1.05;
-            utter.pitch = 1.25; // Sweet, energetic female tone
+            utter.rate = 1.0;
+            utter.pitch = 1.2; // Cheerful, sweet female tone
 
             const voices = window.speechSynthesis.getVoices();
-            const femaleVoice = voices.find(v => v.name.includes("Zira") || v.name.includes("Female") || v.name.includes("Samantha") || v.name.includes("Google UK English Female") || v.name.includes("Jenny"));
+            // Prioritize clear, natural female voices (Microsoft Zira, Jenny, Samantha, Google US Female)
+            const femaleVoice = voices.find(v => 
+                v.name.includes("Zira") || 
+                v.name.includes("Jenny") || 
+                v.name.includes("Aria") || 
+                v.name.includes("Samantha") || 
+                v.name.includes("Victoria") || 
+                v.name.includes("Google US English") || 
+                (v.name.includes("Female") && !v.name.includes("Male"))
+            );
             if (femaleVoice) utter.voice = femaleVoice;
 
             window.speechSynthesis.speak(utter);
