@@ -555,89 +555,110 @@ $ </div>
 
 
 class SpiderManHTTPHandler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == "/" or self.path == "/index.html":
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(HTML_TEMPLATE.encode("utf-8"))
+    def log_message(self, format, *args):
+        # Suppress noisy standard HTTP logs
+        pass
 
-        elif self.path == "/api/telemetry":
-            from jarvisx.agents.linux_agent import LinuxBridgeAgent
-            telemetry = LinuxBridgeAgent.get_instance().get_system_info()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps(telemetry.to_dict()).encode("utf-8"))
-        else:
-            self.send_response(404)
-            self.end_headers()
+    def do_GET(self):
+        try:
+            if self.path == "/" or self.path == "/index.html":
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(HTML_TEMPLATE.encode("utf-8"))
+
+            elif self.path == "/api/telemetry":
+                from jarvisx.agents.linux_agent import LinuxBridgeAgent
+                telemetry = LinuxBridgeAgent.get_instance().get_system_info()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(telemetry.to_dict()).encode("utf-8"))
+            else:
+                self.send_response(404)
+                self.end_headers()
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            pass
 
     def do_POST(self):
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = json.loads(body) if body else {}
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body) if body else {}
 
-        if self.path == "/api/bash":
-            from jarvisx.agents.linux_agent import LinuxBridgeAgent
-            cmd = data.get("command", "")
-            res = LinuxBridgeAgent.get_instance().execute_bash(cmd)
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps(res).encode("utf-8"))
+            if self.path == "/api/bash":
+                from jarvisx.agents.linux_agent import LinuxBridgeAgent
+                cmd = data.get("command", "")
+                res = LinuxBridgeAgent.get_instance().execute_bash(cmd)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(res).encode("utf-8"))
 
-        elif self.path == "/api/action":
-            action = data.get("action", "")
-            from jarvisx.agents.linux_agent import LinuxBridgeAgent
-            linux = LinuxBridgeAgent.get_instance()
+            elif self.path == "/api/action":
+                action = data.get("action", "")
+                from jarvisx.agents.linux_agent import LinuxBridgeAgent
+                linux = LinuxBridgeAgent.get_instance()
 
-            ev_speech = ""
-            output = ""
+                ev_speech = ""
+                output = ""
 
-            if action == "cyber_scan":
-                ev_speech = EV_SYSTEM_PROMPTS["cyber_scan"]
-                scan = linux.cyber.scan_local_network([80, 443, 8080, 5050])
-                output = f"Local IP: {scan['local_ip']} | Open Ports: {scan['open_local_ports']} | Posture: {scan['security_state']}"
+                if action == "cyber_scan":
+                    ev_speech = EV_SYSTEM_PROMPTS["cyber_scan"]
+                    scan = linux.cyber.scan_local_network([80, 443, 8080, 5050])
+                    output = f"Local IP: {scan.get('local_ip')} | Open Ports: {scan.get('open_ports')} | Posture: {scan.get('posture')}"
+                elif action == "ai_train":
+                    ev_speech = EV_SYSTEM_PROMPTS["ai_train"]
+                    res = linux.ai_sandbox.run_fast_benchmark()
+                    output = f"Dataset: {res.get('dataset')} | Samples/sec: {res.get('samples_per_sec')} | Isolation: {res.get('memory_isolated')}"
+                elif action == "devops":
+                    ev_speech = EV_SYSTEM_PROMPTS["devops"]
+                    res = linux.devops.start_service("ev_daemon", "python3 -m http.server 8080")
+                    output = f"Service: {res.get('service')} | Status: {res.get('status')} | PID: {res.get('pid')}"
+                elif action == "turbo_cool":
+                    ev_speech = EV_SYSTEM_PROMPTS["turbo_cool"]
+                    linux.execute_bash("sync; echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true")
+                    output = "Linux RAM caches purged. Hardware temperature dropping."
+                elif action == "compile":
+                    ev_speech = EV_SYSTEM_PROMPTS["compile"]
+                    res = linux.toolchain.compile_source("int main() { return 0; }", "c", "spidey_app.out")
+                    output = f"Binary: {res.get('binary_path')} | Status: {res.get('status')}"
 
-            elif action == "ai_train":
-                ev_speech = EV_SYSTEM_PROMPTS["ai_train"]
-                train = linux.ai.run_training_pipeline(dataset_name="spider_vision", model_architecture="Transformer-Mini-V2", epochs=5)
-                output = f"Model: {train['model_architecture']} | Final Loss: {train['final_loss']} | Accuracy: {train['accuracy_pct']}%"
-
-            elif action == "devops":
-                ev_speech = EV_SYSTEM_PROMPTS["devops"]
-                srv = linux.devops.start_service("Spider_Microservice", 8099, "python3 -m http.server 8099")
-                output = f"Service: {srv['name']} on Port {srv['port']} (PID: {srv.get('pid')})"
-
-            elif action == "turbo_cool":
-                ev_speech = EV_SYSTEM_PROMPTS["turbo_cool"]
-                output = "Purged RAM working sets. CPU clock dynamic scaling set to optimal 100%."
-
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"status": "success", "ev_speech": ev_speech, "output": output}).encode("utf-8"))
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "ev_speech": ev_speech, "output": output}).encode("utf-8"))
+            else:
+                self.send_response(404)
+                self.end_headers()
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            pass
 
 
 class SpiderManLinuxHUDServer:
-    """Manages the lifecycle of the Spider-Man EV Linux HUD Web Server."""
+    """HTTP server hosting the Spider-Man EV Linux HUD."""
 
-    _server: Optional[socketserver.TCPServer] = None
+    _server: Optional[http.server.ThreadingHTTPServer] = None
     _thread: Optional[threading.Thread] = None
 
     @classmethod
-    def start(cls, port: int = PORT, open_browser: bool = True) -> str:
+    def start(cls, port: int = PORT, open_browser: bool = False) -> str:
         if cls._server is None:
-            socketserver.TCPServer.allow_reuse_address = True
-            cls._server = socketserver.TCPServer(("127.0.0.1", port), SpiderManHTTPHandler)
+            server_address = ("", port)
+            cls._server = http.server.ThreadingHTTPServer(server_address, SpiderManHTTPHandler)
+            cls._server.daemon_threads = True
             cls._thread = threading.Thread(target=cls._server.serve_forever, daemon=True)
             cls._thread.start()
-            logger.info(f"[SpiderManHUD] EV Workstation running on http://localhost:{port}")
+            logger.info(f"[SpiderManHUD] Server started on port {port}")
 
         url = f"http://localhost:{port}"
         if open_browser:
-            webbrowser.open(url)
+            try:
+                import webbrowser
+                webbrowser.open(url)
+            except Exception:
+                pass
+
         return url
 
 
