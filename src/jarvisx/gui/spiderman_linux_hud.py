@@ -287,6 +287,42 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             transition: all 0.2s;
         }
         .btn-send:hover { background: #ff2a5c; box-shadow: 0 0 16px var(--crimson); }
+
+        /* Symbolic Crest Buttons */
+        .crest-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(18, 26, 43, 0.85);
+            border: 2px solid var(--border-glow);
+            border-radius: 12px;
+            padding: 6px 14px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            color: #fff;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+        .crest-btn:hover { transform: translateY(-3px) scale(1.04); }
+        .crest-btn.spider-btn { border-color: #00f0ff; color: #00f0ff; }
+        .crest-btn.spider-btn:hover {
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.7), 0 0 35px rgba(255, 0, 60, 0.5);
+            border-color: #ff003c;
+            color: #ffffff;
+        }
+        .crest-btn.bat-btn { border-color: #ffd700; color: #ffd700; }
+        .crest-btn.bat-btn:hover {
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.7), 0 0 35px rgba(212, 175, 55, 0.4);
+            border-color: #ffffff;
+            color: #ffffff;
+        }
+        .crest-svg { transition: transform 0.3s ease; }
+        .spider-crest-svg { width: 26px; height: 26px; }
+        .bat-crest-svg { width: 34px; height: 20px; }
+        .crest-btn:hover .crest-svg { transform: scale(1.15); }
     </style>
 </head>
 <body>
@@ -295,9 +331,30 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <div class="spider-icon">🕷️</div>
             <div class="title">SPIDER-MAN <span>EV</span> // DUAL-CORE LINUX WORKSTATION</div>
         </div>
-        <div style="display: flex; gap: 10px; align-items: center;">
-            <div class="ev-badge">🎙️ EV FEMALE AI ACTIVE</div>
-            <div class="ev-badge" style="border-color: var(--crimson); color: var(--crimson);">⚡ ORCHESTRATED BY ALFRED</div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <!-- Symbolic Spider Crest Button (E-V) -->
+            <button class="crest-btn spider-btn" onclick="triggerAction('ev_dialogue')">
+                <svg viewBox="0 0 100 100" class="crest-svg spider-crest-svg" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse cx="50" cy="40" rx="9" ry="12" fill="#00f0ff" />
+                    <circle cx="50" cy="24" r="6" fill="#ffffff" />
+                    <ellipse cx="50" cy="62" rx="14" ry="18" fill="#ff003c" />
+                    <path d="M43,36 Q25,18 18,32 Q14,40 10,48" stroke="#00f0ff" stroke-width="4" fill="none" stroke-linecap="round"/>
+                    <path d="M57,36 Q75,18 82,32 Q86,40 90,48" stroke="#00f0ff" stroke-width="4" fill="none" stroke-linecap="round"/>
+                    <path d="M42,54 Q22,58 18,72 Q15,82 12,92" stroke="#ff003c" stroke-width="4" fill="none" stroke-linecap="round"/>
+                    <path d="M58,54 Q78,58 82,72 Q85,82 88,92" stroke="#ff003c" stroke-width="4" fill="none" stroke-linecap="round"/>
+                </svg>
+                <span>E-V CO-PILOT</span>
+            </button>
+
+            <!-- Symbolic Bat Crest Button (Alfred) -->
+            <button class="crest-btn bat-btn" onclick="triggerAction('alfred_doctor')">
+                <svg viewBox="0 0 120 70" class="crest-svg bat-crest-svg" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M60,18 L64,8 L68,16 C78,12 94,14 116,4 C112,24 98,34 94,54 C84,46 74,48 60,66 C46,48 36,46 26,54 C22,34 8,24 4,4 C26,14 42,12 52,16 L56,8 Z" fill="#ffd700" stroke="#ffd700" stroke-width="2" />
+                    <polygon points="56,8 58,16 54,16" fill="#0a0e17" />
+                    <polygon points="64,8 66,16 62,16" fill="#0a0e17" />
+                </svg>
+                <span>ALFRED BUTLER</span>
+            </button>
         </div>
     </header>
 
@@ -353,7 +410,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                         <div class="telem-val crimson" id="ramVal">7.6 GB Free</div>
                     </div>
                     <div class="telemetry-box">
-                        <div class="telem-label">2.0 TB Hard Drive (F:\)</div>
+                        <div class="telem-label">2.0 TB Hard Drive (F:)</div>
                         <div class="telem-val gold" id="diskVal">1.64 TB Ready</div>
                     </div>
                     <div class="telemetry-box">
@@ -603,7 +660,13 @@ class SpiderManHTTPHandler(http.server.BaseHTTPRequestHandler):
                 ev_speech = ""
                 output = ""
 
-                if action == "cyber_scan":
+                if action == "ev_dialogue":
+                    ev_speech = "Hey boss! E-V is right here! Ready to sling code, solve boundary value math, or keep you in the zone! What are we conquering today?"
+                    output = "[🕷️ E-V CO-PILOT]: High-energy ADHD pair-programming mode active. All senses green."
+                elif action == "alfred_doctor":
+                    ev_speech = "Alfred Sovereign Butler reporting. System diagnostics nominal. Security gate active. All background fleet agents synchronized."
+                    output = "[🦇 ALFRED SOVEREIGN]: System Doctor Status: HEALTHY | Security Gate: ZERO_LEAKS | Active Engine: Native Linux Core."
+                elif action == "cyber_scan":
                     ev_speech = EV_SYSTEM_PROMPTS["cyber_scan"]
                     scan = linux.cyber.scan_local_network([80, 443, 8080, 5050])
                     output = f"Local IP: {scan.get('local_ip')} | Open Ports: {scan.get('open_ports')} | Posture: {scan.get('posture')}"
