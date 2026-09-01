@@ -83,10 +83,20 @@ def on_press(key):
             threading.Thread(target=run_turbo_cool_automation, daemon=True).start()
         elif key == keyboard.Key.f11:
             threading.Thread(target=run_adhd_quest_automation, daemon=True).start()
-        elif key == keyboard.Key.f8:
-            threading.Thread(target=run_alfred_doctor_automation, daemon=True).start()
+        elif key == keyboard.Key.f7:
+            threading.Thread(target=run_handy_dictation_automation, daemon=True).start()
     except Exception as e:
         print(f"[!] Hotkey handler exception: {e}")
+
+
+def run_handy_dictation_automation():
+    from jarvisx.voice.ev_handy_engine import EVHandyVoiceDictationEngine
+    print("\n[HANDY HOTKEY] [*] Push-to-talk triggered! Recording 3.5s...")
+    EVHandyVoiceDictationEngine.get_instance().execute_push_to_talk_cycle(duration_sec=3.5)
+
+
+def on_global_hotkey_handy():
+    threading.Thread(target=run_handy_dictation_automation, daemon=True).start()
 
 
 def on_global_hotkey_math():
@@ -107,20 +117,23 @@ def on_global_hotkey_alfred():
 
 def main():
     print("=" * 78)
-    print(" ⚡ E-V & ALFRED PURE AUTOMATION DAEMON (MULTI-HOTKEY ENGINE)")
+    print(" ⚡ E-V & ALFRED PURE AUTOMATION DAEMON (MULTI-HOTKEY + HANDY STT)")
     print("=" * 78)
+    print(" [Alt+V] or [F7]  -> 🎙️ Handy Push-to-Talk (Record Voice & Type Anywhere)")
     print(" [Alt+S] or [F9]  -> 📸 Spider-Sense Math Vision (Snap & Solve Screen)")
     print(" [Alt+C] or [F10] -> ❄️ 1-Key Turbo Cool (Purge RAM & Drop Temp)")
     print(" [Alt+Q] or [F11] -> ⚡ 5-Minute ADHD Focus Sprint")
     print(" [Alt+A] or [F8]  -> 🦇 Alfred Sovereign System Doctor")
     print("=" * 78)
-    print("[*] Listening for global hotkeys (Alt+S, Alt+C, Alt+Q, Alt+A & F8-F11)...")
+    print("[*] Listening for global hotkeys (Alt+V, Alt+S, Alt+C, Alt+Q, Alt+A & F7-F11)...")
 
     # Initial boot voice greeting
-    speak_ev_neural("Automation daemon active, boss! Press Alt+S or F9 anytime to solve screen math, or Alt+C to cool your system!")
+    speak_ev_neural("Automation daemon active, boss! Press Alt+V anytime for Handy voice dictation!")
 
     # Global Hotkey Listener (Handles both Alt combinations and standard F-keys)
     hotkeys = keyboard.GlobalHotKeys({
+        '<alt>+v': on_global_hotkey_handy,
+        '<ctrl>+<shift>+v': on_global_hotkey_handy,
         '<alt>+s': on_global_hotkey_math,
         '<ctrl>+<shift>+s': on_global_hotkey_math,
         '<alt>+c': on_global_hotkey_cool,
