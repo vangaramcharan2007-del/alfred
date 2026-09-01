@@ -1394,6 +1394,7 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(DispatchLinuxShadowTaskTool())
     registry.register(CompileLinuxSourceTool())
     registry.register(LaunchSpiderManEVHUDTool())
+    registry.register(DeployLinuxNativeHUDTool())
 
 
 
@@ -2375,6 +2376,33 @@ class LaunchSpiderManEVHUDTool(Tool):
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class DeployLinuxNativeHUDTool(Tool):
+    """Deploys Spider-Man E.V. HUD natively into the Linux Mint desktop autostart."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="deploy_linux_native_hud",
+            description="Deploys the Spider-Man E.V. Workstation directly into Linux Mint VM autostart (~/.config/autostart/) and desktop homescreen.",
+            input_schema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="gui.deploy"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.gui.linux_native_desktop_deployer import LinuxNativeDesktopDeployer
+        deployer = LinuxNativeDesktopDeployer.get_instance()
+        res = deployer.deploy_to_linux_environment()
+        return ToolResult(status="success", tool="deploy_linux_native_hud", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
 
 
 
