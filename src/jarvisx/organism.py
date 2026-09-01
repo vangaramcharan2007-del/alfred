@@ -500,6 +500,11 @@ class AlfredOrganism:
         self.nerves = Nerves()
         self.conversation_history: List[Dict[str, str]] = []
 
+        # 🫀 Autonomic Nervous System & OS Sentinel
+        from jarvisx.reliability.autonomic_sentinel import AutonomicReflexSentinel
+        self.sentinel = AutonomicReflexSentinel.get_instance()
+        self.sentinel.start()
+
         # Connect internal neural reflexes
         self._wire_nervous_system()
 
@@ -522,6 +527,29 @@ class AlfredOrganism:
           Memory: Multi-turn rolling conversation history.
         """
         t0 = time.perf_counter()
+
+        # ⚡ Fast-Path Direct Reflex (Media/App/Web query instant dispatch < 0.05s)
+        fastpath_action = self.sentinel.resolve_fastpath_intent(user_intent)
+        if fastpath_action:
+            tool_name = fastpath_action["tool"]
+            tool_args = fastpath_action["args"]
+            tool_result = self.hands.act(tool_name, tool_args)
+            spoken_text = fastpath_action.get("speech", "")
+            if spoken_text:
+                await self.nerves.pulse("speech_requested", {"text": spoken_text})
+            
+            self.conversation_history.append({"role": "user", "text": user_intent})
+            self.conversation_history.append({"role": "assistant", "text": spoken_text})
+            
+            return {
+                "status": "success",
+                "response": spoken_text,
+                "tool_used": tool_name,
+                "tool_result": tool_result,
+                "steps_executed": 1,
+                "duration_sec": round(time.perf_counter() - t0, 3),
+                "fastpath": True,
+            }
 
         # P1: Smart Tool Selection — filter 30 tools down to 3-8 relevant ones
         from jarvisx.tools.tool_selector import select_tools_for_intent
