@@ -1388,6 +1388,11 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(BenchmarkAgentsTool())
     registry.register(ExecuteLinuxBashTool())
     registry.register(GetLinuxSystemInfoTool())
+    registry.register(ManageLinuxServiceTool())
+    registry.register(RunLinuxAITrainingTool())
+    registry.register(ScanLinuxNetworkSecurityTool())
+    registry.register(DispatchLinuxShadowTaskTool())
+    registry.register(CompileLinuxSourceTool())
 
 
 
@@ -2174,6 +2179,174 @@ class GetLinuxSystemInfoTool(Tool):
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class ManageLinuxServiceTool(Tool):
+    """Manages background microservices, API servers, and databases inside Linux."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="manage_linux_service",
+            description="Launches, stops, or lists background microservices and databases inside Linux (e.g. FastAPI, PostgreSQL, Redis).",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["start", "stop", "list"], "description": "Action to perform: start, stop, or list."},
+                    "name": {"type": "string", "description": "Service name (required for start/stop)."},
+                    "port": {"type": "integer", "description": "Service port number (required for start)."},
+                    "command": {"type": "string", "description": "Command to run (required for start)."}
+                },
+                "required": ["action"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="linux.devops"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.agents.linux_devops import LinuxDevOpsOrchestrator
+        orchestrator = LinuxDevOpsOrchestrator.get_instance()
+        action = arguments.get("action", "list")
+        if action == "start":
+            res = orchestrator.start_service(arguments.get("name", "app"), arguments.get("port", 8000), arguments.get("command", "python3 -m http.server 8000"))
+        elif action == "stop":
+            res = orchestrator.stop_service(arguments.get("name", ""))
+        else:
+            res = orchestrator.list_services()
+        return ToolResult(status="success", tool="manage_linux_service", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class RunLinuxAITrainingTool(Tool):
+    """Runs isolated AI/ML training and inference benchmarks in Linux."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="run_linux_ai_training",
+            description="Executes machine learning training pipelines or inference benchmarks inside Linux RAM/disk without affecting Windows host.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "dataset_name": {"type": "string", "description": "Dataset name to train on."},
+                    "model_architecture": {"type": "string", "description": "Model architecture (e.g. Transformer-Mini, ResNet)."},
+                    "epochs": {"type": "integer", "description": "Number of epochs."}
+                },
+                "required": []
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="linux.ai"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.agents.linux_ai_sandbox import LinuxAISandbox
+        ai_box = LinuxAISandbox.get_instance()
+        res = ai_box.run_training_pipeline(
+            dataset_name=arguments.get("dataset_name", "telemetry_dataset"),
+            model_architecture=arguments.get("model_architecture", "Transformer-Mini"),
+            epochs=arguments.get("epochs", 10),
+        )
+        return ToolResult(status="success", tool="run_linux_ai_training", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class ScanLinuxNetworkSecurityTool(Tool):
+    """Audits local network interfaces and performs defensive code security scanning."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="scan_linux_network_security",
+            description="Audits local network ports and scans codebases for vulnerabilities, hardcoded secrets, and unsafe eval calls.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "scan_type": {"type": "string", "enum": ["network", "code"], "description": "Type of scan: network or code."},
+                    "target_dir": {"type": "string", "description": "Directory to scan (required for code scan)."}
+                },
+                "required": ["scan_type"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="linux.security"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.agents.linux_cyber_sentinel import LinuxCyberSentinel
+        sentinel = LinuxCyberSentinel.get_instance()
+        scan_type = arguments.get("scan_type", "network")
+        if scan_type == "code":
+            res = sentinel.audit_code_security(arguments.get("target_dir", "."))
+        else:
+            res = sentinel.scan_local_network()
+        return ToolResult(status="success", tool="scan_linux_network_security", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class DispatchLinuxShadowTaskTool(Tool):
+    """Executes long-running background tasks silently inside Linux."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="dispatch_linux_shadow_task",
+            description="Launches detached long-running tasks (simulations, data processing, transcoding) silently inside Linux.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "task_name": {"type": "string", "description": "Name of the task."},
+                    "command": {"type": "string", "description": "Bash command to execute."}
+                },
+                "required": ["task_name", "command"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="linux.shadow"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.agents.linux_shadow_worker import LinuxShadowWorker
+        worker = LinuxShadowWorker.get_instance()
+        res = worker.dispatch_task(arguments.get("task_name", "job"), arguments.get("command", "echo 'Work complete'"))
+        return ToolResult(status="success", tool="dispatch_linux_shadow_task", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class CompileLinuxSourceTool(Tool):
+    """Compiles C/C++/Python code into native Linux executables."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="compile_linux_source",
+            description="Compiles C, C++, or Python code into native Linux binaries and verifies architecture headers.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "source_code": {"type": "string", "description": "Source code text to compile."},
+                    "language": {"type": "string", "enum": ["c", "cpp", "python"], "description": "Programming language."},
+                    "output_name": {"type": "string", "description": "Binary output filename."}
+                },
+                "required": ["source_code", "language"]
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="linux.compiler"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.agents.linux_binary_toolchain import LinuxBinaryToolchain
+        toolchain = LinuxBinaryToolchain.get_instance()
+        res = toolchain.compile_source(
+            source_code=arguments.get("source_code", "int main() { return 0; }"),
+            language=arguments.get("language", "c"),
+            output_name=arguments.get("output_name", "app.out"),
+        )
+        return ToolResult(status="success", tool="compile_linux_source", result=res)
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
 
 
 

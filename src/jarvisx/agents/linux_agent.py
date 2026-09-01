@@ -50,6 +50,19 @@ class LinuxBridgeAgent:
         self.active_runtime = self.detect_runtime()
         self.command_history: List[Dict[str, Any]] = []
 
+        # 5 Sovereign Engines
+        from jarvisx.agents.linux_devops import LinuxDevOpsOrchestrator
+        from jarvisx.agents.linux_ai_sandbox import LinuxAISandbox
+        from jarvisx.agents.linux_cyber_sentinel import LinuxCyberSentinel
+        from jarvisx.agents.linux_shadow_worker import LinuxShadowWorker
+        from jarvisx.agents.linux_binary_toolchain import LinuxBinaryToolchain
+
+        self.devops = LinuxDevOpsOrchestrator.get_instance()
+        self.ai = LinuxAISandbox.get_instance()
+        self.cyber = LinuxCyberSentinel.get_instance()
+        self.shadow = LinuxShadowWorker.get_instance()
+        self.toolchain = LinuxBinaryToolchain.get_instance()
+
     @classmethod
     def get_instance(cls) -> "LinuxBridgeAgent":
         if cls._instance is None:
