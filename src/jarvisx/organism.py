@@ -509,6 +509,10 @@ class AlfredOrganism:
         from jarvisx.agents.linux_agent import LinuxBridgeAgent
         self.linux_agent = LinuxBridgeAgent.get_instance()
 
+        # 🕷️ E-V Subordinate Voice, Vision & ADHD Co-Pilot Agent (Under Alfred)
+        from jarvisx.agents.ev_copilot_agent import EVCoPilotAgent
+        self.ev_agent = EVCoPilotAgent.get_instance()
+
         # Connect internal neural reflexes
         self._wire_nervous_system()
 
