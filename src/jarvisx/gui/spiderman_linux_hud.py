@@ -332,8 +332,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <div class="title">SPIDER-MAN <span>EV</span> // DUAL-CORE LINUX WORKSTATION</div>
         </div>
         <div style="display: flex; gap: 12px; align-items: center;">
-            <!-- Symbolic Spider Crest Button (E-V) -->
-            <button class="crest-btn spider-btn" onclick="triggerAction('ev_dialogue')">
+            <!-- Pure Minimalist Spider Crest Button (E-V) -->
+            <button class="crest-btn spider-btn" onclick="triggerAction('ev_dialogue')" title="E-V Cyber Co-Pilot">
                 <svg viewBox="0 0 100 100" class="crest-svg spider-crest-svg" xmlns="http://www.w3.org/2000/svg">
                     <ellipse cx="50" cy="40" rx="9" ry="12" fill="#00f0ff" />
                     <circle cx="50" cy="24" r="6" fill="#ffffff" />
@@ -343,17 +343,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     <path d="M42,54 Q22,58 18,72 Q15,82 12,92" stroke="#ff003c" stroke-width="4" fill="none" stroke-linecap="round"/>
                     <path d="M58,54 Q78,58 82,72 Q85,82 88,92" stroke="#ff003c" stroke-width="4" fill="none" stroke-linecap="round"/>
                 </svg>
-                <span>E-V CO-PILOT</span>
             </button>
 
-            <!-- Symbolic Bat Crest Button (Alfred) -->
-            <button class="crest-btn bat-btn" onclick="triggerAction('alfred_doctor')">
+            <!-- Pure Minimalist Bat Crest Button (Alfred) -->
+            <button class="crest-btn bat-btn" onclick="triggerAction('alfred_doctor')" title="Alfred Sovereign Butler">
                 <svg viewBox="0 0 120 70" class="crest-svg bat-crest-svg" xmlns="http://www.w3.org/2000/svg">
                     <path d="M60,18 L64,8 L68,16 C78,12 94,14 116,4 C112,24 98,34 94,54 C84,46 74,48 60,66 C46,48 36,46 26,54 C22,34 8,24 4,4 C26,14 42,12 52,16 L56,8 Z" fill="#ffd700" stroke="#ffd700" stroke-width="2" />
                     <polygon points="56,8 58,16 54,16" fill="#0a0e17" />
                     <polygon points="64,8 66,16 62,16" fill="#0a0e17" />
                 </svg>
-                <span>ALFRED BUTLER</span>
             </button>
         </div>
     </header>
