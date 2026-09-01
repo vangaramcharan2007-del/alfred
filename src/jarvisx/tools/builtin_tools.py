@@ -1393,6 +1393,7 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(ScanLinuxNetworkSecurityTool())
     registry.register(DispatchLinuxShadowTaskTool())
     registry.register(CompileLinuxSourceTool())
+    registry.register(LaunchSpiderManEVHUDTool())
 
 
 
@@ -2346,6 +2347,35 @@ class CompileLinuxSourceTool(Tool):
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
+
+class LaunchSpiderManEVHUDTool(Tool):
+    """Launches the Spider-Man EV Minimalist Workstation & Voice-Activated Linux HUD."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="launch_spiderman_ev_hud",
+            description="Launches the Spider-Man EV Minimalist Linux Workstation & Voice Assistant in browser (http://localhost:5050).",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "port": {"type": "integer", "description": "Port number to host on (default: 5050)."}
+                },
+                "required": []
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="gui.spiderman"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.gui.spiderman_linux_hud import SpiderManLinuxHUDServer
+        port = arguments.get("port", 5050)
+        url = SpiderManLinuxHUDServer.start(port=port, open_browser=True)
+        return ToolResult(status="success", tool="launch_spiderman_ev_hud", result={"url": url, "message": "Spider-Man EV HUD launched!"})
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=result.status == "success")
+
 
 
 
