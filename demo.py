@@ -75,6 +75,9 @@ async def main():
         "AutoCurriculumEngine": "jarvisx.self_improvement.auto_curriculum",
         "DigitalTwinEmulator": "jarvisx.automation.digital_twin",
         "BazaarP2PNode": "jarvisx.network.bazaar_p2p",
+        "ConsciousnessLoop": "jarvisx.core.consciousness_loop",
+        "Chronosphere": "jarvisx.memory.chronosphere",
+        "SentinelImmunity": "jarvisx.security.sentinel_immunity",
     }
     for name, mod in modules.items():
         try:
