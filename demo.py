@@ -70,6 +70,8 @@ async def main():
         "OracleEngine": "jarvisx.automation.oracle_engine",
         "GitHubBountyHunter": "jarvisx.engineering.github_bounty_hunter",
         "SymbioteEngine": "jarvisx.automation.symbiote_engine",
+        "MetaOrchestrator": "jarvisx.orchestration.meta_orchestrator",
+        "AegisHarness": "jarvisx.orchestration.aegis_harness",
     }
     for name, mod in modules.items():
         try:
