@@ -60,6 +60,10 @@ async def main():
         "OmniModalStream": "jarvisx.vision.omni_modal_stream",
         "OmniIndexer": "jarvisx.memory.omni_indexer",
         "GhostSpawner": "jarvisx.engineering.ghost_spawner",
+        "AutoHacker": "jarvisx.offensive.auto_hacker",
+        "WallStreetSwarm": "jarvisx.finance.wall_street_swarm",
+        "InfiniteContent": "jarvisx.content.infinite_engine",
+        "MetamorphicCore": "jarvisx.kernel.metamorphic_core",
     }
     for name, mod in modules.items():
         try:

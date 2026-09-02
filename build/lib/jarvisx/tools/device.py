@@ -1,0 +1,138 @@
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any
+from jarvisx.tools.base import BaseTool, ToolResult
+
+
+@dataclass
+class _MacroDroidIntent:
+    action: str = ""
+    extras: Dict[str, Any] = field(default_factory=dict)
+    def to_dict(self) -> Dict[str, Any]:
+        return {"action": self.action, "extras": self.extras}
+
+
+class _MacroDroidAdapter:
+    """Inline stub — replaces deleted jarvisx.adapters.android."""
+    def open_app(self, app_name: str, package_hint: Optional[str] = None, trace_id: Optional[str] = None) -> _MacroDroidIntent:
+        return _MacroDroidIntent(action="open_app", extras={"app": app_name, "package": package_hint})
+
+    def notification(self, title: str, body: str, trace_id: Optional[str] = None) -> _MacroDroidIntent:
+        return _MacroDroidIntent(action="notification", extras={"title": title, "body": body})
+
+    def speak_text(self, text: str, trace_id: Optional[str] = None) -> _MacroDroidIntent:
+        return _MacroDroidIntent(action="speak_text", extras={"text": text})
+
+
+SUPPORTED_DEVICE_ACTIONS = ("open_app", "notification", "speak_text")
+
+
+class DeviceTool(BaseTool):
+    name = "device"
+
+    def __init__(self, *, android_adapter: Optional[_MacroDroidAdapter] = None) -> None:
+        self.android_adapter = android_adapter or _MacroDroidAdapter()
+
+    def prepare_device_action(
+        self,
+        action: str,
+        parameters: dict[str, object],
+        *,
+        trace_id: Optional[str] = None,
+    ) -> ToolResult:
+        if action == "open_app":
+            return self.prepare_open_app(str(parameters.get("app_name", "")), trace_id=trace_id)
+        if action == "notification":
+            return self.prepare_notification(
+                title=str(parameters.get("title", "Jarvis X")),
+                body=str(parameters.get("body", "")),
+                trace_id=trace_id,
+            )
+        if action == "speak_text":
+            return self.prepare_speak_text(str(parameters.get("text", "")), trace_id=trace_id)
+        return ToolResult(
+            success=False,
+            message=f"Unsupported device action: {action}.",
+            data={"action": action, "trace_id": trace_id, "supported_actions": list(SUPPORTED_DEVICE_ACTIONS)},
+        )
+
+    def prepare_open_app(self, app_name: str, *, trace_id: Optional[str] = None) -> ToolResult:
+        normalized = app_name.strip() or "requested app"
+        package_hints = {
+            "youtube": "com.google.android.youtube",
+            "chrome": "com.android.chrome",
+            "gmail": "com.google.android.gm",
+            "whatsapp": "com.whatsapp",
+        }
+        package_hint = package_hints.get(normalized.lower())
+        intent = self.android_adapter.open_app(
+            app_name=normalized,
+            package_hint=package_hint,
+            trace_id=trace_id,
+        )
+        return ToolResult(
+            success=True,
+            message=f"Prepared launch action for {normalized}.",
+            data={
+                "action": "open_app",
+                "trace_id": trace_id,
+                "package_hint": package_hint,
+                "app_name": normalized,
+                "execution_layer": "MacroDroid intent adapter",
+                "macrodroid_intent": intent.to_dict(),
+            },
+        )
+
+    def prepare_notification(
+        self,
+        *,
+        title: str,
+        body: str,
+        trace_id: Optional[str] = None,
+    ) -> ToolResult:
+        clean_title = title.strip() or "Jarvis X"
+        clean_body = body.strip()
+        if not clean_body:
+            return ToolResult(
+                success=False,
+                message="Notification body was empty.",
+                data={"action": "notification", "trace_id": trace_id},
+            )
+        intent = self.android_adapter.notification(
+            title=clean_title,
+            body=clean_body,
+            trace_id=trace_id,
+        )
+        return ToolResult(
+            success=True,
+            message="Prepared Android notification action.",
+            data={
+                "action": "notification",
+                "trace_id": trace_id,
+                "title": clean_title,
+                "body": clean_body,
+                "execution_layer": "MacroDroid intent adapter",
+                "macrodroid_intent": intent.to_dict(),
+            },
+        )
+
+    def prepare_speak_text(self, text: str, *, trace_id: Optional[str] = None) -> ToolResult:
+        clean_text = text.strip()
+        if not clean_text:
+            return ToolResult(
+                success=False,
+                message="Speech text was empty.",
+                data={"action": "speak_text", "trace_id": trace_id},
+            )
+        intent = self.android_adapter.speak_text(text=clean_text, trace_id=trace_id)
+        return ToolResult(
+            success=True,
+            message="Prepared text-to-speech action.",
+            data={
+                "action": "speak_text",
+                "trace_id": trace_id,
+                "text": clean_text,
+                "execution_layer": "MacroDroid intent adapter",
+                "macrodroid_intent": intent.to_dict(),
+            },
+        )
