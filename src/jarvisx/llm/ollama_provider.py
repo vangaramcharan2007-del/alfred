@@ -1,7 +1,9 @@
-from __future__ import annotations
+import os
+import sys
 import json
 import shutil
 import time
+import subprocess
 import urllib.request
 import urllib.error
 from typing import Dict, Any, List, Optional, AsyncGenerator
@@ -11,38 +13,45 @@ class OllamaLLMProvider(LLMProvider):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(name="ollama.local", config=config)
         self.endpoint = self.config.get("endpoint", "http://127.0.0.1:11434")
-        self.installed_models = ["qwen2.5-coder:1.5b", "qwen2.5-coder:7b", "qwen2.5:7b", "llama3:latest", "llama3.2:latest"]
+        self.installed_models = [
+            "alfred:latest",
+            "qwen2.5-coder:1.5b",
+            "qwen2.5-coder:7b",
+            "llama3.2:latest",
+            "llama3:latest",
+            "aegis-baymax:latest"
+        ]
         self.is_installed = False
 
     async def connect(self) -> bool:
         self.is_installed = (shutil.which("ollama") is not None) or self.config.get("mock_online", True)
         self.is_connected = True
-        try:
-            import urllib.request
-            import json
-            req = urllib.request.Request(f"{self.endpoint}/api/tags", method="GET")
-            with urllib.request.urlopen(req, timeout=3.0) as resp:
-                if resp.status == 200:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    live_models = [m.get("name") for m in data.get("models", []) if m.get("name")]
-                    if live_models:
-                        self.installed_models = live_models
-                    return True
-        except Exception:
-            # If daemon is offline and not running, attempt quiet background launch
-            if shutil.which("ollama"):
-                try:
-                    import subprocess
-                    creation_flags = 0x08000000 if sys.platform == "win32" else 0  # CREATE_NO_WINDOW
-                    subprocess.Popen(
-                        ["ollama", "serve"],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        creationflags=creation_flags
-                    )
-                    time.sleep(1.0)
-                except Exception:
-                    pass
+        
+        # 1. Attempt checking live tags
+        for attempt in range(2):
+            try:
+                req = urllib.request.Request(f"{self.endpoint}/api/tags", method="GET")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        live_models = [m.get("name") for m in data.get("models", []) if m.get("name")]
+                        if live_models:
+                            self.installed_models = live_models
+                        return True
+            except Exception:
+                # If daemon is offline, attempt quiet background launch on attempt 0
+                if attempt == 0 and shutil.which("ollama"):
+                    try:
+                        creation_flags = 0x08000000 if sys.platform == "win32" else 0  # CREATE_NO_WINDOW
+                        subprocess.Popen(
+                            ["ollama", "serve"],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            creationflags=creation_flags
+                        )
+                        time.sleep(1.2)
+                    except Exception:
+                        pass
         return True
 
     async def disconnect(self) -> bool:
@@ -62,10 +71,15 @@ class OllamaLLMProvider(LLMProvider):
         if requested_model and (requested_model in self.installed_models or requested_model):
             return requested_model
 
-        if "qwen2.5-coder:1.5b" in self.installed_models:
+        # Priority selection for local offline inference
+        if "alfred:latest" in self.installed_models:
+            return "alfred:latest"
+        elif "qwen2.5-coder:1.5b" in self.installed_models:
             return "qwen2.5-coder:1.5b"
         elif "qwen2.5-coder:7b" in self.installed_models:
             return "qwen2.5-coder:7b"
+        elif "llama3.2:latest" in self.installed_models:
+            return "llama3.2:latest"
         return self.installed_models[0] if self.installed_models else "qwen2.5-coder:1.5b"
 
     async def generate(self, prompt: str, model: Optional[str] = None, conversation: Optional[List[Dict[str, str]]] = None, **kwargs) -> Dict[str, Any]:

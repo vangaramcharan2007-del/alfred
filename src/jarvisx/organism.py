@@ -498,7 +498,11 @@ class AlfredOrganism:
         self.eyes = Eyes()
         self.hands = Hands()
         self.nerves = Nerves()
-        self.conversation_history: List[Dict[str, str]] = []
+        
+        # 🧠 Persistent SQLite Conversation & Episodic Context Memory Store
+        from jarvisx.memory.conversation_store import PersistentConversationStore
+        self.conversation_store = PersistentConversationStore.get_instance()
+        self.conversation_history: List[Dict[str, str]] = self.conversation_store.load_recent_history(limit=20)
 
         # 🫀 Autonomic Nervous System & OS Sentinel
         from jarvisx.reliability.autonomic_sentinel import AutonomicReflexSentinel
@@ -548,6 +552,8 @@ class AlfredOrganism:
             
             self.conversation_history.append({"role": "user", "text": user_intent})
             self.conversation_history.append({"role": "assistant", "text": spoken_text})
+            self.conversation_store.save_turn("user", user_intent)
+            self.conversation_store.save_turn("assistant", spoken_text)
             
             return {
                 "status": "success",
@@ -641,9 +647,11 @@ class AlfredOrganism:
             self.mouth.speak(spoken_response, blocking=False)
             await self.nerves.pulse("speech_uttered", {"text": spoken_response})
 
-        # Update rolling conversation memory
+        # Update rolling conversation memory & persist to SQLite
         self.conversation_history.append({"role": "user", "text": user_intent})
         self.conversation_history.append({"role": "assistant", "text": spoken_response or "Task complete."})
+        self.conversation_store.save_turn("user", user_intent)
+        self.conversation_store.save_turn("assistant", spoken_response or "Task complete.")
         if len(self.conversation_history) > 20:
             self.conversation_history = self.conversation_history[-20:]
 
