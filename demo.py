@@ -92,6 +92,7 @@ async def main():
         "AkashicRecords": "jarvisx.memory.akashic_records",
         "ExecutiveFunctionProtocol": "jarvisx.automation.executive_function",
         "PreCogEngine": "jarvisx.automation.precog_engine",
+        "NovaCompanion": "jarvisx.voice.nova_companion",
     }
     for name, mod in modules.items():
         try:
