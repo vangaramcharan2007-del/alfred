@@ -70,7 +70,45 @@ class EVMasterAutomationEngine:
     def level_2_screen_vision_solve(self) -> Dict[str, Any]:
         """Capture active screen, extract math problem, solve, and speak."""
         logger.info("[Level 2] Executing Screen Vision & Math Derivation...")
-        sol = self.math_agent.solve_1d_wave_equation()
+        
+        try:
+            from PIL import ImageGrab
+            import pytesseract
+            pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+            screen = ImageGrab.grab()
+            screen_text = pytesseract.image_to_string(screen).lower()
+        except Exception as e:
+            logger.error(f"Vision failure: {e}")
+            screen_text = ""
+            
+        try:
+            import ollama
+            
+            prompt = f"""
+            You are an advanced mathematical solver. The user has provided the following OCR text from their screen:
+            {screen_text}
+            
+            Extract the math problem, solve it step-by-step, and provide the final answer.
+            Use markdown formatting.
+            """
+            
+            res = ollama.chat(
+                model='qwen2.5-coder:1.5b',
+                messages=[{'role': 'user', 'content': prompt}]
+            )
+            
+            class DynamicSolution:
+                def __init__(self, content):
+                    self.content = content
+                    self.topic = "Dynamic Math Problem"
+                    self.final_answer = "See solution file."
+                def to_markdown(self):
+                    return self.content
+                    
+            sol = DynamicSolution(res['message']['content'])
+        except Exception as e:
+            logger.error(f"LLM Math failure: {e}")
+            sol = self.math_agent.solve_1d_wave_equation()
         
         out_file = Path(os.getcwd()) / "var" / "level2_solution.md"
         out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -105,9 +143,25 @@ class EVMasterAutomationEngine:
         while not self._stop_proactive:
             time.sleep(interval)
             try:
-                # Proactive analysis checkpoint
+                from PIL import ImageGrab
+                import pytesseract
+                pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+                screen = ImageGrab.grab()
+                screen_text = pytesseract.image_to_string(screen)
+                
+                if len(screen_text.strip()) > 20:
+                    import ollama
+                    prompt = f"The user is working on their computer. Screen text:\n{screen_text}\n\nProvide a short, helpful 1-2 sentence proactive hint based on what they are working on."
+                    res = ollama.chat(
+                        model='qwen2.5-coder:1.5b',
+                        messages=[{'role': 'user', 'content': prompt}]
+                    )
+                    hint_content = f"# Proactive Hint\n\n{res['message']['content']}"
+                else:
+                    hint_content = "# Proactive Hint\n\nNo active work detected on screen."
+
                 hint_file = Path(os.getcwd()) / "var" / "proactive_hints.md"
-                hint_content = "# 💡 Proactive Hint: Dr. E. Suresh M3 PDE\n\nRemember for boundary value problems, always check if initial velocity is zero before assuming cosine time harmonic terms!"
+                hint_file.parent.mkdir(parents=True, exist_ok=True)
                 hint_file.write_text(hint_content, encoding="utf-8")
             except Exception as e:
                 logger.warning(f"[Level 3 Watcher Exception]: {e}")
@@ -119,29 +173,59 @@ class EVMasterAutomationEngine:
     # -----------------------------------------------------------------------
     # LEVEL 4: WhatsApp Cross-Device Remote Neural Bridge
     # -----------------------------------------------------------------------
-    def level_4_process_whatsapp_inbound(self, message_or_image_prompt: str) -> Dict[str, Any]:
-        """Process remote photo/text math requests from WhatsApp and return voice note + notes."""
-        logger.info(f"[Level 4] Inbound WhatsApp from {self.phone_number}: {message_or_image_prompt}")
+    def initialize_whatsapp_bridge(self):
+        """Initializes the background Selenium browser for WhatsApp Web."""
+        from jarvisx.automation.whatsapp_selenium_bridge import WhatsAppSeleniumBridge
+        speak_ev_neural("Initializing WhatsApp Neural Bridge. Please scan the QR code if prompted.")
+        WhatsAppSeleniumBridge.get_instance().initialize()
         
-        sol = self.math_agent.solve_1d_heat_equation()
-        response_payload = {
-            "status": "delivered",
-            "level": 4,
-            "target_phone": self.phone_number,
-            "text_summary": f"📐 E. Suresh Solution for {sol.topic}: {sol.final_answer}",
-            "markdown_notes": sol.to_markdown(),
-            "voice_note_ready": True
-        }
+    def level_4_send_whatsapp_message(self, contact_name: str, message: str) -> Dict[str, Any]:
+        """Send an autonomous WhatsApp message via the Selenium Bridge."""
+        from jarvisx.automation.whatsapp_selenium_bridge import WhatsAppSeleniumBridge
+        logger.info(f"[Level 4] Autonomous send to {contact_name}: {message[:20]}...")
         
-        speak_ev_neural(f"WhatsApp request from {self.phone_number} processed! Solution sent back to your phone, boss!")
-        return response_payload
+        bridge = WhatsAppSeleniumBridge.get_instance()
+        if not bridge.is_logged_in:
+            speak_ev_neural("WhatsApp bridge is not connected. I am initializing it now.")
+            bridge.initialize()
+            
+        success = bridge.send_message(contact_name, message)
+        
+        if success:
+            speak_ev_neural(f"Message sent to {contact_name}.")
+            return {"status": "success", "level": 4, "contact": contact_name}
+        else:
+            speak_ev_neural("I failed to send the WhatsApp message. The bridge might be disconnected.")
+            return {"status": "failed", "level": 4, "contact": contact_name}
 
     # -----------------------------------------------------------------------
     # LEVEL 5: Dual-OS Linux Toolchain & Self-Healing Sentinel
     # -----------------------------------------------------------------------
     def level_5_turbo_cool(self) -> Dict[str, Any]:
         """Purge process working sets, cool CPU, and run autonomic memory recovery."""
-        os.system("powershell.exe -Command \"[System.GC]::Collect(); foreach ($p in Get-Process) { try { [TurboCooler]::EmptyWorkingSet($p.Handle) } catch {} }\"")
+        ps_code = """
+$code = @"
+using System;
+using System.Runtime.InteropServices;
+public class TurboCooler {
+    [DllImport("kernel32.dll")]
+    public static extern bool SetProcessWorkingSetSize(IntPtr proc, int min, int max);
+}
+"@
+Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
+[System.GC]::Collect()
+foreach ($p in Get-Process) {
+    try {
+        [TurboCooler]::SetProcessWorkingSetSize($p.Handle, -1, -1)
+    } catch {}
+}
+"""
+        ps_path = Path(os.getcwd()) / "var" / "turbo_cool.ps1"
+        ps_path.parent.mkdir(parents=True, exist_ok=True)
+        ps_path.write_text(ps_code, encoding="utf-8")
+        
+        os.system(f'powershell.exe -ExecutionPolicy Bypass -File "{ps_path}"')
+        
         msg = "Level 5 Autonomic Sentinel purged RAM working sets. System temperature is optimal, boss!"
         speak_ev_neural(msg)
         return {"status": "success", "level": 5, "action": "turbo_cool_and_heal"}

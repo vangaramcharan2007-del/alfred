@@ -27,36 +27,16 @@ from jarvisx.agents.transforms_math_agent import TransformsMathAgent
 def run_math_vision_automation():
     """F9: Instant Screen Math Snap & Solve."""
     print("\n[⚡ AUTOMATION] F9 Triggered: Spider-Sense Math Vision...")
-    speak_ev_neural("Spider-Sense active! Scanning your screen for math equations...")
-
-    try:
-        snap_path = Path(os.getcwd()) / "var" / "latest_screen_math.png"
-        snap_path.parent.mkdir(parents=True, exist_ok=True)
-        img = ImageGrab.grab()
-        img.save(str(snap_path))
-
-        agent = TransformsMathAgent.get_instance()
-        sol = agent.solve_1d_wave_equation()
-
-        sol_file = Path(os.getcwd()) / "var" / "latest_solution.md"
-        sol_file.write_text(sol.to_markdown(), encoding="utf-8")
-
-        speech = (
-            "Screen problem solved! For 1D wave equation, the general solution is sum of b n times sine n pi x over l times cosine n pi a t over l. "
-            "The full step-by-step markdown has been saved to your workspace!"
-        )
-        speak_ev_neural(speech)
-        print(f"[✓] Solution saved to: {sol_file}")
-    except Exception as e:
-        print(f"[!] Error: {e}")
-        speak_ev_neural(f"Error during math screen solve: {e}")
+    from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+    EVMasterAutomationEngine.get_instance().level_2_screen_vision_solve()
+    print("[✓] Math Vision complete.")
 
 
 def run_turbo_cool_automation():
     """F10: Instant RAM Purge & Thermal Drop."""
     print("\n[⚡ AUTOMATION] F10 Triggered: Instant Turbo Cool...")
-    os.system("powershell.exe -Command \"[System.GC]::Collect(); foreach ($p in Get-Process) { try { [TurboCooler]::EmptyWorkingSet($p.Handle) } catch {} }\"")
-    speak_ev_neural("Turbo cool complete! Purged RAM working sets and dropped CPU load, boss!")
+    from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+    EVMasterAutomationEngine.get_instance().level_5_turbo_cool()
     print("[✓] Turbo Cool complete.")
 
 
@@ -137,8 +117,12 @@ def main():
     from jarvisx.automation.ev_omni_screen_sentinel import EVOmniScreenSentinel
     EVOmniScreenSentinel.get_instance().start()
 
+    # Start Ambient Microphone Dual-Voice Sentinel
+    from jarvisx.voice.ambient_dual_sentinel import AmbientDualSentinel
+    AmbientDualSentinel.get_instance().start()
+
     # Initial boot voice greeting
-    speak_ev_neural("Automation daemon active, boss! 24/7 Omni Screen Sentinel is watching your screen across all tasks!")
+    speak_ev_neural("Automation daemon active, boss! 24/7 Omni Screen Sentinel is watching your screen, and my ears are listening for your voice!")
 
     # Global Hotkey Listener (Handles both Alt combinations and standard F-keys)
     hotkeys = keyboard.GlobalHotKeys({

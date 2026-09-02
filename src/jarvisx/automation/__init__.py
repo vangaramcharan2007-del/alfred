@@ -23,6 +23,7 @@ from jarvisx.automation.companion_hud import CompanionHUDController
 from jarvisx.automation.native_companion_ui import NativeCompanionUI
 from jarvisx.automation.interactive_notifications import InteractiveNotificationEngine
 from jarvisx.automation.friday_tactical_mode import FridayTacticalMode
+from jarvisx.automation.swarm_orchestrator import SwarmOrchestrator, get_swarm_orchestrator
 
 __all__ = [
     "DesktopController",
@@ -56,4 +57,6 @@ __all__ = [
     "NativeCompanionUI",
     "InteractiveNotificationEngine",
     "FridayTacticalMode",
+    "SwarmOrchestrator",
+    "get_swarm_orchestrator",
 ]

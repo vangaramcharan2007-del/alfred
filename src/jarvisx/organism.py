@@ -517,6 +517,10 @@ class AlfredOrganism:
         from jarvisx.agents.ev_copilot_agent import EVCoPilotAgent
         self.ev_agent = EVCoPilotAgent.get_instance()
 
+        # Long-Term Vector Memory (RAG)
+        from jarvisx.memory.vector_memory import VectorMemory
+        self.vector_memory = VectorMemory("alfred_rag_memory")
+
         # Connect internal neural reflexes
         self._wire_nervous_system()
 
@@ -565,10 +569,16 @@ class AlfredOrganism:
                 "fastpath": True,
             }
 
-        # P1: Smart Tool Selection — filter 30 tools down to 3-8 relevant ones
+        # P1: Smart Tool Selection
         from jarvisx.tools.tool_selector import select_tools_for_intent
         all_schemas = self.hands.get_tool_schemas()
         filtered_tools = select_tools_for_intent(user_intent, all_schemas)
+        
+        # P3: Long-Term RAG Vector Memory Recall
+        past_memories = self.vector_memory.search(user_intent)
+        if past_memories:
+            context_str = "\n".join([m['text'] for m in past_memories])
+            self.conversation_history.append({"role": "system", "text": f"RAG Memory Recall: {context_str}"})
         
         observations: List[Dict[str, Any]] = []
         spoken_response = ""
@@ -654,6 +664,9 @@ class AlfredOrganism:
         self.conversation_store.save_turn("assistant", spoken_response or "Task complete.")
         if len(self.conversation_history) > 20:
             self.conversation_history = self.conversation_history[-20:]
+
+        # Save to RAG memory
+        self.vector_memory.add_memory(f"User: {user_intent}\nJarvis: {spoken_response or 'Task complete.'}")
 
         latency = (time.perf_counter() - t0) * 1000.0
         return {

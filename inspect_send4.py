@@ -1,0 +1,44 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import os, time
+
+profile_path = os.path.join(os.path.expanduser('~'), 'AppData', 'Local', 'Google', 'Chrome', 'User Data', 'WhatsAppBot')
+options = webdriver.ChromeOptions()
+options.add_argument(f'user-data-dir={profile_path}')
+options.add_experimental_option('excludeSwitches', ['enable-logging'])
+options.add_argument('--window-size=1280,1024')
+
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+driver.get('https://web.whatsapp.com')
+
+print('Waiting for search box...')
+search_box = WebDriverWait(driver, 60).until(EC.presence_of_element_located((By.XPATH, '//*[@data-tab="3"]')))
+search_box.clear()
+search_box.send_keys('9849379819')
+time.sleep(2)
+search_box.send_keys(Keys.ENTER)
+time.sleep(3)
+
+print('Typing message...')
+msg_box = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@data-tab="10"]')))
+msg_box.click()
+time.sleep(1)
+
+message = 'hi dady test 4'
+driver.execute_script("document.execCommand('insertText', false, arguments[0]);", message)
+time.sleep(1)
+
+print('Clicking send button...')
+send_button = driver.find_element(By.XPATH, '//button[@aria-label="Send" or .//span[@data-icon="send"]]')
+send_button.click()
+time.sleep(3)
+
+print('Taking screenshot AFTER click...')
+driver.save_screenshot('after_click.png')
+
+driver.quit()

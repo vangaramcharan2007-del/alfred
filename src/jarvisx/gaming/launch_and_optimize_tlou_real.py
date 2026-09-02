@@ -32,7 +32,13 @@ print("\n" + "=" * 70)
 print(" 🚀 LAUNCHING 'THE LAST OF US PART I' LIVE ON YOUR SCREEN...")
 print("=" * 70)
 
-game_dir = r"E:\The Last of Us Part I"
+# Check game directory across F: (external), E:, and C:
+candidate_dirs = [
+    r"F:\Games\The Last of Us Part I",
+    r"E:\The Last of Us Part I",
+    r"C:\The Last of Us Part I"
+]
+game_dir = next((d for d in candidate_dirs if os.path.exists(d)), candidate_dirs[0])
 launcher_exe = os.path.join(game_dir, "launcher.exe")
 game_exe = os.path.join(game_dir, "tlou-i.exe")
 

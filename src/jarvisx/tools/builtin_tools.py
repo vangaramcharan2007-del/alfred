@@ -1039,12 +1039,12 @@ class PlaceCarrierCallTool(Tool):
 # ---------------------------------------------------------------------------
 
 class WhatsAppSendTool(Tool):
-    """Sends a live message / voice note in WhatsApp via visual on-screen desktop actuation."""
+    """Sends a live message / voice note in WhatsApp via the internal Selenium Bridge."""
 
     def spec(self) -> ToolSpec:
         return ToolSpec(
             name="send_whatsapp_message",
-            description="Sends a live message and/or voice note to a WhatsApp contact on screen.",
+            description="Sends a live text message to a WhatsApp contact using the background WhatsApp Web bridge.",
             input_schema={
                 "type": "object",
                 "properties": {
@@ -1060,20 +1060,45 @@ class WhatsAppSendTool(Tool):
                 "required": ["recipient", "message"]
             },
             permission_level=PermissionLevel.SAFE,
-            required_scope="desktop.actuate"
+            required_scope="whatsapp.send"
         )
 
     def execute(self, arguments: Dict[str, Any]) -> ToolResult:
         recipient = arguments.get("recipient", "Dakshith")
         msg = arguments.get("message", "hello")
         
-        from jarvisx.automation.whatsapp_actuation import send_whatsapp_live
-        res = send_whatsapp_live(recipient=recipient, message=msg)
+        from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+        res = EVMasterAutomationEngine.get_instance().level_4_send_whatsapp_message(recipient, msg)
         return ToolResult(status="success", tool="send_whatsapp_message", result=res)
 
     def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
         verified = result.status == "success" and bool(result.result)
         return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=verified, error=result.error)
+
+
+class InitializeWhatsAppBridgeTool(Tool):
+    """Initializes the background Selenium browser for WhatsApp Web."""
+
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name="initialize_whatsapp_bridge",
+            description="Initializes the background WhatsApp Web bridge. Call this when the user wants to scan the QR code to set up WhatsApp.",
+            input_schema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            },
+            permission_level=PermissionLevel.SAFE,
+            required_scope="whatsapp.init"
+        )
+
+    def execute(self, arguments: Dict[str, Any]) -> ToolResult:
+        from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+        EVMasterAutomationEngine.get_instance().initialize_whatsapp_bridge()
+        return ToolResult(status="success", tool="initialize_whatsapp_bridge", result={"status": "initialized"})
+
+    def verify(self, arguments: Dict[str, Any], result: ToolResult) -> ToolResult:
+        return ToolResult(status=result.status, tool=result.tool, result=result.result, verified=True, error=result.error)
 
 
 # ---------------------------------------------------------------------------
@@ -1363,6 +1388,7 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(SendSmsTool())
     registry.register(PlaceCarrierCallTool())
     registry.register(WhatsAppSendTool())
+    registry.register(InitializeWhatsAppBridgeTool())
     registry.register(SendWhatsAppVoiceNoteTool())
     registry.register(CallWhatsAppTool())
     registry.register(SendInstagramDMTool())
@@ -1398,6 +1424,12 @@ def register_builtin_tools(registry: "ToolRegistry") -> None:
     registry.register(EVFlowQuestTool())
     registry.register(EVVoiceCodeTool())
     registry.register(EVSpiderSenseVisionTool())
+    try:
+        from jarvisx.tools.omni_clicker_tool import OmniClickerTool
+        registry.register(OmniClickerTool())
+    except Exception:
+        pass
+
 
 
 

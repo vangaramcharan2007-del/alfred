@@ -73,59 +73,56 @@ class EVOmniScreenSentinel:
         return cls._instance
 
     def start(self):
-        """Starts 24/7 continuous ambient screen perception & actuation."""
-        if self.is_active:
-            return
-        self.is_active = True
-        self._watcher_thread = threading.Thread(
-            target=self._continuous_screen_perception_loop,
-            daemon=True,
-            name="EVOmniScreenSentinelThread"
-        )
-        self._watcher_thread.start()
-        print("[+] 🕷️ E-V Actuating Omni Sentinel active (Ultra-Minimal Voice Mode).")
-        speak_minimal("Screen watcher active.")
+        """(Legacy) Omni Sentinel is now On-Demand only to prevent system lag."""
+        print("[+] 🕷️ E-V Actuating Omni Sentinel is in On-Demand mode.")
 
     def stop(self):
-        """Pauses screen perception."""
-        self.is_active = False
-        print("[*] E-V Omni Screen Sentinel paused.")
-        speak_minimal("Watcher paused.")
+        pass
 
     def toggle(self):
-        """Toggles screen perception on/off."""
-        if self.is_active:
-            self.stop()
-        else:
-            self.start()
+        """Toggles on-demand screen inspection."""
+        self.inspect_now()
 
-    def _continuous_screen_perception_loop(self):
-        """Low-overhead background perception loop."""
-        while self.is_active:
-            try:
-                time.sleep(self.check_interval_sec)
-                if not self.is_active:
-                    break
+    def inspect_now(self):
+        """One-shot instant screen inspection triggered by voice or hotkey."""
+        print("[*] E-V is visually inspecting the screen on-demand...")
+        if ImageGrab is None:
+            speak_minimal("Vision library missing.")
+            return
 
-                # 1. Grab screen with zero-overhead downsampling
-                if ImageGrab is None:
-                    continue
+        try:
+            screen = ImageGrab.grab()
+            result = self._analyze_and_actuate(screen)
+            if not result:
+                speak_minimal("No errors detected.")
+        except Exception as e:
+            logger.error(f"[OmniSentinel] Scan error: {e}")
+            speak_minimal("Scan failed.")
 
-                screen = ImageGrab.grab()
-                # Downsample thumbnail to 160x100 for ultra-fast frame hashing (<0.001s CPU)
-                thumb = screen.resize((160, 100))
-                thumb_hash = hashlib.md5(thumb.tobytes()).hexdigest()
-
-                # If screen is unchanged/idle, skip processing to save 100% CPU
-                if thumb_hash == self._last_frame_hash:
-                    continue
-                self._last_frame_hash = thumb_hash
-
-                # 2. Analyze screen content & actuate
-                self._analyze_and_actuate(screen)
-
-            except Exception as e:
-                logger.debug(f"[OmniSentinel] Scan notice: {e}")
+    def _analyze_screen_with_llava(self, screen_img) -> str:
+        """Uses local Ollama llava model to semantically understand the screen."""
+        try:
+            import base64
+            import requests
+            import io
+            
+            # Convert image to base64
+            buffered = io.BytesIO()
+            screen_img.save(buffered, format="PNG")
+            img_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+            
+            payload = {
+                "model": "llava",
+                "prompt": "You are a coding assistant looking at the user's screen. Extract any error messages, code blocks, or UI context in extreme detail.",
+                "images": [img_b64],
+                "stream": False
+            }
+            res = requests.post("http://localhost:11434/api/generate", json=payload, timeout=5)
+            if res.status_code == 200:
+                return res.json().get("response", "")
+        except Exception:
+            pass
+        return ""
 
     def _analyze_and_actuate(self, screen_img) -> Optional[Dict[str, Any]]:
         """Extracts screen state, ACTS ON IT, and confirms with ultra-minimal speech."""
@@ -133,32 +130,46 @@ class EVOmniScreenSentinel:
         if now - self._last_speech_time < self.speech_cooldown_sec:
             return None
 
-        # Inspect clipboard & OCR context
-        import pyperclip
-        try:
-            clip = pyperclip.paste().strip()
-        except Exception:
-            clip = ""
+        # Inspect screen context via LLaVA Vision Model (if available) or fallback to OCR
+        screen_text = self._analyze_screen_with_llava(screen_img)
+        
+        if not screen_text:
+            import pytesseract
+            pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+            try:
+                screen_text = pytesseract.image_to_string(screen_img)
+            except Exception as e:
+                logger.error(f"OCR Error: {e}")
+                screen_text = ""
 
-        combined_text = clip.lower()
+        combined_text = screen_text.lower()
 
         # ── 1. ACTUATION: CODING ERROR / TRACEBACK -> AUTONOMOUS FIX TO CLIPBOARD ──
         if any(err in combined_text for err in ("traceback", "indexerror:", "syntaxerror:", "keyerror:", "typeerror:", "zerodivisionerror:")):
-            action_key = f"code_fix_{hashlib.md5(clip.encode()).hexdigest()[:8]}"
+            action_key = f"code_fix_{hashlib.md5(screen_text.encode('utf-8')).hexdigest()[:8]}"
             if action_key not in self._seen_actions:
                 self._seen_actions.add(action_key)
                 self._last_speech_time = now
 
                 # Actuate: Create fix
-                fixed_snippet = self._generate_code_patch(clip)
+                fixed_snippet = self._generate_code_patch(screen_text)
                 if fixed_snippet:
+                    import pyperclip
+                    from jarvisx.automation.ev_hands import EVHands
                     pyperclip.copy(fixed_snippet)
-                    speak_minimal("Fix in clipboard.")
+                    
+                    speak_minimal("Typing out fix.")
+                    hands = EVHands.get_instance()
+                    # Drop down a line and type it out (social media cinematic effect)
+                    hands.press_hotkey("enter")
+                    hands.type_text(fixed_snippet, interval=0.015)
+                    
+                    speak_minimal("Fix applied.")
                     return {"action": "code_patched", "status": "staged_in_clipboard"}
 
         # ── 2. ACTUATION: ENGINEERING MATH -> DERIVE & DISPATCH TO WHATSAPP ──
         elif any(k in combined_text for k in ("wave equation", "vibrating string", "heat equation", "heat conduction", "fourier series")):
-            action_key = f"math_solve_{hashlib.md5(clip.encode()).hexdigest()[:8]}"
+            action_key = f"math_solve_{hashlib.md5(screen_text.encode('utf-8')).hexdigest()[:8]}"
             if action_key not in self._seen_actions:
                 self._seen_actions.add(action_key)
                 self._last_speech_time = now

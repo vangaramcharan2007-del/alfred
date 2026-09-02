@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S. HUD</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0f;color:#00e5ff;font-family:'Courier New',monospace;overflow:hidden;height:100vh}
+.hud{display:grid;grid-template-columns:300px 1fr 280px;grid-template-rows:50px 1fr 180px;height:100vh;gap:2px}
+.header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:linear-gradient(90deg,#0a0a1a,#0d1b2a,#0a0a1a);border-bottom:1px solid #00e5ff33}
+.header h1{font-size:18px;letter-spacing:6px;color:#00e5ff;text-shadow:0 0 10px #00e5ff55}
+.header .status{font-size:12px;color:#00ff88}
+.left{background:#0a0a1a;border-right:1px solid #00e5ff22;overflow-y:auto;padding:10px}
+.center{background:#0d0d18;padding:15px;overflow-y:auto;display:flex;flex-direction:column}
+.right{background:#0a0a1a;border-left:1px solid #00e5ff22;padding:10px}
+.bottom{grid-column:1/-1;background:#0a0a1a;border-top:1px solid #00e5ff22;padding:10px;overflow-y:auto}
+.panel-title{font-size:11px;letter-spacing:3px;color:#00e5ff88;margin-bottom:8px;text-transform:uppercase}
+.event{font-size:11px;padding:4px 6px;margin:2px 0;border-left:2px solid #00e5ff44;color:#8899aa;word-break:break-word}
+.event.tool_call{border-left-color:#ff6600}
+.event.thought{border-left-color:#aa00ff}
+.event.memory{border-left-color:#00ff88}
+.event.speech{border-left-color:#ffcc00}
+.thought-display{flex:1;display:flex;align-items:center;justify-content:center;font-size:16px;color:#00e5ff;text-align:center;padding:20px;text-shadow:0 0 15px #00e5ff33}
+.gauge{margin:8px 0}
+.gauge-label{font-size:10px;color:#667788;display:flex;justify-content:space-between}
+.gauge-bar{height:6px;background:#1a1a2e;border-radius:3px;margin-top:3px}
+.gauge-fill{height:100%;border-radius:3px;transition:width 1s ease}
+.cpu-fill{background:linear-gradient(90deg,#00e5ff,#00ff88)}
+.ram-fill{background:linear-gradient(90deg,#ff6600,#ff3366)}
+.mem-item{font-size:10px;color:#667788;padding:4px;border-bottom:1px solid #ffffff08;word-break:break-word}
+.glow{animation:glow 2s ease-in-out infinite alternate}
+@keyframes glow{from{text-shadow:0 0 5px #00e5ff33}to{text-shadow:0 0 20px #00e5ff88}}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:#0a0a0f}
+::-webkit-scrollbar-thumb{background:#00e5ff33;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="hud">
+  <div class="header">
+    <h1 class="glow">J.A.R.V.I.S. HUD</h1>
+    <div class="status" id="ws-status">● CONNECTING...</div>
+  </div>
+  <div class="left">
+    <div class="panel-title">LIVE EVENT LOG</div>
+    <div id="events"></div>
+  </div>
+  <div class="center">
+    <div class="panel-title">CURRENT THOUGHT</div>
+    <div class="thought-display" id="thought">Awaiting directive, sir...</div>
+  </div>
+  <div class="right">
+    <div class="panel-title">SYSTEM VITALS</div>
+    <div class="gauge">
+      <div class="gauge-label"><span>CPU</span><span id="cpu-val">0%</span></div>
+      <div class="gauge-bar"><div class="gauge-fill cpu-fill" id="cpu-bar" style="width:0%"></div></div>
+    </div>
+    <div class="gauge">
+      <div class="gauge-label"><span>RAM</span><span id="ram-val">0%</span></div>
+      <div class="gauge-bar"><div class="gauge-fill ram-fill" id="ram-bar" style="width:0%"></div></div>
+    </div>
+    <div id="ram-detail" style="font-size:10px;color:#667788;margin-top:4px"></div>
+    <div style="margin-top:20px">
+      <div class="panel-title">DYNAMIC TOOLS</div>
+      <div id="tools" style="font-size:10px;color:#667788"></div>
+    </div>
+  </div>
+  <div class="bottom">
+    <div class="panel-title">MEMORY RECALL (RAG)</div>
+    <div id="memory"></div>
+  </div>
+</div>
+<script>
+const eventsEl=document.getElementById('events');
+const thoughtEl=document.getElementById('thought');
+const wsStatus=document.getElementById('ws-status');
+
+function addEvent(evt){
+  const d=document.createElement('div');
+  d.className='event '+(evt.type||'');
+  const label=evt.type?evt.type.toUpperCase():'EVENT';
+  const text=typeof evt.data==='string'?evt.data:JSON.stringify(evt.data).slice(0,200);
+  d.textContent=`[${label}] ${text}`;
+  eventsEl.prepend(d);
+  if(eventsEl.children.length>100)eventsEl.removeChild(eventsEl.lastChild);
+  if(evt.type==='thought'||evt.type==='speech')thoughtEl.textContent=text;
+}
+
+let ws;
+function connect(){
+  ws=new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen=()=>{wsStatus.textContent='● ONLINE';wsStatus.style.color='#00ff88'};
+  ws.onclose=()=>{wsStatus.textContent='● OFFLINE';wsStatus.style.color='#ff3366';setTimeout(connect,3000)};
+  ws.onmessage=e=>{try{addEvent(JSON.parse(e.data))}catch(ex){}};
+}
+connect();
+
+async function pollVitals(){
+  try{
+    const r=await fetch('/api/status');const d=await r.json();
+    document.getElementById('cpu-val').textContent=d.cpu_percent+'%';
+    document.getElementById('cpu-bar').style.width=d.cpu_percent+'%';
+    document.getElementById('ram-val').textContent=d.ram_percent+'%';
+    document.getElementById('ram-bar').style.width=d.ram_percent+'%';
+    document.getElementById('ram-detail').textContent=d.ram_used_gb+'GB / '+d.ram_total_gb+'GB';
+  }catch(e){}
+}
+
+async function pollMemory(){
+  try{
+    const r=await fetch('/api/memory');const d=await r.json();
+    const el=document.getElementById('memory');
+    el.innerHTML=d.map(m=>`<div class="mem-item">${m.text.slice(0,150)}</div>`).join('');
+  }catch(e){}
+}
+
+async function pollTools(){
+  try{
+    const r=await fetch('/api/tools');const d=await r.json();
+    const el=document.getElementById('tools');
+    el.innerHTML=d.length?d.map(t=>`<div style="margin:3px 0">⚡ ${t.name}</div>`).join(''):'<div>No dynamic tools loaded</div>';
+  }catch(e){}
+}
+
+setInterval(pollVitals,2000);
+setInterval(pollMemory,10000);
+setInterval(pollTools,15000);
+pollVitals();pollMemory();pollTools();
+</script>
+</body>
+</html>

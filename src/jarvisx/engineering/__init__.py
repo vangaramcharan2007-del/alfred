@@ -19,7 +19,8 @@ __all__ = [
     "EngineeringMemory",
     "MemoryEntry",
     "AdaptiveEngineeringAgent",
-    "WorkflowExecutionReport",
+    "DynamicToolForge",
+    "get_dynamic_tool_forge",
 ]
 
 def __getattr__(name: str) -> Any:
@@ -51,4 +52,7 @@ def __getattr__(name: str) -> Any:
     elif name in ("AdaptiveEngineeringAgent", "WorkflowExecutionReport"):
         from jarvisx.engineering.workflow import AdaptiveEngineeringAgent, WorkflowExecutionReport
         return AdaptiveEngineeringAgent if name == "AdaptiveEngineeringAgent" else WorkflowExecutionReport
+    elif name in ("DynamicToolForge", "get_dynamic_tool_forge"):
+        from jarvisx.engineering.dynamic_tool_forge import DynamicToolForge, get_dynamic_tool_forge
+        return DynamicToolForge if name == "DynamicToolForge" else get_dynamic_tool_forge
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

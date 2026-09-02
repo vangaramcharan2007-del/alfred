@@ -31,10 +31,13 @@ print("\n" + "=" * 70)
 print(" 🤠 LAUNCHING 'RED DEAD REDEMPTION 2' LIVE ON YOUR SCREEN...")
 print("=" * 70)
 
-# Check game directory
-game_dir = r"C:\Red Dead Redemption 2"
-if not os.path.exists(game_dir):
-    game_dir = r"E:\Red Dead Redemption 2"
+# Check game directory across F: (external), C:, and E:
+candidate_dirs = [
+    r"F:\Games\Red Dead Redemption 2",
+    r"C:\Red Dead Redemption 2",
+    r"E:\Red Dead Redemption 2"
+]
+game_dir = next((d for d in candidate_dirs if os.path.exists(d)), candidate_dirs[0])
 
 launcher_exe = os.path.join(game_dir, "Launcher.exe")
 rdr2_exe = os.path.join(game_dir, "RDR2.exe")

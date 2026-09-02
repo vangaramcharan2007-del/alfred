@@ -23,6 +23,7 @@ class OmniRouterClient:
         
         # Local Ollama fallback URL
         self.ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/api")
+        self._session = None
         
     def _build_headers(self, context: Dict[str, Any] = None) -> Dict[str, str]:
         """Builds standard HTTP headers for OmniRoute, injecting Jarvis X context."""
@@ -46,8 +47,17 @@ class OmniRouterClient:
                 
         return headers
 
+    async def _get_session(self):
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+        return self._session
+
+    async def close(self):
+        if self._session and not self._session.closed:
+            await self._session.close()
+
     async def chat(self, messages: list, model: str = None, context: Dict[str, Any] = None) -> str:
-        """Standard async non-streaming chat generation."""
+        """Async chat generation."""
         target_model = model or self.default_model
         payload = {
             "model": target_model,
@@ -56,19 +66,19 @@ class OmniRouterClient:
         }
         
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{self.base_url}/chat/completions",
-                    headers=self._build_headers(context),
-                    json=payload,
-                    timeout=60
-                ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        return data["choices"][0]["message"]["content"]
-                    else:
-                        logger.warning(f"OmniRoute error {response.status}. Falling back to Ollama.")
-                        return await self._fallback_ollama(messages, target_model)
+            session = await self._get_session()
+            async with session.post(
+                f"{self.base_url}/chat/completions",
+                headers=self._build_headers(context),
+                json=payload,
+                timeout=60
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data["choices"][0]["message"]["content"]
+                else:
+                    logger.warning(f"OmniRoute error {response.status}. Falling back to Ollama.")
+                    return await self._fallback_ollama(messages, target_model)
         except Exception as e:
             logger.error(f"OmniRoute connection failed: {e}. Falling back to Ollama.")
             return await self._fallback_ollama(messages, target_model)
@@ -83,12 +93,12 @@ class OmniRouterClient:
         }
         
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{self.base_url}/chat/completions",
-                    headers=self._build_headers(context),
-                    json=payload
-                ) as response:
+            session = await self._get_session()
+            async with session.post(
+                f"{self.base_url}/chat/completions",
+                headers=self._build_headers(context),
+                json=payload
+            ) as response:
                     if response.status == 200:
                         async for line in response.content:
                             line = line.decode('utf-8').strip()

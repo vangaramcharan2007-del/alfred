@@ -50,10 +50,23 @@ def speak_ev_neural(text: str, voice: str = VOICE):
             pygame.mixer.init()
         except Exception:
             pass
+            
+        import jarvisx.voice.audio_state as audio_state
+        audio_state.IS_SPEAKING = True
+        audio_state.INTERRUPT_REQUESTED = False
+        
         pygame.mixer.music.load(str(temp_mp3))
         pygame.mixer.music.play()
+        
         while pygame.mixer.music.get_busy():
-            pygame.time.Clock().tick(10)
+            if audio_state.INTERRUPT_REQUESTED:
+                pygame.mixer.music.stop()
+                print("[!] 🛑 E-V Voice Interrupted!")
+                break
+            pygame.time.Clock().tick(20)
+            
+        audio_state.IS_SPEAKING = False
+        
         pygame.mixer.music.unload()
         try:
             os.remove(str(temp_mp3))
@@ -67,6 +80,10 @@ def speak_ev_neural(text: str, voice: str = VOICE):
         except Exception as e2:
             print(f"[!] Offline voice error: {e2}")
 
+def async_speak_ev_neural(text: str, voice: str = VOICE):
+    """Fires and forgets speech generation in a background thread so the mic can keep listening."""
+    import threading
+    threading.Thread(target=speak_ev_neural, args=(text, voice), daemon=True).start()
 
 if __name__ == "__main__":
     test_msg = sys.argv[1] if len(sys.argv) > 1 else "Hey boss! E-V here! Check out my brand new, ultra-natural voice! How do I sound?"

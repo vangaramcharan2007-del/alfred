@@ -497,7 +497,7 @@ class DynamicOrchestrator:
             self._web_researcher = AutonomousWebResearcher()
         return self._web_researcher
 
-    def _classify_intent(self, user_prompt: str, node_ip: str = "http://100.77.90.36:11434", model: str = "qwen2.5-coder:1.5b") -> str:
+    def _classify_intent(self, user_prompt: str, node_ip: str = "http://localhost:11434", model: str = "qwen2.5-coder:1.5b") -> str:
         """Semantically classifies user's prompt into VISUAL_ACTUATION, WEB_RESEARCH, or KNOWLEDGE_RAG."""
         print(f"[*] Semantic Intent Classification for: '{user_prompt}'")
         

@@ -24,7 +24,7 @@ if sys.platform == "win32":
         pass
 
 from jarvisx.voice.sovereign_neural_tts import SovereignNeuralTTS
-from jarvisx.automation.ev_neural_voice import speak_ev_neural
+from jarvisx.automation.ev_neural_voice import speak_ev_neural, async_speak_ev_neural
 from jarvisx.organism import get_organism
 
 logger = logging.getLogger("jarvisx.ambient_sentinel")
@@ -57,52 +57,51 @@ class AmbientDualSentinel:
             return
         self.is_running = True
         
-        # Thread 1: Continuous Wake-Word Audio Listener
-        threading.Thread(target=self._ambient_audio_loop, daemon=True, name="AmbientWakeWordThread").start()
+        # Continuous Wake-Word Audio Listener (Non-blocking)
+        self._start_background_listener()
         
-        # Thread 2: Proactive Coding Error Watcher
-        threading.Thread(target=self._coding_error_watcher_loop, daemon=True, name="ProactiveCodingWatcher").start()
-        
-        print("[+] Ambient Dual-Voice Sentinel & Proactive Coding Watcher active.")
+        print("[+] Ambient Dual-Voice Sentinel active.")
 
-    def _ambient_audio_loop(self):
-        """Continuous background audio listening loop."""
-        print("[*] Ambient Ear listening for 'Alfred' and 'E-V' wake words...")
-        while self.is_running:
-            try:
-                # Capture audio snippet via sounddevice
-                duration_sec = 3.5
-                recording = sd.rec(int(duration_sec * self.sample_rate), samplerate=self.sample_rate, channels=1, dtype='int16')
-                sd.wait()
-
-                # Check if energy above baseline
-                rms = np.sqrt(np.mean(recording.astype(np.float32) ** 2))
-                if rms < 150:  # Silence
-                    continue
-
-                # Transcribe speech
-                raw_data = recording.tobytes()
-                audio_data = sr.AudioData(raw_data, self.sample_rate, 2)
+    def _start_background_listener(self):
+        """Starts continuous non-blocking background audio listener."""
+        print("[*] Ambient Ear listening for 'Alfred' and 'E-V' wake words (continuous stream)...")
+        try:
+            m = sr.Microphone()
+            with m as source:
+                self.recognizer.adjust_for_ambient_noise(source, duration=1)
+                
+            def callback(recognizer, audio):
+                if not self.is_running:
+                    return
                 try:
-                    text = self.recognizer.recognize_google(audio_data).lower().strip()
-                except (sr.UnknownValueError, sr.RequestError):
-                    continue
+                    # Attempt speech recognition, handle offline gracefully
+                    text = recognizer.recognize_google(audio).lower().strip()
+                    if not text: return
+                    
+                    # Full-Duplex Interruption: If she is speaking and we hear you, cut her off!
+                    import jarvisx.voice.audio_state as audio_state
+                    if audio_state.IS_SPEAKING:
+                        print(f"🎙️ [INTERRUPT DETECTED]: \"{text}\"")
+                        audio_state.stop_all_audio()
+                        
+                    print(f"🎙️ [VOICE HEARD]: \"{text}\"")
 
-                if not text:
-                    continue
+                    # 1. Alfred Wake-Word Trigger
+                    if "alfred" in text or "butler" in text:
+                        self._handle_alfred_wake(text)
 
-                print(f"🎙️ [VOICE HEARD]: \"{text}\"")
+                    # 2. E-V Wake-Word Trigger
+                    elif any(w in text for w in ["ev", "e-v", "ivy", "hey v", "tv", "eva", "hevy"]):
+                        self._handle_ev_wake(text)
+                except sr.UnknownValueError:
+                    pass
+                except sr.RequestError as e:
+                    # Silently handle offline or API rate limit issues so daemon doesn't crash
+                    pass
 
-                # 1. Alfred Wake-Word Trigger
-                if "alfred" in text or "butler" in text:
-                    self._handle_alfred_wake(text)
-
-                # 2. E-V Wake-Word Trigger
-                elif "ev" in text or "e-v" in text or "ivy" in text or "hey v" in text:
-                    self._handle_ev_wake(text)
-
-            except Exception as e:
-                time.sleep(1.0)
+            self.stop_listening = self.recognizer.listen_in_background(m, callback)
+        except Exception as e:
+            print(f"[-] Failed to initialize continuous mic listener: {e}")
 
     def _handle_alfred_wake(self, text: str):
         """Handles Alfred Batman Butler interactions."""
@@ -131,9 +130,9 @@ class AmbientDualSentinel:
 
     def _handle_ev_wake(self, text: str):
         """Handles E-V Co-Pilot interactions."""
-        cmd = text.replace("ev", "").replace("e-v", "").replace("hey", "").replace("ivy", "").strip()
+        cmd = text.replace("ev", "").replace("e-v", "").replace("hey", "").replace("ivy", "").replace("tv", "").replace("eva", "").replace("hevy", "").strip()
         if not cmd:
-            speak_ev_neural("I am right here, boss! Ready to solve math or debug code!")
+            async_speak_ev_neural("I am right here, boss! Ready to solve math or debug code!")
             return
 
         print(f"🕷️ [E-V REACTING]: \"{cmd}\"")
@@ -143,8 +142,11 @@ class AmbientDualSentinel:
         elif "cool" in cmd:
             from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
             EVMasterAutomationEngine.get_instance().level_5_turbo_cool()
+        elif any(w in cmd for w in ["check", "watch", "scan", "look"]):
+            from jarvisx.automation.ev_omni_screen_sentinel import EVOmniScreenSentinel
+            EVOmniScreenSentinel.get_instance().inspect_now()
         else:
-            speak_ev_neural(f"On it, boss! Processing {cmd}!")
+            async_speak_ev_neural(f"On it, boss! Processing {cmd}!")
 
     def _coding_error_watcher_loop(self):
         """Proactively detects stack traces, syntax errors, and coding bugs."""
