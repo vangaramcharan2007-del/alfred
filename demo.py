@@ -85,6 +85,8 @@ async def main():
         "GenerativeUIEngine": "jarvisx.ui.generative_ui",
         "SwarmBlockchain": "jarvisx.security.swarm_blockchain",
         "NeuralCompiler": "jarvisx.core.neural_compiler",
+        "EdithAREngine": "jarvisx.vision.edith_ar",
+        "AlfredProtocol": "jarvisx.automation.alfred_protocol",
     }
     for name, mod in modules.items():
         try:
