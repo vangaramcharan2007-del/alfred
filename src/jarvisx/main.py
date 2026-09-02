@@ -135,7 +135,16 @@ async def async_main():
 def main():
     if len(sys.argv) > 1:
         first_word = sys.argv[1].lower()
-        if first_word in {"live", "master", "harness", "os", "situation", "sentinel"}:
+        if first_word in {"ev", "ui", "eevee", "dashboard"}:
+            import webbrowser
+            import os
+            # Get the absolute path to eevee_ui.html in the project root
+            root_dir = Path(__file__).resolve().parent.parent.parent
+            html_path = os.path.join(root_dir, "eevee_ui.html")
+            print(f"\n[E.V. MATRIX] Launching Tactical Dashboard...\nPath: {html_path}\n")
+            webbrowser.open(f"file://{html_path}")
+            return 0
+        elif first_word in {"live", "master", "harness", "os", "situation", "sentinel"}:
             from jarvisx.runtime.master_os import launch_master_os
             try:
                 launch_master_os(launch_hud=True)
