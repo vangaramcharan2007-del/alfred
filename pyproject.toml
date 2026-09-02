@@ -63,13 +63,13 @@ dev = [
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-where = ["src"]
-
 [project.scripts]
+jarvis = "jarvisx.cli:main"
 jarvisx = "jarvisx.__main__:main"
 friday = "friday.__main__:main"
 
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
