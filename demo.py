@@ -78,6 +78,9 @@ async def main():
         "ConsciousnessLoop": "jarvisx.core.consciousness_loop",
         "Chronosphere": "jarvisx.memory.chronosphere",
         "SentinelImmunity": "jarvisx.security.sentinel_immunity",
+        "NeuroLink": "jarvisx.hardware.neuro_link",
+        "QBridge": "jarvisx.core.q_bridge",
+        "SDRGateway": "jarvisx.hardware.sdr_gateway",
     }
     for name, mod in modules.items():
         try:
