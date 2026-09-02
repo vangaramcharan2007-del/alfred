@@ -8,7 +8,7 @@ litellm:
   proxy_url: "http://localhost:4000"
 
 openrouter:
-  enabled: false
+  enabled: true
   api_key_env: "OPENROUTER_API_KEY"
 
 openhands:
