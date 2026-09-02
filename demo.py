@@ -67,6 +67,9 @@ async def main():
         "RemoteUplink": "jarvisx.telephony.remote_uplink",
         "REMSleepEngine": "jarvisx.memory.rem_sleep",
         "OmniContextTimeline": "jarvisx.memory.omni_context",
+        "OracleEngine": "jarvisx.automation.oracle_engine",
+        "GitHubBountyHunter": "jarvisx.engineering.github_bounty_hunter",
+        "SymbioteEngine": "jarvisx.automation.symbiote_engine",
     }
     for name, mod in modules.items():
         try:
