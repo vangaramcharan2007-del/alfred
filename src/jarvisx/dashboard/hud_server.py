@@ -61,6 +61,18 @@ async def serve_hud():
     return HTMLResponse(hud_file.read_text(encoding="utf-8"))
 
 
+@app.get("/memory-palace", response_class=HTMLResponse)
+async def serve_memory_palace():
+    file = TEMPLATE_DIR / "memory_palace.html"
+    return HTMLResponse(file.read_text(encoding="utf-8"))
+
+
+@app.get("/swarm-matrix", response_class=HTMLResponse)
+async def serve_swarm_matrix():
+    file = TEMPLATE_DIR / "swarm_matrix.html"
+    return HTMLResponse(file.read_text(encoding="utf-8"))
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()

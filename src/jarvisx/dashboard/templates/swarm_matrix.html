@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JARVIS Swarm Matrix</title>
+    <style>
+        body { margin: 0; background-color: #050505; color: #0f0; font-family: 'Courier New', monospace; display: flex; flex-wrap: wrap; height: 100vh; overflow: hidden; }
+        .agent-panel { width: 49vw; height: 49vh; border: 1px solid #0f0; box-sizing: border-box; padding: 10px; display: flex; flex-direction: column; }
+        .header { font-weight: bold; font-size: 18px; border-bottom: 1px solid #0f0; padding-bottom: 5px; margin-bottom: 10px; display: flex; justify-content: space-between; }
+        .status { color: #fff; font-size: 12px; }
+        .log { flex-grow: 1; overflow-y: auto; font-size: 12px; white-space: pre-wrap; word-wrap: break-word; }
+        .log span { opacity: 0.7; }
+        /* Matrix Green Glow */
+        .agent-panel { box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.1); }
+    </style>
+</head>
+<body>
+    <div class="agent-panel" id="planner">
+        <div class="header">AGENT: PLANNER <span class="status">IDLE</span></div>
+        <div class="log"></div>
+    </div>
+    <div class="agent-panel" id="frontend">
+        <div class="header">AGENT: FRONTEND <span class="status">IDLE</span></div>
+        <div class="log"></div>
+    </div>
+    <div class="agent-panel" id="backend">
+        <div class="header">AGENT: BACKEND <span class="status">IDLE</span></div>
+        <div class="log"></div>
+    </div>
+    <div class="agent-panel" id="qa">
+        <div class="header">AGENT: QA TESTER <span class="status">IDLE</span></div>
+        <div class="log"></div>
+    </div>
+
+    <script>
+        const ws = new WebSocket(`ws://${location.host}/ws`);
+        const panels = {
+            "planner": document.querySelector("#planner .log"),
+            "frontend": document.querySelector("#frontend .log"),
+            "backend": document.querySelector("#backend .log"),
+            "qa": document.querySelector("#qa .log"),
+        };
+        const statuses = {
+            "planner": document.querySelector("#planner .status"),
+            "frontend": document.querySelector("#frontend .status"),
+            "backend": document.querySelector("#backend .status"),
+            "qa": document.querySelector("#qa .status"),
+        };
+
+        ws.onmessage = function(event) {
+            const msg = JSON.parse(event.data);
+            if (msg.type === "swarm_update") {
+                const agent = msg.data.agent.toLowerCase();
+                if (panels[agent]) {
+                    panels[agent].innerHTML += `<div>> ${msg.data.text}</div>`;
+                    panels[agent].scrollTop = panels[agent].scrollHeight;
+                    
+                    statuses[agent].innerText = "WORKING...";
+                    statuses[agent].style.color = "#ff0";
+                    setTimeout(() => { statuses[agent].innerText = "IDLE"; statuses[agent].style.color = "#fff"; }, 1000);
+                }
+            }
+        };
+    </script>
+</body>
+</html>
