@@ -95,6 +95,11 @@ def run_handy_dictation_automation():
     EVHandyVoiceDictationEngine.get_instance().execute_push_to_talk_cycle(duration_sec=3.5)
 
 
+def on_global_hotkey_omni():
+    from jarvisx.automation.ev_omni_screen_sentinel import EVOmniScreenSentinel
+    threading.Thread(target=lambda: EVOmniScreenSentinel.get_instance().toggle(), daemon=True).start()
+
+
 def on_global_hotkey_handy():
     threading.Thread(target=run_handy_dictation_automation, daemon=True).start()
 
@@ -117,21 +122,28 @@ def on_global_hotkey_alfred():
 
 def main():
     print("=" * 78)
-    print(" ⚡ E-V & ALFRED PURE AUTOMATION DAEMON (MULTI-HOTKEY + HANDY STT)")
+    print(" ⚡ E-V & ALFRED PURE AUTOMATION DAEMON (MULTI-HOTKEY + 24/7 OMNI SENTINEL)")
     print("=" * 78)
+    print(" [Alt+O]          -> 👁️ Toggle 24/7 Continuous Omni Screen Sentinel")
     print(" [Alt+V] or [F7]  -> 🎙️ Handy Push-to-Talk (Record Voice & Type Anywhere)")
     print(" [Alt+S] or [F9]  -> 📸 Spider-Sense Math Vision (Snap & Solve Screen)")
     print(" [Alt+C] or [F10] -> ❄️ 1-Key Turbo Cool (Purge RAM & Drop Temp)")
     print(" [Alt+Q] or [F11] -> ⚡ 5-Minute ADHD Focus Sprint")
     print(" [Alt+A] or [F8]  -> 🦇 Alfred Sovereign System Doctor")
     print("=" * 78)
-    print("[*] Listening for global hotkeys (Alt+V, Alt+S, Alt+C, Alt+Q, Alt+A & F7-F11)...")
+    print("[*] Listening for global hotkeys (Alt+O, Alt+V, Alt+S, Alt+C, Alt+Q, Alt+A & F7-F11)...")
+
+    # Start 24/7 Continuous Omni Screen Sentinel in background
+    from jarvisx.automation.ev_omni_screen_sentinel import EVOmniScreenSentinel
+    EVOmniScreenSentinel.get_instance().start()
 
     # Initial boot voice greeting
-    speak_ev_neural("Automation daemon active, boss! Press Alt+V anytime for Handy voice dictation!")
+    speak_ev_neural("Automation daemon active, boss! 24/7 Omni Screen Sentinel is watching your screen across all tasks!")
 
     # Global Hotkey Listener (Handles both Alt combinations and standard F-keys)
     hotkeys = keyboard.GlobalHotKeys({
+        '<alt>+o': on_global_hotkey_omni,
+        '<ctrl>+<shift>+o': on_global_hotkey_omni,
         '<alt>+v': on_global_hotkey_handy,
         '<ctrl>+<shift>+v': on_global_hotkey_handy,
         '<alt>+s': on_global_hotkey_math,

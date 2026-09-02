@@ -36,20 +36,29 @@ async def generate_speech_audio(text: str, output_path: str, voice: str = VOICE)
 
 def speak_ev_neural(text: str, voice: str = VOICE):
     """Generates and plays ultra-realistic human female speech through speakers."""
+    import time
     print(f"[E-V NEURAL VOICE ({voice})] \"{text}\"")
     temp_dir = Path(os.getcwd()) / "var" / "audio"
     temp_dir.mkdir(parents=True, exist_ok=True)
-    temp_mp3 = temp_dir / "ev_speech.mp3"
+    temp_mp3 = temp_dir / f"ev_speech_{int(time.time() * 1000)}.mp3"
 
     try:
         asyncio.run(generate_speech_audio(text, str(temp_mp3), voice))
 
         # Play audio via Pygame mixer
-        pygame.mixer.init()
+        try:
+            pygame.mixer.init()
+        except Exception:
+            pass
         pygame.mixer.music.load(str(temp_mp3))
         pygame.mixer.music.play()
         while pygame.mixer.music.get_busy():
             pygame.time.Clock().tick(10)
+        pygame.mixer.music.unload()
+        try:
+            os.remove(str(temp_mp3))
+        except Exception:
+            pass
     except Exception as e:
         print(f"[!] Neural voice online error ({e}) -> Falling back to offline local voice...")
         try:
