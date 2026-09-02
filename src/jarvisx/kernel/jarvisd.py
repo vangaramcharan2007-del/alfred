@@ -49,6 +49,25 @@ class JarvisDaemon:
         vp.start()
         logger.info("-> Voice Pipeline E2E ONLINE")
         
+        # 6. Start Hypervisor (Resource Governor)
+        from jarvisx.kernel.hypervisor import Hypervisor
+        hv = Hypervisor.get_instance()
+        hv.start()
+        logger.info("-> Hypervisor (Resource Governor) ONLINE")
+        
+        # 7. Register heavy background modules with Hypervisor
+        from jarvisx.memory.omni_indexer import OmniIndexer
+        from jarvisx.core.consciousness_loop import ConsciousnessLoop
+        from jarvisx.memory.chronosphere import Chronosphere
+        from jarvisx.automation.oracle_engine import OracleEngine
+        from jarvisx.automation.symbiote_engine import SymbioteEngine
+        
+        hv.register_module("OmniIndexer", OmniIndexer.get_instance(), "low")
+        hv.register_module("Chronosphere", Chronosphere.get_instance(), "low")
+        hv.register_module("ConsciousnessLoop", ConsciousnessLoop.get_instance(), "normal")
+        hv.register_module("OracleEngine", OracleEngine.get_instance(), "normal")
+        hv.register_module("SymbioteEngine", SymbioteEngine.get_instance(), "normal")
+        
         self.running = True
         logger.info("==========================================")
         logger.info("         ALL SYSTEMS GREEN                ")
