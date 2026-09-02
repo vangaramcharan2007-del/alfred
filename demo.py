@@ -82,6 +82,9 @@ async def main():
         "QBridge": "jarvisx.core.q_bridge",
         "SDRGateway": "jarvisx.hardware.sdr_gateway",
         "ExocoreCompiler": "jarvisx.engineering.exocore_compiler",
+        "GenerativeUIEngine": "jarvisx.ui.generative_ui",
+        "SwarmBlockchain": "jarvisx.security.swarm_blockchain",
+        "NeuralCompiler": "jarvisx.core.neural_compiler",
     }
     for name, mod in modules.items():
         try:
