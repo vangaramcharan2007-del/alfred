@@ -81,6 +81,7 @@ async def main():
         "NeuroLink": "jarvisx.hardware.neuro_link",
         "QBridge": "jarvisx.core.q_bridge",
         "SDRGateway": "jarvisx.hardware.sdr_gateway",
+        "ExocoreCompiler": "jarvisx.engineering.exocore_compiler",
     }
     for name, mod in modules.items():
         try:
