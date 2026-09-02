@@ -62,11 +62,37 @@ class JarvisDaemon:
         from jarvisx.automation.oracle_engine import OracleEngine
         from jarvisx.automation.symbiote_engine import SymbioteEngine
         
+        # Phase 9/10 Modules
+        from jarvisx.automation.precog_engine import PreCogEngine
+        from jarvisx.automation.executive_function import ExecutiveFunctionProtocol
+        from jarvisx.voice.babel_fish import BabelFish
+        from jarvisx.memory.akashic_records import AkashicRecords
+        from jarvisx.automation.turing_hive import TuringHive
+        from jarvisx.automation.alfred_protocol import AlfredProtocol
+        from jarvisx.vision.edith_ar import EdithAREngine
+        from jarvisx.network.mcp_server import MCPServerBridge
+        
+        # Register Core
         hv.register_module("OmniIndexer", OmniIndexer.get_instance(), "low")
         hv.register_module("Chronosphere", Chronosphere.get_instance(), "low")
         hv.register_module("ConsciousnessLoop", ConsciousnessLoop.get_instance(), "normal")
         hv.register_module("OracleEngine", OracleEngine.get_instance(), "normal")
         hv.register_module("SymbioteEngine", SymbioteEngine.get_instance(), "normal")
+        
+        # Register Advanced Automations
+        hv.register_module("AkashicRecords", AkashicRecords.get_instance(), "low")
+        hv.register_module("BabelFish", BabelFish.get_instance(), "normal")
+        hv.register_module("EdithAREngine", EdithAREngine.get_instance(), "normal")
+        hv.register_module("TuringHive", TuringHive.get_instance(), "normal")
+        hv.register_module("AlfredProtocol", AlfredProtocol.get_instance(), "normal")
+        
+        # The Master Overrides (Critical Priority)
+        hv.register_module("ExecutiveFunction", ExecutiveFunctionProtocol.get_instance(), "critical")
+        hv.register_module("PreCogEngine", PreCogEngine.get_instance(), "critical")
+        
+        # 8. Start MCP Server Bridge
+        mcp = MCPServerBridge.get_instance()
+        mcp.start()
         
         self.running = True
         logger.info("==========================================")
