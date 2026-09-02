@@ -88,6 +88,8 @@ async def main():
         "EdithAREngine": "jarvisx.vision.edith_ar",
         "AlfredProtocol": "jarvisx.automation.alfred_protocol",
         "TuringHive": "jarvisx.automation.turing_hive",
+        "BabelFish": "jarvisx.voice.babel_fish",
+        "AkashicRecords": "jarvisx.memory.akashic_records",
     }
     for name, mod in modules.items():
         try:
