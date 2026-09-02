@@ -91,8 +91,8 @@ class JarvisDaemon:
         hv.register_module("PreCogEngine", PreCogEngine.get_instance(), "critical")
         
         # Companion Voice Override
-        from jarvisx.voice.nova_companion import NovaCompanion
-        hv.register_module("NovaCompanion", NovaCompanion.get_instance(), "critical")
+        from jarvisx.voice.eevee_companion import EeveeCompanion
+        hv.register_module("EeveeCompanion", EeveeCompanion.get_instance(), "critical")
         
         # 8. Start MCP Server Bridge
         mcp = MCPServerBridge.get_instance()
