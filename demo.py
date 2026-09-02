@@ -91,6 +91,7 @@ async def main():
         "BabelFish": "jarvisx.voice.babel_fish",
         "AkashicRecords": "jarvisx.memory.akashic_records",
         "ExecutiveFunctionProtocol": "jarvisx.automation.executive_function",
+        "PreCogEngine": "jarvisx.automation.precog_engine",
     }
     for name, mod in modules.items():
         try:
