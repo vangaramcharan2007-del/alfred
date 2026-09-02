@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E.V. - Eevee Companion</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #030a16;
+            color: #00ffcc;
+            font-family: 'Rajdhani', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, #0a192f 0%, #020813 100%);
+        }
+
+        /* Central E.V. Core (Pulsing Orb) */
+        .core {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: rgba(0, 255, 204, 0.05);
+            border: 2px solid #00ffcc;
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.5), inset 0 0 30px rgba(0, 255, 204, 0.5);
+            animation: pulse 2.5s infinite ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            margin-bottom: 40px;
+            transition: all 0.3s ease;
+        }
+
+        .core::before {
+            content: '';
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: 1px dashed rgba(0, 255, 204, 0.4);
+            animation: rotate 15s linear infinite;
+        }
+        
+        .core::after {
+            content: '';
+            position: absolute;
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 255, 204, 0.1);
+            animation: rotate 20s linear infinite reverse;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 20px rgba(0,255,204,0.4), inset 0 0 20px rgba(0,255,204,0.4); }
+            50% { transform: scale(1.02); box-shadow: 0 0 50px rgba(0,255,204,0.8), inset 0 0 50px rgba(0,255,204,0.8); }
+            100% { transform: scale(0.95); box-shadow: 0 0 20px rgba(0,255,204,0.4), inset 0 0 20px rgba(0,255,204,0.4); }
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Typography */
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 8px;
+            font-size: 3rem;
+            margin: 0;
+            text-shadow: 0 0 15px rgba(0, 255, 204, 0.8);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #8892b0;
+            letter-spacing: 4px;
+            margin-top: 5px;
+        }
+
+        /* Terminal/Dialogue box */
+        .dialogue-box {
+            margin-top: 40px;
+            width: 70%;
+            max-width: 800px;
+            min-height: 80px;
+            background: rgba(0, 255, 204, 0.03);
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            border-left: 4px solid #00ffcc;
+            border-radius: 4px;
+            padding: 25px;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+        }
+
+        .typewriter {
+            font-size: 1.6rem;
+            line-height: 1.5;
+            text-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
+        }
+
+        /* System Stats HUD overlay */
+        .hud-overlay {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            color: rgba(0, 255, 204, 0.6);
+            letter-spacing: 1px;
+            line-height: 1.8;
+        }
+        
+        .hud-overlay span {
+            color: #fff;
+            text-shadow: 0 0 5px #fff;
+        }
+        
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #00ffcc;
+            border-radius: 50%;
+            margin-right: 8px;
+            box-shadow: 0 0 8px #00ffcc;
+            animation: blink 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HUD Overlay -->
+        <div class="hud-overlay">
+            <div><span class="status-dot"></span>HYPERVISOR_UPLINK: [ACTIVE]</div>
+            <div>SYS.RAM: <span id="ram">42.4%</span></div>
+            <div>SYS.CPU: <span id="cpu">12.1%</span></div>
+            <div>E.X.E.C. PROTOCOL: <span style="color: #00ffcc;">[STANDBY]</span></div>
+        </div>
+
+        <!-- Central Orb -->
+        <div class="core" id="orb">
+            <!-- Center dot -->
+            <div style="width: 20px; height: 20px; background: #00ffcc; border-radius: 50%; box-shadow: 0 0 20px #00ffcc;"></div>
+        </div>
+        
+        <!-- Branding -->
+        <h1>E.V.</h1>
+        <div class="subtitle">EXECUTIVE COMPANION MATRIX</div>
+
+        <!-- Dialogue -->
+        <div class="dialogue-box">
+            <div>
+                <span class="typewriter" id="text-output">System Online. Waiting for wake word...</span><span style="animation: blink 1s infinite; font-size: 1.6rem;">|</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simulate the E.V. workflow based on the actual python backend logic
+        const scriptFlow = [
+            { text: "System Online. Waiting for wake word...", orbActive: false },
+            { text: "[Microphone Active] Listening...", orbActive: true },
+            { text: "User: 'I can't focus right now, the code is too much.'", orbActive: false, color: "#8892b0" },
+            { text: "That's okay! Take a deep breath. Let's just look at the first line of code. I'm right here with you.", orbActive: true },
+            { text: "E.X.E.C. Protocol engaged. Dimming lights and silencing Discord...", orbActive: true },
+            { text: "Returning to standby. You've got this.", orbActive: false }
+        ];
+        
+        let flowIndex = 0;
+        const output = document.getElementById('text-output');
+        const orb = document.getElementById('orb');
+
+        function typeWriter(text, i, color, cb) {
+            output.style.color = color || "#00ffcc";
+            if (i < text.length) {
+                output.innerHTML = text.substring(0, i+1);
+                setTimeout(() => typeWriter(text, i + 1, color, cb), 35); // typing speed
+            } else {
+                setTimeout(cb, 3500); // pause before next phase
+            }
+        }
+
+        function runSimulation() {
+            const currentPhase = scriptFlow[flowIndex];
+            
+            // Pulse orb faster when 'speaking' or 'listening'
+            if(currentPhase.orbActive) {
+                orb.style.animationDuration = "1s";
+                orb.style.boxShadow = "0 0 60px rgba(0,255,204,1), inset 0 0 60px rgba(0,255,204,1)";
+            } else {
+                orb.style.animationDuration = "2.5s";
+                orb.style.boxShadow = "0 0 30px rgba(0,255,204,0.5), inset 0 0 30px rgba(0,255,204,0.5)";
+            }
+
+            flowIndex = (flowIndex + 1) % scriptFlow.length;
+            typeWriter(currentPhase.text, 0, currentPhase.color, runSimulation);
+        }
+
+        // Fluctuate HUD stats
+        setInterval(() => {
+            document.getElementById('ram').innerText = (40 + Math.random() * 8).toFixed(1) + "%";
+            document.getElementById('cpu').innerText = (10 + Math.random() * 25).toFixed(1) + "%";
+        }, 1500);
+
+        // Start loop
+        setTimeout(runSimulation, 2000);
+    </script>
+</body>
+</html>
