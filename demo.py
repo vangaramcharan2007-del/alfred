@@ -53,6 +53,10 @@ async def main():
         "ContextModeSwitcher": "jarvisx.automation.context_mode_switcher",
         "MultiModelRouter": "jarvisx.core.multi_model_router",
         "SecurityHardening": "jarvisx.security.hardening",
+        "TerminalSentinel": "jarvisx.engineering.terminal_sentinel",
+        "WebVoyager": "jarvisx.browser.web_voyager",
+        "CoderSwarm": "jarvisx.engineering.coder_swarm",
+        "JarvisDaemon": "jarvisx.kernel.jarvisd",
     }
     for name, mod in modules.items():
         try:
