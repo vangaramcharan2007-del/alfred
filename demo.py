@@ -64,6 +64,9 @@ async def main():
         "WallStreetSwarm": "jarvisx.finance.wall_street_swarm",
         "InfiniteContent": "jarvisx.content.infinite_engine",
         "MetamorphicCore": "jarvisx.kernel.metamorphic_core",
+        "RemoteUplink": "jarvisx.telephony.remote_uplink",
+        "REMSleepEngine": "jarvisx.memory.rem_sleep",
+        "OmniContextTimeline": "jarvisx.memory.omni_context",
     }
     for name, mod in modules.items():
         try:
