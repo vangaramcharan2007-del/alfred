@@ -57,6 +57,9 @@ async def main():
         "WebVoyager": "jarvisx.browser.web_voyager",
         "CoderSwarm": "jarvisx.engineering.coder_swarm",
         "JarvisDaemon": "jarvisx.kernel.jarvisd",
+        "OmniModalStream": "jarvisx.vision.omni_modal_stream",
+        "OmniIndexer": "jarvisx.memory.omni_indexer",
+        "GhostSpawner": "jarvisx.engineering.ghost_spawner",
     }
     for name, mod in modules.items():
         try:
