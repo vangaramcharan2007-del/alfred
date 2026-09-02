@@ -90,6 +90,7 @@ async def main():
         "TuringHive": "jarvisx.automation.turing_hive",
         "BabelFish": "jarvisx.voice.babel_fish",
         "AkashicRecords": "jarvisx.memory.akashic_records",
+        "ExecutiveFunctionProtocol": "jarvisx.automation.executive_function",
     }
     for name, mod in modules.items():
         try:
