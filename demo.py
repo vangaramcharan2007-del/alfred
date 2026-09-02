@@ -87,6 +87,7 @@ async def main():
         "NeuralCompiler": "jarvisx.core.neural_compiler",
         "EdithAREngine": "jarvisx.vision.edith_ar",
         "AlfredProtocol": "jarvisx.automation.alfred_protocol",
+        "TuringHive": "jarvisx.automation.turing_hive",
     }
     for name, mod in modules.items():
         try:
