@@ -50,6 +50,15 @@ TOOL_DOMAINS: Dict[str, List[str]] = {
     "computer": [
         "uacc_computer_control",
     ],
+    "vision_control": [
+        "omni_clicker",
+    ],
+    "swarm": [
+        "swarm_execute",
+    ],
+    "forge": [
+        "forge_tool",
+    ],
 }
 
 
@@ -109,6 +118,18 @@ DOMAIN_KEYWORDS: Dict[str, List[str]] = {
     ],
     "computer": [
         "computer control", "automate", "macro", "uacc",
+    ],
+    "vision_control": [
+        "click on", "find button", "locate", "ui element", "click the",
+        "press the button", "tap on", "select the", "vision click",
+    ],
+    "swarm": [
+        "parallel", "simultaneously", "at the same time", "multiple tasks",
+        "swarm", "delegate", "split into", "do both", "and also",
+    ],
+    "forge": [
+        "create a tool", "make a tool", "build a tool", "new capability",
+        "forge", "self code", "write a plugin", "custom tool",
     ],
 }
 
