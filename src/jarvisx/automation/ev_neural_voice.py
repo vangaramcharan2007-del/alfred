@@ -50,9 +50,13 @@ def speak_ev_neural(text: str, voice: str = VOICE):
         pygame.mixer.music.play()
         while pygame.mixer.music.get_busy():
             pygame.time.Clock().tick(10)
-        pygame.mixer.quit()
     except Exception as e:
-        print(f"[!] Neural voice error: {e}")
+        print(f"[!] Neural voice online error ({e}) -> Falling back to offline local voice...")
+        try:
+            from jarvisx.voice.offline_speaker import speak_offline
+            speak_offline(text, voice_gender="female")
+        except Exception as e2:
+            print(f"[!] Offline voice error: {e2}")
 
 
 if __name__ == "__main__":

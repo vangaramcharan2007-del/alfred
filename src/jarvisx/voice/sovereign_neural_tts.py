@@ -25,10 +25,10 @@ except Exception:
 
 
 class SovereignNeuralTTS:
-    """Ultra-realistic Neural Text-To-Speech engine using Microsoft Neural voices."""
+    """Ultra-realistic Neural Text-To-Speech engine using Microsoft Neural voices with offline fallback."""
 
     VOICES = {
-        "british_butler": "en-GB-RyanNeural",
+        "british_butler": "en-GB-ThomasNeural",  # Classic dignified mature Batman Butler (Alfred Pennyworth)
         "cybernetic_jarvis": "en-US-ChristopherNeural",
         "indian_english": "en-IN-PrabhatNeural",
         "telugu_male": "te-IN-MohanNeural",
@@ -36,8 +36,8 @@ class SovereignNeuralTTS:
         "assistant_female": "en-US-JennyNeural",
     }
 
-    def __init__(self, default_voice_key: str = "cybernetic_jarvis", rate: str = "+0%", pitch: str = "+0Hz"):
-        self.voice = self.VOICES.get(default_voice_key, "en-US-ChristopherNeural")
+    def __init__(self, default_voice_key: str = "british_butler", rate: str = "-4%", pitch: str = "-4Hz"):
+        self.voice = self.VOICES.get(default_voice_key, "en-GB-ThomasNeural")
         self.rate = rate
         self.pitch = pitch
         self.is_speaking = False
@@ -82,8 +82,12 @@ class SovereignNeuralTTS:
                 pygame.mixer.music.unload()
 
             except Exception as e:
-                # Fallback to console print if audio device error
-                print(f"[ALFRED VOICE LOG]: {text} ({e})")
+                # Fallback to local offline Windows SAPI speaker
+                try:
+                    from jarvisx.voice.offline_speaker import speak_offline
+                    speak_offline(text, voice_gender="male")
+                except Exception:
+                    print(f"[ALFRED VOICE LOG]: {text} ({e})")
             finally:
                 self.is_speaking = False
                 if temp_file and os.path.exists(temp_file):
