@@ -72,6 +72,9 @@ async def main():
         "SymbioteEngine": "jarvisx.automation.symbiote_engine",
         "MetaOrchestrator": "jarvisx.orchestration.meta_orchestrator",
         "AegisHarness": "jarvisx.orchestration.aegis_harness",
+        "AutoCurriculumEngine": "jarvisx.self_improvement.auto_curriculum",
+        "DigitalTwinEmulator": "jarvisx.automation.digital_twin",
+        "BazaarP2PNode": "jarvisx.network.bazaar_p2p",
     }
     for name, mod in modules.items():
         try:
