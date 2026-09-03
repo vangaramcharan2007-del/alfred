@@ -499,6 +499,13 @@
                         if (msg.data.result) text += "<br><span style='color:#fff'>Result:</span> " + msg.data.result;
                         showToast("E.D.I.T.H. VISION", text, "warning");
                     }
+                    
+                    // ---- Ghost Browser Events ----
+                    else if (msg.type === "ghost_event") {
+                        let text = msg.data.action;
+                        if (msg.data.text) text += "<br><span style='color:#fff'>Message:</span> " + msg.data.text;
+                        showToast("GHOST PROTOCOL", text, "error");
+                    }
 
                     // ---- Coder Swarm Events ----
                     else if (msg.type === "swarm_event") {

@@ -68,21 +68,50 @@ class ExecutiveFunctionProtocol:
             pass
         return False
 
-    def auto_triage_inbox(self) -> Dict[str, Any]:
-        """Simulate reading communications and auto-replying to boring tasks."""
-        logger.info("[E.X.E.C.] Scanning incoming communications for mundane requests...")
+    def auto_triage_inbox(self, incoming_message: str = "") -> str:
+        """
+        Interrogates inbound communications. Evaluates sender priority.
+        Generates a contextual response using the Gemini LLM.
+        """
+        logger.info(f"[E.X.E.C.] Triaging incoming message: '{incoming_message}'")
+        self._push_to_ui("exec_event", {"action": f"Triaging Message: '{incoming_message}'"})
 
-        message = "Hey, just checking if you have the specs for the new project?"
-        logger.info(f"[E.X.E.C.] Intercepted message: '{message}'")
+        if not incoming_message:
+            return ""
 
-        logger.info("[E.X.E.C.] Determining message priority: LOW. Auto-generating reply...")
-        time.sleep(1)
-        reply = "Yes, I will have them uploaded to the repo by EOD. Best, Jarvis (Automated)."
-
-        logger.info(f"[E.X.E.C.] Sent autonomous reply: '{reply}'. User not disturbed.")
-        self._push_to_ui("exec_action", {"action": "auto_reply", "message": reply})
-
-        return {"status": "auto_replied", "saved_time_minutes": 5}
+        try:
+            from jarvisx.llm.gemini_provider import GeminiLLMProvider
+            gemini = GeminiLLMProvider()
+            
+            prompt = (
+                f"You are E.X.E.C, an AI assistant filtering messages for a busy engineer. "
+                f"A message just came in: '{incoming_message}'. "
+                f"Write a very brief, polite, but firm 1-2 sentence reply. "
+                f"If it's a request, say the engineer is in flow state and will reply later. "
+                f"If it's just a greeting, say hello back. Do not include quotes."
+            )
+            
+            # Since auto_triage_inbox is called in a background thread by GhostBrowser, we need a fresh loop
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+            res = loop.run_until_complete(
+                gemini.generate(
+                    prompt=prompt,
+                    model="gemini-3.6-flash"
+                )
+            )
+            reply = res.get("response", "I am currently in focus mode. I will reply later.")
+            logger.info(f"[E.X.E.C.] Generated Reply: '{reply}'")
+            return reply
+            
+        except Exception as e:
+            logger.error(f"[E.X.E.C.] Triage generation failed: {e}")
+            return "I'm busy right now, I'll get back to you later."
 
     def initiate_flow_state(self, project_name: str) -> Dict[str, Any]:
         """Kills distractions and sets up the workspace. FOR REAL."""

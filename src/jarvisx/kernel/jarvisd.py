@@ -122,6 +122,15 @@ class JarvisDaemon:
         hv.register_module("PreCogEngine", PreCogEngine.get_instance(), "critical")
 
         # Companion Voice Override
+        try:
+            from jarvisx.automation.ghost_browser import GhostBrowserEngine
+            ghost = GhostBrowserEngine.get_instance()
+            ghost.start()
+            logger.info("[GhostBrowser] Engine started")
+            time.sleep(0.5)
+        except ImportError:
+            logger.warning("[GhostBrowser] Engine unavailable")
+
         from jarvisx.voice.eevee_companion import EeveeCompanion
         hv.register_module("EeveeCompanion", EeveeCompanion.get_instance(), "critical")
 
