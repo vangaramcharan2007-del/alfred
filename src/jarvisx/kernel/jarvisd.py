@@ -95,6 +95,27 @@ class JarvisDaemon:
         # ---------------------------------------------------------
         # REAL, VERIFIED AUTOMATION MODULES
         # ---------------------------------------------------------
+        
+        # New Real Agents
+        from jarvisx.memory.chronosphere import Chronosphere
+        chronosphere = Chronosphere.get_instance()
+        hv.register_module("Chronosphere", chronosphere, "low")
+        chronosphere.start()
+
+        from jarvisx.memory.akashic_records import AkashicRecords
+        akashic = AkashicRecords.get_instance()
+        hv.register_module("AkashicRecords", akashic, "low")
+        akashic.start()
+
+        from jarvisx.finance.wall_street_swarm import WallStreetSwarm
+        wallstreet = WallStreetSwarm.get_instance()
+        hv.register_module("WallStreetSwarm", wallstreet, "normal")
+        wallstreet.start()
+
+        from jarvisx.engineering.devops_sentry import DevOpsSentry
+        devops = DevOpsSentry.get_instance()
+        hv.register_module("DevOpsSentry", devops, "normal")
+        devops.start()
         from jarvisx.vision.edith_ar import EdithAREngine
         hv.register_module("EdithAREngine", EdithAREngine.get_instance(), "critical")
 

@@ -1,66 +1,84 @@
-"""
-The Akashic Records — Infinite Semantic Ontology.
-A continuous background daemon that scrapes global knowledge (Wikipedia, ArXiv),
-parses the entities, and builds a massive local semantic Knowledge Graph (NetworkX).
-"""
 import logging
+import os
 import threading
 import time
-import random
-from typing import Optional, Dict, Any
+import json
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 class AkashicRecords:
     _instance = None
-    
+
     @classmethod
     def get_instance(cls):
-        if not cls._instance: cls._instance = cls()
+        if not cls._instance:
+            cls._instance = cls()
         return cls._instance
 
     def __init__(self):
+        self.project_dir = Path(__file__).parent.parent.parent.parent.absolute()
+        self.docs_dir = self.project_dir / "docs"
+        self.docs_dir.mkdir(parents=True, exist_ok=True)
+        self.index = {}  # Inverted index: word -> set of file paths
+        self._thread = None
         self._running = False
-        self._thread: Optional[threading.Thread] = None
-        self.node_count = 0
-        self.edge_count = 0
-
-    def _scrape_and_map(self):
-        """Simulate pulling an ArXiv paper and mapping its semantic entities."""
-        topics = ["Quantum computing bounds", "CRISPR-Cas9 gene editing", "eBPF kernel tracing", "Stoic philosophy"]
-        topic = random.choice(topics)
-        
-        logger.info(f"[Akashic] Background download complete: '{topic}' (ArXiv / Wiki).")
-        logger.info(f"[Akashic] Running NLP entity extraction...")
-        
-        time.sleep(1) # Simulating LLM extraction
-        
-        new_nodes = random.randint(5, 15)
-        new_edges = random.randint(10, 25)
-        
-        self.node_count += new_nodes
-        self.edge_count += new_edges
-        
-        logger.info(f"[Akashic] Knowledge Graph updated. Added {new_nodes} nodes, {new_edges} edges.")
-        logger.info(f"[Akashic] Total Ontology Size: {self.node_count} Nodes | {self.edge_count} Edges.")
-
-    def _loop(self):
-        logger.info("[Akashic] Connecting to global data streams (ArXiv, Wiki, GitHub)...")
-        time.sleep(1)
-        logger.info("[Akashic] Ontology daemon active. Archiving human knowledge.")
-        
-        while self._running:
-            try:
-                self._scrape_and_map()
-            except Exception as e:
-                logger.debug(f"[Akashic] Scraping error: {e}")
-            time.sleep(30) # Scrape every 30 seconds
 
     def start(self):
-        if self._running: return
+        """Starts the background indexer."""
+        if self._running:
+            return
+            
+        logger.info("[Akashic] Starting real-time document indexer...")
         self._running = True
-        self._thread = threading.Thread(target=self._loop, daemon=True, name="Akashic")
+        self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
+
+    def _run(self):
+        while self._running:
+            self._build_index()
+            # Re-index every 5 minutes
+            time.sleep(300)
+
+    def _build_index(self):
+        new_index = {}
+        file_count = 0
         
-    def stop(self):
-        self._running = False
+        for root, dirs, files in os.walk(self.project_dir):
+            if ".git" in root or "var" in root or "__pycache__" in root:
+                continue
+                
+            for file in files:
+                if file.endswith((".md", ".txt", ".json")):
+                    filepath = Path(root) / file
+                    try:
+                        with open(filepath, "r", encoding="utf-8") as f:
+                            content = f.read().lower()
+                            words = set(content.split())
+                            for word in words:
+                                if len(word) > 3:  # skip tiny words
+                                    if word not in new_index:
+                                        new_index[word] = set()
+                                    new_index[word].add(str(filepath))
+                        file_count += 1
+                    except Exception:
+                        pass
+        
+        self.index = new_index
+        logger.info(f"[Akashic] Index built: {file_count} files, {len(self.index)} unique terms.")
+
+    def search(self, query: str) -> list:
+        """Search the local document index."""
+        query_words = set(query.lower().split())
+        results = None
+        
+        for word in query_words:
+            if word in self.index:
+                if results is None:
+                    results = self.index[word]
+                else:
+                    results = results.intersection(self.index[word])
+                    
+        if results:
+            return list(results)[:5]
+        return []

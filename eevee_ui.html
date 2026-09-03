@@ -506,6 +506,19 @@
                         if (msg.data.text) text += "<br><span style='color:#fff'>Message:</span> " + msg.data.text;
                         showToast("GHOST PROTOCOL", text, "error");
                     }
+                    
+                    // ---- Finance Events ----
+                    else if (msg.type === "finance_event") {
+                        let text = `${msg.data.ticker} moved ${msg.data.change.toFixed(2)}%<br><span style='color:#fff'>Price: $${msg.data.price.toFixed(2)}</span>`;
+                        let type = msg.data.change < 0 ? "error" : "success";
+                        showToast("WALL STREET SWARM", text, type);
+                    }
+                    
+                    // ---- DevOps Events ----
+                    else if (msg.type === "devops_event") {
+                        let text = `Runaway Process Detected:<br><span style='color:#fff'>${msg.data.process} @ ${msg.data.cpu}% CPU</span>`;
+                        showToast("DEVOPS SENTRY", text, "warning");
+                    }
 
                     // ---- Coder Swarm Events ----
                     else if (msg.type === "swarm_event") {
