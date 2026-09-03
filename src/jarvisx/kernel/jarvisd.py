@@ -116,6 +116,17 @@ class JarvisDaemon:
         devops = DevOpsSentry.get_instance()
         hv.register_module("DevOpsSentry", devops, "normal")
         devops.start()
+        
+        # Graveyard Revivals
+        from jarvisx.automation.reminder_engine import get_reminder_engine
+        reminder = get_reminder_engine()
+        hv.register_module("ReminderEngine", reminder, "normal")
+        reminder.start_sentinel()
+
+        from jarvisx.automation.system_cleaner_daemon import SystemCleanerDaemon
+        cleaner_daemon = SystemCleanerDaemon.get_instance()
+        hv.register_module("SystemCleaner", cleaner_daemon, "low")
+        cleaner_daemon.start()
         from jarvisx.vision.edith_ar import EdithAREngine
         hv.register_module("EdithAREngine", EdithAREngine.get_instance(), "critical")
 
