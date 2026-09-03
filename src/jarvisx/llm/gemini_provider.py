@@ -145,6 +145,7 @@ class GeminiLLMProvider(LLMProvider):
         prompt: str,
         model: Optional[str] = None,
         conversation: Optional[List[Dict[str, str]]] = None,
+        contents: Optional[List[Any]] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """Generate response via official Google GenAI SDK."""
@@ -165,6 +166,8 @@ class GeminiLLMProvider(LLMProvider):
             }
 
         target_model = model or self.DEFAULT_MODEL or "gemini-3.6-flash"
+        # If contents list is provided (e.g., [image, text]), use it. Otherwise just use the text prompt.
+        final_input = contents if contents else prompt
 
         try:
             loop = asyncio.get_running_loop()
@@ -172,9 +175,14 @@ class GeminiLLMProvider(LLMProvider):
             def _call_gemini_interactions():
                 # 1. Primary: Google GenAI Interactions API (Fastest)
                 try:
+                    # Note: interactions.create may not natively support multimodal list as 'input',
+                    # but models.generate_content definitely supports 'contents'.
+                    if contents:
+                        raise ValueError("Multimodal contents force fallback to generate_content")
+
                     interaction = self._client.interactions.create(
                         model=target_model,
-                        input=prompt,
+                        input=final_input,
                     )
                     if hasattr(interaction, "output_text") and interaction.output_text:
                         return interaction.output_text.strip()
@@ -185,10 +193,10 @@ class GeminiLLMProvider(LLMProvider):
                     err_str = str(ex1).lower()
                     if "quota" in err_str or "rate" in err_str or "429" in err_str:
                         raise ex1
-                    # 2. Fallback to models.generate_content
+                    # 2. Fallback to models.generate_content for multimodal
                     resp = self._client.models.generate_content(
                         model=target_model,
-                        contents=prompt,
+                        contents=final_input,
                     )
                     if hasattr(resp, "text") and resp.text:
                         return resp.text.strip()

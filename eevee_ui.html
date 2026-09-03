@@ -493,6 +493,13 @@
                         showToast("PRE-COG", msg.data.context + " → " + msg.data.action, "warning");
                     }
 
+                    // ---- Edith AR Vision Events ----
+                    else if (msg.type === "edith_event") {
+                        let text = msg.data.action;
+                        if (msg.data.result) text += "<br><span style='color:#fff'>Result:</span> " + msg.data.result;
+                        showToast("E.D.I.T.H. VISION", text, "warning");
+                    }
+
                 } catch (e) {
                     console.error("WS Parse error", e);
                 }

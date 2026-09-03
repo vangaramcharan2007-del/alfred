@@ -4,7 +4,8 @@ Eliminates the need for user prompts. Monitors real desktop context —
 which apps are running, CPU/RAM load, and user idle time —
 to autonomously trigger Jarvis modules before the user asks.
 
-Phase 11: REAL CONTEXT — Uses psutil to scan actual running processes.
+Phase 12: EDITH VISION INTEGRATION — Now takes screenshots if the user is 
+stuck or distracted, and triggers Eevee to intervene visually.
 """
 import logging
 import threading
@@ -66,6 +67,34 @@ class PreCogEngine:
         except Exception:
             return 0.0
 
+    def _trigger_vision_nudge(self, context_prompt: str):
+        """Asks Edith to look at the screen and Eevee to respond based on what she sees."""
+        try:
+            from jarvisx.vision.edith_ar import EdithAREngine
+            from jarvisx.voice.eevee_companion import EeveeCompanion
+            
+            edith = EdithAREngine.get_instance()
+            eevee = EeveeCompanion.get_instance()
+            
+            # 1. Ask Edith to read the screen
+            analysis = edith.analyze_screen(prompt=context_prompt)
+            
+            # 2. Tell Eevee what Edith saw, and ask her to gently nudge the user
+            eevee_prompt = (
+                f"You are Eevee. I just looked at the user's screen. Here is what I saw: '{analysis}'. "
+                f"Please provide a very short, cute, gentle spoken nudge (1-2 sentences) to help them based on this."
+            )
+            
+            self._push_to_ui("ev_status", {"text": "Analyzing visual context..."})
+            response = eevee._generate_response(eevee_prompt)
+            
+            self._push_to_ui("tts_response", {"text": response})
+            eevee._real_tts_speak(response)
+            self._push_to_ui("ev_status", {"text": "Standby."})
+            
+        except Exception as e:
+            logger.error(f"[Pre-Cog] Vision nudge failed: {e}")
+
     def _analyze_real_context(self):
         """Scan the user's actual running processes and system state."""
         procs = self._get_running_process_names()
@@ -73,35 +102,38 @@ class PreCogEngine:
         ram = psutil.virtual_memory().percent
         idle_secs = self._get_user_idle_seconds()
 
-        # ---- CONTEXT 1: VS Code is open → IDE Active ----
-        if "code.exe" in procs and self._last_action != "ide_active":
-            logger.info("[Pre-Cog] Context Detected: VS Code is actively running.")
-            logger.info("[Pre-Cog] Zero-Click Action: Standing by for Coder Swarm dispatch...")
+        # ---- CONTEXT 1: User stuck in IDE (Idle + VS Code open) ----
+        if "code.exe" in procs and idle_secs > 120 and self._last_action != "stuck_in_code":
+            logger.info("[Pre-Cog] Context Detected: User idle in VS Code for 2+ minutes. Might be stuck.")
+            logger.info("[Pre-Cog] Zero-Click Action: Triggering Edith Vision Protocol...")
             self._push_to_ui("precog_event", {
-                "context": "IDE Active",
-                "action": "Coder Swarm on standby"
+                "context": "Stuck in IDE?",
+                "action": "Triggering Vision Analysis"
             })
-            self._last_action = "ide_active"
+            self._last_action = "stuck_in_code"
+            # Offload the vision API call so we don't block the PreCog loop
+            threading.Thread(
+                target=self._trigger_vision_nudge, 
+                args=("The user has been staring at this code for 2 minutes without typing. Are they looking at an error message, a complex function, or a blank file?",),
+                daemon=True
+            ).start()
 
-        # ---- CONTEXT 2: Discord/social apps + VS Code = distraction risk ----
-        social_apps = {"discord.exe", "telegram.exe", "whatsapp.exe", "slack.exe"}
-        active_socials = procs & social_apps
-        if active_socials and "code.exe" in procs and self._last_action != "distraction_risk":
-            app_names = ", ".join(a.replace(".exe", "").title() for a in active_socials)
-            logger.info(f"[Pre-Cog] Context Detected: Distraction risk — {app_names} running alongside VS Code.")
-            logger.info("[Pre-Cog] Zero-Click Action: Recommending E.X.E.C. Flow State...")
+        # ---- CONTEXT 2: Distraction Apps Running ----
+        social_apps = {"discord.exe", "telegram.exe", "whatsapp.exe", "slack.exe", "chrome.exe"}
+        # If they are in a social app, maybe they are distracted.
+        # But Chrome could be for work. Let's look at the screen if idle_secs > 60 and Chrome is open.
+        if "chrome.exe" in procs and idle_secs > 60 and "code.exe" in procs and self._last_action != "distraction_check":
+            logger.info("[Pre-Cog] Context Detected: Chrome and IDE open. Checking for distractions...")
             self._push_to_ui("precog_event", {
-                "context": f"Distraction Risk: {app_names}",
-                "action": "Recommending flow state"
+                "context": "Possible Distraction",
+                "action": "Checking Screen Content"
             })
-            self._last_action = "distraction_risk"
-
-            # Auto-trigger E.X.E.C. flow state
-            try:
-                from jarvisx.automation.executive_function import ExecutiveFunctionProtocol
-                ExecutiveFunctionProtocol.get_instance().initiate_flow_state("Focus Override")
-            except Exception:
-                pass
+            self._last_action = "distraction_check"
+            threading.Thread(
+                target=self._trigger_vision_nudge, 
+                args=("The user is supposed to be coding. Look at this screen. Are they on YouTube, Reddit, or a distracting site? Or are they reading documentation?",),
+                daemon=True
+            ).start()
 
         # ---- CONTEXT 3: High system load ----
         if (cpu > 80 or ram > 85) and self._last_action != "high_load":
@@ -113,12 +145,11 @@ class PreCogEngine:
             })
             self._last_action = "high_load"
 
-        # ---- CONTEXT 4: User idle for 10+ minutes ----
+        # ---- CONTEXT 4: User deeply idle (10+ minutes) ----
         if idle_secs > 600:
             self._idle_streak += 1
             if self._idle_streak == 1 and self._last_action != "idle_nudge":
                 logger.info(f"[Pre-Cog] Context Detected: User idle for {idle_secs:.0f}s.")
-                logger.info("[Pre-Cog] Zero-Click Action: Gentle Eevee nudge incoming...")
                 self._push_to_ui("precog_event", {
                     "context": f"User idle for {int(idle_secs)}s",
                     "action": "Gentle nudge"
@@ -126,23 +157,14 @@ class PreCogEngine:
                 self._last_action = "idle_nudge"
         else:
             self._idle_streak = 0
-            if self._last_action == "idle_nudge":
-                self._last_action = None  # Reset so it can trigger again later
-
-        # ---- CONTEXT 5: Chrome eating too much RAM ----
-        chrome_count = sum(1 for p in procs if "chrome" in p)
-        if chrome_count > 0 and ram > 75 and self._last_action != "chrome_hog":
-            logger.info(f"[Pre-Cog] Context Detected: Chrome ({chrome_count} processes) + RAM at {ram}%.")
-            logger.info("[Pre-Cog] Zero-Click Action: Suggest closing excess Chrome tabs.")
-            self._push_to_ui("precog_event", {
-                "context": f"Chrome RAM hog ({chrome_count} procs, {ram}% RAM)",
-                "action": "Suggest closing tabs"
-            })
-            self._last_action = "chrome_hog"
+            # Reset actions if the user started moving again
+            if idle_secs < 5:
+                if self._last_action in ("stuck_in_code", "distraction_check", "idle_nudge"):
+                    self._last_action = None 
 
     def _loop(self):
         logger.info("[Pre-Cog] Zero-Click Automation Engine Online. Monitoring real environment.")
-        self._push_to_ui("module_boot", {"name": "PreCogEngine", "status": "ONLINE"})
+        self._push_to_ui("module_boot", {"name": "PreCogEngine", "status": "ONLINE (VISION ACTIVE)"})
 
         while self._running:
             try:
