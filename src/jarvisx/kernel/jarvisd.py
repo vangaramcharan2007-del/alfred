@@ -152,6 +152,27 @@ class JarvisDaemon:
         hv.register_module("WindowManager", window_mgr, "normal")
         window_mgr.start()
 
+        # Phase 18 Advanced AI Agents
+        from jarvisx.automation.sentinel_zero import SentinelZero
+        sentinel = SentinelZero.get_instance()
+        hv.register_module("SentinelZero", sentinel, "critical")
+        sentinel.start()
+
+        from jarvisx.automation.athena_researcher import AthenaResearcher
+        athena = AthenaResearcher.get_instance()
+        hv.register_module("Athena", athena, "low")
+        athena.start()
+
+        from jarvisx.automation.davinci_vision import DaVinciVision
+        davinci = DaVinciVision.get_instance()
+        hv.register_module("DaVinci", davinci, "normal")
+        davinci.start()
+
+        from jarvisx.automation.midas_oracle import MidasOracle
+        midas = MidasOracle.get_instance()
+        hv.register_module("Midas", midas, "low")
+        midas.start()
+
         from jarvisx.vision.edith_ar import EdithAREngine
         hv.register_module("EdithAREngine", EdithAREngine.get_instance(), "critical")
 
