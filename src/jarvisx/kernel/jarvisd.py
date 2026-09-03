@@ -60,10 +60,8 @@ class JarvisDaemon:
         ContextModeSwitcher.get_instance().start()
         logger.info("-> Context Mode Switcher ONLINE")
 
-        # 3. Start Smart Notifier
-        from jarvisx.automation.smart_notifier import SmartNotifier
-        SmartNotifier.get_instance().start()
-        logger.info("-> Smart Notifier ONLINE")
+        # 3. Smart Notifier removed in Phase 17
+        logger.info("-> Smart Notifier OFFLINE (Replaced by specialized agents)")
 
         # 4. Start HUD Server
         from jarvisx.dashboard.hud_server import start_hud
