@@ -6,9 +6,9 @@
     <title>E.V. - Tactical UI</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap');
-        
+
         * { box-sizing: border-box; }
-        
+
         body {
             margin: 0;
             padding: 0;
@@ -19,7 +19,7 @@
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            background-image: 
+            background-image:
                 linear-gradient(rgba(20, 20, 30, 0.4) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(20, 20, 30, 0.4) 1px, transparent 1px);
             background-size: 30px 30px;
@@ -56,9 +56,15 @@
 
         .system-status {
             font-family: 'Share Tech Mono', monospace;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: #00ccff;
             text-align: right;
+            line-height: 1.6;
+        }
+
+        .system-status .stat-value {
+            color: #fff;
+            text-shadow: 0 0 5px #fff;
         }
 
         /* Main Grid Layout */
@@ -68,6 +74,7 @@
             padding: 20px 40px;
             justify-content: space-between;
             align-items: center;
+            position: relative;
         }
 
         /* Left Panel - Notifications & Context */
@@ -89,7 +96,7 @@
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
             animation: slideIn 0.5s ease-out;
         }
-        
+
         .notification-card.red {
             border-color: rgba(255, 50, 50, 0.3);
             border-top: 3px solid #ff3333;
@@ -163,6 +170,7 @@
             border-radius: 3px;
             box-shadow: 0 0 10px #ff3333;
             animation: wave 1s infinite ease-in-out;
+            transition: height 0.2s;
         }
 
         .bar:nth-child(1) { height: 20px; animation-delay: 0.0s; }
@@ -175,19 +183,14 @@
         .bar:nth-child(8) { height: 40px; animation-delay: 0.7s; }
         .bar:nth-child(9) { height: 20px; animation-delay: 0.8s; }
 
-        /* Input Box below ring */
-        .input-box {
-            position: absolute;
-            bottom: -60px;
-            width: 60%;
-            background: rgba(10, 15, 30, 0.8);
-            border: 1px solid rgba(0, 204, 255, 0.4);
-            border-radius: 20px;
-            padding: 10px 20px;
-            color: #00ccff;
-            font-family: 'Share Tech Mono', monospace;
-            text-align: center;
-            box-shadow: 0 0 15px rgba(0, 204, 255, 0.1);
+        .waveform.idle .bar {
+            animation-play-state: paused;
+            height: 8px !important;
+            opacity: 0.4;
+        }
+
+        .waveform.speaking .bar {
+            animation-play-state: running;
         }
 
         /* Right Panel - ADHD E.X.E.C Tasks */
@@ -219,10 +222,16 @@
             align-items: flex-start;
             transition: all 0.3s;
         }
-        
+
         .task-item:hover {
             background: rgba(255, 153, 51, 0.1);
             border-color: rgba(255, 153, 51, 0.5);
+        }
+
+        .task-item.active {
+            border-color: #ff9933;
+            background: rgba(255, 153, 51, 0.15);
+            box-shadow: 0 0 10px rgba(255, 153, 51, 0.2);
         }
 
         .task-num {
@@ -231,6 +240,56 @@
             margin-right: 15px;
             font-family: 'Share Tech Mono', monospace;
         }
+
+        /* Notification Toast System */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            width: 350px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            background: rgba(10, 15, 30, 0.95);
+            border: 1px solid rgba(0, 204, 255, 0.4);
+            border-left: 4px solid #00ccff;
+            padding: 15px 20px;
+            border-radius: 4px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+            animation: toastSlideIn 0.4s ease-out, toastFadeOut 0.5s ease-in 4.5s;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.85rem;
+            color: #ccd6f6;
+        }
+
+        .toast.warning {
+            border-left-color: #ff9933;
+        }
+
+        .toast.danger {
+            border-left-color: #ff3333;
+        }
+
+        .toast.success {
+            border-left-color: #00ff88;
+        }
+
+        .toast-title {
+            font-weight: 700;
+            color: #00ccff;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.75rem;
+        }
+
+        .toast.warning .toast-title { color: #ff9933; }
+        .toast.danger .toast-title { color: #ff3333; }
+        .toast.success .toast-title { color: #00ff88; }
 
         /* Animations */
         @keyframes rotate { 100% { transform: rotate(360deg); } }
@@ -242,32 +301,40 @@
             0% { transform: translateX(-50px); opacity: 0; }
             100% { transform: translateX(0); opacity: 1; }
         }
+        @keyframes toastSlideIn {
+            0% { transform: translateX(100px); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes toastFadeOut {
+            0% { opacity: 1; }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
         @keyframes blink { 50% { opacity: 0; } }
-
     </style>
 </head>
 <body>
-    
+
     <div class="top-bar">
         <div class="logo">E.V. <span>EXECUTIVE VISION</span></div>
         <div class="system-status">
-            SYSTEMS: <span style="color: #fff;">4/4 ONLINE</span><br>
-            <span style="color: #ff3333;">MIC: [ACTIVE]</span>
+            CPU: <span class="stat-value" id="cpu">--</span> | RAM: <span class="stat-value" id="ram">--</span><br>
+            MODULES: <span class="stat-value" id="module-count">0</span>/14 | 
+            <span id="connection-status" style="color: #ff3333;">DISCONNECTED</span>
         </div>
     </div>
 
     <div class="main-container">
-        
+
         <!-- LEFT PANEL -->
         <div class="left-panel">
             <div class="notification-card red" id="subtitles">
                 <div class="card-title">USER AUDIO INTERCEPT</div>
-                <div class="card-content" id="stt-text">"I can't focus on this code right now..."</div>
+                <div class="card-content" id="stt-text">Waiting for mic input...</div>
             </div>
-            
+
             <div class="notification-card" id="agent-response">
                 <div class="card-title">E.V. RESPONSE</div>
-                <div class="card-content" id="tts-text" style="color: #00ccff;">Processing audio...</div>
+                <div class="card-content" id="tts-text" style="color: #00ccff;">Standby.</div>
             </div>
         </div>
 
@@ -276,66 +343,186 @@
             <div class="hologram-ring">
                 <div class="ring-outer"></div>
                 <div class="ring-inner"></div>
-                
+
                 <!-- Center Red/Orange Waveform -->
-                <div class="waveform" id="wave">
+                <div class="waveform idle" id="wave">
                     <div class="bar"></div><div class="bar"></div><div class="bar"></div>
                     <div class="bar"></div><div class="bar"></div><div class="bar"></div>
                     <div class="bar"></div><div class="bar"></div><div class="bar"></div>
                 </div>
-            </div>
-            
-            <div class="input-box">
-                ASK E.V... <span style="animation: blink 1s infinite;">_</span>
             </div>
         </div>
 
         <!-- RIGHT PANEL (ADHD MICRO TASKS) -->
         <div class="right-panel">
             <div class="task-list-header">E.X.E.C. PROTOCOL // MICRO-STEPS</div>
-            
-            <div class="task-item">
-                <div class="task-num">01</div>
-                <div>Breathe. Just open the terminal.</div>
-            </div>
-            <div class="task-item" style="opacity: 0.5;">
-                <div class="task-num">02</div>
-                <div>Read the first error line.</div>
-            </div>
-            <div class="task-item" style="opacity: 0.5;">
-                <div class="task-num">03</div>
-                <div>Send it to the Coder Swarm.</div>
+            <div id="task-list">
+                <div class="task-item" style="opacity: 0.4;">
+                    <div class="task-num">--</div>
+                    <div>Waiting for E.X.E.C. to detect a task...</div>
+                </div>
             </div>
         </div>
 
     </div>
 
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toast-container"></div>
+
     <script>
-        // Simulate E.V. Dialogue Loop
-        const dialogue = [
-            "That's okay! Take a deep breath.",
-            "Let's just look at the first line of code.",
-            "I'm right here with you.",
-            "E.X.E.C. Protocol engaged.",
-            "Dimming lights. You've got this."
-        ];
-        
-        let i = 0;
-        const ttsText = document.getElementById('tts-text');
-        
-        setInterval(() => {
-            ttsText.innerText = dialogue[i];
-            i = (i + 1) % dialogue.length;
-        }, 3000);
-        
-        // Randomize waveform slightly to look alive
+        // DOM References
+        const sttOutput = document.getElementById('stt-text');
+        const ttsOutput = document.getElementById('tts-text');
+        const cpuEl = document.getElementById('cpu');
+        const ramEl = document.getElementById('ram');
+        const moduleCountEl = document.getElementById('module-count');
+        const connectionEl = document.getElementById('connection-status');
+        const waveEl = document.getElementById('wave');
+        const taskList = document.getElementById('task-list');
+        const toastContainer = document.getElementById('toast-container');
+
+        let moduleSet = new Set();
+        let typingTimeout;
+
+        // Typewriter effect for tts output
+        function typeWriter(el, text, i, color) {
+            el.style.color = color || "#00ccff";
+            if (i === 0) el.innerHTML = "";
+            if (i < text.length) {
+                el.innerHTML = text.substring(0, i + 1);
+                typingTimeout = setTimeout(() => typeWriter(el, text, i + 1, color), 30);
+            }
+        }
+
+        // Toast notification system
+        function showToast(title, message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type || ''}`;
+            toast.innerHTML = `<div class="toast-title">${title}</div><div>${message}</div>`;
+            toastContainer.appendChild(toast);
+            setTimeout(() => { if (toast.parentNode) toast.remove(); }, 5000);
+        }
+
+        // Set waveform state
+        function setWaveState(state) {
+            waveEl.className = `waveform ${state}`; // 'idle', 'speaking'
+        }
+
+        // Update micro-steps panel
+        function updateMicroSteps(steps) {
+            taskList.innerHTML = '';
+            steps.forEach((step, idx) => {
+                const div = document.createElement('div');
+                div.className = `task-item ${idx === 0 ? 'active' : ''}`;
+                div.style.opacity = idx === 0 ? '1' : '0.5';
+                div.innerHTML = `<div class="task-num">${String(idx + 1).padStart(2, '0')}</div><div>${step}</div>`;
+                taskList.appendChild(div);
+            });
+        }
+
+        // WebSocket Connection to Jarvis Kernel
+        function connectWebSocket() {
+            const ws = new WebSocket("ws://localhost:8765/ws");
+
+            ws.onopen = function () {
+                connectionEl.innerText = "UPLINKED";
+                connectionEl.style.color = "#00ff88";
+                showToast("UPLINK", "Connected to Jarvis X Kernel.", "success");
+            };
+
+            ws.onmessage = function (event) {
+                try {
+                    const msg = JSON.parse(event.data);
+
+                    // ---- Live Telemetry ----
+                    if (msg.type === "system_stats") {
+                        cpuEl.innerText = msg.data.cpu_percent.toFixed(1) + "%";
+                        ramEl.innerText = msg.data.ram_percent.toFixed(1) + "% (" + msg.data.ram_used_gb + "/" + msg.data.ram_total_gb + " GB)";
+                    }
+
+                    // ---- Module Boot Events ----
+                    else if (msg.type === "module_boot") {
+                        moduleSet.add(msg.data.name);
+                        moduleCountEl.innerText = moduleSet.size;
+                        showToast("MODULE ONLINE", msg.data.name + " → " + msg.data.status, "success");
+                    }
+
+                    // ---- STT Intercept (User Speech) ----
+                    else if (msg.type === "stt_intercept") {
+                        sttOutput.innerText = '"' + msg.data.text + '"';
+                        setWaveState("speaking");
+                        showToast("AUDIO INTERCEPT", msg.data.text, "");
+                    }
+
+                    // ---- TTS Response (Eevee Speaking) ----
+                    else if (msg.type === "tts_response") {
+                        clearTimeout(typingTimeout);
+                        typeWriter(ttsOutput, msg.data.text, 0, "#00ccff");
+                        setWaveState("speaking");
+                    }
+
+                    // ---- E.V. Status Updates ----
+                    else if (msg.type === "ev_status") {
+                        if (msg.data.text.includes("Standby") || msg.data.text.includes("Waiting")) {
+                            setWaveState("idle");
+                        }
+                    }
+
+                    // ---- E.X.E.C. Actions ----
+                    else if (msg.type === "exec_action") {
+                        const a = msg.data;
+                        if (a.action === "flow_state_start") {
+                            showToast("E.X.E.C. FLOW STATE", "Initiating for: " + a.project, "warning");
+                        } else if (a.action === "process_killed") {
+                            showToast("DISTRACTION KILLED", a.process + " terminated.", "danger");
+                        } else if (a.action === "vscode_opened") {
+                            showToast("VS CODE", "Opened: " + a.project, "success");
+                        } else if (a.action === "flow_state_active") {
+                            showToast("FLOW STATE ACTIVE", "Killed " + (a.killed ? a.killed.length : 0) + " distractions.", "success");
+                        }
+                    }
+
+                    // ---- E.X.E.C. Micro-Steps ----
+                    else if (msg.type === "exec_microsteps") {
+                        updateMicroSteps(msg.data.steps);
+                        showToast("MICRO-STEPS", "Task broken down: " + msg.data.task, "warning");
+                    }
+
+                    // ---- PreCog Events ----
+                    else if (msg.type === "precog_event") {
+                        showToast("PRE-COG", msg.data.context + " → " + msg.data.action, "warning");
+                    }
+
+                } catch (e) {
+                    console.error("WS Parse error", e);
+                }
+            };
+
+            ws.onclose = function () {
+                connectionEl.innerText = "DISCONNECTED";
+                connectionEl.style.color = "#ff3333";
+                setWaveState("idle");
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = function () {
+                ws.close();
+            };
+        }
+
+        // Start connection
+        connectWebSocket();
+
+        // Randomize waveform bar heights slightly for organic feel
         const bars = document.querySelectorAll('.bar');
         setInterval(() => {
-            bars.forEach(bar => {
-                const height = parseInt(window.getComputedStyle(bar).height);
-                bar.style.height = (height + (Math.random() * 20 - 10)) + 'px';
-            });
-        }, 500);
+            if (waveEl.classList.contains('speaking')) {
+                bars.forEach(bar => {
+                    const base = parseInt(window.getComputedStyle(bar).height);
+                    bar.style.height = Math.max(10, base + (Math.random() * 30 - 15)) + 'px';
+                });
+            }
+        }, 300);
     </script>
 </body>
 </html>
