@@ -127,6 +127,11 @@ class JarvisDaemon:
         cleaner_daemon = SystemCleanerDaemon.get_instance()
         hv.register_module("SystemCleaner", cleaner_daemon, "low")
         cleaner_daemon.start()
+
+        from jarvisx.automation.system_tray_agent import SystemTrayAgent
+        tray = SystemTrayAgent.get_instance()
+        hv.register_module("SystemTrayAgent", tray, "normal")
+        tray.start()
         from jarvisx.vision.edith_ar import EdithAREngine
         hv.register_module("EdithAREngine", EdithAREngine.get_instance(), "critical")
 
