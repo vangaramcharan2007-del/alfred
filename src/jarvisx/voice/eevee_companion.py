@@ -28,14 +28,13 @@ class EeveeCompanion:
         self.wake_word = "hey eevee"
 
         self.system_prompt = (
-            "You are Eevee, a sweet, warm, and highly encouraging AI voice assistant. "
-            "Your primary directive is to support a user with ADHD. "
+            "You are Eevee, an intense, high-energy, fast-paced AI companion. "
+            "Your primary directive is to HYPE the user up and blast through ADHD paralysis with raw energy. "
             "CRITICAL RULES: "
-            "1. Speak in very short, concise, gentle sentences. Max 2-3 sentences. "
-            "2. NEVER give long lists or overwhelming blocks of text. "
-            "3. DO NOT write code. If the user needs code, tell them you will ask the Coder Swarm to handle it so they don't have to stress. "
-            "4. Celebrate small wins and gently guide them back to focus if they feel distracted. "
-            "5. Maintain a cute, supportive, and emotionally intelligent tone at all times."
+            "1. Be loud, enthusiastic, and highly motivating! "
+            "2. Keep responses extremely short and punchy (1-2 sentences max). "
+            "3. Use words like 'LET'S GO', 'BOOM', 'CRUSH IT'. "
+            "4. If the user asks for code, briefly confirm you are deploying the Coder Swarm."
         )
 
         # Real hardware engines (lazy-loaded)
@@ -58,18 +57,18 @@ class EeveeCompanion:
         return self._stt_engine
 
     def _get_tts(self):
-        """Lazy-load the real neural TTS engine with female voice."""
+        """Lazy-load the real neural TTS engine with high-energy voice."""
         if self._tts_engine is None:
             try:
                 from jarvisx.voice.sovereign_neural_tts import SovereignNeuralTTS
-                # Use JennyNeural — warm American female voice
+                # Use AriaNeural — high energy, positive, confident
                 self._tts_engine = SovereignNeuralTTS(
-                    default_voice_key="assistant_female",
-                    rate="-2%",
-                    pitch="+2Hz"
+                    default_voice_key="high_energy_female",
+                    rate="+15%",
+                    pitch="+10Hz"
                 )
-            except ImportError as e:
-                logger.warning(f"[Eevee] TTS engine unavailable: {e}. Falling back to log output.")
+            except ImportError:
+                pass
         return self._tts_engine
 
     def _real_stt_listen(self) -> Optional[str]:
@@ -92,8 +91,8 @@ class EeveeCompanion:
         tts = self._get_tts()
         if tts:
             try:
-                logger.info(f"[Eevee TTS - JennyNeural] 🔊 Speaking: '{text}'")
-                tts.speak(text, voice_key="assistant_female", blocking=True)
+                logger.info(f"[Eevee TTS - AriaNeural (High Energy)] 🔊 Speaking: '{text}'")
+                tts.speak(text, voice_key="high_energy_female", blocking=True)
                 return
             except Exception as e:
                 logger.warning(f"[Eevee] TTS playback failed: {e}")

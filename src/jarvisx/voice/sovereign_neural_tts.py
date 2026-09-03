@@ -34,10 +34,12 @@ class SovereignNeuralTTS:
         "telugu_male": "te-IN-MohanNeural",
         "telugu_female": "te-IN-ShrutiNeural",
         "assistant_female": "en-US-JennyNeural",
+        "high_energy_female": "en-US-AriaNeural",
+        "high_energy_male": "en-US-GuyNeural",
     }
 
-    def __init__(self, default_voice_key: str = "british_butler", rate: str = "-4%", pitch: str = "-4Hz"):
-        self.voice = self.VOICES.get(default_voice_key, "en-GB-ThomasNeural")
+    def __init__(self, default_voice_key: str = "high_energy_female", rate: str = "+10%", pitch: str = "+5Hz"):
+        self.voice = self.VOICES.get(default_voice_key, "en-US-AriaNeural")
         self.rate = rate
         self.pitch = pitch
         self.is_speaking = False
