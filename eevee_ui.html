@@ -460,6 +460,21 @@
                         typeWriter(ttsOutput, msg.data.text, 0, "#00ccff");
                         setWaveState("speaking");
                     }
+                    
+                    // ---- Event Extensions ----
+                    else if (msg.type === "finance_event") {
+                        showToast("📈 " + msg.data.symbol + " ALERT: " + msg.data.price, "success");
+                    } else if (msg.type === "devops_event") {
+                        showToast("⚠️ DEV-OPS ALERT: " + msg.data.status, "danger");
+                    } else if (msg.type === "email_event") {
+                        showToast("✉️ GhostMail: " + msg.data.action, "success");
+                    } else if (msg.type === "meeting_event") {
+                        showToast("📅 Meeting Joiner: Opening " + msg.data.title, "warning");
+                    } else if (msg.type === "debugger_event") {
+                        showToast("🐞 DebuggerSwarm: " + msg.data.status, "success");
+                    } else if (msg.type === "window_event") {
+                        showToast("🖥️ WindowManager: " + msg.data.status, "");
+                    }
 
                     // ---- E.V. Status Updates ----
                     else if (msg.type === "ev_status") {

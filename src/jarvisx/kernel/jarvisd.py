@@ -132,6 +132,28 @@ class JarvisDaemon:
         tray = SystemTrayAgent.get_instance()
         hv.register_module("SystemTrayAgent", tray, "normal")
         tray.start()
+
+        # Phase 17 Active Automation Agents
+        from jarvisx.automation.ghost_mail import GhostMail
+        ghost_mail = GhostMail.get_instance()
+        hv.register_module("GhostMail", ghost_mail, "low")
+        ghost_mail.start()
+
+        from jarvisx.automation.meeting_joiner import AutoMeetingJoiner
+        meeting_joiner = AutoMeetingJoiner.get_instance()
+        hv.register_module("ChronoCommute", meeting_joiner, "normal")
+        meeting_joiner.start()
+
+        from jarvisx.automation.clipboard_debugger import ClipboardDebugger
+        clipboard = ClipboardDebugger.get_instance()
+        hv.register_module("DebuggerSwarm", clipboard, "normal")
+        clipboard.start()
+
+        from jarvisx.automation.window_manager import WindowManagerAgent
+        window_mgr = WindowManagerAgent.get_instance()
+        hv.register_module("WindowManager", window_mgr, "normal")
+        window_mgr.start()
+
         from jarvisx.vision.edith_ar import EdithAREngine
         hv.register_module("EdithAREngine", EdithAREngine.get_instance(), "critical")
 
