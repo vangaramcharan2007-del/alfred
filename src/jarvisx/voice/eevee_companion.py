@@ -158,14 +158,39 @@ class EeveeCompanion:
                     logger.info(f"[Eevee] User command: '{command}'")
                     self._push_to_ui("stt_intercept", {"text": command})
 
-                    # Generate LLM response
-                    logger.info("[Eevee] Thinking...")
-                    self._push_to_ui("ev_status", {"text": "Processing response..."})
-                    response = self._generate_response(command)
+                    # Check if it's a coding task
+                    if any(w in lower for w in ["write", "create", "code", "script"]):
+                        logger.info("[Eevee] Coding task detected. Dispatching Coder Swarm.")
+                        self._push_to_ui("ev_status", {"text": "Dispatching Coder Swarm..."})
+                        
+                        # Tell user
+                        ack = "I'm on it. I'll have the Coder Swarm write that for you right now so you don't have to stress."
+                        self._push_to_ui("tts_response", {"text": ack})
+                        self._real_tts_speak(ack)
+                        
+                        # Trigger orchestrator in background
+                        def _run_swarm(task_text):
+                            try:
+                                from jarvisx.orchestration.meta_orchestrator import MetaOrchestrator
+                                MetaOrchestrator.get_instance().orchestrate_task(task_text)
+                                # Announce completion
+                                done_msg = "The swarm has finished writing the files for you. Take a look!"
+                                self._push_to_ui("tts_response", {"text": done_msg})
+                                self._real_tts_speak(done_msg)
+                            except Exception as e:
+                                logger.error(f"[Eevee] Swarm failed: {e}")
+                                
+                        threading.Thread(target=_run_swarm, args=(command,), daemon=True).start()
+                        
+                    else:
+                        # Generate LLM response
+                        logger.info("[Eevee] Thinking...")
+                        self._push_to_ui("ev_status", {"text": "Processing response..."})
+                        response = self._generate_response(command)
 
-                    # Push response to UI and speak it
-                    self._push_to_ui("tts_response", {"text": response})
-                    self._real_tts_speak(response)
+                        # Push response to UI and speak it
+                        self._push_to_ui("tts_response", {"text": response})
+                        self._real_tts_speak(response)
 
                     logger.info("[Eevee] Returning to sleep state.")
                     self._push_to_ui("ev_status", {"text": "Standby."})

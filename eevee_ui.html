@@ -500,6 +500,32 @@
                         showToast("E.D.I.T.H. VISION", text, "warning");
                     }
 
+                    // ---- Coder Swarm Events ----
+                    else if (msg.type === "swarm_event") {
+                        showToast("CODER SWARM [" + msg.data.agent + "]", msg.data.action, "success");
+                        
+                        // Also update the right panel dynamically
+                        const taskList = document.getElementById('task-list');
+                        const header = document.querySelector('.task-list-header');
+                        if(header.innerText !== "THE TURING HIVE // CODER SWARM") {
+                            header.innerText = "THE TURING HIVE // CODER SWARM";
+                            header.style.color = "#00ff88";
+                            header.style.borderBottomColor = "rgba(0, 255, 136, 0.3)";
+                            taskList.innerHTML = ""; // clear
+                        }
+                        
+                        const div = document.createElement('div');
+                        div.className = "task-item active";
+                        div.style.borderColor = "#00ff88";
+                        div.style.background = "rgba(0, 255, 136, 0.1)";
+                        div.innerHTML = `<div class="task-num" style="color:#00ff88">${msg.data.agent.substring(0,2).toUpperCase()}</div><div>${msg.data.action}</div>`;
+                        taskList.prepend(div); // Add to top
+                        
+                        if (taskList.children.length > 5) {
+                            taskList.removeChild(taskList.lastChild);
+                        }
+                    }
+
                 } catch (e) {
                     console.error("WS Parse error", e);
                 }
