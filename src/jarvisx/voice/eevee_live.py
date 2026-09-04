@@ -95,11 +95,41 @@ class EeveeLive:
         threading.Thread(target=self._audio_player_worker, daemon=True).start()
 
         client = genai.Client(api_key=self.api_key)
+        
+        # Define native tools
+        run_cyber_tool = {
+            "name": "run_cyber_playbook", 
+            "description": "Executes a cybersecurity MITRE ATT&CK playbook against a target.",
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {
+                    "playbook_name": {"type": "STRING", "description": "e.g. recon, exfiltration, xss"},
+                    "target": {"type": "STRING", "description": "e.g. localhost, 192.168.1.5"}
+                },
+                "required": ["playbook_name", "target"]
+            }
+        }
+        
+        spawn_coder_tool = {
+            "name": "spawn_coder_swarm",
+            "description": "Deploys a swarm of AI agents to write code or modify files.",
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {
+                    "task": {"type": "STRING", "description": "Description of the code to write"}
+                },
+                "required": ["task"]
+            }
+        }
+        
+        tools = [{"function_declarations": [run_cyber_tool, spawn_coder_tool]}]
+        
         config = types.LiveConnectConfig(
             response_modalities=[types.Modality.AUDIO],
             system_instruction=types.Content(
                 parts=[types.Part(text=self.system_prompt)]
-            )
+            ),
+            tools=tools
         )
 
         logger.info("[EeveeLive] Connecting to gemini-3.1-flash-live-preview WebSocket...")
@@ -112,13 +142,36 @@ class EeveeLive:
                 self._push_to_ui("ev_status", {"text": "Live Stream Active. Speak naturally."})
 
                 send_task = asyncio.create_task(self._send_mic_data(session))
+                video_task = asyncio.create_task(self._send_video_data(session))
                 receive_task = asyncio.create_task(self._receive_events(session))
                 
-                await asyncio.gather(send_task, receive_task)
+                await asyncio.gather(send_task, video_task, receive_task)
         except Exception as e:
             logger.error(f"[EeveeLive] WebSocket session failed: {e}")
         finally:
             self._cleanup()
+
+    async def _send_video_data(self, session):
+        loop = asyncio.get_running_loop()
+        while self._running:
+            try:
+                def capture_screen():
+                    import io
+                    from PIL import ImageGrab
+                    img = ImageGrab.grab()
+                    # Resize to 720p or similar for bandwidth limits
+                    img.thumbnail((1024, 1024))
+                    buf = io.BytesIO()
+                    img.save(buf, format='JPEG', quality=70)
+                    return buf.getvalue()
+                    
+                frame_bytes = await loop.run_in_executor(None, capture_screen)
+                await session.send_realtime_input(
+                    video=types.Blob(data=frame_bytes, mime_type="image/jpeg")
+                )
+            except Exception as e:
+                logger.warning(f"[EeveeLive] Video capture error: {e}")
+            await asyncio.sleep(1.0)  # 1 FPS to prevent bandwidth saturation
 
     async def _send_mic_data(self, session):
         loop = asyncio.get_running_loop()
@@ -135,6 +188,49 @@ class EeveeLive:
 
     async def _receive_events(self, session):
         async for response in session.receive():
+            if response.tool_call:
+                logger.info("[EeveeLive] Function call intercepted from Gemini.")
+                function_responses = []
+                for fc in response.tool_call.function_calls:
+                    if fc.name == "run_cyber_playbook":
+                        # Execute logic
+                        args = fc.args if hasattr(fc, 'args') else {}
+                        pb = args.get("playbook_name", "recon")
+                        target = args.get("target", "localhost")
+                        logger.info(f"[EeveeLive] Executing {pb} on {target}")
+                        try:
+                            from jarvisx.automation.cyber_commander import CyberCommander
+                            CyberCommander.get_instance().execute_playbook(pb, target)
+                            res_text = "Playbook dispatched successfully."
+                        except Exception as e:
+                            res_text = f"Failed to dispatch: {e}"
+                        
+                        function_responses.append(types.FunctionResponse(
+                            id=fc.id,
+                            name=fc.name,
+                            response={"result": res_text}
+                        ))
+                    elif fc.name == "spawn_coder_swarm":
+                        args = fc.args if hasattr(fc, 'args') else {}
+                        task_desc = args.get("task", "")
+                        logger.info(f"[EeveeLive] Spawning coder swarm for: {task_desc}")
+                        try:
+                            from jarvisx.orchestration.meta_orchestrator import MetaOrchestrator
+                            import threading
+                            threading.Thread(target=MetaOrchestrator.get_instance().orchestrate_task, args=(task_desc,), daemon=True).start()
+                            res_text = "Coder swarm successfully deployed in the background."
+                        except Exception as e:
+                            res_text = f"Failed to deploy swarm: {e}"
+                            
+                        function_responses.append(types.FunctionResponse(
+                            id=fc.id,
+                            name=fc.name,
+                            response={"result": res_text}
+                        ))
+                        
+                if function_responses:
+                    await session.send_tool_response(function_responses=function_responses)
+
             content = response.server_content
             if content:
                 # Handle Interruption (VAD)

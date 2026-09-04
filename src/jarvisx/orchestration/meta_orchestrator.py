@@ -60,6 +60,18 @@ class MetaOrchestrator:
         
         from jarvisx.orchestration.agent_worker import AgentWorker
         
+        # Phase 21: Query OpenVikings Memory Core
+        try:
+            from jarvisx.memory.open_vikings_memory import OpenVikingsMemoryCore
+            vikings = OpenVikingsMemoryCore.get_instance()
+            past_experience = vikings.recall(task)
+            if past_experience:
+                logger.info(f"[Orchestrator] OpenVikings memory hit! Injecting past context: {past_experience[:50]}...")
+                task = f"PAST EXPERIENCE:\n{past_experience}\n\nCURRENT TASK:\n{task}"
+        except Exception as e:
+            logger.warning(f"[Orchestrator] OpenVikings memory query failed: {e}")
+            vikings = None
+        
         # We'll run the task in the current working directory
         cwd = os.getcwd()
         
@@ -78,6 +90,11 @@ class MetaOrchestrator:
                 files = result.get("files", [])
                 all_written_files.extend(files)
                 team_logs.append(f"{role} succeeded. Wrote {len(files)} files.")
+                
+                # Phase 21: Commit successful outcome to memory
+                if vikings:
+                    summary = f"Agents {roles} successfully wrote files {files} to solve task."
+                    vikings.commit_memory(task_signature=task[:50], solution_summary=summary)
             else:
                 team_logs.append(f"{role} failed: {result.get('error')}")
             
