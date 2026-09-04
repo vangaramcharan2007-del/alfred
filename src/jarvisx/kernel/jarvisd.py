@@ -178,6 +178,15 @@ class JarvisDaemon:
         hv.register_module("SkillLibrary", skill_lib, "critical")
         # Note: We do NOT call start() with a while-loop. 0% CPU footprint.
 
+        from jarvisx.automation.cyber_commander import CyberCommander
+        cyber_cmd = CyberCommander.get_instance()
+        hv.register_module("CyberCommander", cyber_cmd, "critical")
+        cyber_cmd.start()
+
+        from jarvisx.memory.open_vikings_memory import OpenVikingsMemoryCore
+        vikings_mem = OpenVikingsMemoryCore.get_instance()
+        hv.register_module("OpenVikings", vikings_mem, "critical")
+
         from jarvisx.vision.edith_ar import EdithAREngine
         hv.register_module("EdithAREngine", EdithAREngine.get_instance(), "critical")
 

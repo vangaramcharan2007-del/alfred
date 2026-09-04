@@ -157,8 +157,39 @@ class EeveeCompanion:
                     logger.info(f"[Eevee] User command: '{command}'")
                     self._push_to_ui("stt_intercept", {"text": command})
 
+                    # Check if it's a playbook command
+                    if "run playbook" in lower or "execute playbook" in lower:
+                        logger.info("[Eevee] Playbook command detected. Dispatching CyberCommander.")
+                        self._push_to_ui("ev_status", {"text": "Dispatching CyberCommander..."})
+                        
+                        ack = "I'm deploying the Cyber Commander now, kid. Consider it done."
+                        self._push_to_ui("tts_response", {"text": ack})
+                        self._real_tts_speak(ack)
+                        
+                        def _run_cyber():
+                            try:
+                                from jarvisx.automation.cyber_commander import CyberCommander
+                                # Naive extraction for demo: "run playbook recon on localhost" -> "recon", "localhost"
+                                words = lower.split()
+                                playbook = "recon"
+                                target = "localhost"
+                                if "playbook" in words:
+                                    idx = words.index("playbook")
+                                    if len(words) > idx + 1:
+                                        playbook = words[idx + 1]
+                                    if "on" in words:
+                                        target_idx = words.index("on")
+                                        if len(words) > target_idx + 1:
+                                            target = words[target_idx + 1]
+
+                                CyberCommander.get_instance().execute_playbook(playbook, target)
+                            except Exception as e:
+                                logger.error(f"[Eevee] CyberCommander failed: {e}")
+                                
+                        threading.Thread(target=_run_cyber, daemon=True).start()
+
                     # Check if it's a coding task
-                    if any(w in lower for w in ["write", "create", "code", "script"]):
+                    elif any(w in lower for w in ["write", "create", "code", "script"]):
                         logger.info("[Eevee] Coding task detected. Dispatching Coder Swarm.")
                         self._push_to_ui("ev_status", {"text": "Dispatching Coder Swarm..."})
                         
