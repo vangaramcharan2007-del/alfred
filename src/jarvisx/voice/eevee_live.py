@@ -169,6 +169,8 @@ class EeveeLive:
                 await session.send_realtime_input(
                     video=types.Blob(data=frame_bytes, mime_type="image/jpeg")
                 )
+                # Send HUD telemetry for Edith AR Vision
+                self._push_to_ui("edith_event", {"action": "Frame processed", "result": "Optical feed active"})
             except Exception as e:
                 logger.warning(f"[EeveeLive] Video capture error: {e}")
             await asyncio.sleep(1.0)  # 1 FPS to prevent bandwidth saturation

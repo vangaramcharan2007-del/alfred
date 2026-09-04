@@ -63,14 +63,6 @@ class CyberCommander:
             logger.info(f"[CyberCommander] Playbook {matched_file.name} execution complete on {target}.")
             self._push_to_ui("cyber_event", {"status": f"Target secured: {target} (via {matched_file.name})"})
             
-            # Announce via Eevee/Tony TTS
-            try:
-                from jarvisx.voice.eevee_companion import EeveeCompanion
-                eevee = EeveeCompanion.get_instance()
-                eevee._real_tts_speak(f"Kid, I just ran the {matched_file.name.replace('_SKILL.md', '')} playbook against {target}. We are fully secure.")
-            except Exception:
-                pass
-                
         threading.Thread(target=_run_sim, daemon=True).start()
 
     def start(self):
