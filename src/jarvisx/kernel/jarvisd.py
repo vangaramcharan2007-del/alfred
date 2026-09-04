@@ -206,8 +206,10 @@ class JarvisDaemon:
         except ImportError:
             logger.warning("[GhostBrowser] Engine unavailable")
 
-        from jarvisx.voice.eevee_companion import EeveeCompanion
-        hv.register_module("EeveeCompanion", EeveeCompanion.get_instance(), "critical")
+        from jarvisx.voice.eevee_live import EeveeLive
+        ev = EeveeLive.get_instance()
+        hv.register_module("EeveeLive", ev, "critical")
+        ev.start()
 
         # 9. Start MCP Server Bridge
         mcp = MCPServerBridge.get_instance()
