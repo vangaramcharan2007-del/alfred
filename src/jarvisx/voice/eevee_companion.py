@@ -101,19 +101,33 @@ class EeveeCompanion:
         time.sleep(2)
 
     def _generate_response(self, user_text: str) -> str:
-        """Query LLM with the ADHD companion persona."""
+        """
+        Generates a contextual response using Gemini with full conversation history.
+        """
         try:
-            import ollama
-            res = ollama.chat(
-                model="qwen2.5-coder:1.5b",
-                messages=[
-                    {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": user_text}
-                ]
-            )
-            return res["message"]["content"].strip()
-        except Exception:
-            return "That's okay! Take a deep breath. Let's just look at the first line of code. Just one line. I'm right here with you."
+            from jarvisx.llm.gemini_provider import GeminiLLMProvider
+            gemini = GeminiLLMProvider.get_instance()
+            
+            # Maintain conversation history buffer
+            if not hasattr(self, 'conversation_history'):
+                self.conversation_history = [{"role": "system", "content": self.system_prompt}]
+                
+            self.conversation_history.append({"role": "user", "content": user_text})
+            
+            # Use Gemini to generate a response
+            prompt_block = "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in self.conversation_history])
+            res = gemini.generate(prompt_block)
+            
+            self.conversation_history.append({"role": "assistant", "content": res})
+            
+            # Keep buffer size manageable (last 20 messages)
+            if len(self.conversation_history) > 21:
+                self.conversation_history = [self.conversation_history[0]] + self.conversation_history[-20:]
+                
+            return res.strip()
+        except Exception as e:
+            logger.error(f"[Eevee] Gemini failed: {e}")
+            return "Looks like we lost connection to the main frame, kid. Let me check the relays."
 
     def _push_to_ui(self, event_type: str, data: dict):
         """Broadcast real-time events to the E.V. UI over WebSockets."""
