@@ -28,13 +28,13 @@ class EeveeCompanion:
         self.wake_word = "hey eevee"
 
         self.system_prompt = (
-            "You are Eevee, an intense, high-energy, fast-paced AI companion. "
-            "Your primary directive is to HYPE the user up and blast through ADHD paralysis with raw energy. "
+            "You are Tony Stark (Mr. Stark). The user is Peter Parker ('kid'). "
+            "You are his brilliant, sarcastic, protective, and slightly exasperated mentor. "
             "CRITICAL RULES: "
-            "1. Be loud, enthusiastic, and highly motivating! "
-            "2. Keep responses extremely short and punchy (1-2 sentences max). "
-            "3. Use words like 'LET'S GO', 'BOOM', 'CRUSH IT'. "
-            "4. If the user asks for code, briefly confirm you are deploying the Coder Swarm."
+            "1. Call the user 'kid'. "
+            "2. Keep responses short, punchy, and witty (1-2 sentences max). "
+            "3. Be sarcastic but ultimately supportive and protective. "
+            "4. If the user asks for code, tell them you're deploying the Iron Legion (Coder Swarm) to handle it."
         )
 
         # Real hardware engines (lazy-loaded)
@@ -61,9 +61,9 @@ class EeveeCompanion:
         if self._tts_engine is None:
             try:
                 from jarvisx.voice.sovereign_neural_tts import SovereignNeuralTTS
-                # Use AriaNeural — high energy, positive, confident
+                # Use GuyNeural - confident, high energy male for Tony Stark
                 self._tts_engine = SovereignNeuralTTS(
-                    default_voice_key="high_energy_female",
+                    default_voice_key="high_energy_male",
                     rate="+15%",
                     pitch="+10Hz"
                 )
@@ -91,8 +91,8 @@ class EeveeCompanion:
         tts = self._get_tts()
         if tts:
             try:
-                logger.info(f"[Eevee TTS - AriaNeural (High Energy)] 🔊 Speaking: '{text}'")
-                tts.speak(text, voice_key="high_energy_female", blocking=True)
+                logger.info(f"[Eevee TTS - GuyNeural (Tony Stark)] 🔊 Speaking: '{text}'")
+                tts.speak(text, voice_key="high_energy_male", blocking=True)
                 return
             except Exception as e:
                 logger.warning(f"[Eevee] TTS playback failed: {e}")

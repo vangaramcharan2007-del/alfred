@@ -173,6 +173,11 @@ class JarvisDaemon:
         hv.register_module("Midas", midas, "low")
         midas.start()
 
+        from jarvisx.automation.zero_lag_skill_library import ZeroLagSkillLibrary
+        skill_lib = ZeroLagSkillLibrary.get_instance()
+        hv.register_module("SkillLibrary", skill_lib, "critical")
+        # Note: We do NOT call start() with a while-loop. 0% CPU footprint.
+
         from jarvisx.vision.edith_ar import EdithAREngine
         hv.register_module("EdithAREngine", EdithAREngine.get_instance(), "critical")
 
