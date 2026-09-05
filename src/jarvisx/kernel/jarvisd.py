@@ -197,7 +197,7 @@ class JarvisDaemon:
         hv.register_module("PreCogEngine", PreCogEngine.get_instance(), "critical")
 
         try:
-            from jarvisx.automation.ghost_browser import GhostBrowserEngine
+            from jarvisx.browser.ghost_browser import GhostBrowserEngine
             ghost = GhostBrowserEngine.get_instance()
             hv.register_module("GhostBrowser", ghost, "critical")
             ghost.start()
@@ -205,6 +205,14 @@ class JarvisDaemon:
             time.sleep(0.5)
         except ImportError:
             logger.warning("[GhostBrowser] Engine unavailable")
+            
+        try:
+            from jarvisx.browser.browser_use_engine import BrowserUseEngine
+            browser_use = BrowserUseEngine.get_instance()
+            hv.register_module("BrowserUseEngine", browser_use, "critical")
+            browser_use.start()
+        except ImportError as e:
+            logger.warning(f"[BrowserUseEngine] Engine unavailable: {e}")
 
         from jarvisx.voice.eevee_live import EeveeLive
         ev = EeveeLive.get_instance()

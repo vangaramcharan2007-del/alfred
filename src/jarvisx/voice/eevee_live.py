@@ -122,7 +122,19 @@ class EeveeLive:
             }
         }
         
-        tools = [{"function_declarations": [run_cyber_tool, spawn_coder_tool]}]
+        run_browser_tool = {
+            "name": "run_browser_task",
+            "description": "Deploys an autonomous AI agent to take over the user's web browser, navigate websites, and extract information.",
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {
+                    "task": {"type": "STRING", "description": "e.g. 'Go to google.com and search for the latest tech news'"}
+                },
+                "required": ["task"]
+            }
+        }
+        
+        tools = [{"function_declarations": [run_cyber_tool, spawn_coder_tool, run_browser_tool]}]
         
         config = types.LiveConnectConfig(
             response_modalities=[types.Modality.AUDIO],
@@ -223,6 +235,22 @@ class EeveeLive:
                             res_text = "Coder swarm successfully deployed in the background."
                         except Exception as e:
                             res_text = f"Failed to deploy swarm: {e}"
+                            
+                        function_responses.append(types.FunctionResponse(
+                            id=fc.id,
+                            name=fc.name,
+                            response={"result": res_text}
+                        ))
+                    elif fc.name == "run_browser_task":
+                        args = fc.args if hasattr(fc, 'args') else {}
+                        task_desc = args.get("task", "")
+                        logger.info(f"[EeveeLive] Triggering browser-use task: {task_desc}")
+                        try:
+                            from jarvisx.browser.browser_use_engine import BrowserUseEngine
+                            BrowserUseEngine.get_instance().execute_task(task_desc)
+                            res_text = "Browser automation deployed successfully."
+                        except Exception as e:
+                            res_text = f"Failed to start browser: {e}"
                             
                         function_responses.append(types.FunctionResponse(
                             id=fc.id,
