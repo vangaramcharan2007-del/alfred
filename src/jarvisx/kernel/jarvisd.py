@@ -214,10 +214,13 @@ class JarvisDaemon:
         except ImportError as e:
             logger.warning(f"[BrowserUseEngine] Engine unavailable: {e}")
 
-        from jarvisx.voice.eevee_live import EeveeLive
-        ev = EeveeLive.get_instance()
-        hv.register_module("EeveeLive", ev, "critical")
-        ev.start()
+        try:
+            from jarvisx.voice.eevee_groq import EeveeGroq
+            ev = EeveeGroq.get_instance()
+            hv.register_module("EeveeGroq", ev, "critical")
+            ev.start()
+        except Exception as e:
+            logger.error(f"[EeveeGroq] Failed to start: {e}")
 
         # 9. Start MCP Server Bridge
         mcp = MCPServerBridge.get_instance()
