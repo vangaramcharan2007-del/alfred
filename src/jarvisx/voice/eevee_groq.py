@@ -190,14 +190,25 @@ class EeveeGroq:
             if len(self.messages) > 15:
                 self.messages = [self.messages[0]] + self.messages[-14:]
 
-            # 3. Call Groq Llama 3
-            response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=self.messages,
-                tools=self.tools,
-                tool_choice="auto",
-                max_completion_tokens=150,
-            )
+            # 3. Call Groq Model
+            model_to_use = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+            try:
+                response = client.chat.completions.create(
+                    model=model_to_use,
+                    messages=self.messages,
+                    tools=self.tools,
+                    tool_choice="auto",
+                    max_completion_tokens=150,
+                )
+            except Exception:
+                # Fallback to 20B or Qwen if 120B is saturated
+                response = client.chat.completions.create(
+                    model="openai/gpt-oss-20b",
+                    messages=self.messages,
+                    tools=self.tools,
+                    tool_choice="auto",
+                    max_completion_tokens=150,
+                )
 
             choice = response.choices[0]
             
