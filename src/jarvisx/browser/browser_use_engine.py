@@ -49,17 +49,27 @@ class BrowserUseEngine:
     async def _async_execute(self, task_description: str):
         try:
             from browser_use import Agent
-            from langchain_groq import ChatGroq
-            from langchain_openai import ChatOpenAI
             
-            # Use Groq if available
+            # Use Groq if available (via OpenAI compatible endpoint), fallback to OpenRouter, fallback to OpenAI
             llm = None
-            if os.getenv("GROQ_API_KEY"):
-                llm = ChatGroq(model="llama-3.3-70b-versatile", api_key=os.getenv("GROQ_API_KEY"))
+            if os.getenv("OPENROUTER_API_KEY"):
+                from browser_use.llm.openrouter.chat import ChatOpenRouter
+                llm = ChatOpenRouter(
+                    model="google/gemini-2.5-flash", 
+                    api_key=os.getenv("OPENROUTER_API_KEY")
+                )
+            elif os.getenv("GROQ_API_KEY"):
+                from browser_use.llm.openai.like import ChatOpenAILike
+                llm = ChatOpenAILike(
+                    model="llama-3.2-90b-vision-preview", 
+                    api_key=os.getenv("GROQ_API_KEY"),
+                    base_url="https://api.groq.com/openai/v1"
+                )
             elif os.getenv("OPENAI_API_KEY"):
+                from browser_use.llm.openai.chat import ChatOpenAI
                 llm = ChatOpenAI(model="gpt-4o", api_key=os.getenv("OPENAI_API_KEY"))
             else:
-                raise ValueError("No valid LLM API Key found for browser-use (GROQ_API_KEY or OPENAI_API_KEY required).")
+                raise ValueError("No valid LLM API Key found for browser-use (OPENROUTER_API_KEY or GROQ_API_KEY required).")
                 
             agent = Agent(
                 task=task_description,
