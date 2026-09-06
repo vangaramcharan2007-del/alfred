@@ -116,7 +116,8 @@ class EeveeGroq:
         tts = self._get_tts()
         if tts:
             self._push_to_ui("ev_status", {"text": "Speaking..."})
-            tts.speak(text, voice_key="high_energy_male", blocking=True)
+            voice_key = os.getenv("EEVEE_VOICE", "high_energy_female")
+            tts.speak(text, voice_key=voice_key, blocking=True)
             self._push_to_ui("ev_status", {"text": "Listening..."})
 
     def start(self):

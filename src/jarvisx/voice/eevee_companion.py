@@ -61,11 +61,11 @@ class EeveeCompanion:
         if self._tts_engine is None:
             try:
                 from jarvisx.voice.sovereign_neural_tts import SovereignNeuralTTS
-                # Use GuyNeural - confident, high energy male for Tony Stark
+                # Use AriaNeural - natural, expressive, high energy female for Eevee
                 self._tts_engine = SovereignNeuralTTS(
-                    default_voice_key="high_energy_male",
-                    rate="+15%",
-                    pitch="+10Hz"
+                    default_voice_key="high_energy_female",
+                    rate="+5%",
+                    pitch="+2Hz"
                 )
             except ImportError:
                 pass
@@ -91,8 +91,8 @@ class EeveeCompanion:
         tts = self._get_tts()
         if tts:
             try:
-                logger.info(f"[Eevee TTS - GuyNeural (Tony Stark)] 🔊 Speaking: '{text}'")
-                tts.speak(text, voice_key="high_energy_male", blocking=True)
+                logger.info(f"[Eevee TTS - AriaNeural (Female)] 🔊 Speaking: '{text}'")
+                tts.speak(text, voice_key="high_energy_female", blocking=True)
                 return
             except Exception as e:
                 logger.warning(f"[Eevee] TTS playback failed: {e}")
