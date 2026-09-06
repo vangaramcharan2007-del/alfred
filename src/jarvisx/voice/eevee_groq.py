@@ -167,10 +167,10 @@ class EeveeGroq:
 
     def _push_to_ui(self, event_type: str, data: dict):
         try:
-            from jarvisx.dashboard.hud_server import push_event_sync
+            from jarvisx.dashboard.event_bus import push_event_sync
             push_event_sync(event_type, data)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"[EeveeGroq] UI push error: {e}")
 
     def _get_tts(self):
         if self._tts_engine is None:
@@ -190,7 +190,7 @@ class EeveeGroq:
         if tts:
             self._push_to_ui("ev_status", {"text": "Speaking..."})
             voice_key = os.getenv("EEVEE_VOICE", "hyper_realistic_female")
-            tts.speak(text, voice_key=voice_key, blocking=True)
+            tts.speak(text, voice_key=voice_key, blocking=False)
             self._push_to_ui("ev_status", {"text": "Listening..."})
 
     # =========================================================================

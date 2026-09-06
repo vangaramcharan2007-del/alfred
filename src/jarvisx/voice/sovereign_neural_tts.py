@@ -97,7 +97,7 @@ class SovereignNeuralTTS:
                 # Fallback to local offline Windows SAPI speaker
                 try:
                     from jarvisx.voice.offline_speaker import speak_offline
-                    speak_offline(text, voice_gender="male")
+                    speak_offline(text, voice_gender="female")
                 except Exception:
                     print(f"[ALFRED VOICE LOG]: {text} ({e})")
             finally:

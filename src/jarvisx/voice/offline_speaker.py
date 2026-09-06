@@ -26,11 +26,18 @@ def speak_offline(text: str, voice_gender: str = "male") -> bool:
         vbs_path = os.path.join(temp_dir, f"offline_speak_{os.getpid()}.vbs")
         
         with open(vbs_path, "w", encoding="utf-8") as f:
-            f.write(f'Set voice = CreateObject("SAPI.SpVoice")\n')
-            f.write(f'voice.Rate = 0\n')
-            f.write(f'voice.Volume = 100\n')
+            f.write('Set voice = CreateObject("SAPI.SpVoice")\n')
+            if voice_gender.lower() == "female":
+                f.write('For Each v In voice.GetVoices\n')
+                f.write('    If InStr(LCase(v.GetDescription), "female") > 0 Or InStr(LCase(v.GetDescription), "zira") > 0 Then\n')
+                f.write('        Set voice.Voice = v\n')
+                f.write('        Exit For\n')
+                f.write('    End If\n')
+                f.write('Next\n')
+            f.write('voice.Rate = 0\n')
+            f.write('voice.Volume = 100\n')
             f.write(f'voice.Speak "{clean_text}"\n')
-            f.write(f'Set voice = Nothing\n')
+            f.write('Set voice = Nothing\n')
 
         subprocess.run(["cscript.exe", "//nologo", vbs_path], check=True, timeout=15)
         try:
@@ -43,7 +50,8 @@ def speak_offline(text: str, voice_gender: str = "male") -> bool:
 
     # 2. Method 2: PowerShell System.Speech Fallback
     try:
-        ps_cmd = f"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('{clean_text}')"
+        select_female = "$v = $synth.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Gender -eq 'Female' } | Select-Object -First 1; if ($v) { $synth.SelectVoice($v.VoiceInfo.Name) };" if voice_gender.lower() == "female" else ""
+        ps_cmd = f"Add-Type -AssemblyName System.Speech; $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; {select_female} $synth.Speak('{clean_text}')"
         subprocess.run(["powershell.exe", "-NoProfile", "-Command", ps_cmd], check=True, timeout=15)
         return True
     except Exception as e:

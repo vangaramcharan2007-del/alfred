@@ -635,7 +635,7 @@
     <header class="top-bar">
         <div class="brand-section">
             <div class="logo">E.V. <span class="logo-tag">EXECUTIVE VISION</span></div>
-            <div class="persona-pill">PERSONA: TONY STARK</div>
+            <div class="persona-pill">PERSONA: F.R.I.D.A.Y. // CHARAN</div>
         </div>
 
         <div class="system-telemetry-bar">
@@ -676,7 +676,7 @@
                     <span>E.V. COGNITIVE SYNTHESIS</span>
                     <div class="indicator"></div>
                 </div>
-                <div class="response-text" id="tts-display">Standing by, kid. What are we building today?</div>
+                <div class="response-text" id="tts-display">Standing by, Charan. All tactical systems are online and operational.</div>
             </div>
         </section>
 
@@ -857,17 +857,24 @@
                     else if (msg.type === "stt_intercept") {
                         sttDisplay.innerText = `"${msg.data.text}"`;
                         setWaveState("speaking");
+                        clearTimeout(window._transmittingSafetyTimer);
+                        window._transmittingSafetyTimer = setTimeout(() => setWaveState("idle"), 8000);
                     }
                     else if (msg.type === "tts_response") {
+                        clearTimeout(window._transmittingSafetyTimer);
                         clearTimeout(typeTimer);
                         typeWriter(ttsDisplay, msg.data.text);
                         setWaveState("speaking");
-                        setTimeout(() => setWaveState("idle"), 4000);
+                        setTimeout(() => setWaveState("idle"), 4500);
                     }
                     else if (msg.type === "ev_status") {
                         if (msg.data.text.includes("Listening") || msg.data.text.includes("Standby")) {
+                            clearTimeout(window._transmittingSafetyTimer);
                             setWaveState("idle");
                         }
+                    }
+                    else if (msg.type === "cyber_event") {
+                        showToast("CYBER COMMANDER", msg.data.status || msg.data.text, "warning");
                     }
                     else if (msg.type === "ghost_event") {
                         showToast("GHOST BROWSER", msg.data.action || msg.data.text, "danger");

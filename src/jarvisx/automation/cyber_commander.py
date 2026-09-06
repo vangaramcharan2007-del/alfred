@@ -25,7 +25,7 @@ class CyberCommander:
 
     def _push_to_ui(self, event_type: str, data: dict):
         try:
-            from jarvisx.dashboard.hud_server import push_event_sync
+            from jarvisx.dashboard.event_bus import push_event_sync
             push_event_sync(event_type, data)
         except Exception:
             pass

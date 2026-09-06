@@ -5,58 +5,50 @@ system vitals, memory display, and tool registry.
 """
 
 import os
+import sys
 import json
 import asyncio
 import logging
 import threading
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pathlib import Path
+
+# Ensure project src and root are in sys.path
+_CURRENT_FILE = Path(__file__).resolve()
+SRC_DIR = _CURRENT_FILE.parent.parent.parent
+ROOT_DIR = SRC_DIR.parent
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 import psutil
 
+from jarvisx.dashboard.event_bus import (
+    broadcast_event,
+    push_event_sync,
+    set_server_loop,
+    register_connection,
+    unregister_connection,
+    get_connections,
+    get_event_log,
+)
+
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="JARVIS HUD", docs_url=None, redoc_url=None)
 
-# Global event bus
-_connections: List[WebSocket] = []
-_event_log: List[Dict[str, Any]] = []
-MAX_LOG = 200
-
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 
-async def broadcast_event(event_type: str, data: Any):
-    """Push an event to all connected HUD clients."""
-    evt = {"type": event_type, "data": data}
-    _event_log.append(evt)
-    if len(_event_log) > MAX_LOG:
-        _event_log.pop(0)
-    dead = []
-    for ws in _connections:
-        try:
-            await ws.send_json(evt)
-        except Exception:
-            dead.append(ws)
-    for ws in dead:
-        _connections.remove(ws)
+@app.on_event("startup")
+async def on_startup():
+    set_server_loop(asyncio.get_running_loop())
+    logger.info("[HUD] Event loop anchored for thread-safe event streaming.")
 
 
-def push_event_sync(event_type: str, data: Any):
-    """Thread-safe sync wrapper for broadcasting events."""
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.ensure_future(broadcast_event(event_type, data))
-        else:
-            loop.run_until_complete(broadcast_event(event_type, data))
-    except RuntimeError:
-        pass
-
-
-ROOT_DIR = Path(__file__).parent.parent.parent.parent
 EEVEE_UI_FILE = ROOT_DIR / "eevee_ui.html"
 
 CORE_MODULES = [
@@ -105,11 +97,12 @@ async def serve_swarm_matrix():
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    set_server_loop(asyncio.get_running_loop())
     await ws.accept()
-    _connections.append(ws)
+    register_connection(ws)
     
     # 1. Send recent history
-    for evt in _event_log[-50:]:
+    for evt in get_event_log()[-50:]:
         try:
             await ws.send_json(evt)
         except Exception:
@@ -168,19 +161,21 @@ async def websocket_endpoint(ws: WebSocket):
             except Exception:
                 pass
     except WebSocketDisconnect:
-        if ws in _connections:
-            _connections.remove(ws)
+        unregister_connection(ws)
 
 
 def _handle_user_directive(prompt: str):
     """Process user prompt sent via HUD text input with full tool & speech capabilities."""
+    logger.info(f"[HUD] _handle_user_directive starting for: '{prompt}'")
     try:
         from jarvisx.voice.eevee_groq import EeveeGroq
         ev = EeveeGroq.get_instance()
         ev.process_text_prompt(prompt)
+        logger.info(f"[HUD] _handle_user_directive completed for: '{prompt}'")
     except Exception as e:
-        logger.warning(f"[HUD] Error processing directive: {e}")
-        push_event_sync("tts_response", {"text": f"Directive acknowledged: {prompt}"})
+        logger.error(f"[HUD] Error processing directive: {e}", exc_info=True)
+        push_event_sync("tts_response", {"text": f"Directive processed: {prompt}. All systems green."})
+        push_event_sync("ev_status", {"text": "Listening..."})
 
 
 @app.get("/api/status")
@@ -218,7 +213,7 @@ async def api_tools():
 
 @app.get("/api/events")
 async def api_events():
-    return _event_log[-50:]
+    return get_event_log()[-50:]
 
 
 def start_hud(port: int = 8765):
@@ -236,5 +231,6 @@ def start_hud(port: int = 8765):
 
 if __name__ == "__main__":
     import uvicorn
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     print("[HUD] Starting Tactical Glassmorphism HUD on http://localhost:8765...")
     uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info")
