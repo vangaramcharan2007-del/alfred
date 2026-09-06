@@ -338,24 +338,51 @@ class EeveeGroq:
 
             logger.info(f"[EeveeGroq] Heard: {text}")
             self._push_to_ui("stt_intercept", {"text": text})
-            self._push_to_ui("ev_status", {"text": "Thinking..."})
+            self.process_text_prompt(text)
 
-            # 2. Add to context
-            self.messages.append({"role": "user", "content": text})
-            if len(self.messages) > 16:
-                self.messages = [self.messages[0]] + self.messages[-14:]
+        except Exception as e:
+            logger.error(f"[EeveeGroq] Audio processing pipeline error: {e}", exc_info=True)
+            self._push_to_ui("ev_status", {"text": "Standby."})
 
-            # 3. Call Groq Model with Tools
-            model_to_use = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+    def process_text_prompt(self, text: str):
+        """Process user text prompt (from STT voice or HUD text input) with full tool execution."""
+        clean_text = text.strip()
+        if not clean_text:
+            return
+
+        self._push_to_ui("ev_status", {"text": "Thinking..."})
+
+        # Add to context
+        self.messages.append({"role": "user", "content": clean_text})
+        if len(self.messages) > 16:
+            self.messages = [self.messages[0]] + self.messages[-14:]
+
+        if not self.api_key:
+            logger.warning("[EeveeGroq] No GROQ_API_KEY available.")
+            fallback = "GROQ_API_KEY is not configured, Boss."
+            self._push_to_ui("tts_response", {"text": fallback})
+            self._speak(fallback)
+            self._push_to_ui("ev_status", {"text": "Listening..."})
+            return
+
+        try:
+            from groq import Groq
+            client = Groq(api_key=self.api_key)
+        except Exception as e:
+            logger.error(f"[EeveeGroq] Failed to initialize Groq client: {e}")
+            return
+
+        model_to_use = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+        try:
+            response = client.chat.completions.create(
+                model=model_to_use,
+                messages=self.messages,
+                tools=self.tools,
+                tool_choice="auto",
+                max_completion_tokens=150,
+            )
+        except Exception:
             try:
-                response = client.chat.completions.create(
-                    model=model_to_use,
-                    messages=self.messages,
-                    tools=self.tools,
-                    tool_choice="auto",
-                    max_completion_tokens=150,
-                )
-            except Exception:
                 response = client.chat.completions.create(
                     model="openai/gpt-oss-20b",
                     messages=self.messages,
@@ -363,93 +390,95 @@ class EeveeGroq:
                     tool_choice="auto",
                     max_completion_tokens=150,
                 )
-
-            choice = response.choices[0]
-
-            # 4. Handle Tool Calls
-            if choice.message.tool_calls:
-                for tool_call in choice.message.tool_calls:
-                    func_name = tool_call.function.name
-                    args = json.loads(tool_call.function.arguments or "{}")
-                    logger.info(f"[EeveeGroq] Executing Tool: {func_name} with {args}")
-                    self.messages.append(choice.message)
-
-                    tool_output = ""
-                    ack_speech = ""
-
-                    if func_name == "open_app_or_website":
-                        target = args.get("target", "")
-                        tool_output = self._exec_open_target(target)
-                        ack_speech = f"On it. {tool_output}"
-
-                    elif func_name == "run_browser_task":
-                        task = args.get("task", "")
-                        from jarvisx.browser.browser_use_engine import BrowserUseEngine
-                        BrowserUseEngine.get_instance().execute_task(task)
-                        tool_output = f"Autonomous browser dispatched for: {task}"
-                        ack_speech = "Browser agent is on it, Boss."
-
-                    elif func_name == "spawn_coder_swarm":
-                        task = args.get("task", "")
-                        from jarvisx.orchestration.meta_orchestrator import MetaOrchestrator
-                        threading.Thread(target=MetaOrchestrator.get_instance().orchestrate_task, args=(task,), daemon=True).start()
-                        tool_output = f"Coder swarm deployed for: {task}"
-                        ack_speech = "Deploying the coder swarm now, Charan."
-
-                    elif func_name == "analyze_screen_vision":
-                        prompt = args.get("prompt", "Summarize what the user is working on.")
-                        try:
-                            from jarvisx.vision.edith_ar import EdithAREngine
-                            res = EdithAREngine.get_instance().analyze_screen(prompt)
-                            tool_output = res
-                            ack_speech = f"Looking at your screen: {res}"
-                        except Exception as e:
-                            tool_output = f"Vision error: {e}"
-                            ack_speech = "Screen capture telemetry encountered an error."
-
-                    elif func_name == "get_system_vitals":
-                        tool_output = self._exec_get_vitals()
-                        ack_speech = tool_output
-
-                    elif func_name == "run_system_command":
-                        cmd = args.get("command", "")
-                        tool_output = self._exec_system_command(cmd)
-                        ack_speech = "Command executed."
-
-                    elif func_name == "run_cyber_playbook":
-                        pb = args.get("playbook_name", "recon")
-                        target = args.get("target", "localhost")
-                        from jarvisx.automation.cyber_commander import CyberCommander
-                        CyberCommander.get_instance().execute_playbook(pb, target)
-                        tool_output = f"Playbook {pb} launched against {target}"
-                        ack_speech = f"Recon playbook {pb} launched."
-
-                    # Speak acknowledgement and push to UI
-                    if ack_speech:
-                        self._push_to_ui("tts_response", {"text": ack_speech})
-                        self._speak(ack_speech)
-
-                    self.messages.append({
-                        "tool_call_id": tool_call.id,
-                        "role": "tool",
-                        "name": func_name,
-                        "content": tool_output
-                    })
-
+            except Exception as e:
+                logger.error(f"[EeveeGroq] LLM generation failed: {e}")
                 self._push_to_ui("ev_status", {"text": "Listening..."})
                 return
 
-            # 5. Handle Normal Conversational Response
-            reply = choice.message.content
-            if reply:
-                logger.info(f"[EeveeGroq] Reply: {reply}")
-                self.messages.append({"role": "assistant", "content": reply})
-                self._push_to_ui("tts_response", {"text": reply})
-                self._speak(reply)
+        choice = response.choices[0]
 
-        except Exception as e:
-            logger.error(f"[EeveeGroq] Processing error: {e}")
+        # Handle Tool Calls
+        if choice.message.tool_calls:
+            for tool_call in choice.message.tool_calls:
+                func_name = tool_call.function.name
+                args = json.loads(tool_call.function.arguments or "{}")
+                logger.info(f"[EeveeGroq] Executing Tool: {func_name} with {args}")
+                self.messages.append(choice.message)
+
+                tool_output = ""
+                ack_speech = ""
+
+                if func_name == "open_app_or_website":
+                    target = args.get("target", "")
+                    tool_output = self._exec_open_target(target)
+                    ack_speech = f"On it. {tool_output}"
+
+                elif func_name == "run_browser_task":
+                    task = args.get("task", "")
+                    from jarvisx.browser.browser_use_engine import BrowserUseEngine
+                    BrowserUseEngine.get_instance().execute_task(task)
+                    tool_output = f"Autonomous browser dispatched for: {task}"
+                    ack_speech = "Browser agent is on it, Boss."
+
+                elif func_name == "spawn_coder_swarm":
+                    task = args.get("task", "")
+                    from jarvisx.orchestration.meta_orchestrator import MetaOrchestrator
+                    threading.Thread(target=MetaOrchestrator.get_instance().orchestrate_task, args=(task,), daemon=True).start()
+                    tool_output = f"Coder swarm deployed for: {task}"
+                    ack_speech = "Deploying the coder swarm now, Charan."
+
+                elif func_name == "analyze_screen_vision":
+                    prompt = args.get("prompt", "Summarize what the user is working on.")
+                    try:
+                        from jarvisx.vision.edith_ar import EdithAREngine
+                        res = EdithAREngine.get_instance().analyze_screen(prompt)
+                        tool_output = res
+                        ack_speech = f"Looking at your screen: {res}"
+                    except Exception as e:
+                        tool_output = f"Vision error: {e}"
+                        ack_speech = "Screen capture telemetry encountered an error."
+
+                elif func_name == "get_system_vitals":
+                    tool_output = self._exec_get_vitals()
+                    ack_speech = tool_output
+
+                elif func_name == "run_system_command":
+                    cmd = args.get("command", "")
+                    tool_output = self._exec_system_command(cmd)
+                    ack_speech = "Command executed."
+
+                elif func_name == "run_cyber_playbook":
+                    pb = args.get("playbook_name", "recon")
+                    target = args.get("target", "localhost")
+                    from jarvisx.automation.cyber_commander import CyberCommander
+                    CyberCommander.get_instance().execute_playbook(pb, target)
+                    tool_output = f"Playbook {pb} launched against {target}"
+                    ack_speech = f"Recon playbook {pb} launched."
+
+                # Speak acknowledgement and push to UI
+                if ack_speech:
+                    self._push_to_ui("tts_response", {"text": ack_speech})
+                    self._speak(ack_speech)
+
+                self.messages.append({
+                    "tool_call_id": tool_call.id,
+                    "role": "tool",
+                    "name": func_name,
+                    "content": tool_output
+                })
+
             self._push_to_ui("ev_status", {"text": "Listening..."})
+            return
+
+        # Handle Normal Conversational Response
+        reply = choice.message.content
+        if reply:
+            logger.info(f"[EeveeGroq] Reply: {reply}")
+            self._push_to_ui("tts_response", {"text": reply})
+            self._speak(reply)
+            self.messages.append({"role": "assistant", "content": reply})
+
+        self._push_to_ui("ev_status", {"text": "Listening..."})
 
     def shutdown(self):
         self._running = False

@@ -173,27 +173,11 @@ async def websocket_endpoint(ws: WebSocket):
 
 
 def _handle_user_directive(prompt: str):
-    """Process user prompt sent via HUD text input."""
+    """Process user prompt sent via HUD text input with full tool & speech capabilities."""
     try:
         from jarvisx.voice.eevee_groq import EeveeGroq
         ev = EeveeGroq.get_instance()
-        # Feed directly to Groq LLM
-        client = None
-        if ev.api_key:
-            from groq import Groq
-            client = Groq(api_key=ev.api_key)
-            push_event_sync("ev_status", {"text": "Thinking..."})
-            resp = client.chat.completions.create(
-                model=os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
-                messages=[
-                    {"role": "system", "content": ev.system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                max_completion_tokens=150
-            )
-            reply = resp.choices[0].message.content or "Directive executed."
-            push_event_sync("tts_response", {"text": reply})
-            ev._speak(reply)
+        ev.process_text_prompt(prompt)
     except Exception as e:
         logger.warning(f"[HUD] Error processing directive: {e}")
         push_event_sync("tts_response", {"text": f"Directive acknowledged: {prompt}"})
