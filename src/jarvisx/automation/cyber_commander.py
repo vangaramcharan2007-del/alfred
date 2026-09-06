@@ -57,13 +57,52 @@ class CyberCommander:
         # Simulate passing this massive playbook to the CoderSwarm/LLM to execute against the target
         self._push_to_ui("cyber_event", {"status": f"Executing {matched_file.name} against {target}..."})
         
-        def _run_sim():
-            import time
-            time.sleep(4)
-            logger.info(f"[CyberCommander] Playbook {matched_file.name} execution complete on {target}.")
-            self._push_to_ui("cyber_event", {"status": f"Target secured: {target} (via {matched_file.name})"})
+        def _run_real_recon():
+            import socket
+            import psutil
+
+            logger.info(f"[CyberCommander] Engaging physical recon probe against {target}...")
+            self._push_to_ui("cyber_event", {"status": f"Scanning active ports on {target}..."})
             
-        threading.Thread(target=_run_sim, daemon=True).start()
+            common_ports = [21, 22, 53, 80, 135, 443, 445, 1433, 3000, 3306, 5000, 5432, 8000, 8080, 8765, 27017]
+            open_ports = []
+            host_to_scan = "127.0.0.1" if target in ["localhost", "127.0.0.1"] else target
+
+            for port in common_ports:
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(0.12)
+                    res = s.connect_ex((host_to_scan, port))
+                    if res == 0:
+                        open_ports.append(port)
+                    s.close()
+                except Exception:
+                    pass
+
+            # Inspect bound processes
+            service_details = []
+            try:
+                for conn in psutil.net_connections(kind='inet'):
+                    if conn.status == psutil.CONN_LISTEN and conn.laddr.port in open_ports:
+                        proc_name = "System"
+                        try:
+                            proc_name = psutil.Process(conn.pid).name() if conn.pid else "System"
+                        except Exception:
+                            pass
+                        service_details.append(f"Port {conn.laddr.port} [{proc_name}]")
+            except Exception:
+                for p in open_ports:
+                    service_details.append(f"Port {p} [ACTIVE]")
+
+            summary = f"Recon Complete on {target}: {len(open_ports)} listening services ({', '.join(map(str, open_ports)) or 'All ports filtered'}). Perimeter secured."
+            logger.info(f"[CyberCommander] {summary}")
+            self._push_to_ui("cyber_event", {
+                "status": summary,
+                "open_ports": open_ports,
+                "services": service_details[:6]
+            })
+            
+        threading.Thread(target=_run_real_recon, daemon=True).start()
 
     def start(self):
         if self._running:

@@ -909,9 +909,14 @@
             if (state === 'speaking') {
                 coreStateLabel.innerText = "E.V. QUANTUM CORE // TRANSMITTING";
                 coreStateLabel.style.color = "var(--primary-glow)";
+                clearTimeout(window._waveAutoIdleTimer);
+                window._waveAutoIdleTimer = setTimeout(() => {
+                    setWaveState("idle");
+                }, 3800);
             } else {
                 coreStateLabel.innerText = "E.V. QUANTUM CORE // LISTENING";
                 coreStateLabel.style.color = "#a0aec0";
+                clearTimeout(window._waveAutoIdleTimer);
             }
         }
 
@@ -971,13 +976,38 @@
                     else if (msg.type === "cooling_event") {
                         showToast("❄️ THERMAL SENTINEL", `Purged +${msg.data.reclaimed_ram_mb} MB RAM across ${msg.data.processes_optimized} apps! Thermals: ${msg.data.thermal_pressure}`, "success");
                     }
+                    else if (msg.type === "open_tab") {
+                        const url = msg.data.url;
+                        const target = msg.data.target || "Resource";
+                        showToast("LAUNCHING TARGET", `Launched ${target}: <a href="${url}" target="_blank" style="color:var(--cyan-glow);text-decoration:underline;font-weight:bold;">Open Now ↗</a>`, "success");
+                        
+                        let launchPill = document.getElementById('active-launch-pill');
+                        if (!launchPill) {
+                            launchPill = document.createElement('div');
+                            launchPill.id = 'active-launch-pill';
+                            launchPill.style.cssText = "margin-bottom:12px;padding:8px 18px;background:rgba(0,210,211,0.2);border:1px solid var(--cyan-glow);border-radius:24px;text-align:center;box-shadow:0 0 16px rgba(0,210,211,0.3);";
+                            const dockParent = document.querySelector('.bottom-bar');
+                            if (dockParent) dockParent.insertBefore(launchPill, dockParent.firstChild);
+                        }
+                        launchPill.innerHTML = `<a href="${url}" target="_blank" style="color:#ffffff;text-decoration:none;font-weight:700;letter-spacing:1px;font-size:0.9rem;">🚀 PHYSICAL TARGET READY: CLICK TO OPEN ${target.toUpperCase()} ↗</a>`;
+
+                        try {
+                            window.open(url, '_blank');
+                        } catch (e) {
+                            console.warn("window.open blocked:", e);
+                        }
+                    }
                     else if (msg.type === "exec_microsteps") {
                         if (Array.isArray(msg.data.steps)) {
                             taskContainer.innerHTML = "";
                             msg.data.steps.forEach((step, idx) => {
                                 const div = document.createElement('div');
                                 div.className = `task-item ${idx === 0 ? 'active' : ''}`;
-                                div.innerHTML = `<span class="task-number">${String(idx + 1).padStart(2, '0')}</span><span>${step}</span>`;
+                                let content = step;
+                                if (step.includes("http://") || step.includes("https://")) {
+                                    content = step.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color: var(--cyan-glow); text-decoration: underline; font-weight: bold;">$1 ↗</a>');
+                                }
+                                div.innerHTML = `<span class="task-number">${String(idx + 1).padStart(2, '0')}</span><span>${content}</span>`;
                                 taskContainer.appendChild(div);
                             });
                         }

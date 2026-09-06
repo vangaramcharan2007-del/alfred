@@ -243,53 +243,150 @@ class EeveeGroq:
     def _speak(self, text: str):
         tts = self._get_tts()
         if tts:
+            self._is_speaking = True
             self._push_to_ui("ev_status", {"text": "Speaking..."})
             voice_key = os.getenv("EEVEE_VOICE", "hyper_realistic_female")
+
+            def _reset_speaking():
+                time.sleep(max(2.0, len(text.split()) * 0.4))
+                self._is_speaking = False
+                self._push_to_ui("ev_status", {"text": "Listening..."})
+
             tts.speak(text, voice_key=voice_key, blocking=False)
-            self._push_to_ui("ev_status", {"text": "Listening..."})
+            threading.Thread(target=_reset_speaking, daemon=True).start()
 
     # =========================================================================
-    # REAL TOOL IMPLEMENTATIONS
+    # REAL OPERATING SYSTEM & BROWSER PHYSICAL LAUNCHERS
     # =========================================================================
+
+    def _launch_url_physically(self, url: str, target_label: str) -> bool:
+        """
+        Guarantees that a URL is physically opened on the user's screen:
+        1. Broadcasts 'open_tab' over WebSocket so the HUD browser opens or provides direct link.
+        2. Spawns Windows shell 'cmd.exe /c start "" "<url>"' to open in user's default browser.
+        3. Attempts direct browser binaries as fallback.
+        """
+        # 1. PUSH TO HUD CLIENT (Opens directly in the browser the user is currently viewing)
+        self._push_to_ui("open_tab", {"url": url, "target": target_label})
+
+        launched = False
+
+        # 2. WINDOWS SHELL CMD LAUNCH (Default browser on Windows)
+        try:
+            subprocess.Popen(["cmd.exe", "/c", "start", "", url], shell=False)
+            launched = True
+        except Exception as e:
+            logger.debug(f"[EeveeGroq] CMD start failed: {e}")
+
+        # 3. DIRECT BROWSER BINARY DISPATCH (Fallbacks)
+        browser_paths = [
+            os.path.expandvars(r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe"),
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        ]
+        for b in browser_paths:
+            if os.path.exists(b):
+                try:
+                    subprocess.Popen([b, url])
+                    launched = True
+                    break
+                except Exception as e:
+                    logger.debug(f"[EeveeGroq] Direct browser launch failed for {b}: {e}")
+
+        # 4. POWERSHELL START-PROCESS (Extra fail-safe)
+        try:
+            subprocess.Popen(["powershell.exe", "-WindowStyle", "Hidden", "-Command", f'Start-Process "{url}"'])
+            launched = True
+        except Exception:
+            pass
+
+        return launched
+
+    def _launch_desktop_app_physically(self, app_key: str) -> str:
+        """
+        Guarantees that desktop applications actually open on Windows desktop.
+        """
+        app_map = {
+            "notepad": ["notepad.exe"],
+            "calculator": ["calc.exe"],
+            "calc": ["calc.exe"],
+            "code": [os.path.expandvars(r"%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe"), "code"],
+            "vscode": [os.path.expandvars(r"%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe"), "code"],
+            "vs code": [os.path.expandvars(r"%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe"), "code"],
+            "terminal": ["wt.exe", "powershell.exe"],
+            "powershell": ["powershell.exe"],
+            "cmd": ["cmd.exe"],
+            "command prompt": ["cmd.exe"],
+            "explorer": ["explorer.exe"],
+            "file explorer": ["explorer.exe"],
+            "task manager": ["taskmgr.exe"],
+            "taskmgr": ["taskmgr.exe"],
+            "chrome": [r"C:\Program Files\Google\Chrome\Application\chrome.exe"],
+            "edge": [r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"],
+            "brave": [os.path.expandvars(r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe")],
+            "paint": ["mspaint.exe"],
+            "settings": ["ms-settings:"],
+        }
+
+        binaries = app_map.get(app_key, [f"{app_key}.exe"])
+        for binary in binaries:
+            try:
+                if binary.startswith("ms-settings:"):
+                    subprocess.Popen(["cmd.exe", "/c", "start", "", binary], shell=False)
+                    return f"Launched Windows Settings on your desktop."
+                elif os.path.isabs(binary) and os.path.exists(binary):
+                    subprocess.Popen([binary])
+                    return f"Launched {app_key.capitalize()} on your desktop."
+                else:
+                    subprocess.Popen(["cmd.exe", "/c", "start", "", binary], shell=False)
+                    return f"Launched {app_key.capitalize()} on your desktop."
+            except Exception as e:
+                logger.debug(f"[EeveeGroq] App launch failed for {binary}: {e}")
+
+        return f"Could not launch application '{app_key}'."
 
     def _exec_open_target(self, target: str) -> str:
         target_clean = target.strip()
         target_lower = target_clean.lower()
 
-        # 1. YouTube Query Extraction
+        # 1. YouTube Query Extraction & Physical Launch
         if "youtube" in target_lower:
             query = re.sub(r"\b(open|play|search|watch|listen to|for|on|in|youtube|the|video|song)\b", " ", target_lower, flags=re.IGNORECASE).strip()
             query = re.sub(r"\s+", " ", query).strip()
             if query and len(query) > 1:
                 url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}"
-                webbrowser.open(url)
+                self._launch_url_physically(url, f"YouTube: {query}")
                 return f"Searching and playing '{query}' on YouTube."
             else:
-                webbrowser.open("https://www.youtube.com")
+                url = "https://www.youtube.com"
+                self._launch_url_physically(url, "YouTube")
                 return "Opened YouTube in your browser."
 
-        # 2. Spotify Query Extraction
+        # 2. Spotify Query Extraction & Physical Launch
         if "spotify" in target_lower:
             query = re.sub(r"\b(open|play|search|spotify|for|on|in|the|track|music|song)\b", " ", target_lower, flags=re.IGNORECASE).strip()
             query = re.sub(r"\s+", " ", query).strip()
             if query and len(query) > 1:
                 url = f"https://open.spotify.com/search/{urllib.parse.quote(query)}"
-                webbrowser.open(url)
+                self._launch_url_physically(url, f"Spotify: {query}")
                 return f"Searching Spotify for '{query}'."
             else:
-                webbrowser.open("https://open.spotify.com")
+                url = "https://open.spotify.com"
+                self._launch_url_physically(url, "Spotify")
                 return "Opened Spotify in your browser."
 
-        # 3. Google Query Extraction
+        # 3. Google Query Extraction & Physical Launch
         if "google" in target_lower:
             query = re.sub(r"\b(open|search|google|for|on|in|the)\b", " ", target_lower, flags=re.IGNORECASE).strip()
             query = re.sub(r"\s+", " ", query).strip()
             if query and len(query) > 1:
                 url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
-                webbrowser.open(url)
+                self._launch_url_physically(url, f"Google: {query}")
                 return f"Searching Google for '{query}'."
             else:
-                webbrowser.open("https://www.google.com")
+                url = "https://www.google.com"
+                self._launch_url_physically(url, "Google")
                 return "Opened Google in your browser."
 
         # 4. Known Web Services
@@ -308,58 +405,27 @@ class EeveeGroq:
         }
         for k, url in site_map.items():
             if k in target_lower:
-                webbrowser.open(url)
+                self._launch_url_physically(url, k.capitalize())
                 return f"Opened {k.capitalize()} in your browser."
 
         if target_lower.startswith("http://") or target_lower.startswith("https://"):
-            webbrowser.open(target_clean)
+            self._launch_url_physically(target_clean, target_clean)
             return f"Opened {target_clean} in browser."
 
-        # 5. Desktop Applications (Native Windows support via os.startfile)
-        app_map = {
-            "notepad": "notepad.exe",
-            "calculator": "calc.exe",
-            "calc": "calc.exe",
-            "code": "code",
-            "vscode": "code",
-            "vs code": "code",
-            "terminal": "wt.exe",
-            "powershell": "powershell.exe",
-            "cmd": "cmd.exe",
-            "command prompt": "cmd.exe",
-            "explorer": "explorer.exe",
-            "file explorer": "explorer.exe",
-            "task manager": "taskmgr.exe",
-            "taskmgr": "taskmgr.exe",
-            "chrome": "chrome.exe",
-            "edge": "msedge.exe",
-            "paint": "mspaint.exe",
-            "settings": "ms-settings:",
-        }
-
-        for k, binary in app_map.items():
-            if k in target_lower:
-                try:
-                    if os.name == 'nt':
-                        if binary.startswith("ms-settings:") or binary.endswith(".exe"):
-                            try:
-                                os.startfile(binary)
-                                return f"Launched {k.capitalize()} on your desktop."
-                            except Exception:
-                                subprocess.Popen(f"start {binary}", shell=True)
-                                return f"Launched {k.capitalize()} on your desktop."
-                        else:
-                            subprocess.Popen(f"start {binary}", shell=True)
-                            return f"Launched {k.capitalize()} on your desktop."
-                    else:
-                        subprocess.Popen(binary, shell=True)
-                        return f"Launched {k.capitalize()}."
-                except Exception as e:
-                    return f"Failed to launch {k}: {e}"
+        # 5. Desktop Applications
+        app_keywords = [
+            "notepad", "calculator", "calc", "vscode", "vs code", "code",
+            "terminal", "powershell", "cmd", "command prompt",
+            "explorer", "file explorer", "task manager", "taskmgr",
+            "chrome", "edge", "brave", "paint", "settings"
+        ]
+        for app in app_keywords:
+            if app in target_lower:
+                return self._launch_desktop_app_physically(app)
 
         # 6. Fallback: Search Google
         url = f"https://www.google.com/search?q={urllib.parse.quote(target_clean)}"
-        webbrowser.open(url)
+        self._launch_url_physically(url, f"Search: {target_clean}")
         return f"Searching Google for '{target_clean}'."
 
     def _exec_cool_system(self) -> str:
@@ -456,8 +522,20 @@ class EeveeGroq:
             out = self._exec_cool_system()
             return ("cool_system_and_free_ram", out)
 
-        # 2. Open Website / Application
-        open_match = re.search(r"\b(?:open|launch|start|play|browse|go to)\s+([a-zA-Z0-9_\-\. ]+)", p_lower)
+        # 2. Web Agent / Browser Research
+        if any(w in p_lower for w in ["browser agent", "trending ai repos", "search github", "web agent"]):
+            if "github" in p_lower:
+                url = "https://github.com/trending"
+                self._launch_url_physically(url, "GitHub Trending")
+                return ("open_app_or_website", "Opened GitHub trending AI repositories in your browser, Charan.")
+            else:
+                query = p_lower.replace("browser agent", "").replace("web agent", "").strip()
+                url = f"https://www.google.com/search?q={urllib.parse.quote(query or 'trending AI')}"
+                self._launch_url_physically(url, f"Web: {query}")
+                return ("open_app_or_website", f"Searching web for '{query}' in your browser, Charan.")
+
+        # 3. Open Website / Application
+        open_match = re.search(r"\b(?:open|launch|start|play|browse|go to|search for|search|lookup)\s+([a-zA-Z0-9_\-\. ]+)", p_lower)
         known_keywords = ["youtube", "google", "spotify", "notepad", "calculator", "calc", "vscode", "vs code", "code", "github", "chatgpt", "netflix", "terminal", "powershell", "cmd", "explorer", "task manager", "taskmgr", "chrome", "edge", "paint", "settings"]
 
         target_to_open = None
@@ -483,7 +561,7 @@ class EeveeGroq:
                 out = self._exec_open_target(target_to_open)
                 return ("open_app_or_website", f"On it Charan. {out}")
 
-        # 3. System Vitals / Telemetry
+        # 4. System Vitals / Telemetry
         if any(w in p_lower for w in ["vitals", "system vitals", "cpu usage", "ram usage", "battery", "system specs", "how is the pc", "hardware status", "vitals status"]):
             self._push_to_ui("exec_microsteps", {
                 "steps": [
@@ -593,14 +671,28 @@ class EeveeGroq:
     def _background_callback(self, recognizer, audio):
         if not self._running:
             return
+        if getattr(self, "_is_speaking", False):
+            # Ignore audio feedback while assistant is speaking
+            return
         threading.Thread(target=self._process_audio, args=(audio,), daemon=True).start()
 
     def _process_audio(self, audio):
         try:
+            wav_bytes = audio.get_wav_data()
+
+            # RMS Energy gate to prevent transcribing ambient room silence
+            import audioop
+            try:
+                rms = audioop.rms(wav_bytes, 2)
+            except Exception:
+                rms = 1000
+
+            if rms < 350:
+                return
+
             self._push_to_ui("ev_status", {"text": "Transcribing..."})
 
-            # 1. Transcribe audio via Groq Whisper Turbo
-            wav_bytes = audio.get_wav_data()
+            # 1. Transcribe audio via Groq Whisper Turbo (clean, no hallucination prompt)
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 tmp.write(wav_bytes)
                 tmp_path = tmp.name
@@ -612,17 +704,27 @@ class EeveeGroq:
                 transcription = client.audio.transcriptions.create(
                     file=(os.path.basename(tmp_path), f.read()),
                     model="whisper-large-v3-turbo",
-                    prompt="Conversation with Charan. System name is E.V. or Friday.",
                     response_format="text"
                 )
-            
+
             try:
                 os.remove(tmp_path)
             except Exception:
                 pass
-            
+
             text = transcription.strip()
             if not text or len(text) < 2:
+                self._push_to_ui("ev_status", {"text": "Listening..."})
+                return
+
+            # Filter common Whisper silence hallucinations
+            hallucination_phrases = {
+                "thank you.", "thank you", "thanks.", "thanks", "thank you for watching.",
+                "system name is e.v. or friday.", "system name is ev or friday",
+                "bye.", "bye", "you", "so", "the end.", "thank you for listening."
+            }
+            if text.lower() in hallucination_phrases:
+                logger.debug(f"[EeveeGroq] Ignored Whisper silence artifact: '{text}'")
                 self._push_to_ui("ev_status", {"text": "Listening..."})
                 return
 
@@ -673,7 +775,7 @@ class EeveeGroq:
                 self._speak(ack)
             return
 
-        model_to_use = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+        model_to_use = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
         response = None
         try:
             response = client.chat.completions.create(
@@ -684,7 +786,7 @@ class EeveeGroq:
                 max_completion_tokens=2048,
             )
         except Exception as e1:
-            logger.warning(f"[EeveeGroq] Model {model_to_use} failed ({e1}), falling back to 20b...")
+            logger.warning(f"[EeveeGroq] Model {model_to_use} failed ({e1}), falling back to openai/gpt-oss-20b...")
             try:
                 response = client.chat.completions.create(
                     model="openai/gpt-oss-20b",

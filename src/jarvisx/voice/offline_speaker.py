@@ -13,8 +13,8 @@ import logging
 logger = logging.getLogger("jarvisx.voice.offline")
 
 
-def speak_offline(text: str, voice_gender: str = "male") -> bool:
-    """Speaks text using local Windows SAPI when internet is disconnected."""
+def speak_offline(text: str, voice_gender: str = "female") -> bool:
+    """Speaks text using local Windows SAPI when internet is disconnected (female neural fallback)."""
     if not text or not text.strip():
         return False
 
