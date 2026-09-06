@@ -36,10 +36,20 @@ class SovereignNeuralTTS:
         "assistant_female": "en-US-JennyNeural",
         "high_energy_female": "en-US-AriaNeural",
         "high_energy_male": "en-US-GuyNeural",
+        "hyper_realistic_female": "en-US-AvaMultilingualNeural",  # Ultra-natural, human-grade conversational female
+        "british_female": "en-GB-SoniaNeural",  # Sophisticated F.R.I.D.A.Y. style
     }
 
-    def __init__(self, default_voice_key: str = "high_energy_female", rate: str = "+10%", pitch: str = "+5Hz"):
-        self.voice = self.VOICES.get(default_voice_key, "en-US-AriaNeural")
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def __init__(self, default_voice_key: str = "hyper_realistic_female", rate: str = "+3%", pitch: str = "+0Hz"):
+        self.voice = self.VOICES.get(default_voice_key, "en-US-AvaMultilingualNeural")
         self.rate = rate
         self.pitch = pitch
         self.is_speaking = False

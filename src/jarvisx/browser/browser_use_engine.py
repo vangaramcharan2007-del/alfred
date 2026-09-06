@@ -31,8 +31,7 @@ class BrowserUseEngine:
         Spawns a browser-use agent to complete the given task asynchronously.
         """
         if not self._running:
-            logger.warning("[BrowserUse] Engine not started.")
-            return
+            self.start()
 
         def _run():
             try:
