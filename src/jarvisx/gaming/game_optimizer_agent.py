@@ -200,17 +200,23 @@ class GameOptimizerAgent:
 
 
     def scan_active_running_game(self) -> Optional[Tuple[str, Dict[str, Any], int]]:
-        """Scans active Windows processes for any running game."""
+        """Scans active Windows processes for any running game efficiently in a single pass."""
+        if not self.profiles:
+            return None
+
+        active_processes: Dict[str, int] = {}
+        for proc in psutil.process_iter(["pid", "name"]):
+            try:
+                name = proc.info.get("name")
+                if name:
+                    active_processes[name.lower()] = proc.info["pid"]
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+
         for key, p in self.profiles.items():
             exe = p.get("executable", "").lower()
-            if not exe:
-                continue
-            for proc in psutil.process_iter(["pid", "name"]):
-                try:
-                    if proc.info["name"] and proc.info["name"].lower() == exe:
-                        return key, p, proc.info["pid"]
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    continue
+            if exe and exe in active_processes:
+                return key, p, active_processes[exe]
         return None
 
     def optimize_game(self, game_name_or_query: str) -> GameOptimizationResult:

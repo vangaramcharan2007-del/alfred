@@ -63,16 +63,22 @@ class JarvisDaemon:
         # 3. Smart Notifier removed in Phase 17
         logger.info("-> Smart Notifier OFFLINE (Replaced by specialized agents)")
 
-        # 4. Start HUD Server
-        from jarvisx.dashboard.hud_server import start_hud
-        start_hud(8765)
-        logger.info("-> HUD Server ONLINE (http://localhost:8765)")
+        # 4. Start HUD Server (if not already running)
+        try:
+            from jarvisx.dashboard.hud_server import start_hud
+            start_hud(8765)
+            logger.info("-> HUD Server ONLINE (http://localhost:8765)")
+        except Exception as e:
+            logger.info(f"-> HUD Server already running or engaged: {e}")
 
-        # 5. Start Voice Pipeline
-        from jarvisx.voice.voice_pipeline_e2e import VoicePipelineE2E
-        vp = VoicePipelineE2E.get_instance()
-        vp.start()
-        logger.info("-> Voice Pipeline E2E ONLINE")
+        # 5. Start Thermal & RAM Governor Sentinel
+        try:
+            from jarvisx.runtime.thermal_governor import AlfredThermalGovernor
+            gov = AlfredThermalGovernor.get_instance()
+            gov.start_silent_sentinel()
+            logger.info("-> Alfred Thermal & RAM Governor Sentinel ONLINE")
+        except Exception as e:
+            logger.warning(f"-> Thermal Governor could not be engaged: {e}")
 
         # 6. Start Hypervisor (Resource Governor)
         from jarvisx.kernel.hypervisor import Hypervisor
@@ -232,7 +238,7 @@ class JarvisDaemon:
 
         try:
             while self.running:
-                time.sleep(1)
+                time.sleep(5)
         except KeyboardInterrupt:
             self.shutdown()
 
@@ -242,5 +248,7 @@ class JarvisDaemon:
 
 
 if __name__ == "__main__":
+    from jarvisx.kernel.single_instance import ensure_single_instance
+    ensure_single_instance("jarvisd")
     daemon = JarvisDaemon()
     daemon.boot()

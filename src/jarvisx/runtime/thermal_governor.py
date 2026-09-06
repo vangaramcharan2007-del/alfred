@@ -238,6 +238,24 @@ class AlfredThermalGovernor:
             audit_hash=audit_entry.current_hash,
         )
         self._last_action_report = report
+
+        try:
+            from jarvisx.dashboard.event_bus import push_event_sync
+            push_event_sync("cooling_event", {
+                "reclaimed_ram_mb": round(total_reclaimed, 1),
+                "processes_optimized": optimized_count,
+                "ram_percent": vitals_after.ram_percent,
+                "thermal_pressure": vitals_after.thermal_pressure,
+            })
+            push_event_sync("system_stats", {
+                "cpu_percent": vitals_after.cpu_percent,
+                "ram_percent": vitals_after.ram_percent,
+                "ram_used_gb": vitals_after.ram_used_gb,
+                "ram_total_gb": vitals_after.ram_total_gb,
+            })
+        except Exception:
+            pass
+
         return report
 
     def _sentinel_loop(self):

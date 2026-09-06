@@ -48,6 +48,27 @@ async def on_startup():
     set_server_loop(asyncio.get_running_loop())
     logger.info("[HUD] Event loop anchored for thread-safe event streaming.")
 
+    def _start_voice_listener():
+        try:
+            from jarvisx.voice.eevee_groq import EeveeGroq
+            eevee = EeveeGroq.get_instance()
+            eevee.start()
+        except Exception as e:
+            logger.warning(f"[HUD] Microphone listener could not be engaged: {e}")
+
+    threading.Thread(target=_start_voice_listener, daemon=True, name="EeveeVoiceListener").start()
+
+    def _start_thermal_governor():
+        try:
+            from jarvisx.runtime.thermal_governor import AlfredThermalGovernor
+            gov = AlfredThermalGovernor.get_instance()
+            gov.start_silent_sentinel()
+            logger.info("[HUD] Alfred Thermal & RAM Governor Sentinel ACTIVE.")
+        except Exception as e:
+            logger.warning(f"[HUD] Thermal Governor could not start: {e}")
+
+    threading.Thread(target=_start_thermal_governor, daemon=True, name="AlfredThermalSentinel").start()
+
 
 EEVEE_UI_FILE = ROOT_DIR / "eevee_ui.html"
 
@@ -216,6 +237,24 @@ async def api_events():
     return get_event_log()[-50:]
 
 
+@app.get("/api/cool")
+async def api_cool():
+    """Triggers an on-demand thermal cooling and RAM compaction cycle."""
+    try:
+        from jarvisx.runtime.thermal_governor import AlfredThermalGovernor
+        gov = AlfredThermalGovernor.get_instance()
+        report = gov.perform_cooling_and_reclaim_cycle()
+        return {
+            "status": "SUCCESS",
+            "reclaimed_ram_mb": report.reclaimed_ram_mb,
+            "processes_optimized": report.processes_optimized,
+            "cpu_throttled": report.cpu_throttled,
+            "details": report.details,
+        }
+    except Exception as e:
+        return {"status": "ERROR", "error": str(e)}
+
+
 def start_hud(port: int = 8765):
     """Launch HUD server in background thread."""
     import uvicorn
@@ -231,6 +270,9 @@ def start_hud(port: int = 8765):
 
 if __name__ == "__main__":
     import uvicorn
+    from jarvisx.kernel.single_instance import ensure_single_instance
+
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    ensure_single_instance("hud_server")
     print("[HUD] Starting Tactical Glassmorphism HUD on http://localhost:8765...")
     uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info")

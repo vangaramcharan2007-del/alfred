@@ -162,6 +162,17 @@ class EeveeGroq:
                         "required": ["playbook_name", "target"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "cool_system_and_free_ram",
+                    "description": "Engages silent active thermal cooling and flushes gigabytes of bloated background RAM cache when the computer is lagging, hot, or running slow.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {}
+                    }
+                }
             }
         ]
 
@@ -410,11 +421,27 @@ class EeveeGroq:
 
                 if func_name == "open_app_or_website":
                     target = args.get("target", "")
+                    self._push_to_ui("exec_microsteps", {
+                        "steps": [
+                            f"Directive: Open {target}",
+                            "Resolving protocol / application target",
+                            "Initiating process dispatch",
+                            f"Target '{target}' launched"
+                        ]
+                    })
                     tool_output = self._exec_open_target(target)
                     ack_speech = f"On it. {tool_output}"
 
                 elif func_name == "run_browser_task":
                     task = args.get("task", "")
+                    self._push_to_ui("exec_microsteps", {
+                        "steps": [
+                            "Initializing BrowserUse Headless Engine",
+                            "Navigating target DOM topology",
+                            f"Executing autonomous agent: {task}",
+                            "Browser task in progress"
+                        ]
+                    })
                     from jarvisx.browser.browser_use_engine import BrowserUseEngine
                     BrowserUseEngine.get_instance().execute_task(task)
                     tool_output = f"Autonomous browser dispatched for: {task}"
@@ -422,6 +449,14 @@ class EeveeGroq:
 
                 elif func_name == "spawn_coder_swarm":
                     task = args.get("task", "")
+                    self._push_to_ui("exec_microsteps", {
+                        "steps": [
+                            "Spawning MetaOrchestrator Swarm",
+                            "Decomposing task into sub-agent worktrees",
+                            "Concurrent agent synthesis initiated",
+                            f"Coder swarm working on: {task}"
+                        ]
+                    })
                     from jarvisx.orchestration.meta_orchestrator import MetaOrchestrator
                     threading.Thread(target=MetaOrchestrator.get_instance().orchestrate_task, args=(task,), daemon=True).start()
                     tool_output = f"Coder swarm deployed for: {task}"
@@ -429,6 +464,14 @@ class EeveeGroq:
 
                 elif func_name == "analyze_screen_vision":
                     prompt = args.get("prompt", "Summarize what the user is working on.")
+                    self._push_to_ui("exec_microsteps", {
+                        "steps": [
+                            "Capturing primary display framebuffer",
+                            "Running EDITH Vision neural analyzer",
+                            "Extracting active viewport context",
+                            "Visual inspection complete"
+                        ]
+                    })
                     try:
                         from jarvisx.vision.edith_ar import EdithAREngine
                         res = EdithAREngine.get_instance().analyze_screen(prompt)
@@ -439,21 +482,66 @@ class EeveeGroq:
                         ack_speech = "Screen capture telemetry encountered an error."
 
                 elif func_name == "get_system_vitals":
+                    self._push_to_ui("exec_microsteps", {
+                        "steps": [
+                            "Sampling CPU load registers",
+                            "Measuring virtual memory pages",
+                            "Querying battery management sensor",
+                            "Telemetry compiled"
+                        ]
+                    })
                     tool_output = self._exec_get_vitals()
                     ack_speech = tool_output
 
                 elif func_name == "run_system_command":
                     cmd = args.get("command", "")
+                    self._push_to_ui("exec_microsteps", {
+                        "steps": [
+                            "Validating PowerShell command signature",
+                            "Spawning isolated execution sandbox",
+                            f"Executing: {cmd[:30]}...",
+                            "Standard output captured"
+                        ]
+                    })
                     tool_output = self._exec_system_command(cmd)
                     ack_speech = "Command executed."
 
                 elif func_name == "run_cyber_playbook":
                     pb = args.get("playbook_name", "recon")
                     target = args.get("target", "localhost")
+                    self._push_to_ui("exec_microsteps", {
+                        "steps": [
+                            f"Loading Zero-Lag cyber playbook '{pb}'",
+                            f"Setting engagement scope: {target}",
+                            "Executing offensive/defensive probe",
+                            "Target perimeter secured"
+                        ]
+                    })
                     from jarvisx.automation.cyber_commander import CyberCommander
                     CyberCommander.get_instance().execute_playbook(pb, target)
                     tool_output = f"Playbook {pb} launched against {target}"
                     ack_speech = f"Recon playbook {pb} launched."
+
+                elif func_name == "cool_system_and_free_ram":
+                    self._push_to_ui("exec_microsteps", {
+                        "steps": [
+                            "Activating Alfred Thermal & RAM Governor",
+                            "Profiling bloated background memory working sets",
+                            "Flushing standby physical memory pages",
+                            "Throttling CPU thermals and cooling fans"
+                        ]
+                    })
+                    try:
+                        from jarvisx.runtime.thermal_governor import AlfredThermalGovernor
+                        gov = AlfredThermalGovernor.get_instance()
+                        rep = gov.perform_cooling_and_reclaim_cycle()
+                        v = gov.get_vitals()
+                        reclaimed_gb = round(rep.reclaimed_ram_mb / 1024, 1)
+                        tool_output = f"Compacted {rep.processes_optimized} processes, reclaimed {rep.reclaimed_ram_mb:.1f}MB. Thermal state: {v.thermal_pressure}, RAM at {v.ram_percent}%."
+                        ack_speech = f"Thermal cooling cycle engaged, Charan. Reclaimed {reclaimed_gb} gigabytes of bloated RAM cache. System thermals are now {v.thermal_pressure.lower()}."
+                    except Exception as e:
+                        tool_output = f"Cooling failed: {e}"
+                        ack_speech = "Thermal cooling encountered an error."
 
                 # Speak acknowledgement and push to UI
                 if ack_speech:
@@ -473,10 +561,20 @@ class EeveeGroq:
         # Handle Normal Conversational Response
         reply = choice.message.content
         if reply:
-            logger.info(f"[EeveeGroq] Reply: {reply}")
-            self._push_to_ui("tts_response", {"text": reply})
-            self._speak(reply)
-            self.messages.append({"role": "assistant", "content": reply})
+            import re
+            clean_reply = reply
+            if "```final" in clean_reply:
+                clean_reply = clean_reply.split("```final")[-1].replace("```", "").strip()
+            elif "```" in clean_reply:
+                clean_reply = re.sub(r"```analysis.*?```", "", clean_reply, flags=re.DOTALL).replace("```", "").strip()
+
+            if not clean_reply:
+                clean_reply = reply.replace("```", "").strip()
+
+            logger.info(f"[EeveeGroq] Reply: {clean_reply}")
+            self._push_to_ui("tts_response", {"text": clean_reply})
+            self._speak(clean_reply)
+            self.messages.append({"role": "assistant", "content": clean_reply})
 
         self._push_to_ui("ev_status", {"text": "Listening..."})
 

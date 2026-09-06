@@ -293,6 +293,8 @@
             color: var(--cyan-accent);
             text-shadow: 0 0 10px rgba(0, 210, 211, 0.3);
             min-height: 80px;
+            white-space: pre-wrap;
+            word-break: break-word;
         }
 
         /* Center Wing: Arc Reactor Hologram Ring */
@@ -756,9 +758,13 @@
                 type="text" 
                 class="directive-input" 
                 id="directive-field" 
-                placeholder="Give a directive... (e.g. 'Search Google for quantum AI' or 'Deploy coder swarm')"
+                placeholder="Give a directive... (e.g. 'Open YouTube', 'What are your vitals', or speak via Mic)"
                 autocomplete="off"
             >
+            <button class="quick-action-btn" id="mic-toggle" onclick="toggleSpeechRecognition()" style="background: rgba(0, 210, 211, 0.15); border-color: var(--cyan-glow); color: var(--cyan-accent); font-weight: bold;">🎙️ MIC</button>
+            <button class="quick-action-btn" onclick="sendQuickPrompt('What are your system vitals?')">⚡ Vitals</button>
+            <button class="quick-action-btn" onclick="triggerCoolingAction()" style="background: rgba(0, 255, 136, 0.15); border-color: var(--green-glow); color: var(--green-glow); font-weight: bold;">❄️ Cool / Flush RAM</button>
+            <button class="quick-action-btn" onclick="sendQuickPrompt('Open YouTube')">📺 YouTube</button>
             <button class="quick-action-btn" onclick="sendQuickPrompt('Search Google for the latest tech news')">🌐 Web Agent</button>
             <button class="quick-action-btn" onclick="sendQuickPrompt('Deploy coder swarm to optimize memory engine')">🤖 Coder Swarm</button>
             <button class="quick-action-btn" onclick="sendQuickPrompt('Run cyber recon against localhost')">🛡️ Cyber Recon</button>
@@ -796,6 +802,8 @@
 
         let ws = null;
         let typeTimer = null;
+        let recognition = null;
+        let isListeningWeb = false;
 
         function showToast(title, message, type = "info") {
             const toast = document.createElement('div');
@@ -810,11 +818,89 @@
             }, 4500);
         }
 
-        function typeWriter(el, text, i = 0) {
-            if (i === 0) el.innerText = "";
+        function typeWriter(el, text, i = 1) {
+            clearTimeout(typeTimer);
+            el.textContent = text.slice(0, i);
             if (i < text.length) {
-                el.innerText += text.charAt(i);
-                typeTimer = setTimeout(() => typeWriter(el, text, i + 1), 22);
+                typeTimer = setTimeout(() => typeWriter(el, text, i + 1), 18);
+            }
+        }
+
+        function initSpeechRecognition() {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) {
+                showToast("MICROPHONE", "Web Speech API not supported in this browser. Please use Chrome or Edge.", "warning");
+                return null;
+            }
+            const rec = new SpeechRec();
+            rec.continuous = false;
+            rec.interimResults = true;
+            rec.lang = 'en-US';
+
+            rec.onstart = () => {
+                isListeningWeb = true;
+                const btn = document.getElementById('mic-toggle');
+                if (btn) {
+                    btn.innerText = "🔴 LISTENING...";
+                    btn.style.background = "rgba(255, 51, 68, 0.35)";
+                    btn.style.borderColor = "var(--primary-glow)";
+                }
+                setWaveState("speaking");
+                sttDisplay.innerText = '"Listening to your microphone..."';
+            };
+
+            rec.onresult = (event) => {
+                let transcript = '';
+                for (let j = event.resultIndex; j < event.results.length; ++j) {
+                    transcript += event.results[j][0].transcript;
+                }
+                directiveField.value = transcript;
+                sttDisplay.innerText = `"${transcript}"`;
+            };
+
+            rec.onerror = (event) => {
+                console.warn("Speech recognition error:", event.error);
+                isListeningWeb = false;
+                const btn = document.getElementById('mic-toggle');
+                if (btn) {
+                    btn.innerText = "🎙️ MIC";
+                    btn.style.background = "rgba(0, 210, 211, 0.15)";
+                    btn.style.borderColor = "var(--cyan-glow)";
+                }
+                setWaveState("idle");
+            };
+
+            rec.onend = () => {
+                isListeningWeb = false;
+                const btn = document.getElementById('mic-toggle');
+                if (btn) {
+                    btn.innerText = "🎙️ MIC";
+                    btn.style.background = "rgba(0, 210, 211, 0.15)";
+                    btn.style.borderColor = "var(--cyan-glow)";
+                }
+                if (directiveField.value.trim()) {
+                    transmitDirective();
+                } else {
+                    setWaveState("idle");
+                }
+            };
+
+            return rec;
+        }
+
+        function toggleSpeechRecognition() {
+            if (!recognition) {
+                recognition = initSpeechRecognition();
+            }
+            if (!recognition) return;
+            if (isListeningWeb) {
+                recognition.stop();
+            } else {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.warn(e);
+                }
             }
         }
 
@@ -882,6 +968,9 @@
                     else if (msg.type === "edith_event") {
                         showToast("EDITH VISION", msg.data.action + (msg.data.result ? ": " + msg.data.result : ""), "warning");
                     }
+                    else if (msg.type === "cooling_event") {
+                        showToast("❄️ THERMAL SENTINEL", `Purged +${msg.data.reclaimed_ram_mb} MB RAM across ${msg.data.processes_optimized} apps! Thermals: ${msg.data.thermal_pressure}`, "success");
+                    }
                     else if (msg.type === "exec_microsteps") {
                         if (Array.isArray(msg.data.steps)) {
                             taskContainer.innerHTML = "";
@@ -921,6 +1010,12 @@
             } else {
                 showToast("OFFLINE", "Cannot transmit: Hypervisor uplink disconnected.", "danger");
             }
+        }
+
+        function triggerCoolingAction() {
+            showToast("❄️ SENTINEL", "Engaging silent active cooling & working set compaction...", "info");
+            sendQuickPrompt("Cool down system and flush bloated RAM cache");
+            fetch('/api/cool').catch(() => {});
         }
 
         function sendQuickPrompt(promptText) {
