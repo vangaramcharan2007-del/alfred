@@ -232,3 +232,9 @@ def start_hud(port: int = 8765):
     t.start()
     logger.info(f"[HUD] JARVIS Dashboard live at http://localhost:{port}")
     return t
+
+
+if __name__ == "__main__":
+    import uvicorn
+    print("[HUD] Starting Tactical Glassmorphism HUD on http://localhost:8765...")
+    uvicorn.run(app, host="0.0.0.0", port=8765, log_level="info")
