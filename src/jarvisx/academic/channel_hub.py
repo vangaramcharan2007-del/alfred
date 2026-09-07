@@ -36,6 +36,14 @@ class ChannelHub:
     def __init__(self, student_profile: Optional[StudentProfile] = None):
         self.profile = student_profile or StudentProfile()
         self.base_ecurricula_url = "https://dld.srmist.edu.in/ktretecurricula/server"
+        
+        from jarvisx.academic.session_vault import SessionVault
+        from jarvisx.academic.resilient_scraper import ResilientScraper
+        from jarvisx.academic.multimodal_anchor import MultiModalAnchor
+
+        self.session_vault = SessionVault()
+        self.resilient_scraper = ResilientScraper()
+        self.multimodal_anchor = MultiModalAnchor()
 
     def poll_all_channels(self, simulated_events: Optional[List[Dict[str, Any]]] = None) -> List[AcademicTask]:
         """Polls all 7 channels and returns newly discovered or pending AcademicTask objects."""
@@ -51,9 +59,15 @@ class ChannelHub:
         return tasks
 
     def poll_ecurricula(self) -> List[AcademicTask]:
-        """Queries the live SRM eCurricula server for pending or newly unlocked sessions."""
+        """Queries the live SRM eCurricula server for pending or newly unlocked sessions using resilient session & routing."""
         tasks: List[AcademicTask] = []
-        url = f"{self.base_ecurricula_url}/curricula/student/session/getsessionstatus"
+        
+        # Resilient Session & Route Discovery (Failure Modes 1 & 2 Fix)
+        session_data = self.session_vault.get_session("ecurricula")
+        url = self.resilient_scraper._route_cache.get(
+            "ecurricula_status",
+            f"{self.base_ecurricula_url}/curricula/student/session/getsessionstatus"
+        )
         course_info = {
             '_id': '21CSC201J',
             'COURSE_CODE': '21CSC201J',

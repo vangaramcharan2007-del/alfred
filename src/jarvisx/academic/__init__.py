@@ -22,6 +22,11 @@ from jarvisx.academic.submission_engine import AcademicSubmissionEngine
 from jarvisx.academic.persistence import AcademicPersistenceManager
 from jarvisx.academic.sentinel_daemon import AcademicSentinelDaemon
 from jarvisx.academic.agent import AcademicSentinelAgent, get_academic_agent
+from jarvisx.academic.session_vault import SessionVault
+from jarvisx.academic.resilient_scraper import ResilientScraper
+from jarvisx.academic.multimodal_anchor import MultiModalAnchor
+from jarvisx.academic.stylometry_engine import StylometryEngine
+from jarvisx.academic.resilience_controller import ResilienceController
 
 __all__ = [
     "AcademicTask",
@@ -41,5 +46,10 @@ __all__ = [
     "AcademicSentinelDaemon",
     "AcademicSentinelAgent",
     "get_academic_agent",
+    "SessionVault",
+    "ResilientScraper",
+    "MultiModalAnchor",
+    "StylometryEngine",
+    "ResilienceController",
 ]
 

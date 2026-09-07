@@ -24,9 +24,27 @@ class AcademicSubmissionEngine:
     def __init__(self, profile: Optional[StudentProfile] = None):
         self.profile = profile or StudentProfile()
         self.base_ecurricula_url = "https://dld.srmist.edu.in/ktretecurricula/server"
+        
+        from jarvisx.academic.session_vault import SessionVault
+        from jarvisx.academic.resilient_scraper import ResilientScraper
+        from jarvisx.academic.resilience_controller import ResilienceController
+        
+        self.session_vault = SessionVault()
+        self.resilient_scraper = ResilientScraper()
+        self.resilience_ctrl = ResilienceController()
 
     def process_submission(self, task: AcademicTask) -> AcademicTask:
-        """Determines submission target and executes the appropriate workflow."""
+        """Determines submission target and executes the appropriate workflow with two-phase staging."""
+        # Phase 1: Cryptographic staging of solution artifacts (Failure Mode 5 Fix)
+        self.resilience_ctrl.stage_for_submission(task)
+
+        # Check for race hazards or updated problem statements
+        can_submit, msg = self.resilience_ctrl.can_safely_submit(task)
+        if not can_submit and "RACE HAZARD" in msg:
+            logger.warning(f"Aborting submission due to rubric change: {msg}")
+            task.status = TaskStatus.FAILED
+            return task
+
         if task.channel == ChannelSource.ECURRICULA:
             return self._submit_ecurricula(task)
         elif task.channel == ChannelSource.SRM_STEP_JAVA:
@@ -37,8 +55,18 @@ class AcademicSubmissionEngine:
             return self._stage_cloud_submission(task)
 
     def _submit_ecurricula(self, task: AcademicTask) -> AcademicTask:
-        """Submits practice link directly to SRM eCurricula portal backend."""
-        submit_url = f"{self.base_ecurricula_url}/curricula/student/session/submitlink"
+        """Submits practice link directly to SRM eCurricula portal backend using resilient session & routing."""
+        # Self-healed route discovery (Failure Mode 2 Fix)
+        submit_url = self.resilient_scraper._route_cache.get(
+            "ecurricula_submit",
+            f"{self.base_ecurricula_url}/curricula/student/session/submitlink"
+        )
+        
+        # Authenticated Session & Cookie retrieval (Failure Mode 1 Fix)
+        session_data = self.session_vault.get_session("ecurricula")
+        cookies = session_data.get("cookies", {})
+        headers = self.resilience_ctrl.get_browser_headers("ecurricula")
+        headers['Content-Type'] = 'application/json'
         session_num = 401
         try:
             parts = task.task_id.split("-")

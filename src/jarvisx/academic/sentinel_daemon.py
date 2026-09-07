@@ -51,11 +51,18 @@ class AcademicSentinelDaemon:
         self.compiler = AcademicDocumentCompiler(profile=self.profile)
         self.alerter = AcademicAlertDispatcher(enable_voice=enable_voice, enable_toast=enable_toast)
         self.submission_engine = AcademicSubmissionEngine(profile=self.profile)
+        
+        # Expose 5 Core Resilience Subsystems
+        self.session_vault = self.channel_hub.session_vault
+        self.resilient_scraper = self.channel_hub.resilient_scraper
+        self.multimodal_anchor = self.channel_hub.multimodal_anchor
+        self.stylometry_engine = self.solver.stylometry
+        self.resilience_ctrl = self.submission_engine.resilience_ctrl
 
     def execute_cycle(self, simulated_events: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
-        """Runs a complete autonomous academic sweep cycle."""
+        """Runs a complete autonomous academic sweep cycle with full resilience enforcement."""
         cycle_start = time.time()
-        logger.info("=== STARTING ACADEMIC SENTINEL CYCLE ===")
+        logger.info("=== STARTING RESILIENT ACADEMIC SENTINEL CYCLE ===")
 
         # 1. Ingest from all channels
         raw_tasks = self.channel_hub.poll_all_channels(simulated_events)
@@ -97,6 +104,13 @@ class AcademicSentinelDaemon:
             "tasks_solved": len(solved_tasks),
             "tasks_submitted": len(submitted_tasks),
             "alerts_dispatched": len(self.alerter.dispatched_history),
+            "resilience_telemetry": {
+                "active_sessions": len(self.session_vault._sessions),
+                "cached_routes": len(self.resilient_scraper._route_cache),
+                "stylometry_active": True,
+                "two_phase_staging": True,
+                "next_sweep_delay_s": round(self.resilience_ctrl.get_next_sweep_delay(), 1),
+            },
             "active_tasks": [t.to_dict() for t in submitted_tasks],
         }
 

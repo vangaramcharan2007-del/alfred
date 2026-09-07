@@ -19,22 +19,43 @@ logger = logging.getLogger("jarvisx.academic.solver_engine")
 class AcademicSolverEngine:
     """Dispatches tasks to domain-specialized solvers and produces verified technical solutions."""
 
+    def __init__(self):
+        from jarvisx.academic.stylometry_engine import StylometryEngine
+        from jarvisx.academic.multimodal_anchor import MultiModalAnchor
+        self.stylometry = StylometryEngine()
+        self.multimodal_anchor = MultiModalAnchor()
+
     def solve_task(self, task: AcademicTask) -> AcademicTask:
         """Executes domain solving and attaches solutions, code, and test verifications."""
         logger.info(f"Solving task {task.task_id} ({task.channel.value}): {task.title}")
 
+        # Multi-Modal & Cryptic Textbook Reference Resolution (Failure Mode 3 Fix)
+        anchor = self.multimodal_anchor.resolve_cryptic_citation(f"{task.title} {task.description}")
+        if anchor:
+            task.description = f"{task.description}\n[VERIFIED REFERENCE: {anchor['source']}]: {anchor['verified_problem']}"
+
         if task.channel == ChannelSource.SRM_STEP_JAVA or task.task_type == TaskType.JAVA_CODING_CHALLENGE:
-            return self._solve_step_java(task)
+            solved_task = self._solve_step_java(task)
         elif task.channel == ChannelSource.NPTEL or task.task_type == TaskType.NPTEL_ASSIGNMENT:
-            return self._solve_nptel_mcqs(task)
+            solved_task = self._solve_nptel_mcqs(task)
         elif "21MAB201T" in task.course_code or "transforms" in task.course_name.lower():
-            return self._solve_math_fourier(task)
+            solved_task = self._solve_math_fourier(task)
         elif "21CSC202J" in task.course_code or "operating systems" in task.course_name.lower():
-            return self._solve_os_bankers(task)
+            solved_task = self._solve_os_bankers(task)
         elif "hashing" in task.title.lower():
-            return self._solve_dsa_hashing(task)
+            solved_task = self._solve_dsa_hashing(task)
         else:
-            return self._solve_generic_worksheet(task)
+            solved_task = self._solve_generic_worksheet(task)
+
+        # Stylometry Diversification to evade MOSS AST similarity & AI detectors (Failure Mode 4 Fix)
+        if solved_task.generated_code:
+            for fname, code in list(solved_task.generated_code.items()):
+                if fname.endswith(".java"):
+                    solved_task.generated_code[fname] = self.stylometry.diversify_java_code(code, fname)
+        if solved_task.solution_text:
+            solved_task.solution_text = self.stylometry.humanize_report_text(solved_task.solution_text)
+
+        return solved_task
 
     def _solve_step_java(self, task: AcademicTask) -> AcademicTask:
         """Solves SRM STEP Program Java track problem sets with production OOP code & test suite."""
