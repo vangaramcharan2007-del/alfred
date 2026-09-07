@@ -1,0 +1,889 @@
+=== Session 301 SLO 1 (3011) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Stacks Introduction 
+Activity: Fill in the Blanks 
+1. A stack is a ____ data structure. 
+ 
+2. The two main operations of a stack are ____ and ____. 
+ 
+3. The operation that adds an element to a stack is called ____. 
+ 
+4. The operation that removes the top element from the stack is called ____. 
+ 
+5. The operation that returns the top element without removing it is called ____. 
+ 
+6. If a stack is full and a push operation is attempted, it is called ____. 
+ 
+7. If a stack is empty and a pop operation is attempted, it is called ____. 
+ 
+8. Stacks are usually implemented using ____ or ____. 
+ 
+9. In array implementation of stack, the top element is accessed using the ____ index. 
+ 
+10. In function calls, the system uses a stack to store ____. 
+ 
+11. The initial value of top in an empty stack array implementation is usually ____. 
+ 
+12. Stack is used in ____ notation to evaluate expressions without parentheses. 
+ 
+13. A stack is also used in ____ traversal of trees. 
+ 
+14. The time complexity of push and pop operations in a stack is ____. 
+ 
+15. Reversing a string using stack works by ____ each character and then ____ them.
+
+=== Session 301 SLO 2 (3012) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Stack Implementation Using Array 
+Activity: Fill the Missing Pseudocode 
+ 
+Consider that a stack is implemented using an array named STACK. Fill the missing Pseudocode 
+for Push, Pop and Peek operation. The STACK array can have values from 0 to MAX-1 
+ 
+Push Operation - Algorithm to insert an element in a stack 
+Step 1: IF TOP = MAX-1  
+  PRINT _____________  
+Goto Step 4  
+[END OF IF]  
+Step 2: SET TOP = ___________  
+Step 3: SET STACK[______] = VALUE  
+Step 4: END 
+ 
+Pop Operation - Algorithm to delete an element from a stack 
+Step 1: IF TOP = _____  
+PRINT UNDERFLOW  
+Goto Step 4 
+[END OF IF]  
+Step 2: SET VAL = STACK[______]  
+Step 3: SET TOP = _________  
+Step 4: END 
+ 
+Peek Operation - Algorithm for Peek operation 
+Step 1: IF TOP = _______  
+PRINT STACK IS EMPTY  
+Goto Step 3  
+[END OF IF]  
+Step 2: RETURN STACK[_______]  
+Step 3: END
+
+=== Session 302 SLO 1 (3021) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Stack Implementation Using Array - Advantages, Disadvantages and Applications 
+Activity: Fill in the blanks 
+ 
+1. Stack implementation using arrays is ____ to implement. 
+2. Accessing elements in an array is ____ due to direct indexing. 
+3. Stack operations like push and pop take ____ time in array implementation. 
+4. Arrays provide ____ memory allocation at compile time. 
+5. Array-based stacks have ____ memory access, improving performance. 
+6. There is no overhead of memory allocation and ____ in arrays. 
+7. Array-based stack implementation avoids the extra memory used for ____ in linked lists. 
+8. It is easier to ____ a stack implemented using arrays in programming. 
+9. Array implementation of stack is ____ in terms of memory for small, fixed-size stacks. 
+10. Stack overflow in array implementation is ____ to detect. 
+11. Stack implemented using arrays has a fixed ____ size. 
+12. If the stack size is too small, it may lead to ____. 
+13. If the stack size is too large, it may lead to ____ of memory. 
+14. Arrays use ____ memory allocation, which is less flexible. 
+15. It is difficult to ____ the size of a stack implemented using arrays at runtime. 
+16. Stack operations using arrays are not memory ____ for large data. 
+17. Inserting or removing elements from the stack may require checking for ____ or underflow. 
+18. Reallocation of array memory is ____ and not always supported in some languages. 
+19. Array implementation is not suitable when the maximum stack size is ____. 
+20. Stack implemented using arrays may not efficiently use ____ in dynamic scenarios. 
+21. Stacks are used in ____ evaluation and conversion. 
+22. Infix, postfix, and prefix expressions are evaluated using ____. 
+23. Stacks help in checking balanced ____ in an expression. 
+24. Stack is used to perform ____ traversal in trees. 
+25. The function call mechanism uses a ____ stack. 
+26. Stacks are used in ____ algorithms for backtracking. 
+27. Undo and redo operations in editors are managed using ____. 
+28. Stack is used in reversing a ____. 
+29. Browser history navigation (back and forward) uses the concept of ____. 
+30. Stacks are used in memory management and ____ handling in programs.
+
+=== Session 302 SLO 2 (3022) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Stack Implementation Using Linked Lists 
+Activity: Fill in the Missing Pseudocode 
+ 
+Consider that a stack is implemented using a Linked List (Pointer Implementation). Fill the missing 
+Pseudocode for Push and Pop operation. The TOP pointer points to top of Satck. 
+ 
+Push Operation - Algorithm to insert an element VAL in a stack 
+Step 1: Allocate _________ for the new node and name it as NEW_NODE  
+Step 2: SET NEW_NODE  ________ = VAL 
+Step 3: IF TOP = NULL  
+  SET NEW_NODE  ________ = NULL 
+SET TOP = ___________ 
+ELSE  
+SET ____________________ = TOP 
+SET ______ = NEW_NODE 
+[END OF IF]  
+Step 4: END 
+ 
+Pop Operation - Algorithm to delete an element from a stack 
+Step 1: IF TOP = __________  
+PRINT UNDERFLOW  
+Goto Step 5  
+[END OF IF]  
+Step 2: SET PTR = TOP  
+Step 3: SET TOP = _____________ 
+Step 4: FREE _______  
+Step 5: END
+
+=== Session 303 SLO 1 (3031) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Stack Implementation Using Linked Lists - Advantages, Disadvantages and Applications 
+Activity: Fill in the Blanks 
+1. Stack implementation using pointers allows ____ memory allocation. 
+2. In pointer-based stacks, there is no need to define the ____ stack size. 
+3. Stack implemented using pointers can easily grow and ____ at runtime. 
+4. There is no ____ of memory since space is allocated as needed. 
+5. Linked list-based stacks can handle a large number of elements until the system runs out of ____. 
+6. Pointer-based stack avoids ____ overflow, unlike array-based stacks. 
+7. In pointer-based implementation, memory is released using ____ when elements are popped. 
+8. Stacks using pointers are more ____ for programs requiring flexible memory use. 
+9. No need to ____ the stack when it becomes full, unlike arrays. 
+10. Each node in a linked list-based stack contains both data and a ____ to the next node. 
+11. Stack implementation using pointers requires extra memory for storing ____. 
+12. Each node in a linked list-based stack uses more ____ than array-based stacks. 
+13. Accessing elements in a pointer-based stack is ____ than in an array. 
+14. Stack operations in linked lists involve dynamic memory allocation, which can be ____. 
+15. Improper memory management in pointer-based stacks can lead to ____ leaks. 
+16. Debugging a pointer-based stack is more ____ than an array-based stack. 
+17. Pointer-based stack implementation depends on ____ allocation at runtime. 
+18. Excessive use of pointers increases the risk of ____ errors. 
+19. It is harder to determine the total number of elements without ____ through the stack. 
+20. Stack operations in pointer -based implementation are not as ____ as array -based stacks for small 
+data sets. 
+21. Stack using pointers is useful in handling ____ size data efficiently. 
+22. Function call management in recursion uses a ____ stack. 
+23. Pointer-based stacks are suitable for evaluating and converting ____ expressions. 
+24. Stacks help in implementing ____ and redo features in applications. 
+25. Pointer-based stacks are used in ____ parsing for compilers. 
+26. Backtracking algorithms like maze solving or N-Queens use ____. 
+27. Stack using pointers is helpful in managing ____ frames in programming languages. 
+28. Depth-first search (DFS) in graphs can be implemented using a ____. 
+29. Stacks are used in checking ____ of parentheses in expressions. 
+30. Linked list-based stacks are useful in systems with limited or unpredictable ____ availability.
+
+=== Session 303 SLO 2 (3032) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Stack Applications 
+Activity: Match the Following 
+A. Expression Evaluation    1. Navigates forward and backward 
+B. Reverse Characters     2. Uses recursion implemented via stack 
+C. Syntax Parsing     3. Characters are popped in reverse order 
+D. Backtracking     4. Uses call stack to manage recursion 
+E. Undo Mechanism     5. Verifies matching of open/close brackets 
+F. Function Call Management   6. Used in solving mazes or puzzles  
+G. Parenthesis Checking    7. Maintains previous states of actions  
+H. Browser History     8. Converts infix to postfix or prefix  
+I. Reversing a String     9. Helps in checking for balanced symbols  
+J. Tower of Hanoi     10. Uses stack
+
+=== Session 304 SLO 1 (3041) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Stack Applications - Reversing a List and Balancing Symbols 
+Activity: Illustrate the Given Scenario 
+ 
+1. Consider any 5 elements in a List in an array A. Use a Stack S using array implementation 
+and Reverse the Elements of the List. Use array B for the reversed elements 
+Step 1: Representation of the elements in the List 
+ 
+ 
+ 
+Step 2: Traverse the list from the first element and push the element into the Stack S 
+ 
+ 
+ 
+Step 3: Pop the elements one by one and place them in array B. Note that pop operation will always 
+take place from TOP 
+ 
+ 
+ 
+ 
+ 
+2. Check if the following expressions have balanced parenthesis using stack 
+a. { P + ( Q – R ) } 
+Step 1: Initialize flag as 1 
+Step 2: Scan the expression and when a left symbol is encountered. Push into stack. 
+Step 3: When a right symbol is encountered 
+  If stack is empty change flag to 0 
+Else pop from the stack and check the symbols if they do not match change 
+flag as 0 
+  Step 4: At end of expression, if stack is empty and flag = 1 then it is valid else invalid 
+ 
+b. { D * ( S + A) )
+
+=== Session 304 SLO 2 (3042) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Stack Applications - Infix to Postfix Conversion 1 
+Activity: Know the Steps of the Algorithm 
+ 
+Write an algorithm for Conversion of Infix Expression to Postfix using Stack
+
+=== Session 305 SLO 1 (3051) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Stack Applications - Infix to Postfix Conversion 2 
+Activity: Follow the Algorithm and Solve 
+ 
+Convert the following infix expression into postfix expression using the algorithm using stacks 
+ A – (B / C + (D % E * F) / G)* H
+
+=== Session 305 SLO 2 (3052) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Stack Applications - Evaluating Postfix Expression 
+Activity: Know the Steps of the Algorithm 
+ 
+Algorithm to evaluate a postfix expression 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Activity: Follow the Algorithm and Solve 
+ 
+Evaluation of a postfix expression 9 3 4 * 8 + 4 / -
+
+=== Session 306 SLO 1 (3061) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Stack Applications – Recursion 
+Activity: Fill in the Blanks 
+Fill in the Blanks (Stack Application – Recursion) 
+ 
+1. In recursion, each function call is stored in the ____. 
+ 
+2. The ____ principle is followed by stacks. 
+ 
+3. Stack is used internally to implement ____ function calls. 
+ 
+4. Every recursive function must have a ____ condition to avoid infinite calls. 
+ 
+5. The process of returning from a recursive function happens in the ____ order of calls. 
+ 
+6. Each recursive call adds a new ____ to the stack. 
+ 
+7. ____ is a classic example of a problem solved using recursion and stacks. 
+ 
+8. The return address and local variables are stored in the function’s ____. 
+ 
+9. The system stack helps in managing ____ function calls during recursion. 
+ 
+10. When the base case is reached, the stack starts to ____.
+
+=== Session 306 SLO 2 (3062) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Stack Applications - Tower of Hanoi 
+Activity: Fill in the Blanks 
+1. ____ is a classic problem that demonstrates the use of recursion with stacks. 
+ 
+2. The minimum number of moves required to solve the Towers of Hanoi with n disks is ____. 
+ 
+3. The recursive solution to Towers of Hanoi uses the ____ data structure to manage function calls. 
+ 
+4. In the Towers of Hanoi, disks are moved from the source rod to the ____ rod using an auxiliary rod. 
+ 
+5. Each recursive call pushes a new ____ onto the stack. 
+ 
+6. The Towers of Hanoi involves ____ recursive steps. 
+ 
+7. The stack unwinds when the ____ case of the recursive function is reached. 
+ 
+8. The base condition in Towers of Hanoi is when ____ disk is to be moved. 
+ 
+9. Stacks in recursion help to ____ the order of operations in solving the puzzle. 
+ 
+10. The auxiliary rod in the Towers of Hanoi acts as a ____ during disk transfers.
+
+=== Session 307 SLO 1 (3071) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Implementation of Stack using Array and Linked List 
+Activity: Build the Code with a Series of Steps 
+Build the code for Implementation of Stacks using Array.  
+a. Declare the stack with size MAX, initialize ‘top’ 
+ 
+ 
+b. Write a function push with arguments int st[ ] and int val 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+c. Write a function pop with argument int st[ ]  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+d. Write a function peek with argument int st[ ]
+
+=== Session 307 SLO 2 (3072) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Implementation of Stack using Array and Linked List 
+Activity: Build the Code with a Series of Steps 
+Build the code for Implementation of Stacks using Linked Lists (Pointer Implementation) 
+a. Define the structure for a node 
+ 
+ 
+ 
+ 
+b. Write a function for push operation with arguments top and int val. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+c. Write a function for pop operation with arguments top. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+d. Write a function for peek operation with arguments top.
+
+=== Session 308 SLO 1 (3081) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Queue Introduction 
+Activity: Fill in the Blanks 
+1. A queue follows the ____ principle. 
+ 
+2. In a queue, insertion is performed at the ____ end. 
+ 
+3. In a queue, deletion is performed at the ____ end. 
+ 
+4. A ____ queue is a linear data structure with a fixed size. 
+ 
+5. A ____ queue overcomes the limitation of fixed size by wrapping around. 
+ 
+6. A ____ queue allows insertion and deletion from both ends. 
+ 
+7. ____ queue gives priority to elements based on certain criteria. 
+ 
+8. Queues are used in ____ scheduling in operating systems. 
+ 
+9. In a queue, if the rear is just behind the front in a circular manner, the queue is said to be ____. 
+ 
+10. A ____ is used to implement queues in programming languages like C. 
+ 
+11. The queue operation that checks whether it is full is called ____. 
+ 
+12. The queue operation that checks whether it is empty is called ____. 
+ 
+13. In breadth-first search (BFS) of a graph, ____ is used to keep track of the next node to visit. 
+ 
+14. In printers, tasks are managed using a ____ to print in the order they arrive. 
+ 
+15. A queue where new elements are added based on priority rather than position is called a ____.
+
+=== Session 308 SLO 2 (3082) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Queue Implementation Using Array 
+Activity: Fill the Missing Pseudocode 
+ 
+Enqueue Operation - Algorithm to insert an element NUM in a queue 
+Step 1: IF REAR = _____________  
+Write OVERFLOW  
+Goto step 4  
+[END OF IF]  
+Step 2: IF FRONT=___ and REAR= _____ 
+SET FRONT = REAR = 0 
+ELSE  
+SET REAR = __________ 
+[END OF IF]  
+Step 3: SET QUEUE[REAR] = _______ 
+Step 4: EXIT 
+ 
+Dequeue Operation – Algorithm to delete an element from a queue 
+Step 1: IF FRONT = _____ OR FRONT > __________ 
+Write UNDERFLOW  
+ELSE  
+SET VAL = ______________ 
+SET FRONT = ______________ 
+[END OF IF]  
+Step 2: EXIT
+
+=== Session 309 SLO 1 (3091) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Queue Implementation Using Linked List 
+Activity: Fill the Missing Pseudocode 
+ 
+Enqueue Operation - Algorithm to insert an element VAL in a queue 
+Step 1: Allocate memory for the new node and name it as PTR  
+Step 2: SET PTR  DATA = _________ 
+Step 3: IF FRONT = NULL  
+SET FRONT = REAR = __________ 
+SET FRONT  NEXT = REAR  NEXT = ____________ 
+ELSE  
+ SET ________________ = PTR 
+SET __________ = PTR  
+SET _____________ = NULL  
+[END OF IF]  
+Step 4: END 
+ 
+Dequeue Operation – Algorithm to delete an element from a queue 
+Step 1: IF FRONT = NULL  
+  Write ______________ 
+Go to Step 5  
+[END OF IF]  
+Step 2: SET PTR = _____________ 
+Step 3: SET FRONT = ________________ 
+Step 4: FREE _________ 
+Step 5: END
+
+=== Session 309 SLO 2 (3092) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Types of Queues 
+Activity: Match the Following 
+A. Linear Queue    1. Grows or shrinks using linked list  
+B. Circular Queue    2. Basic FIFO structure 
+C. Double-Ended Queue (Deque)  3. Fixed size queue implemented using arrays  
+D. Input-Restricted Deque   4. Nested queue structure (queue as elements) 
+E. Output-Restricted Deque   5. Used for inter-thread communication 
+F. Priority Queue    6. Maintains increasing or decreasing order  
+G. Simple Queue    7. Doesn’t wait for operations to finish  
+H. Static Queue    8. Operation allowed at only one end 
+I. Dynamic Queue    9. Deletion at both ends, insertion at one end only 
+J. Circular Deque    10. Elements served based on importance  
+K. Single-Ended Queue   11. Insertion and deletion at both ends  
+L. Blocking Queue    12. Insertion at both ends, deletion at one end only  
+M. Non-blocking Queue   13. Last position connects to the first  
+N. Monotonic Queue    14. Ends are connected and operations at both ends 
+O. Queue of Queues    15. Insertion at rear, deletion at front
+
+=== Session 310 SLO 1 (3101) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Implementation of Queue using Array and Linked List 
+Activity: Build the Code with a Series of Steps 
+ 
+Build the code for Implementation of Queues using Array.  
+a. Declare the queue with size MAX, initialize ‘front’ and ‘rear’ 
+ 
+ 
+ 
+b. Write a function enqueue to insert elements at the rear end 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+c. Write a function dequeue to delete elements from the front of the queue
+
+=== Session 310 SLO 2 (3102) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Implementation of Queue using Array and Linked List 
+Activity: Build the Code with a Series of Steps 
+Build the code for Implementation of Queues using Linked List. (Pointer Implementation)  
+a. Define the structure for a node 
+ 
+ 
+ 
+ 
+b. Write a function for enqueue operation with arguments struct queue *q and int val. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+c. Write a function for dequeue operation with arguments struct queue *q.
+
+=== Session 311 SLO 1 (3111) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Circular Queue – Introduction 
+Activity: Fill in the Blanks 
+ 
+1. A circular queue connects the ____ position back to the front. 
+ 
+2. Circular queue overcomes the problem of ____ in a linear queue. 
+ 
+3. In a circular queue, when the rear reaches the end, it wraps around to index ____. 
+ 
+4. A circular queue follows the ____ principle. 
+ 
+5. The condition for a full circular queue is: (rear + 1) % size == ____. 
+ 
+6. The condition for an empty circular queue is: front == ____. 
+ 
+7. When the first element is inserted, both front and rear point to the ____ index. 
+ 
+8. Circular queues are commonly used in ____ scheduling. 
+ 
+9. The ____ function checks if a circular queue is full. 
+ 
+10. The ____ function checks if a circular queue is empty. 
+ 
+11. Circular queues help in utilizing memory more ____ than linear queues. 
+ 
+12. In a circular queue, incrementing the rear is done using ____ operator. 
+ 
+13. Circular queues can be implemented using arrays or ____. 
+ 
+14. The front element of a circular queue is accessed using the ____ pointer. 
+ 
+15. In circular queues, rear and front move in a ____ manner.
+
+=== Session 311 SLO 2 (3112) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Circular Queue - Enqueue Operation 
+Activity: Fill in the Missing Psuedocode 
+Algorithm to insert an element in a circular queue 
+Step 1: IF FRONT = ____ and Rear = ____________ 
+Write OVERFLOW  
+Goto step 4  
+[END OF IF]  
+Step 2: IF FRONT=-1 and REAR=-1  
+SET FRONT = REAR = _______ 
+ELSE IF REAR = ____________ and FRONT != _______ 
+SET REAR = 0 
+ELSE  
+SET REAR = __________ 
+[END OF IF]  
+Step 3: SET QUEUE[REAR] = _________ 
+Step 4: EXIT 
+ 
+Activity: Fill in the Missing Programming Code 
+void insert() { //Function to Insert an element in a circular queue 
+int num;  
+printf("\n Enter the number to be inserted in the queue : ");  
+scanf(_______________);  
+if(___________________________) // Check if the circular queue is full 
+printf("\n OVERFLOW");  
+else if(________________________) { //If the circular queue is empty; insert the element 
+front=rear=_____;  
+queue[rear]=_______;  
+}  
+else if(_______________________) {//If rear is at MAX-1 but there are spaces to insert  
+rear=____;  
+queue[rear]=__________;  
+}  
+else { //If there are spaces to insert 
+___________;  
+queue[rear]=num;  
+}  
+}
+
+=== Session 312 SLO 1 (3121) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Circular Queue - Dequeue Operation 
+Activity: Fill in the Missing Psuedocode 
+Algorithm to delete an element from a circular queue 
+Step 1: IF FRONT=________ 
+Write UNDERFLOW  
+Goto Step 4  
+[END of IF]  
+Step 2: SET VAL = __________________  
+Step 3: IF FRONT = REAR  
+SET FRONT = REAR=______ 
+ELSE  
+IF FRONT = ______________  
+SET FRONT = 0 
+ELSE  
+SET FRONT = __________________  
+[END of IF]  
+[END OF IF]  
+Step 4: EXIT 
+ 
+Activity: Fill in the Missing Programming Code 
+int delete_element() { //Function to delete an element from the circular queue 
+int val;  
+if(__________________________) { //Check if the queue is empty 
+printf("\n UNDERFLOW");  
+return –1;  
+}  
+val = ______________; //Get the element from the front of the queue to be deleted 
+if(________________) //If there is only one element in the queue  
+front=rear= ____;  
+else {  
+if(_________________) //If the front is at MAX-1 
+front=_____;  
+else  
+___________;  
+}  
+return val;  
+}
+
+=== Session 312 SLO 2 (3122) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: DEQUE (Double-Ended Queue) - Insertion Operation 
+Activity: Fill in the Missing Programming Code 
+ 
+Insert at right of Double-Ended Queue 
+void insert_right() {  
+_______; //Declare the variable for the element 
+printf("\n Enter the value to be added:");  
+scanf(_______________);  
+if((_________________________________________) { //Check for Overflow condition 
+printf("\n OVERFLOW");  
+return;  
+}  
+if (left == ______) { // If queue is initially empty  
+left = _____;  
+right = ______;  
+}  
+else {  
+if(______________________) //Right is at last position of queue 
+right = ______;  
+else  
+right = __________;  
+}  
+deque[________] = val ; //Insert the value at right 
+} 
+ 
+  
+ 
+  
+Insert at left of Double-Ended Queue 
+void insert_left() {  
+_________; //Declare the variable for the element 
+printf("\n Enter the value to be added:");  
+scanf(____________________);  
+if((________________________________________) { //Check for Overflow condition 
+printf("\n Overflow");  
+return;  
+} 
+if (______________) { // If queue is initially empty 
+left = _____;  
+right = ______ ;  
+}  
+else {  
+if(____________) //Left is at first position of queue 
+left=__________;  
+else  
+left=__________;  
+}  
+______________ = val; //Insert the value at left 
+}
+
+=== Session 313 SLO 1 (3131) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: DEQUE (Double-Ended Queue) - Deletion Operation 
+Activity: Fill in the Missing Programming Code 
+ 
+Delete at left of Double-Ended Queue 
+void delete_left() {  
+if (_______________) { //Check for Underflow condition 
+printf("\n UNDERFLOW");  
+return ;  
+}  
+printf("\n The deleted element is : %d", _______________); //Delete the left element 
+if(_________________) { //Queue has only one element 
+left = _____;  
+right = ______;  
+}  
+else {  
+if(___________________) //Left is at last position 
+left = _____;  
+else  
+left = ___________;  
+}  
+} 
+ 
+  
+ 
+  
+ 
+Delete at right of Double-Ended Queue 
+void delete_right() {  
+ if (_______________) { //Check for Underflow condition 
+printf("\n UNDERFLOW");  
+return ;  
+}  
+printf("\n The element deleted is : %d", _______________); //Delete the right element 
+if(_______________) { //Queue has only one element 
+left = ______;  
+right = _______;  
+}  
+else {  
+if(______________) //Right is at first position 
+right=__________;  
+else  
+right=___________;  
+}  
+}
+
+=== Session 313 SLO 2 (3132) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: DEQUE (Double-Ended Queue) - Advantages, Disadvantages and Applications 
+Activity: Fill in the Blanks 
+1. A deque allows ____ and ____ from both ends. 
+ 
+2. Deques are more ____ than standard queues for certain applications. 
+ 
+3. A deque can function as both a ____ and a ____. 
+ 
+4. Deques provide efficient ____ complexity for insertion and deletion at both ends. 
+ 
+5. Deques are useful in implementing algorithms like ____ sliding window problems. 
+ 
+6. Deques require more complex ____ logic compared to simple queues. 
+ 
+7. Managing both ends in a deque can increase the chance of ____ errors. 
+ 
+8. Deques may require more ____ to track front and rear positions. 
+ 
+9. Linked list implementation of deques increases memory usage due to ____. 
+ 
+10. Deques are used in ____ scheduling algorithms where elements are added or removed from both 
+ends. 
+ 
+11. In ____ problems, deques help maintain a sliding window of elements. 
+ 
+12. Deques can be used to implement both ____ and ____ data structures.
+
+=== Session 314 SLO 1 (3141) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Inserting an Element into the Priority Queue 
+Activity: Fill in the Missing Programming Code 
+Inserting an Element into Priority Queue 
+struct node *insert(struct node *start) {  
+int ___________; //Declare val and priority 
+struct node *ptr, *new_node;  
+new_node = (____________________________________); //Allocate Memory 
+printf("\n Enter the value and its priority : " );  
+scanf( ________________________);  
+______________________ = val; //Set val in the data part of new node 
+______________________ = pri; //Set pri in priority of new node 
+if(_____________________________) { //Check is priority queue is empty or the insert priority is 
+       //less than priority of start 
+new_nodenext = __________;  
+start = _____________;  
+}  
+else {  
+ptr = start;  
+while(_________________________________________) //Check until end of priority  
+//queue and appropriate position by checking priority 
+ptr = ptrnext;  
+new_nodenext = ______________;  
+ptrnext = _______________;  
+}  
+return start;  
+}
+
+=== Session 314 SLO 2 (3142) ===
+SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, Kattankulathur 
+School of Computing 
+21CSC201J – Data Structures and Algorithms 
+Topic: Deleting an Element from the Priority Queue 
+Activity: Fill in the Missing Programming Code 
+Deleting an Element from the Priority Queue 
+struct node *delete(struct node *start) {  
+struct node *ptr;  
+if(_______________________) { //Check for Underflow condition 
+printf("\n UNDERFLOW" );  
+return;  
+}  
+else {  
+ptr = _________; //Store ptr to the start 
+printf("\n Deleted item is: %d", __________); //Delete the highest priority element 
+start = ______________; //Adjust the start to point the next priority element 
+______________; //Deallocate memory of deleted element 
+}  
+return start;  
+}
