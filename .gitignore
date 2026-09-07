@@ -22,3 +22,8 @@ config/local.yaml
 .env
 *.env
 *.db.key
+
+build/
+dist/
+*.egg-info/
+alfred_readme_restored.md
