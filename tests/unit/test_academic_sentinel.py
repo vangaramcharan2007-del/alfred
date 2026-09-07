@@ -192,6 +192,35 @@ class TestAcademicSentinel(unittest.TestCase):
         self.assertTrue(summary["tasks_solved"] >= 6)
         self.assertTrue(summary["tasks_submitted"] >= 6)
 
+    def test_mail_watcher_detection(self):
+        """Test AcademicMailWatcher scanning and task extraction."""
+        from jarvisx.academic.mail_watcher import AcademicMailWatcher
+        watcher = AcademicMailWatcher(self.profile)
+        res = watcher.check_inbox()
+        self.assertEqual(res["status"], "SUCCESS")
+        self.assertIn("discovered_tasks", res)
+        self.assertTrue(res["total_emails_inspected"] >= 1)
+
+    def test_step_java_curriculum_all_weeks(self):
+        """Test StepJavaCurriculumSolver generation across all Weeks 1 to 6."""
+        from jarvisx.academic.step_solver import StepJavaCurriculumSolver
+        solver = StepJavaCurriculumSolver()
+        
+        expected_files = {
+            1: ["PrimeOperations.java", "MatrixCompute.java", "Week1Test.java"],
+            2: ["Employee.java", "SalariedEmployee.java", "HourlyEmployee.java", "PayrollManager.java", "Week2PayrollTest.java"],
+            3: ["PaymentGateway.java", "Refundable.java", "UPIPayment.java", "CreditCardPayment.java", "Week3PaymentTest.java"],
+            4: ["BankAccount.java", "SavingsAccount.java", "CurrentAccount.java", "Exceptions.java", "BankManager.java", "Week4BankingTest.java"],
+            5: ["Student.java", "StudentAnalyticsEngine.java", "Week5AnalyticsTest.java"],
+            6: ["Order.java", "OrderProcessorPool.java", "Week6ConcurrencyTest.java"],
+        }
+        for week_num, fnames in expected_files.items():
+            week_data = solver.solve_week(week_num)
+            self.assertEqual(week_data["week"], week_num)
+            self.assertEqual(week_data["package"], f"com.srm.step.week{week_num}")
+            for fname in fnames:
+                self.assertIn(fname, week_data["files"], f"Missing {fname} in week {week_num}")
+
 
 if __name__ == "__main__":
     unittest.main()

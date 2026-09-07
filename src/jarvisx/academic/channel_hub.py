@@ -56,6 +56,15 @@ class ChannelHub:
         # Using real connectors or simulated stream for test/production environments
         tasks.extend(self.poll_external_streams(simulated_events))
 
+        # 3. Autonomous Academic Mail Watcher (SRM Mail / Gmail)
+        try:
+            from jarvisx.academic.mail_watcher import AcademicMailWatcher
+            mail_watcher = AcademicMailWatcher(self.profile)
+            mail_res = mail_watcher.check_inbox()
+            tasks.extend(mail_res.get("discovered_tasks", []))
+        except Exception as e:
+            logger.warning(f"MailWatcher check failed during channel poll: {e}")
+
         return tasks
 
     def poll_ecurricula(self) -> List[AcademicTask]:

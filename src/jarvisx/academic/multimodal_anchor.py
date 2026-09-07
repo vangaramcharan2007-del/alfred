@@ -115,19 +115,21 @@ class MultiModalAnchor:
                     "verified_problem": page_data["problem_statement"],
                 }
 
-        # Pattern 2: SRM STEP Java Module reference
-        match_step = re.search(r"step\s*java.*?module\s*(\d+)", text, re.IGNORECASE)
+        # Pattern 2: SRM STEP Java Module / Week reference
+        match_step = re.search(r"step\s*java.*?(?:module|week)\s*(\d+)", text, re.IGNORECASE)
         if match_step:
-            mod_num = f"module{match_step.group(1)}"
-            step_data = self._knowledge_base.get("srm_step_java_syllabus", {}).get("modules", {}).get(mod_num)
+            num = match_step.group(1)
+            modules = self._knowledge_base.get("srm_step_java_syllabus", {}).get("modules", {})
+            step_data = modules.get(f"module{num}") or modules.get(f"week{num}")
             if step_data:
-                logger.info(f"[MultiModalAnchor] Verified syllabus anchor! Retrieved SRM STEP {mod_num}")
+                logger.info(f"[MultiModalAnchor] Verified syllabus anchor! Retrieved SRM STEP Week/Module {num}")
                 return {
                     "resolved": True,
                     "source": "SRM STEP Java Specification",
-                    "module": mod_num,
+                    "module": f"module{num}",
+                    "week": f"week{num}",
                     "verified_problem": step_data["problem_statement"],
-                    "requirements": step_data.get("requirements", []),
+                    "requirements": step_data.get("requirements", step_data.get("classes", [])),
                 }
 
         return None

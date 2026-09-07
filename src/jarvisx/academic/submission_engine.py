@@ -117,10 +117,34 @@ class AcademicSubmissionEngine:
         pkg_dir.mkdir(parents=True, exist_ok=True)
         zip_path = pkg_dir / f"{task.task_id}_RAM_CHARAN_RA2511027010164.zip"
 
+        # Determine package subpath
+        tid = task.task_id.lower()
+        if "week1" in tid:
+            pkg_name = "week1"
+        elif "week2" in tid:
+            pkg_name = "week2"
+        elif "week3" in tid:
+            pkg_name = "week3"
+        elif "week4" in tid or "mod4" in tid:
+            pkg_name = "week4"
+        elif "week5" in tid:
+            pkg_name = "week5"
+        elif "week6" in tid:
+            pkg_name = "week6"
+        else:
+            pkg_name = "banking"
+
+        code_out_dir = Path(f"outputs/academic_solved/code/{task.task_id}")
+        code_out_dir.mkdir(parents=True, exist_ok=True)
+
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
             if task.generated_code:
                 for fname, content in task.generated_code.items():
-                    zf.writestr(f"src/com/srm/step/banking/{fname}", content)
+                    zf.writestr(f"src/com/srm/step/{pkg_name}/{fname}", content)
+                    try:
+                        (code_out_dir / fname).write_text(content, encoding="utf-8")
+                    except Exception:
+                        pass
             if task.compiled_pdf and os.path.exists(task.compiled_pdf):
                 zf.write(task.compiled_pdf, arcname=f"Report_{Path(task.compiled_pdf).name}")
 
@@ -130,6 +154,7 @@ class AcademicSubmissionEngine:
                 "register_number": self.profile.register_number,
                 "track": "SRM STEP Program (Java Track)",
                 "task": task.title,
+                "package": f"com.srm.step.{pkg_name}",
                 "test_status": "ALL UNIT TESTS PASSED (100%)",
             }
             zf.writestr("MANIFEST.json", json.dumps(manifest, indent=2))
