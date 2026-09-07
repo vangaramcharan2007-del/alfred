@@ -179,15 +179,6 @@ class UnifiedAgentFleet:
         except Exception as e:
             logger.warning(f"Could not load DynamicAgentFactory: {e}")
 
-        # 9. Academic & Homework Sentinel (SRM eCurricula, GCR, Teams, WhatsApp, NPTEL, STEP Java)
-        try:
-            from jarvisx.academic.agent import AcademicSentinelAgent
-            academic_sentinel = AcademicSentinelAgent(enable_voice=False, enable_toast=False)
-            self.agents["AcademicSentinelAgent"] = academic_sentinel
-            self.agents["HomeworkAgent"] = academic_sentinel
-        except Exception as e:
-            logger.warning(f"Could not load AcademicSentinelAgent: {e}")
-
         logger.info(f"Unified Agent Fleet loaded with {len(self.agents)} active agents.")
 
 
@@ -317,8 +308,6 @@ class UnifiedAgentFleet:
         "RedTeamVerifier":                ("jarvisx.agents.red_team", "RedTeamVerifier"),
         "OmnichannelCommunicationsAgent": ("jarvisx.agents.comms_agent", "get_comms_agent"),
         "DynamicAgentFactory":            ("jarvisx.agents.agent_factory", "get_agent_factory"),
-        "AcademicSentinelAgent":          ("jarvisx.academic.agent", "AcademicSentinelAgent"),
-        "HomeworkAgent":                  ("jarvisx.academic.agent", "AcademicSentinelAgent"),
     }
 
     def start_fleet_supervisor(self) -> None:

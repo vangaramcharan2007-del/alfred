@@ -18,8 +18,7 @@ class OllamaLLMProvider(LLMProvider):
             "qwen2.5-coder:1.5b",
             "qwen2.5-coder:7b",
             "llama3.2:latest",
-            "llama3:latest",
-            "aegis-baymax:latest"
+            "llama3:latest"
         ]
         self.is_installed = False
 

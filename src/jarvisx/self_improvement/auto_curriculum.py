@@ -1,7 +1,7 @@
 """
 Auto-Curriculum Engine — Self-Taught Mastery.
 Identifies skill gaps, generates a learning curriculum, writes practice problems,
-and scores itself in the Aegis Harness to learn new languages/frameworks.
+and scores itself in the Sandbox Harness to learn new languages/frameworks.
 """
 import logging
 import time
@@ -24,14 +24,14 @@ class AutoCurriculumEngine:
         # 1. Search web for documentation
         # 2. Generate 10 practice problems via LLM
         # 3. Write code to solve them
-        # 4. Execute in AegisHarness
+        # 4. Execute in Sandbox Harness
         time.sleep(1) # Simulating research phase
         
         logger.info(f"[Curriculum] Curriculum generated for '{skill_name}'. Practicing...")
         
         try:
-            from jarvisx.orchestration.aegis_harness import AegisHarness
-            harness = AegisHarness.get_instance()
+            from jarvisx.orchestration.sandbox_harness import SandboxHarness
+            harness = SandboxHarness.get_instance()
             
             # Simulate solving a generated problem
             mock_code = f"def mastery_{skill_name.lower().replace(' ', '_')}(): return True"

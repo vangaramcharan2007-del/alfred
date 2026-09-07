@@ -2115,7 +2115,7 @@ class TrainAgentFleetTool(Tool):
     def spec(self) -> ToolSpec:
         return ToolSpec(
             name="train_agent_fleet",
-            description="Autonomous fine-tuner and trainer: scans current project tools and integrations, distills optimized system prompts and few-shot examples for each subagent (Athena, Vulcan, Hermes, Aegis), and updates fleet profiles.",
+            description="Autonomous fine-tuner and trainer: scans current project tools and integrations, distills optimized system prompts and few-shot examples for each subagent (Athena, Vulcan, Hermes, Guardian), and updates fleet profiles.",
             input_schema={
                 "type": "object",
                 "properties": {},

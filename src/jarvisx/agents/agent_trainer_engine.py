@@ -204,7 +204,7 @@ class AgentTrainerEngine:
             ),
             "security_agent": AgentProfile(
                 role="security_agent",
-                name="Aegis Sentinel",
+                name="Guardian Sentinel",
                 specialty="Vulnerability Scanner, Permission Enforcer & Safety Gate",
                 system_prompt="Defensive security sentinel guarding against path traversal and unauthorized shell execution."
             ),

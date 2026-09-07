@@ -1,8 +1,0 @@
-{
-  "nptel_course": "PROGRAMMING, DATA STRUCTURES AND ALGORITHMS USING PYTHON",
-  "student": "RAM CHARAN VANGA",
-  "register_number": "RA2511027010164",
-  "task_id": "NPTEL-DSA-W5",
-  "solution_summary": "### NPTEL Week 5 Assessment Solutions\n\n**Q1: What is the time complexity to build a heap of n elements from an unsorted array?**\n- **Correct Answer:** `O(n)`\n- **Mathematical Rationale:** Building a heap bottom-up via Floyd's build-heap algorithm takes linear time O(n) because the sum of heights sum(h/2^h) converges to a constant.\n\n**Q2: In a max-heap with 10 elements, what is the minimum number of comparisons needed to find the minimum element?**\n- **Correct Answer:** `5`\n- **Mathematical Rationale:** In a max-heap of 10 elements, the minimum element must reside in one of the leaf nodes (indices floor(n/2) to n-1, i.e., indices 5 to 9 = 5 leaves). Finding the minimum among 5 leaves requires 4 comparisons.\n\n\n\n---\nSubmitted by: RAM CHARAN VANGA (RA2511027010164)\nDepartment of Computer Science & Engineering (Big Data Analytics)\n",
-  "verification": "100% Correct Algorithmic Proofs"
-}
