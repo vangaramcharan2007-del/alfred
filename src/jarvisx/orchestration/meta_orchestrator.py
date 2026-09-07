@@ -33,7 +33,9 @@ class MetaOrchestrator:
         self._push_to_ui("swarm_event", {"agent": "Meta-Orchestrator", "action": "Analyzing task complexity..."})
         
         lower_task = task.lower()
-        if "database" in lower_task or "sql" in lower_task:
+        if any(kw in lower_task for kw in ["homework", "assignment", "academic", "ecurricula", "nptel", "step java", "srm step", "swayam"]):
+            return ["Academic_Sentinel"]
+        elif "database" in lower_task or "sql" in lower_task:
             return ["DBA_Agent", "Backend_Agent"]
         elif "deploy" in lower_task:
             return ["DevOps_Agent"]
@@ -45,6 +47,7 @@ class MetaOrchestrator:
     def _get_agent_persona(self, role: str) -> str:
         """Injects a highly rigid system prompt to fine-tune the dynamically spawned agent."""
         personas = {
+            "Academic_Sentinel": "You are the Jarvis X Academic Sentinel. You autonomously monitor channels, parse assignments, solve technical problem sets, compile formal docs, and stage submissions for SRM eCurricula, GCR, Teams, NPTEL, and STEP Java.",
             "DBA_Agent": "You are a senior Database Architect. You only write hyper-optimized SQL and schema migrations. You despise ORM overhead. No fluff.",
             "DevOps_Agent": "You are a strict DevOps engineer. You focus entirely on Docker, CI/CD pipelines, and zero-downtime deployments.",
             "Security_Auditor": "You are a ruthless Red Team QA reviewer. You actively look for edge cases, memory leaks, and injection flaws.",
@@ -79,6 +82,31 @@ class MetaOrchestrator:
         all_written_files = []
         
         for role in roles:
+            if role == "Academic_Sentinel":
+                logger.info("[Orchestrator] Direct dispatch to AcademicSentinelAgent...")
+                self._push_to_ui("swarm_event", {"agent": "Meta-Orchestrator", "action": "Dispatching to AcademicSentinelAgent"})
+                try:
+                    from jarvisx.orchestration.unified_agent_fleet import UnifiedAgentFleet
+                    fleet = UnifiedAgentFleet.get_instance()
+                    agent = fleet.get_agent("AcademicSentinelAgent")
+                    if agent:
+                        outcome = agent.execute({"action": "cycle", "task": task})
+                        summary = outcome.get("summary", {})
+                        for t in summary.get("active_tasks", []):
+                            payload = t.get("submission_payload", {})
+                            if payload.get("compiled_docx"):
+                                all_written_files.append(payload["compiled_docx"])
+                            if payload.get("compiled_pdf"):
+                                all_written_files.append(payload["compiled_pdf"])
+                        team_logs.append(
+                            f"Academic_Sentinel completed: {summary.get('tasks_ingested', 0)} ingested, "
+                            f"{summary.get('tasks_solved', 0)} solved, {summary.get('tasks_submitted', 0)} submitted."
+                        )
+                        continue
+                except Exception as ex:
+                    logger.error(f"[Orchestrator] Academic_Sentinel dispatch error: {ex}")
+                    team_logs.append(f"Academic_Sentinel failed: {ex}")
+
             persona = self._get_agent_persona(role)
             logger.info(f"[Orchestrator] Booting {role}... [Persona: {persona[:40]}...]")
             self._push_to_ui("swarm_event", {"agent": "Meta-Orchestrator", "action": f"Provisioned {role}"})

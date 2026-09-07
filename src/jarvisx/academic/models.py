@@ -159,3 +159,11 @@ class StudentProfile:
     department: str = "COMPUTER SCIENCE AND ENGINEERING WITH SPECIALIZATION IN BIG DATA ANALYTICS"
     semester: int = 3
     email: str = "vangaramcharan2007@gmail.com"
+
+    @property
+    def name(self) -> str:
+        return self.student_name
+
+    @property
+    def reg_no(self) -> str:
+        return self.register_number

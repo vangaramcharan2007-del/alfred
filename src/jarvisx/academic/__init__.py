@@ -21,6 +21,7 @@ from jarvisx.academic.alert_dispatcher import AcademicAlertDispatcher
 from jarvisx.academic.submission_engine import AcademicSubmissionEngine
 from jarvisx.academic.persistence import AcademicPersistenceManager
 from jarvisx.academic.sentinel_daemon import AcademicSentinelDaemon
+from jarvisx.academic.agent import AcademicSentinelAgent, get_academic_agent
 
 __all__ = [
     "AcademicTask",
@@ -38,4 +39,7 @@ __all__ = [
     "AcademicSubmissionEngine",
     "AcademicPersistenceManager",
     "AcademicSentinelDaemon",
+    "AcademicSentinelAgent",
+    "get_academic_agent",
 ]
+

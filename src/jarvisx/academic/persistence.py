@@ -127,6 +127,10 @@ class AcademicPersistenceManager:
                 tasks.append(self._row_to_task(row))
         return tasks
 
+    def list_tasks(self, status: Optional[TaskStatus] = None) -> List[AcademicTask]:
+        """Alias for get_all_tasks."""
+        return self.get_all_tasks(status=status)
+
     def record_alert(self, alert: AlertEvent):
         """Records an alert event in the ledger."""
         with self._get_conn() as conn:
