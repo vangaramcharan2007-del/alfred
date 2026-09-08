@@ -182,6 +182,45 @@ end up with nine half-finished automations and no idea what happened.
 
 ---
 
+### Watching: `watch`
+
+```bash
+python -m jarvisx.agentic watch --task "write the OS assignment"
+python -m jarvisx.agentic watch --demo          # synthetic session, no desktop needed
+```
+
+The repo already had real sensors — `ActiveWindowContextSensor` (ctypes +
+psutil), `AmbientClipboardSensor`, `ScreenContextEngine` — but nothing consumed
+their output, so they observed without ever saying anything. `watch.py` is the
+consumer.
+
+It is deliberately **not** a productivity monitor. Watching an ADHD brain for
+"wasted time" produces shame, and shame produces avoidance — which is the
+actual problem. It watches for four mechanically useful things:
+
+| Signal | Trigger | Why it matters |
+|---|---|---|
+| `fragmented` | N app switches in M minutes | Task switching is the most expensive thing an ADHD brain does, and it is invisible while happening |
+| `off_task` | You named a task, then spent 5+ min on YouTube | Stated neutrally, always offers a choice, never an order |
+| `break` | A long unbroken stretch | Time blindness cuts both ways |
+| `captured` | Clipboard text looks like a note | It goes in the list instead of living in your head |
+
+Two rules keep this from becoming nagware:
+
+- **No stated task, no off-task nudge.** If you did not say what you were doing,
+  it has no business judging what you did.
+- **Clipboard capture is strict.** It only fires on explicit markers (`todo`,
+  `remember`, `don't forget`, `follow up`) within a sane length. Capturing
+  everything makes the list worthless, and a worthless list gets ignored
+  within a day.
+
+`AttentionLedger` is pure and deterministic — it ingests `Observation`
+dataclasses and emits `Nudge` objects with no OS calls, timers or I/O. The real
+sensors are optional adapters on top, so the whole thing is testable headless
+and degrades to "nothing to watch" on a machine with no desktop.
+
+---
+
 ## The five properties that make it a harness
 
 ### 1. Provider-agnostic model access

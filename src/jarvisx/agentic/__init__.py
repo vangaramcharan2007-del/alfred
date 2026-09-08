@@ -98,6 +98,19 @@ from jarvisx.agentic.verifier import (
     TestsPassCheck,
     Verifier,
 )
+from jarvisx.agentic.watch import (
+    ActiveWindowSource,
+    AttentionLedger,
+    ClipboardSource,
+    ContextSource,
+    ContextWatcher,
+    Nudge,
+    NudgeKind,
+    Observation,
+    ScriptedSource,
+    is_distraction,
+    looks_capturable,
+)
 from jarvisx.agentic.voice_loop import (
     ConsoleInput,
     ConsoleOutput,
@@ -193,6 +206,18 @@ __all__ = [
     "WhisperMicInput",
     "route",
     "strip_trigger",
+    # ambient watching
+    "ActiveWindowSource",
+    "AttentionLedger",
+    "ClipboardSource",
+    "ContextSource",
+    "ContextWatcher",
+    "Nudge",
+    "NudgeKind",
+    "Observation",
+    "ScriptedSource",
+    "is_distraction",
+    "looks_capturable",
     # entry points
     "run_goal",
     "run_task",

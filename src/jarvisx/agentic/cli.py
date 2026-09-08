@@ -514,6 +514,107 @@ def _save_intake(path: Optional[str], intake) -> None:
         print(_yellow(f"could not save state: {exc}"))
 
 
+def cmd_watch(args: argparse.Namespace) -> int:
+    """Ambient watcher: notice fragmentation, drift and stray thoughts."""
+    from jarvisx.agentic.watch import (
+        ActiveWindowSource,
+        AttentionLedger,
+        ClipboardSource,
+        ContextWatcher,
+        ScriptedSource,
+        Observation,
+    )
+
+    intake = _load_intake(args.state)
+
+    def on_nudge(nudge) -> None:
+        colour = {
+            "fragmented": _yellow,
+            "off_task": _yellow,
+            "time_check": _yellow,
+            "break": _green,
+            "captured": _green,
+        }.get(nudge.kind.value, str)
+        # flush: a long-running watcher piped to a file or a terminal must
+        # show nudges as they happen, not buffer them until exit.
+        print(f"{colour(f'[{nudge.kind.value}]')} {nudge.message}", flush=True)
+
+    source = None
+    demo_ticks = None
+    if args.demo:
+        # A fixed 20-minute session that drifts, so the signals are visible
+        # without a desktop, a microphone or a model.
+        script = []
+        for index in range(12):
+            app = "code" if index % 2 == 0 else "chrome"
+            script.append(
+                Observation(
+                    app=app,
+                    title="YouTube - lofi beats" if app == "chrome" else "assignment.py",
+                    mode="CODING" if app == "code" else "WEB_RESEARCH",
+                    timestamp=float(index * 60),
+                )
+            )
+        source = ScriptedSource(script)
+        # A scripted source exhausts; without a tick cap this would spin
+        # forever polling a source that will never produce another sample.
+        demo_ticks = len(script)
+    elif not args.no_sensors:
+        source = ActiveWindowSource()
+
+    ledger = AttentionLedger(
+        switch_window_seconds=args.switch_window * 60,
+        fragmentation_threshold=args.switch_threshold,
+        off_task_seconds=args.grace * 60,
+        break_after_seconds=args.break_after * 60,
+    )
+    if args.task:
+        ledger.set_intended_task(args.task)
+
+    clipboard = None if args.no_sensors else ClipboardSource()
+    watcher = ContextWatcher(
+        ledger=ledger,
+        source=source,
+        clipboard=clipboard,
+        intake=intake,
+        on_nudge=on_nudge,
+        auto_capture=not args.no_capture,
+    )
+
+    print(_bold("\nAlfred is watching.") + _dim("  (Ctrl-C to stop)\n"))
+    # Both cases must be caught: a source that exists but cannot read the
+    # desktop, and no source at all (--no-sensors). Otherwise run() below gets
+    # max_ticks=None and polls forever with nothing to poll.
+    if source is None or not source.available:
+        print(_yellow("  no desktop sensor available — nothing to watch"))
+        print(_dim("  use --demo to see the signals on a synthetic session"))
+        return 1
+    if args.task:
+        print(_dim(f"  stated task: {args.task}"))
+    print(_dim(f"  window {args.switch_window}m, threshold {args.switch_threshold} switches\n"))
+
+    try:
+        watcher.run(
+            interval=args.interval,
+            max_ticks=args.ticks if args.ticks is not None else demo_ticks,
+        )
+    except KeyboardInterrupt:
+        print(_dim("\nstopping"))
+
+    print("\n" + _bold("Session"))
+    summary = watcher.summary()
+    print(f"  samples          {summary['observations']}")
+    print(f"  app switches     {summary['switches']}")
+    print(f"  focus streak     {int(summary['focus_streak_seconds'] // 60)}m")
+    print(f"  nudges           {summary['nudges']}")
+    if summary["captured"]:
+        print(f"  captured         {', '.join(summary['captured'])}")
+    print()
+
+    _save_intake(args.state, intake)
+    return 0
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     from jarvisx.agentic.control_plane import serve
 
@@ -598,6 +699,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_next.add_argument("--energy", default="medium", choices=["low", "medium", "high"])
     p_next.add_argument("--state", default="var/agentic/intake.json")
     p_next.set_defaults(func=cmd_next)
+
+    p_watch = sub.add_parser(
+        "watch", help="ambient watcher: fragmentation, drift and stray thoughts"
+    )
+    p_watch.add_argument("--task", help="what you said you were going to work on")
+    p_watch.add_argument("--interval", type=float, default=15.0, help="poll seconds")
+    p_watch.add_argument("--ticks", type=int, default=None, help="stop after N polls")
+    p_watch.add_argument("--switch-window", type=int, default=5, help="minutes")
+    p_watch.add_argument("--switch-threshold", type=int, default=6, help="switches per window")
+    p_watch.add_argument("--grace", type=int, default=5, help="minutes off-task before a nudge")
+    p_watch.add_argument("--break-after", type=int, default=50, help="minutes before a break nudge")
+    p_watch.add_argument("--demo", action="store_true", help="run a synthetic drifting session")
+    p_watch.add_argument("--no-sensors", action="store_true", help="disable desktop/clipboard polling")
+    p_watch.add_argument("--no-capture", action="store_true", help="do not capture clipboard notes")
+    p_watch.add_argument("--state", default="var/agentic/intake.json")
+    p_watch.set_defaults(func=cmd_watch)
 
     p_serve = sub.add_parser("serve", help="start the HTTP control plane")
     p_serve.add_argument("--host", default="0.0.0.0")

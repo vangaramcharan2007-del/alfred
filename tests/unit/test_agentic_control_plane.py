@@ -373,6 +373,59 @@ def test_cli_talk_persists_and_reloads_state(capsys, tmp_path, monkeypatch):
     assert len(payload["items"]) == 4
 
 
+# --------------------------------------------------------------------------- #
+# CLI: watch
+# --------------------------------------------------------------------------- #
+
+
+def test_cli_watch_demo_terminates_without_a_tick_cap(capsys, tmp_path):
+    """Regression: --demo with no --ticks polled an exhausted source forever."""
+    code = cli.main(
+        [
+            "watch",
+            "--demo",
+            "--interval",
+            "0",
+            "--switch-threshold",
+            "4",
+            "--state",
+            str(tmp_path / "s.json"),
+        ]
+    )
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "fragmented" in out
+    assert "Session" in out
+
+
+def test_cli_watch_demo_reports_session_summary(capsys, tmp_path):
+    cli.main(["watch", "--demo", "--interval", "0", "--state", str(tmp_path / "s.json")])
+    out = capsys.readouterr().out
+    assert "samples" in out and "app switches" in out
+
+
+def test_cli_watch_without_sensors_exits_nonzero(capsys, tmp_path):
+    code = cli.main(["watch", "--no-sensors", "--state", str(tmp_path / "s.json")])
+    assert code == 1
+    assert "nothing to watch" in capsys.readouterr().out
+
+
+def test_cli_watch_states_the_task(capsys, tmp_path):
+    cli.main(
+        [
+            "watch",
+            "--demo",
+            "--interval",
+            "0",
+            "--task",
+            "write the OS assignment",
+            "--state",
+            str(tmp_path / "s.json"),
+        ]
+    )
+    assert "write the OS assignment" in capsys.readouterr().out
+
+
 def _scripted_input(lines):
     iterator = iter(lines)
 
