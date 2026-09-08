@@ -44,6 +44,16 @@ from jarvisx.agentic.backends import (
 from jarvisx.agentic.builtin_tools import build_default_tools
 from jarvisx.agentic.graph import GraphError, TaskGraph
 from jarvisx.agentic.harness import AgentHarness
+from jarvisx.agentic.intake import (
+    CapturedItem,
+    Energy,
+    IntakeEngine,
+    ItemKind,
+    breakdown,
+    classify,
+    next_action,
+    split_brain_dump,
+)
 from jarvisx.agentic.planner import (
     AutoPlanner,
     HeuristicPlanner,
@@ -87,6 +97,19 @@ from jarvisx.agentic.verifier import (
     PythonAssertCheck,
     TestsPassCheck,
     Verifier,
+)
+from jarvisx.agentic.voice_loop import (
+    ConsoleInput,
+    ConsoleOutput,
+    Intent,
+    SpeechInput,
+    SpeechOutput,
+    TTSOutput,
+    VoiceAgentLoop,
+    VoiceTurn,
+    WhisperMicInput,
+    route,
+    strip_trigger,
 )
 
 __all__ = [
@@ -149,6 +172,27 @@ __all__ = [
     "ToolCall",
     "Usage",
     "Verdict",
+    # intake (ADHD task capture)
+    "CapturedItem",
+    "Energy",
+    "IntakeEngine",
+    "ItemKind",
+    "breakdown",
+    "classify",
+    "next_action",
+    "split_brain_dump",
+    # voice loop
+    "ConsoleInput",
+    "ConsoleOutput",
+    "Intent",
+    "SpeechInput",
+    "SpeechOutput",
+    "TTSOutput",
+    "VoiceAgentLoop",
+    "VoiceTurn",
+    "WhisperMicInput",
+    "route",
+    "strip_trigger",
     # entry points
     "run_goal",
     "run_task",

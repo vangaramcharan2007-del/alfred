@@ -7,6 +7,7 @@ import threading
 import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 
 import pytest
 
@@ -301,3 +302,84 @@ def test_cli_run_exits_nonzero_when_verification_fails(capsys, tmp_path):
 def test_cli_parser_requires_a_subcommand():
     with pytest.raises(SystemExit):
         cli.main([])
+
+
+# --------------------------------------------------------------------------- #
+# CLI: intake commands
+# --------------------------------------------------------------------------- #
+
+DUMP = (
+    "um i need to write the OS assignment its due today, "
+    "also reply to that email from the professor, "
+    "oh and i'm worried about failing, someone should fix the printer"
+)
+
+
+def test_cli_next_captures_each_item_exactly_once(capsys, tmp_path):
+    """Regression: cmd_next captured twice because plan() captures internally."""
+    state = str(tmp_path / "intake.json")
+    assert cli.main(["next", "--dump", DUMP, "--energy", "low", "--state", state]) == 0
+    capsys.readouterr()
+
+    payload = json.loads(Path(state).read_text())
+    assert len(payload["items"]) == 4, "a brain dump must not be recorded twice"
+
+
+def test_cli_next_prints_a_single_next_action(capsys, tmp_path):
+    cli.main(["next", "--dump", DUMP, "--energy", "low", "--state", str(tmp_path / "s.json")])
+    out = capsys.readouterr().out
+    assert "DO THIS NEXT" in out
+    assert "email" in out.lower(), "low energy should pick the small task"
+    assert "1." in out and "2." in out
+
+
+def test_cli_next_separates_out_things_that_are_not_yours(capsys, tmp_path):
+    cli.main(["next", "--dump", DUMP, "--state", str(tmp_path / "s.json")])
+    out = capsys.readouterr().out
+    assert "not yours" in out
+
+
+def test_cli_next_with_no_dump_and_no_state_exits_nonzero(capsys, tmp_path):
+    assert cli.main(["next", "--state", str(tmp_path / "empty.json")]) == 1
+    assert "Nothing captured" in capsys.readouterr().out
+
+
+def test_cli_talk_runs_a_scripted_conversation(capsys, tmp_path, monkeypatch):
+    state = str(tmp_path / "intake.json")
+    monkeypatch.setattr("builtins.input", _scripted_input([DUMP, "what should I do", "quit"]))
+
+    assert cli.main(["talk", "--text", "--energy", "low", "--state", state]) == 0
+    out = capsys.readouterr().out
+    assert "Do this one" in out
+    assert "Stopping" in out
+
+    payload = json.loads(Path(state).read_text())
+    assert len(payload["items"]) == 4
+
+
+def test_cli_talk_persists_and_reloads_state(capsys, tmp_path, monkeypatch):
+    state = str(tmp_path / "intake.json")
+    monkeypatch.setattr("builtins.input", _scripted_input([DUMP, "quit"]))
+    cli.main(["talk", "--text", "--state", state])
+    capsys.readouterr()
+
+    # Second session must see the first session's items, not duplicate them.
+    monkeypatch.setattr("builtins.input", _scripted_input(["status", "quit"]))
+    cli.main(["talk", "--text", "--state", state])
+    out = capsys.readouterr().out
+
+    assert "4 open items" in out
+    payload = json.loads(Path(state).read_text())
+    assert len(payload["items"]) == 4
+
+
+def _scripted_input(lines):
+    iterator = iter(lines)
+
+    def fake_input(prompt=""):
+        try:
+            return next(iterator)
+        except StopIteration:
+            raise EOFError from None
+
+    return fake_input

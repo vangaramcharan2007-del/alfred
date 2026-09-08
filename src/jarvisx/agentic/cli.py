@@ -399,6 +399,121 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0 if ok_all else 1
 
 
+def cmd_talk(args: argparse.Namespace) -> int:
+    """Interactive voice (or text) loop: listens, decides, acts, speaks."""
+    from jarvisx.agentic.intake import Energy
+    from jarvisx.agentic.voice_loop import (
+        ConsoleInput,
+        ConsoleOutput,
+        TTSOutput,
+        VoiceAgentLoop,
+        WhisperMicInput,
+    )
+
+    intake = _load_intake(args.state)
+
+    stt = WhisperMicInput(wake_word=args.wake_word) if not args.text else ConsoleInput()
+    tts = ConsoleOutput() if args.text else TTSOutput()
+
+    runner = None
+    if args.enable_agent:
+        backend = _make_backend(args.backend)
+
+        def runner(goal: str) -> Dict[str, Any]:
+            budget = Budget(
+                max_steps=args.max_steps,
+                max_tool_calls=args.max_tool_calls,
+                max_seconds=args.max_seconds,
+            )
+            with Orchestrator(
+                backend=backend,
+                default_budget=budget,
+                max_workers=args.workers,
+                trace_root=args.trace_root,
+                on_event=LivePrinter(verbose=args.verbose),
+            ) as orch:
+                return orch.run(goal).to_dict()
+
+    loop = VoiceAgentLoop(
+        stt=stt,
+        tts=tts,
+        intake=intake,
+        runner=runner,
+        wake_word=args.wake_word,
+        energy=Energy(args.energy),
+    )
+
+    print(_bold("\nAlfred is listening.") + _dim("  (Ctrl-C or 'quit' to stop)\n"))
+    if not getattr(stt, "available", True):
+        print(_yellow("  microphone unavailable — falling back to typed input"))
+    if not args.enable_agent:
+        print(_dim("  agent hand-off disabled; add --enable-agent to run real work"))
+    print()
+
+    try:
+        loop.run(max_turns=args.turns)
+    except KeyboardInterrupt:
+        print(_dim("\nstopping"))
+
+    _save_intake(args.state, intake)
+    return 0
+
+
+def cmd_next(args: argparse.Namespace) -> int:
+    """One-shot: capture a brain dump and print the single next action."""
+    from jarvisx.agentic.intake import Energy
+
+    intake = _load_intake(args.state)
+    # NB: plan() captures internally. Calling capture() here as well would
+    # record every item twice.
+    plan = intake.plan(args.dump, energy=Energy(args.energy)) if args.dump else None
+
+    if plan:
+        print(_bold(f"\nCaptured {len(plan['captured'])} things"))
+        for item in plan["captured"]:
+            print(f"  [{item['kind']:<8}] ~{item['est_minutes']:>3}m  {item['title']}")
+        if plan["not_your_problem"]:
+            print(_dim(f"\nnot yours: {', '.join(plan['not_your_problem'])}"))
+
+    pick = intake.pick(Energy(args.energy))
+    if pick is None:
+        print(_yellow("\nNothing captured. Pass --dump \"everything on your mind\""))
+        _save_intake(args.state, intake)
+        return 1
+
+    from jarvisx.agentic.intake import breakdown
+
+    print(_bold(f"\nDO THIS NEXT: {pick.title}") + _dim(f"  (~{pick.est_minutes}m)"))
+    for index, step in enumerate(breakdown(pick.raw, 3), start=1):
+        print(f"  {index}. {step}")
+    print()
+    _save_intake(args.state, intake)
+    return 0
+
+
+def _load_intake(path: Optional[str]):
+    """Restore the captured task list, if there is one."""
+    from jarvisx.agentic.intake import IntakeEngine
+
+    intake = IntakeEngine()
+    if path and Path(path).exists():
+        try:
+            intake.load(json.loads(Path(path).read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(_yellow(f"could not read state {path}: {exc}"))
+    return intake
+
+
+def _save_intake(path: Optional[str], intake) -> None:
+    if not path:
+        return
+    try:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        Path(path).write_text(json.dumps(intake.to_dict(), indent=2), encoding="utf-8")
+    except OSError as exc:  # pragma: no cover - disk/permission issues
+        print(_yellow(f"could not save state: {exc}"))
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     from jarvisx.agentic.control_plane import serve
 
@@ -462,6 +577,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_common(p_doctor)
     p_doctor.set_defaults(func=cmd_doctor)
+
+    p_talk = sub.add_parser("talk", help="interactive voice/text loop: listen, decide, act")
+    p_talk.add_argument("--text", action="store_true", help="force typed input/output")
+    p_talk.add_argument("--wake-word", default="alfred")
+    p_talk.add_argument("--energy", default="medium", choices=["low", "medium", "high"])
+    p_talk.add_argument("--turns", type=int, default=100)
+    p_talk.add_argument("--workers", type=int, default=4)
+    p_talk.add_argument(
+        "--enable-agent",
+        action="store_true",
+        help="let explicit 'build/write/fix ...' commands run real agent work",
+    )
+    p_talk.add_argument("--state", default="var/agentic/intake.json")
+    add_common(p_talk)
+    p_talk.set_defaults(func=cmd_talk)
+
+    p_next = sub.add_parser("next", help="capture a brain dump, print the one next action")
+    p_next.add_argument("--dump", help="everything on your mind, in one go")
+    p_next.add_argument("--energy", default="medium", choices=["low", "medium", "high"])
+    p_next.add_argument("--state", default="var/agentic/intake.json")
+    p_next.set_defaults(func=cmd_next)
 
     p_serve = sub.add_parser("serve", help="start the HTTP control plane")
     p_serve.add_argument("--host", default="0.0.0.0")
