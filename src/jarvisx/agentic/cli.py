@@ -1,5 +1,6 @@
 """Command-line control plane for the agentic harness orchestration layer.
 
+    python -m jarvisx.agentic doctor                    # <- start here
     python -m jarvisx.agentic roles
     python -m jarvisx.agentic tools
     python -m jarvisx.agentic plan  "Build a CSV deduplicator with tests"
@@ -21,6 +22,7 @@ from typing import Any, Dict, List, Optional
 
 from jarvisx.agentic.backends import AutoBackend, HeuristicBackend
 from jarvisx.agentic.builtin_tools import build_default_tools
+from jarvisx.agentic.env import redact
 from jarvisx.agentic.graph import TaskGraph
 from jarvisx.agentic.harness import AgentHarness
 from jarvisx.agentic.roles import RoleRegistry
@@ -280,6 +282,123 @@ def cmd_trace(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_doctor(args: argparse.Namespace) -> int:
+    """One command that tells you exactly what is wired and what is not."""
+    from jarvisx.agentic.env import (
+        describe_credentials,
+        loaded_files,
+        load_dotenv,
+        required_model_env,
+    )
+    from jarvisx.agentic.sandbox import SandboxedRunner
+
+    ok_all = True
+
+    def line(symbol: str, label: str, detail: str = "") -> None:
+        pad = " " * max(1, 26 - len(label))
+        print(f"  {symbol} {label}{pad}{_dim(detail) if detail else ''}")
+
+    print(_bold("\nAlfred agentic doctor\n"))
+
+    # -- 1. credentials ---------------------------------------------------- #
+    print(_bold("1. Credentials"))
+    load_dotenv()
+    creds = describe_credentials()
+    if creds["configured"]:
+        for name in creds["configured"]:
+            line(_green("OK"), name, f"fingerprint {creds['fingerprints'][name]}")
+    else:
+        ok_all = False
+        line(_yellow("--"), "no API key found", "agent will run OFFLINE (heuristic)")
+    line(_dim(".."), ".env files seen", ", ".join(creds["env_files"]) or "none")
+
+    # -- 2. backend selection ---------------------------------------------- #
+    print("\n" + _bold("2. Backend selection"))
+    settings = required_model_env()
+    for key, value in settings.items():
+        if value:
+            line(_dim(".."), key, str(value))
+    backend = _make_backend(args.backend)
+    line(_green("OK") if backend.name != "heuristic" else _yellow("--"),
+         "selected backend", backend.name)
+    if backend.name == "heuristic" and args.backend == "auto":
+        ok_all = False
+        print(_yellow("     -> offline mode writes a placeholder file, not real code."))
+
+    # -- 3. live model round-trip ------------------------------------------ #
+    print("\n" + _bold("3. Live model round-trip"))
+    if backend.name == "heuristic":
+        line(_yellow("--"), "skipped", "no model configured")
+    else:
+        try:
+            message = backend.complete(
+                [
+                    {"role": "system", "content": "Reply with exactly: PONG"},
+                    {"role": "user", "content": "ping"},
+                ],
+                tools=None,
+            )
+            reply = (message.content or "").strip()
+            if reply:
+                line(_green("OK"), "model responded", f"{reply[:60]!r} model={message.model}")
+            else:
+                ok_all = False
+                line(_red("!!"), "empty response", "check model name / quota")
+        except Exception as exc:  # noqa: BLE001 - report, never crash
+            ok_all = False
+            line(_red("!!"), "call failed", redact(str(exc))[:110])
+
+    # -- 4. tool calling --------------------------------------------------- #
+    print("\n" + _bold("4. Tool calling"))
+    if backend.name == "heuristic":
+        line(_yellow("--"), "skipped", "no model configured")
+    else:
+        try:
+            with SandboxedRunner() as sandbox:
+                registry = build_default_tools(sandbox)
+                message = backend.complete(
+                    [
+                        {"role": "system", "content": "Use the list_files tool. Do not answer in prose."},
+                        {"role": "user", "content": "What files are in the workspace?"},
+                    ],
+                    tools=registry.openai_schemas(),
+                )
+            if message.tool_calls:
+                line(_green("OK"), "native tool calls", message.tool_calls[0].name)
+            else:
+                line(_yellow("--"), "no tool call returned",
+                     "model may not support tools; set GROQ_MODEL to one that does")
+        except Exception as exc:  # noqa: BLE001
+            line(_red("!!"), "tool probe failed", redact(str(exc))[:110])
+
+    # -- 5. sandbox --------------------------------------------------------- #
+    print("\n" + _bold("5. Sandbox"))
+    with SandboxedRunner() as sandbox:
+        result = sandbox.run_python("print(6 * 7)")
+        line(_green("OK") if "42" in result.stdout else _red("!!"),
+             "code execution", f"exit={result.exit_code} out={result.stdout.strip()!r}")
+        try:
+            sandbox.resolve("../../etc/passwd")
+            ok_all = False
+            line(_red("!!"), "path jail", "ESCAPE NOT BLOCKED")
+        except Exception:  # noqa: BLE001 - expected
+            line(_green("OK"), "path jail", "escape blocked")
+        pytest_check = sandbox.run_pytest("--version")
+        line(_green("OK") if pytest_check.ok else _yellow("--"),
+             "pytest available", "verification checks will run"
+             if pytest_check.ok else "install pytest for real verification")
+
+    # -- 6. verdict --------------------------------------------------------- #
+    print()
+    if ok_all:
+        print("  " + _green(_bold("READY")) + "  run: python -m jarvisx.agentic run \"your goal\"")
+    else:
+        print("  " + _yellow(_bold("NOT READY")) + "  fix the items above, then re-run doctor")
+        print(_dim("  quickest fix: add GROQ_API_KEY=gsk_... to .env in the repo root"))
+    print()
+    return 0 if ok_all else 1
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     from jarvisx.agentic.control_plane import serve
 
@@ -337,6 +456,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_trace.add_argument("path")
     p_trace.add_argument("--json", action="store_true")
     p_trace.set_defaults(func=cmd_trace)
+
+    p_doctor = sub.add_parser(
+        "doctor", help="diagnose credentials, model, tool calling and sandbox"
+    )
+    add_common(p_doctor)
+    p_doctor.set_defaults(func=cmd_doctor)
 
     p_serve = sub.add_parser("serve", help="start the HTTP control plane")
     p_serve.add_argument("--host", default="0.0.0.0")

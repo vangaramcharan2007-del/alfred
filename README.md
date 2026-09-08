@@ -135,14 +135,20 @@ print(report.final_output())
 ```
 
 ```bash
+cp .env.example .env && python -m jarvisx.agentic doctor   # <- start here
 python -m jarvisx.agentic plan "Build a CSV deduplicator with tests"
 python -m jarvisx.agentic run  "Build a CSV deduplicator with tests"
 python -m jarvisx.agentic serve --port 8123     # HTTP control plane + SSE events
 python demo_agentic_harness.py                  # live end-to-end demonstration
 ```
 
-Runs fully offline by default; set `OPENROUTER_API_KEY`, `GROQ_API_KEY` or
-`OLLAMA_BASE_URL` to drive it with a real model.
+`doctor` verifies your API key, backend selection, a live model round-trip,
+native tool calling and the sandbox, then exits `1` if you cannot run yet.
+
+**Without a model key the agents fall back to an offline heuristic that writes
+a placeholder file, not real code.** Add `GROQ_API_KEY` (or
+`OPENROUTER_API_KEY`, or `OLLAMA_BASE_URL`) to `.env` — it is loaded
+automatically, no `python-dotenv` needed.
 
 ---
 

@@ -50,6 +50,59 @@ it is usable on its own from day one.
 
 ---
 
+## Setup: start with `doctor`
+
+```bash
+cp .env.example .env      # add GROQ_API_KEY=gsk_...
+python -m jarvisx.agentic doctor
+```
+
+`doctor` checks credentials, backend selection, a **live model round-trip**,
+**native tool calling**, and the sandbox — then prints `READY` or `NOT READY`
+and exits `1` if you cannot run yet.
+
+```
+1. Credentials
+  OK GROQ_API_KEY              fingerprint gsk_…79569a95
+2. Backend selection
+  OK selected backend          openai-compatible:llama-3.3-70b-versatile
+3. Live model round-trip
+  OK model responded           'PONG' model=llama-3.3-70b-versatile
+4. Tool calling
+  OK native tool calls         list_files
+5. Sandbox
+  OK code execution            exit=0 out='42'
+  OK path jail                 escape blocked
+  OK pytest available          verification checks will run
+```
+
+### Why this step exists
+
+This repository has **no `python-dotenv` dependency and nothing loads `.env`
+into `os.environ`**. `GroqLLMProvider` works around that with its own ad-hoc
+reader (including a hardcoded `E:/project-jarvis-x/.env` path). So a key
+sitting in `.env` never reached code reading `os.getenv(...)` — and the agent
+silently dropped to the offline heuristic, writing a placeholder file instead
+of real code.
+
+`jarvisx.agentic.env.load_dotenv()` fixes that once for the whole layer:
+no third-party dependency, walks up to the repo root, and **existing
+environment variables always win** so an exported key is never clobbered by a
+stale file. `doctor` and every error message run secrets through `redact()`.
+
+### Provider precedence in `AutoBackend()`
+
+`ALFRED_AGENT_BACKEND` → Groq → OpenRouter → OpenAI → local Ollama →
+`LLMRouter` → offline heuristic. A `OLLAMA_BASE_URL` ending in `/api`
+(what `.env.example` shipped) is normalised to `/v1`, because the OpenAI
+shim lives there and the native endpoint would 404.
+
+**The model must support tool calling.** Groq's default here is
+`llama-3.3-70b-versatile`. Override with `GROQ_MODEL` or
+`ALFRED_AGENT_MODEL`. Without tool support the agent can plan but cannot act.
+
+---
+
 ## The five properties that make it a harness
 
 ### 1. Provider-agnostic model access

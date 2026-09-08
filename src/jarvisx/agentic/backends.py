@@ -310,20 +310,38 @@ class BackendError(RuntimeError):
 def AutoBackend() -> ModelBackend:  # noqa: N802 - factory, reads like a class
     """Choose the best backend available in this environment.
 
-    Precedence: explicit env override -> OpenRouter/Groq key -> local Ollama ->
-    offline heuristic.  Never raises: there is always a usable backend.
+    Calls :func:`load_dotenv` first: this repository has no ``python-dotenv``
+    dependency and nothing else populates ``os.environ`` from ``.env``, so
+    without this a key sitting in ``.env`` would never be seen and the agent
+    would silently drop to the offline heuristic.
+
+    Precedence: explicit override -> Groq -> OpenRouter -> OpenAI -> local
+    Ollama -> LLMRouter -> offline heuristic.  Never raises.
     """
-    forced = os.getenv("ALFRED_AGENT_BACKEND", "").strip().lower()
+    from jarvisx.agentic.env import get_secret, load_dotenv, redact
+
+    load_dotenv()
+
+    forced = (os.getenv("ALFRED_AGENT_BACKEND") or "").strip().lower()
     if forced in {"scripted", "heuristic", "offline"}:
         return HeuristicBackend()
+    if forced == "groq":
+        key = get_secret("GROQ_API_KEY")
+        if not key:
+            raise BackendError(
+                "ALFRED_AGENT_BACKEND=groq but no GROQ_API_KEY found in env or .env"
+            )
+        return groq_backend(key)
 
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    groq_key = get_secret("GROQ_API_KEY")
+    if groq_key:
+        return groq_backend(groq_key)
+
+    openrouter_key = get_secret("OPENROUTER_API_KEY")
     if openrouter_key:
         return OpenAICompatibleBackend(
             api_key=openrouter_key,
-            base_url=os.getenv(
-                "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
-            ),
+            base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
             model=os.getenv("ALFRED_AGENT_MODEL", "openai/gpt-4o-mini"),
             extra_headers={
                 "HTTP-Referer": "https://github.com/vangaramcharan2007-del/alfred",
@@ -331,18 +349,24 @@ def AutoBackend() -> ModelBackend:  # noqa: N802 - factory, reads like a class
             },
         )
 
-    groq_key = os.getenv("GROQ_API_KEY")
-    if groq_key:
+    openai_key = get_secret("OPENAI_API_KEY")
+    if openai_key:
         return OpenAICompatibleBackend(
-            api_key=groq_key,
-            base_url="https://api.groq.com/openai/v1",
-            model=os.getenv("CODER_MODEL", "llama-3.3-70b-versatile"),
+            api_key=openai_key,
+            base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            model=os.getenv("ALFRED_AGENT_MODEL", "gpt-4o-mini"),
         )
 
     if os.getenv("OLLAMA_BASE_URL"):
+        base = os.environ["OLLAMA_BASE_URL"].rstrip("/")
+        # Older Alfred configs point at /api (Ollama's native API). The
+        # OpenAI-compatible shim lives at /v1, so normalise it here rather
+        # than failing with a confusing 404.
+        if base.endswith("/api"):
+            base = base[: -len("/api")] + "/v1"
         return OpenAICompatibleBackend(
             api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
-            base_url=os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1"),
+            base_url=base,
             model=os.getenv("ALFRED_AGENT_MODEL", "qwen2.5-coder:7b"),
             timeout=180.0,
         )
@@ -350,8 +374,24 @@ def AutoBackend() -> ModelBackend:  # noqa: N802 - factory, reads like a class
     try:
         return LLMRouterBackend()
     except Exception as exc:  # pragma: no cover - depends on optional deps
-        logger.info("LLMRouter unavailable (%s); using offline heuristic", exc)
+        logger.info("LLMRouter unavailable (%s); using offline heuristic", redact(str(exc)))
         return HeuristicBackend()
+
+
+def groq_backend(api_key: str) -> "OpenAICompatibleBackend":
+    """Groq's OpenAI-compatible endpoint, with a tool-calling-capable default."""
+    model = (
+        os.getenv("ALFRED_AGENT_MODEL")
+        or os.getenv("GROQ_MODEL")
+        or os.getenv("CODER_MODEL")
+        or "llama-3.3-70b-versatile"
+    )
+    return OpenAICompatibleBackend(
+        api_key=api_key,
+        base_url=os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
+        model=model,
+        timeout=float(os.getenv("GROQ_TIMEOUT", "60")),
+    )
 
 
 # --------------------------------------------------------------------------- #
