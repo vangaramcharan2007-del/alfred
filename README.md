@@ -48,6 +48,7 @@ Alfred (Jarvis X) is a **sovereign, offline-first autonomous AI operating assist
 
 ## ✨ Key Subsystems
 
+- **Agentic Harness Orchestration** (`src/jarvisx/agentic/`): the unified agentic stack — provider-agnostic model backends, schema-validated permission-gated tools, a real jailed sandbox (rlimits, timeouts, secret scrubbing), a budgeted think/act/observe loop, executable verification, DAG task graphs with parallel waves, and append-only replayable traces. See [docs/agentic_harness_orchestration.md](docs/agentic_harness_orchestration.md).
 - **Autonomous Mission Planner**: Decomposes complex multi-step goals into verifiable sub-steps with automatic replanning and state rollback on failure.
 - **FastMCP Tool Kernel**: Strict permission tiers (`SAFE`, `CONFIRM`, `RESTRICTED`) ensuring side-effect actions cannot bypass confirmation gates.
 - **Multi-Provider LLM Gateway**: Local offline-first inference via Ollama (`qwen2.5-coder`, `deepseek-coder`) with intelligent cloud failover to OpenRouter.
@@ -105,6 +106,8 @@ pytest tests/unit/ -v
 
 ```text
 src/jarvisx/
+  ├── agentic/           # Agentic harness orchestration (backends, sandbox,
+  │                      #   harness, verifier, planner, graph, scheduler)
   ├── automation/        # Desktop control, watchers, system tray, voice runtime
   ├── agents/            # Specialist agent implementations and loop runners
   ├── brain/             # Intent analysis, routing, and context synthesis
@@ -118,6 +121,28 @@ src/jarvisx/
 tests/                   # Unit, integration, and security verification tests
 config/                  # System YAML configurations and provider settings
 ```
+
+---
+
+## 🤖 Agentic Harness Orchestration
+
+```python
+from jarvisx.agentic import run_goal
+
+report = run_goal("Build a CSV deduplicator with tests")
+print(report.ok, report.succeeded)
+print(report.final_output())
+```
+
+```bash
+python -m jarvisx.agentic plan "Build a CSV deduplicator with tests"
+python -m jarvisx.agentic run  "Build a CSV deduplicator with tests"
+python -m jarvisx.agentic serve --port 8123     # HTTP control plane + SSE events
+python demo_agentic_harness.py                  # live end-to-end demonstration
+```
+
+Runs fully offline by default; set `OPENROUTER_API_KEY`, `GROQ_API_KEY` or
+`OLLAMA_BASE_URL` to drive it with a real model.
 
 ---
 
