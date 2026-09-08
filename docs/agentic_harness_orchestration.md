@@ -103,6 +103,85 @@ shim lives there and the native endpoint would 404.
 
 ---
 
+## Talking to it: `talk` and `next`
+
+```bash
+python -m jarvisx.agentic next --dump "everything on your mind, all at once"
+python -m jarvisx.agentic talk --energy low          # mic + speakers
+python -m jarvisx.agentic talk --text                # typed, no audio needed
+python -m jarvisx.agentic talk --enable-agent        # let "build X" run real work
+```
+
+Captured items persist to `var/agentic/intake.json` between sessions.
+
+### Why `next` is the important one
+
+The bottleneck for an ADHD brain is **initiation, not capacity**. Being handed
+the most important task is the failure mode, because the most important task is
+the one you will not start — and not starting costs more than doing something
+small.
+
+So `IntakeEngine` does four specific things:
+
+1. **splits** a rambling brain dump into discrete items
+2. **classifies** each one — `task` / `idea` / `worry` / `delegate` / `question`
+3. **derives a next action** small enough to physically start ("open the file
+   and write one heading", not "write the assignment")
+4. **picks by energy, not importance** — `--energy low` gives you a ≤10-minute
+   task even when a 45-minute one is due today
+
+Non-tasks are deliberately taken *out* of the queue. A worry is not work, an
+idea is not work, and "someone should fix the printer" is not your work. The
+output says so explicitly:
+
+```
+Captured 4 things
+  [task    ] ~ 45m  Write the OS assignment its due today
+  [task    ] ~  5m  Reply to that email from the professor
+  [worry   ] ~ 20m  I'm worried about failing
+  [delegate] ~ 20m  Someone should fix the printer
+
+not yours: I'm worried about failing, Someone should fix the printer
+
+DO THIS NEXT: Reply to that email from the professor  (~5m)
+  1. Open the thread and write the first sentence
+  2. Do one small piece and stop.
+  3. Decide: keep going, or schedule the rest for later.
+```
+
+Everything in `intake.py` is deterministic and offline. An LLM can improve the
+splitting, but it is never required — the whole point is that it has to work on
+the bad days.
+
+### How the voice loop is wired
+
+`voice_loop.py` connects pieces that already existed in the repo but had never
+met:
+
+| Piece | Where it came from |
+|---|---|
+| `SecureVoiceGateway` — wake word + destructive-command policy | `jarvisx/voice/voice_gateway.py` |
+| `FastSTTEngine` — faster-whisper transcription | `jarvisx/voice/stt_engine.py` |
+| `RealTTSEngine` — pyttsx3 speech out | `jarvisx/voice/tts_engine.py` |
+| `IntakeEngine` — brain dump → one next action | `jarvisx/agentic/intake.py` |
+| `Orchestrator` — goal → planned, verified work | `jarvisx/agentic/scheduler.py` |
+
+Every audio dependency is optional. `WhisperMicInput` and `TTSOutput` wrap the
+existing engines and fall back to `ConsoleInput` / `ConsoleOutput` when
+`sounddevice` or `faster_whisper` is missing, so the loop runs end to end with
+no microphone, no speaker and no model — which is what makes it testable in CI
+and usable over SSH.
+
+**Routing is deliberately conservative.** Only an explicit verb — `do`, `build`,
+`write`, `create`, `fix`, `run`, `generate`, `implement`, `make`, `refactor`,
+`debug` — hands work to the orchestrator, and only with `--enable-agent`.
+Everything else is *captured*. Firing an agent at every utterance is how you
+end up with nine half-finished automations and no idea what happened.
+
+`"what should I do"` is treated as a request for a **decision**, never as work.
+
+---
+
 ## The five properties that make it a harness
 
 ### 1. Provider-agnostic model access

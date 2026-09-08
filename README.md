@@ -124,6 +124,44 @@ config/                  # System YAML configurations and provider settings
 
 ---
 
+## 🧠 ADHD Mode: `next` and `talk`
+
+The bottleneck is starting, not capacity. So Alfred picks by **energy, not
+importance** — on a low-energy day you get a 5-minute task, never the scary
+45-minute one.
+
+```bash
+python -m jarvisx.agentic next --dump "everything on your mind, all at once"
+python -m jarvisx.agentic talk --energy low          # mic + speakers
+python -m jarvisx.agentic talk --text                # typed, no audio needed
+```
+
+```
+Captured 4 things
+  [task    ] ~ 45m  Write the OS assignment its due today
+  [task    ] ~  5m  Reply to that email from the professor
+  [worry   ] ~ 20m  I'm worried about failing
+  [delegate] ~ 20m  Someone should fix the printer
+
+not yours: I'm worried about failing, Someone should fix the printer
+
+DO THIS NEXT: Reply to that email from the professor  (~5m)
+  1. Open the thread and write the first sentence
+  2. Do one small piece and stop.
+```
+
+Worries, ideas and other people's problems are taken **out** of your queue, not
+added to it. State persists to `var/agentic/intake.json`.
+
+`talk` wires the existing voice stack (`SecureVoiceGateway`, `FastSTTEngine`,
+`RealTTSEngine`) to the orchestrator. Audio is optional — with no mic, speaker
+or model it still runs end to end on text. Only an explicit `build/write/fix`
+runs real agent work, and only with `--enable-agent`; everything else is
+captured, because firing an agent at every sentence is how you get nine
+half-finished automations.
+
+---
+
 ## 🤖 Agentic Harness Orchestration
 
 ```python
