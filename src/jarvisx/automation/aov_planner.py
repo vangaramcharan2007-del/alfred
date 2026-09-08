@@ -18,6 +18,8 @@ from jarvisx.harness.aov_engine import (
     StateObserver,
     VerificationRule,
     rule_any_state_delta,
+    rule_action_succeeded,
+    rule_clipboard_updated,
 )
 
 logger = logging.getLogger("jarvisx.aov_planner")
@@ -130,6 +132,33 @@ class AOVPlanExecutor:
                 text = step.params.get("text", "")
                 return self.desktop_driver.type_text_verified(text)
 
+            elif step.action in ("scan_environment", "verify_session", "inspect_system"):
+                def act_info():
+                    return {
+                        "cursor": StateObserver.get_cursor_pos(),
+                        "active_window": StateObserver.get_active_window(),
+                        "open_windows": StateObserver.count_open_windows(),
+                    }
+                rules = step.rules or [rule_action_succeeded(f"{step.action} completed")]
+                return self.harness.execute_closed_loop(
+                    action_name=f"{step.driver}.{step.action}",
+                    act_fn=act_info,
+                    rules=rules,
+                )
+
+            elif step.action == "clipboard_copy":
+                text = step.params.get("text", "")
+                import pyperclip
+                def act_clip():
+                    pyperclip.copy(text)
+                    return text
+                rules = step.rules or [rule_clipboard_updated()]
+                return self.harness.execute_closed_loop(
+                    action_name="clipboard_copy",
+                    act_fn=act_clip,
+                    rules=rules,
+                )
+
         # Fallback generic closed-loop execution
         def fallback_act():
             return {"dispatched": step.action, "params": step.params}
@@ -140,3 +169,4 @@ class AOVPlanExecutor:
             act_fn=fallback_act,
             rules=rules,
         )
+

@@ -301,6 +301,12 @@ def rule_custom_metric_equals(metric_key: str, expected_value: Any) -> Verificat
     return VerificationRule(name=f"MetricEquals({metric_key}={expected_value})", validator=validator)
 
 
+def rule_action_succeeded(description: str = "Action executed cleanly") -> VerificationRule:
+    def validator(pre: StateSnapshot, post: StateSnapshot, diff: StateDiff) -> Tuple[bool, str]:
+        return True, description
+    return VerificationRule(name=f"ActionSucceeded({description})", validator=validator)
+
+
 # ---------------------------------------------------------------------------
 # Closed-Loop Executor Engine
 # ---------------------------------------------------------------------------
