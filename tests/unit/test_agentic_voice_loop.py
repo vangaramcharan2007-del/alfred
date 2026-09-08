@@ -70,7 +70,8 @@ def test_strip_trigger_falls_back_to_the_original_when_only_a_trigger():
         ("brain dump: pay rent", Intent.BRAIN_DUMP),
         ("here's everything on my plate right now", Intent.BRAIN_DUMP),
         ("build a csv deduplicator", Intent.DO_WORK),
-        ("write the report", Intent.DO_WORK),
+        # No artifact named, so this is a task to capture, not code to write.
+        ("write the report", Intent.BRAIN_DUMP),
         ("Alfred, fix the login bug", Intent.DO_WORK),
         ("please run the tests", Intent.DO_WORK),
         ("", Intent.UNKNOWN),
@@ -249,14 +250,14 @@ def test_do_work_reports_a_runner_failure_out_loud():
     def runner(goal):
         raise RuntimeError("model exploded")
 
-    loop, tts = _loop(["build a thing"], runner=runner)
+    loop, tts = _loop(["build a parser"], runner=runner)
     turns = loop.run()
     assert "model exploded" in tts.spoken[0]
 
 
 def test_do_work_reports_a_failed_run():
     loop, tts = _loop(
-        ["build a thing"], runner=lambda g: {"ok": False, "failed": ["verify"], "error": "tests broke"}
+        ["build a parser"], runner=lambda g: {"ok": False, "failed": ["verify"], "error": "tests broke"}
     )
     loop.run()
     assert "tests broke" in tts.spoken[0]
@@ -357,3 +358,35 @@ def test_loop_works_without_an_event_bus(monkeypatch):
     # Without the gateway there is no policy engine, so it is captured instead
     # of blocked — the important thing is that it does not crash or execute.
     assert len(turns) == 1
+
+
+# --------------------------------------------------------------------------- #
+# The artifact gate: personal tasks must never reach the coding agent
+# --------------------------------------------------------------------------- #
+
+
+def test_personal_tasks_are_not_handed_to_the_agent():
+    # "write", "fix" and "make" are the most common verbs in an ADHD brain dump.
+    # Routing these to a coding agent does not just fail to help, it silently
+    # destroys the task: the user believes it is safely on their list.
+    for text in ["write the assignment", "fix the sink", "make the appointment"]:
+        assert route(text) in (Intent.BRAIN_DUMP, Intent.UNKNOWN), text
+
+
+def test_real_build_requests_still_reach_the_agent():
+    for text in [
+        "write a script that dedupes csv",
+        "build a csv deduplicator",
+        "fix the bug in my parser",
+        "refactor the auth module",
+        "write tests for the api",
+    ]:
+        assert route(text) is Intent.DO_WORK, text
+
+
+def test_ambiguous_speech_is_captured_not_dropped():
+    loop = VoiceAgentLoop(stt=ConsoleInput(lines=["pay the bill"]), tts=ConsoleOutput())
+    turn = loop.listen_once()
+    assert turn.intent is Intent.UNKNOWN
+    assert len(loop.intake.items) == 1
+    assert loop.intake.items[0].title.lower() == "pay the bill"

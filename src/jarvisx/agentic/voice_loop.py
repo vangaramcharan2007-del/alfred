@@ -222,6 +222,35 @@ def _do_work_re():
     return _DO_WORK_RE
 
 
+def _artifact_re():
+    """Code artifacts. The gate that keeps personal tasks out of the agent.
+
+    "write", "fix" and "make" are the most common verbs in an ADHD brain dump —
+    "write the assignment", "fix the sink", "make the appointment". Handing
+    those to a coding agent is not just useless, it silently destroys the task,
+    because the user believes it is now on their list. So a verb alone is not
+    enough: there has to be a thing to build.
+    """
+    import re
+
+    return re.compile(
+        r"""\b(?:
+              script | code | coding | function | method | class | module
+            | package | library | api | endpoint | server | client | parser
+            | cli | tool | utility | program | app | application | website
+            | webpage | bot | crawler | scraper | regex | algorithm
+            | test(?:s|ing)? | unittest | pytest
+            | csv | json | yaml | yml | xml | sql | html | css
+            | python | javascript | typescript | java | rust | golang
+            | dockerfile | migration | webhook | cron\s*job
+            | refactor(?:ing)? | bug\s+fix | stack\s*trace | traceback
+            | bug | crash | exception | error\s+(?:message|log)| traceback
+            | nullpointer | segfault | deadlock | deadlock
+        )\b""",
+        re.IGNORECASE | re.VERBOSE,
+    )
+
+
 def _what_next_re():
     import re
 
@@ -292,11 +321,15 @@ def strip_trigger(text: str) -> str:
     return cleaned or (text or "").strip()
 
 
-def route(text: str) -> Intent:
+def route(text: str, addressed: bool = False) -> Intent:
     """Decide what an utterance means. Deterministic and offline.
 
     Order matters: an explicit "write the report" is work, but "what should I
     do" must never trigger an agent — it is a request for a decision.
+
+    ``addressed`` is True when the speaker used the wake word. Naming Alfred is
+    an explicit command to Alfred, so it skips the artifact gate that keeps
+    personal tasks out of the coding agent.
     """
     cleaned = (text or "").strip()
     if not cleaned:
@@ -314,7 +347,13 @@ def route(text: str) -> Intent:
     if _dump_re().search(cleaned):
         return Intent.BRAIN_DUMP
     if _do_work_re().search(cleaned):
-        return Intent.DO_WORK
+        # A build verb alone is not a build request. "write the assignment" is
+        # a task to capture; "write a script that dedupes CSV" is work to run.
+        # Without this gate the agent silently swallows half of every brain
+        # dump, and the user believes it is safely on their list.
+        if addressed or _artifact_re().search(cleaned):
+            return Intent.DO_WORK
+        return Intent.BRAIN_DUMP
     # A long rambling sentence is almost certainly a dump, not a command.
     if len(cleaned.split()) >= 12:
         return Intent.BRAIN_DUMP
@@ -414,7 +453,7 @@ class VoiceAgentLoop:
         else:
             body = self._strip_wake_word(text)
 
-        turn.intent = route(body)
+        turn.intent = route(body, addressed=self._addresses_wake_word(text))
         handler = {
             Intent.BRAIN_DUMP: self._on_brain_dump,
             Intent.WHAT_NEXT: self._on_what_next,
@@ -544,6 +583,16 @@ class VoiceAgentLoop:
     # ------------------------------------------------------------------ #
     # Plumbing
     # ------------------------------------------------------------------ #
+
+    def _addresses_wake_word(self, text: str) -> bool:
+        """True when the speaker named Alfred, i.e. is issuing a command.
+
+        Naming the assistant is the clearest signal that what follows is work
+        for it rather than a thought to capture. Checked on the raw text,
+        because _strip_wake_word removes it before routing.
+        """
+        lowered = (text or "").lower()
+        return self.wake_word.lower() in lowered
 
     def _strip_wake_word(self, text: str) -> str:
         cleaned = text.lower()

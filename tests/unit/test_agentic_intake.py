@@ -318,3 +318,36 @@ def test_round_trip_persistence():
 def test_captured_item_serializes_kind_as_a_string():
     item = CapturedItem(id="x", title="t", raw="r", kind=ItemKind.WORRY)
     assert item.to_dict()["kind"] == "worry"
+
+
+# --------------------------------------------------------------------------- #
+# Comma splitting: a blob is the thing an ADHD brain cannot start
+# --------------------------------------------------------------------------- #
+
+
+def test_comma_separated_verbs_split_into_separate_tasks():
+    parts = split_brain_dump("write the assignment, pay the bill, call mom")
+    assert len(parts) == 3, parts
+    assert parts == ["write the assignment", "pay the bill", "call mom"]
+
+
+def test_splitting_on_a_comma_never_shreds_a_qualifier():
+    # "the professor" is not a verb, so this stays one item. Splitting on every
+    # comma would turn this into two broken fragments.
+    parts = split_brain_dump("reply to the email from Dave, the professor")
+    assert len(parts) == 1, parts
+
+
+def test_a_shopping_list_stays_one_item():
+    assert len(split_brain_dump("buy milk, eggs and bread")) == 1
+
+
+def test_three_item_blob_becomes_three_pickable_tasks():
+    engine = IntakeEngine()
+    engine.plan("write the assignment, pay the bill, call mom")
+    tasks = [i for i in engine.open_items if i.kind is ItemKind.TASK]
+    assert len(tasks) == 3, tasks
+    # The whole point: on low energy it offers something you can actually start.
+    chosen = engine.pick(Energy.LOW)
+    assert chosen is not None
+    assert chosen.est_minutes <= 10, chosen

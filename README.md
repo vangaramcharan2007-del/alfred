@@ -124,16 +124,36 @@ config/                  # System YAML configurations and provider settings
 
 ---
 
-## 🧠 ADHD Mode: `next` and `talk`
+## 🧠 ADHD Mode: `alfred`
+
+One command runs all four senses at once — it **talks, listens, watches and
+does** — over a single shared task list.
+
+```bash
+python -m jarvisx.agentic alfred                  # mic + speakers + screen watching
+python -m jarvisx.agentic alfred --text           # typed, no audio or desktop needed
+python -m jarvisx.agentic alfred --energy low     # only offer tiny tasks today
+```
+
+It tells you honestly what came up rather than pretending:
+
+```
+  ears      keyboard
+  mouth     text
+  eyes      sensor
+  hands     off (say build/write/fix)
+```
 
 The bottleneck is starting, not capacity. So Alfred picks by **energy, not
 importance** — on a low-energy day you get a 5-minute task, never the scary
-45-minute one.
+45-minute one. And a comma-separated brain dump becomes several small tasks,
+because "write the assignment, pay the bill, call mom" as one 45-minute blob is
+exactly the thing you will not start.
 
 ```bash
 python -m jarvisx.agentic next --dump "everything on your mind, all at once"
-python -m jarvisx.agentic talk --energy low          # mic + speakers
-python -m jarvisx.agentic talk --text                # typed, no audio needed
+python -m jarvisx.agentic talk --energy low          # talk/listen only
+python -m jarvisx.agentic watch --task "the OS assignment"   # watch only
 ```
 
 ```

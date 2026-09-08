@@ -72,6 +72,23 @@ class CapturedItem:
 # --------------------------------------------------------------------------- #
 
 # Sentences that open a new item rather than continuing the previous one.
+# Verbs that can open a task. Used both to detect the start of an item and,
+# crucially, to decide whether a comma splits. Splitting on every comma would
+# shred "reply to the email from Dave, the professor"; splitting when the next
+# segment starts with a verb is safe, because "the professor" is not a verb.
+_VERB_ALTERNATION = r"""
+      write | send | pay | call | email | book | finish | fix | build | create
+    | review | read | update | prepare | submit | file | schedule | plan
+    | draft | ship | deploy | refactor | test | debug | add | remove | clean
+    | clean\s+up | tidy | organise | organize | sort | move | copy | rename
+    | delete | set\s+up | install | sign\s+up | register | renew | cancel
+    | buy | order | reply | follow\s+up | chase | remind | check | run | make
+    | do | get | look\s+into | figure\s+out | learn | study | practice | apply
+    | print | scan | sign | upload | download | share | book\s+in | fill\s+in
+    | fill\s+out | take | pick | drop | walk | water | feed | wash | cook
+    | walk\s+the\s+dog | call\s+back | text
+"""
+
 _SPLIT_RE = re.compile(
     r"""
       (?<=[.!?])\s+            # after sentence punctuation
@@ -85,6 +102,10 @@ _SPLIT_RE = re.compile(
         | and\s+(?:i\s+)?(?:need|have|should|must|gotta)
         | gotta
       ))
+    # A comma followed by a verb starts a new item. Without this, "write the
+    # assignment, pay the bill, call mom" arrives as ONE 45-minute task — which
+    # is precisely the overwhelming blob an ADHD brain cannot start.
+    | \s*,\s+(?=(?:""" + _VERB_ALTERNATION + r""")\s+\S)
     """,
     re.VERBOSE | re.IGNORECASE,
 )

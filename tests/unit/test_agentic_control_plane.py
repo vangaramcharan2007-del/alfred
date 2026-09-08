@@ -436,3 +436,60 @@ def _scripted_input(lines):
             raise EOFError from None
 
     return fake_input
+
+
+# --------------------------------------------------------------------------- #
+# alfred: the whole agent at once
+# --------------------------------------------------------------------------- #
+
+
+def test_cli_alfred_splits_a_blob_and_persists_it(tmp_path, monkeypatch, capsys):
+    """A comma-separated blob must land as several small tasks, not one big one."""
+    state = tmp_path / "intake.json"
+    monkeypatch.setattr(
+        "builtins.input",
+        _scripted_input(["write the assignment, pay the bill, call mom", "status", "quit"]),
+    )
+    assert cli.main([
+        "alfred", "--text", "--no-agent", "--no-watch", "--state", str(state),
+    ]) == 0
+    titles = [i["title"] for i in json.loads(state.read_text(encoding="utf-8"))["items"]]
+    assert len(titles) == 3, titles
+    assert "Pay the bill" in titles
+
+
+def test_cli_alfred_reports_what_came_up(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr("builtins.input", _scripted_input(["quit"]))
+    cli.main([
+        "alfred", "--text", "--no-agent", "--no-watch",
+        "--state", str(tmp_path / "intake.json"),
+    ])
+    out = capsys.readouterr().out
+    # Honest self-report: no sensors in this sandbox, so it must say so rather
+    # than pretend a microphone and a screen reader came up.
+    for line in ("ears", "mouth", "eyes", "hands"):
+        assert line in out
+
+
+def test_cli_alfred_rejects_a_bad_energy_level(tmp_path, capsys):
+    # argparse rejects an unknown --energy at parse time via SystemExit.
+    with pytest.raises(SystemExit) as raised:
+        cli.main([
+            "alfred", "--energy", "massive", "--no-watch",
+            "--state", str(tmp_path / "intake.json"),
+        ])
+    assert raised.value.code != 0
+
+
+def test_cli_alfred_restores_the_previous_session(tmp_path, monkeypatch):
+    state = tmp_path / "intake.json"
+    monkeypatch.setattr(
+        "builtins.input",
+        _scripted_input(["write the report, pay the bill", "quit"]),
+    )
+    cli.main(["alfred", "--text", "--no-agent", "--no-watch", "--state", str(state)])
+
+    monkeypatch.setattr("builtins.input", _scripted_input(["status", "quit"]))
+    cli.main(["alfred", "--text", "--no-agent", "--no-watch", "--state", str(state)])
+    items = json.loads(state.read_text(encoding="utf-8"))["items"]
+    assert len(items) == 2, [i["title"] for i in items]

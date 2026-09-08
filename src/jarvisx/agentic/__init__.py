@@ -98,6 +98,11 @@ from jarvisx.agentic.verifier import (
     TestsPassCheck,
     Verifier,
 )
+from jarvisx.agentic.runtime import (
+    AlfredRuntime,
+    RuntimeConfig,
+    RuntimeStatus,
+)
 from jarvisx.agentic.watch import (
     ActiveWindowSource,
     AttentionLedger,
@@ -206,6 +211,10 @@ __all__ = [
     "WhisperMicInput",
     "route",
     "strip_trigger",
+    # unified runtime
+    "AlfredRuntime",
+    "RuntimeConfig",
+    "RuntimeStatus",
     # ambient watching
     "ActiveWindowSource",
     "AttentionLedger",

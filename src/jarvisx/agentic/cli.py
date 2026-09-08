@@ -514,6 +514,45 @@ def _save_intake(path: Optional[str], intake) -> None:
         print(_yellow(f"could not save state: {exc}"))
 
 
+def cmd_alfred(args: argparse.Namespace) -> int:
+    """One agent that talks, listens, watches and does at the same time."""
+    from jarvisx.agentic.intake import Energy
+    from jarvisx.agentic.runtime import AlfredRuntime, RuntimeConfig
+
+    try:
+        energy = Energy(args.energy)
+    except ValueError:
+        print(_red(f"unknown energy level '{args.energy}' — try low, medium or high"))
+        return 2
+
+    state = args.state
+    config = RuntimeConfig(
+        energy=energy,
+        speak_nudges=not args.quiet,
+        enable_agent=not args.no_agent,
+        watch=not args.no_watch,
+        watch_interval=args.interval,
+        switch_window_minutes=args.switch_window,
+        switch_threshold=args.switch_threshold,
+        off_task_grace_minutes=args.grace,
+        break_after_minutes=args.break_after,
+        force_text=args.text,
+        demo_watch=args.demo,
+        state_path=state,
+        trace_root=args.trace_root,
+        max_turns=args.turns,
+    )
+
+    # Hand the runtime an intake it can share, so speech and clipboard land in
+    # one list rather than two.
+    runtime = AlfredRuntime(config, intake=_load_intake(state))
+    try:
+        runtime.serve()
+    finally:
+        _save_intake(state, runtime.intake)
+    return 0
+
+
 def cmd_watch(args: argparse.Namespace) -> int:
     """Ambient watcher: notice fragmentation, drift and stray thoughts."""
     from jarvisx.agentic.watch import (
@@ -715,6 +754,28 @@ def build_parser() -> argparse.ArgumentParser:
     p_watch.add_argument("--no-capture", action="store_true", help="do not capture clipboard notes")
     p_watch.add_argument("--state", default="var/agentic/intake.json")
     p_watch.set_defaults(func=cmd_watch)
+
+    p_alfred = sub.add_parser(
+        "alfred",
+        help="the whole agent at once: talks, listens, watches and does",
+        description="One shared state. Say what is on your mind, get the next "
+        "small step, and let it watch for drift while you work.",
+    )
+    p_alfred.add_argument("--text", action="store_true", help="force typed input/output")
+    p_alfred.add_argument("--energy", default="medium", choices=["low", "medium", "high"])
+    p_alfred.add_argument("--turns", type=int, default=200)
+    p_alfred.add_argument("--quiet", action="store_true", help="print nudges instead of speaking them")
+    p_alfred.add_argument("--no-agent", action="store_true", help="capture and nudge only, never execute")
+    p_alfred.add_argument("--no-watch", action="store_true", help="disable ambient watching")
+    p_alfred.add_argument("--demo", action="store_true", help="synthetic drift instead of real sensors")
+    p_alfred.add_argument("--interval", type=float, default=15.0, help="watch poll seconds")
+    p_alfred.add_argument("--switch-window", type=int, default=5, help="minutes")
+    p_alfred.add_argument("--switch-threshold", type=int, default=6, help="switches per window")
+    p_alfred.add_argument("--grace", type=int, default=5, help="minutes off-task before a nudge")
+    p_alfred.add_argument("--break-after", type=int, default=50, help="minutes before a break nudge")
+    p_alfred.add_argument("--state", default="var/agentic/intake.json")
+    p_alfred.add_argument("--trace-root", default=str(DEFAULT_TRACE_ROOT))
+    p_alfred.set_defaults(func=cmd_alfred)
 
     p_serve = sub.add_parser("serve", help="start the HTTP control plane")
     p_serve.add_argument("--host", default="0.0.0.0")

@@ -182,6 +182,39 @@ end up with nine half-finished automations and no idea what happened.
 
 ---
 
+### One agent: `alfred`
+
+```bash
+python -m jarvisx.agentic alfred
+python -m jarvisx.agentic alfred --text --energy low   # no mic/speaker, typed
+```
+
+`talk`, `watch` and `next` are the individual senses. `alfred` runs them at the
+same time over one shared state, which is the only way they are useful:
+
+| Layer | Runs | Feeds |
+|---|---|---|
+| ears | foreground | speech → `IntakeEngine` |
+| eyes | background thread | active window + clipboard → `AttentionLedger`, clipboard → `IntakeEngine` |
+| mouth | foreground | replies and nudges, same channel |
+| hands | on demand | orchestrator, only on an explicit build verb |
+
+It reports honestly what came up, because guessing is worse than admitting:
+
+```
+  ears      keyboard
+  mouth     text
+  eyes      sensor
+  hands     off (say build/write/fix)
+```
+
+**The integration that matters.** When you say "what next" and Alfred picks a
+task, the runtime calls `AttentionLedger.set_intended_task()`. That is what
+makes drift detection possible at all — a watcher cannot tell you that you
+wandered off a task it never knew you had. Speech and clipboard also share one
+`IntakeEngine`, so what you said and what you copied land in the same list
+instead of two.
+
 ### Watching: `watch`
 
 ```bash
