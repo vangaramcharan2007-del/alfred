@@ -1,11 +1,15 @@
+"""
+Akashic Records — Lightweight on-demand document indexer.
+Replaced previous unbounded background time.sleep(300) thread with bounded lazy indexing.
+"""
+
 import logging
 import os
-import threading
-import time
-import json
 from pathlib import Path
+from typing import Dict, List, Set
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("jarvisx.akashic_records")
+
 
 class AkashicRecords:
     _instance = None
@@ -19,66 +23,47 @@ class AkashicRecords:
     def __init__(self):
         self.project_dir = Path(__file__).parent.parent.parent.parent.absolute()
         self.docs_dir = self.project_dir / "docs"
-        self.docs_dir.mkdir(parents=True, exist_ok=True)
-        self.index = {}  # Inverted index: word -> set of file paths
-        self._thread = None
-        self._running = False
+        self.index: Dict[str, Set[str]] = {}
+        self._indexed = False
 
-    def start(self):
-        """Starts the background indexer."""
-        if self._running:
+    def ensure_indexed(self):
+        """Indexes repository on-demand without background loops."""
+        if self._indexed:
             return
-            
-        logger.info("[Akashic] Starting real-time document indexer...")
-        self._running = True
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
-
-    def _run(self):
-        while self._running:
-            self._build_index()
-            # Re-index every 5 minutes
-            time.sleep(300)
-
-    def _build_index(self):
-        new_index = {}
-        file_count = 0
-        
+        logger.info("[Akashic] Performing fast on-demand document indexing...")
+        new_index: Dict[str, Set[str]] = {}
+        doc_exts = (".md", ".txt", ".json", ".yaml", ".yml")
         for root, dirs, files in os.walk(self.project_dir):
-            if ".git" in root or "var" in root or "__pycache__" in root:
+            if any(p in root for p in (".git", "var", "__pycache__", "node_modules")):
                 continue
-                
             for file in files:
-                if file.endswith((".md", ".txt", ".json")):
-                    filepath = Path(root) / file
+                if file.endswith(doc_exts):
+                    p = Path(root) / file
                     try:
-                        with open(filepath, "r", encoding="utf-8") as f:
-                            content = f.read().lower()
-                            words = set(content.split())
-                            for word in words:
-                                if len(word) > 3:  # skip tiny words
-                                    if word not in new_index:
-                                        new_index[word] = set()
-                                    new_index[word].add(str(filepath))
-                        file_count += 1
+                        with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                            words = set(f.read().lower().split())
+                            for w in words:
+                                if len(w) > 3:
+                                    if w not in new_index:
+                                        new_index[w] = set()
+                                    new_index[w].add(str(p))
                     except Exception:
                         pass
-        
         self.index = new_index
-        logger.info(f"[Akashic] Index built: {file_count} files, {len(self.index)} unique terms.")
+        self._indexed = True
+        logger.info(f"[Akashic] Indexed {len(self.index)} terms across documentation.")
 
-    def search(self, query: str) -> list:
-        """Search the local document index."""
-        query_words = set(query.lower().split())
-        results = None
-        
-        for word in query_words:
-            if word in self.index:
-                if results is None:
-                    results = self.index[word]
-                else:
-                    results = results.intersection(self.index[word])
-                    
-        if results:
-            return list(results)[:5]
-        return []
+    def search(self, query: str) -> List[str]:
+        self.ensure_indexed()
+        terms = query.lower().split()
+        if not terms:
+            return []
+        matches = set()
+        for t in terms:
+            if t in self.index:
+                matches.update(self.index[t])
+        return list(matches)[:15]
+
+    def start(self):
+        # Deprecated: No background loop needed
+        pass
