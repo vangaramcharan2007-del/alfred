@@ -95,6 +95,10 @@ _SPLIT_RE = re.compile(
     | \s*[;\n]\s*              # semicolons and newlines
     | \s*,\s+(?=(?:
           i\s+(?:need|have|should|must|gotta|am|i'?m)
+        # Bare first-person openings. "i'm worried" used to be swallowed whole,
+        # which is the worst failure here: the worry dragged the real task in
+        # front of it into a worry, and the task silently left the queue.
+        | i'?m\b | i\s+(?:am|feel|can'?t|cannot|keep|really|just|still|also)
         | also | and\s+then | plus | oh | btw | don'?t\s+forget
         | remember\s+to | todo:
         | some(?:one|body)\s+(?:else\s+)?(?:should|can|could|needs)
@@ -130,6 +134,14 @@ _WORRY_RE = re.compile(
         | scared | afraid | dread(?:s|ed|ing)? | dreading
         | overwhelm(?:s|ed|ing)? | panick?(?:s|ed|ing)? | nervous
         | what\s+if | i\s+hate
+        # Emotional states. These must never become tasks: handing someone the
+        # task "I can't focus" is not an instruction they can act on, and it
+        # pushes real work further down the queue.
+        | i\s+feel\s+(?:awful|bad|terrible|awful|crappy|rough|shit|low|down|numb|dead)
+        | feel(?:ing)?\s+(?:awful|bad|terrible|crappy|rough|low|down|numb|dead|burnt\s+out)
+        | burn(?:t|ed)?\s*out | exhausted | drained | fried | done\s+in
+        | can'?t\s+(?:focus|concentrate|cope|think|deal|function|even)
+        | losing\s+it | falling\s+apart | at\s+(?:my|the)\s+limit
     )\b""",
     re.IGNORECASE | re.VERBOSE,
 )

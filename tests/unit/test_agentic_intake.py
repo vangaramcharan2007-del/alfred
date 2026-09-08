@@ -351,3 +351,31 @@ def test_three_item_blob_becomes_three_pickable_tasks():
     chosen = engine.pick(Energy.LOW)
     assert chosen is not None
     assert chosen.est_minutes <= 10, chosen
+
+
+# --------------------------------------------------------------------------- #
+# Regression: a worry used to swallow the real task in front of it
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "dump",
+    [
+        "pay the bill, i'm really worried about failing",
+        "pay the bill, i am so stressed",
+        "pay the bill, i feel awful about it",
+        "pay the bill, i can't focus",
+    ],
+)
+def test_a_worry_never_swallows_the_task_before_it(dump):
+    """The worst failure mode: real work silently leaves the queue."""
+    engine = IntakeEngine()
+    engine.plan(dump)
+    tasks = [i for i in engine.open_items if i.kind is ItemKind.TASK]
+    assert len(tasks) == 1, [i.title for i in engine.open_items]
+    assert "pay the bill" in tasks[0].title.lower()
+
+
+def test_a_first_person_qualifier_stays_attached():
+    # "i mean the other bob" clarifies the previous clause, it is not a new task.
+    assert len(split_brain_dump("email bob about it, i mean the other bob")) == 1

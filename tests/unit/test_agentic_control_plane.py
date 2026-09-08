@@ -25,6 +25,7 @@ def server(tmp_path):
         backend=HeuristicBackend(),
         trace_root=tmp_path / "traces",
         sandbox=sandbox,
+        intake_path=tmp_path / "intake.json",
     )
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), _make_handler(plane))
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -493,3 +494,91 @@ def test_cli_alfred_restores_the_previous_session(tmp_path, monkeypatch):
     cli.main(["alfred", "--text", "--no-agent", "--no-watch", "--state", str(state)])
     items = json.loads(state.read_text(encoding="utf-8"))["items"]
     assert len(items) == 2, [i["title"] for i in items]
+
+
+# --------------------------------------------------------------------------- #
+# /intake: the shared task list over HTTP, and the dashboard
+# --------------------------------------------------------------------------- #
+
+
+def test_intake_starts_empty_and_honest(server):
+    base, _ = server
+    code, body = _get(f"{base}/intake")
+    assert code == 200
+    assert body["items"] == []
+    assert body["next_at_energy"]["low"] is None
+
+
+def test_capture_splits_a_blob_and_shows_it(server):
+    base, plane = server
+    _post(f"{base}/intake", {"dump": "write the assignment, pay the bill, call mom"})
+    _, body = _get(f"{base}/intake")
+    assert len(body["items"]) == 3, body["items"]
+    # The dashboard reads this file, so capture must actually persist.
+    assert plane.intake_path.exists()
+
+
+def test_capture_requires_a_dump(server):
+    base, _ = server
+    code, body = _post(f"{base}/intake", {})
+    assert code == 400
+    assert "dump" in body["error"]
+
+
+def test_energy_changes_what_is_offered(server):
+    """The whole point: low energy never offers the scary task."""
+    base, _ = server
+    _post(f"{base}/intake", {"dump": "write the OS assignment its due today, pay the bill"})
+    _, body = _get(f"{base}/intake")
+    assert "Pay the bill" in body["next_at_energy"]["low"]["title"]
+    assert "OS assignment" in body["next_at_energy"]["high"]["title"]
+
+
+def test_completing_an_item_offers_the_next_one(server):
+    base, _ = server
+    _post(f"{base}/intake", {"dump": "write the report, pay the bill"})
+    _, body = _get(f"{base}/intake")
+    target = body["next_at_energy"]["low"]
+    code, done = _post(f"{base}/intake/{target['id']}/done", {})
+    assert code == 200 and done["ok"]
+    assert done["next"] is not None
+    _, after = _get(f"{base}/intake")
+    assert after["tasks_open"] == 1
+
+
+def test_completing_an_unknown_item_is_a_404(server):
+    base, _ = server
+    code, body = _post(f"{base}/intake/does-not-exist/done", {})
+    assert code == 404
+    assert "error" in body
+
+
+def test_not_your_problem_is_called_out(server):
+    base, _ = server
+    _post(f"{base}/intake", {"dump": "pay the bill, i'm worried about failing, someone should fix the printer"})
+    _, body = _get(f"{base}/intake")
+    kinds = {i["kind"] for i in body["not_your_problem"]}
+    assert kinds == {"worry", "delegate"}, kinds
+
+
+def test_dashboard_is_served_to_a_browser_and_json_to_everyone_else(server):
+    base, _ = server
+    request = urllib.request.Request(f"{base}/", headers={"Accept": "text/html"})
+    with urllib.request.urlopen(request, timeout=10) as response:
+        html = response.read().decode()
+        assert response.status == 200
+        assert "text/html" in response.headers["Content-Type"]
+    assert "do this next" in html
+    assert "dump your head" in html
+
+    # A curl or a test client with no Accept header still gets the API index.
+    code, body = _get(f"{base}/")
+    assert code == 200
+    assert "GET /intake" in body["endpoints"]
+
+
+def test_intake_endpoints_are_listed_on_the_index(server):
+    base, _ = server
+    _, body = _get(f"{base}/")
+    for endpoint in ("GET /intake", "POST /intake", "POST /intake/{item_id}/done"):
+        assert endpoint in body["endpoints"], endpoint

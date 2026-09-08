@@ -657,7 +657,12 @@ def cmd_watch(args: argparse.Namespace) -> int:
 def cmd_serve(args: argparse.Namespace) -> int:
     from jarvisx.agentic.control_plane import serve
 
-    return serve(host=args.host, port=args.port, backend_name=args.backend)
+    return serve(
+        host=args.host,
+        port=args.port,
+        backend_name=args.backend,
+        intake_path=args.state,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -781,6 +786,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_serve.add_argument("--host", default="0.0.0.0")
     p_serve.add_argument("--port", type=int, default=8123)
     p_serve.add_argument("--backend", default="auto")
+    p_serve.add_argument(
+        "--state", default="var/agentic/intake.json",
+        help="task list shared with `alfred`, shown on the dashboard",
+    )
     p_serve.set_defaults(func=cmd_serve)
 
     return parser
