@@ -13,20 +13,30 @@ import time
 
 
 class OperationalDatabase:
-    """SQLite offline cache with Supabase synchronization."""
-    
-    def __init__(self, db_path: Path, supabase: Optional[SupabaseClient] = None, logger: Optional[StructuredLogger] = None):
+    """SQLite offline cache with optional Supabase synchronization."""
+
+    def __init__(self, db_path: Path, supabase: Optional[Any] = None, logger: Optional[StructuredLogger] = None):
+        # `supabase` is duck-typed: anything exposing `.is_configured` and
+        # `.insert(table, record)`. There is no SupabaseClient in this repo —
+        # the annotation used to name one that never existed, which raised
+        # NameError at class-definition time and took seven modules down with
+        # it. Sync is optional by design; the SQLite cache works without it.
         self.db_path = db_path
-        self.supabase = supabase or SupabaseClient()
+        self.supabase = supabase
         self.logger = logger or StructuredLogger()
         self._init_db()
-        
+
         # Sync worker state
         self._sync_queue = queue.Queue()
         self._stop_event = threading.Event()
         self._sync_thread = threading.Thread(target=self._sync_worker_loop, daemon=True, name="OpDBSyncWorker")
         self._sync_thread.start()
-        
+
+    @property
+    def _sync_enabled(self) -> bool:
+        """True only when a real sync client was injected and is configured."""
+        return bool(self.supabase is not None and getattr(self.supabase, "is_configured", False))
+
     def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
@@ -68,7 +78,7 @@ class OperationalDatabase:
         self._trigger_sync(key, data)
 
     def _trigger_sync(self, key: str, data: dict[str, Any]) -> None:
-        if not self.supabase.is_configured:
+        if not self._sync_enabled:
             return
         # We put tasks into the queue
         self._sync_queue.put((key, data))
@@ -110,9 +120,9 @@ class OperationalDatabase:
             self._sync_thread.join(timeout=5.0)
         
     def sync_unsynced(self) -> None:
-        if not self.supabase.is_configured:
+        if not self._sync_enabled:
             return
-            
+
         with closing(self._get_connection()) as conn:
             rows = conn.execute("SELECT key, data FROM operational_data WHERE synced = 0").fetchall()
             
