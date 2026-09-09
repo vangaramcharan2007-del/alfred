@@ -46,6 +46,17 @@ class AutonomousWebResearcher:
         self.max_iterations = max_iterations
         self.engine = get_playwright_engine()
 
+        # Cumulative counters, reported by get_web_telemetry(). Every sibling
+        # engine exposes a get_*_telemetry() method; this one was never
+        # written, so personal_os raised AttributeError while building its
+        # status report and took 14 tests down with it.
+        self._tasks_completed: int = 0
+        self._actions_taken: int = 0
+        # Hours-saved-per-week, accrued on the same flat-per-task basis the
+        # sibling engines use (real_window_controller adds 7.00 per sweep).
+        # An estimate, not a measurement -- stated as such in the output.
+        self._web_hspw: float = 0.0
+
         # Tool specifications for LLM function calling schema
         self.llm_tools = [
             {
@@ -202,12 +213,38 @@ class AutonomousWebResearcher:
                     "content": tool_result_text
                 })
 
+        self._tasks_completed += 1
+        self._actions_taken += len(actions_taken)
+        self._web_hspw += 2.00
+
         return {
             "status": "success",
             "goal": research_goal,
             "iterations_used": len(actions_taken) + 1,
             "actions": actions_taken,
             "synthesis": final_synthesis
+        }
+
+    def get_web_telemetry(self) -> Dict[str, Any]:
+        """Diagnostic status and cumulative time savings for the web researcher.
+
+        Matches the contract the sibling engines expose: a ``status``, a
+        ``*_hspw`` figure the kernel sums into its total, and a human-readable
+        ``output`` block.
+        """
+        lines = [
+            "Real Autonomous Web Researcher (ReAct Loop): ACTIVE",
+            f"Research Tasks Completed: {self._tasks_completed} "
+            f"({self._actions_taken} browser actions taken)",
+            f"Target Engine: {self.model} @ {self.node_ip}",
+            f"Manual Research Time Reclaimed: +{self._web_hspw:.2f} HSPW (estimated)",
+        ]
+        return {
+            "status": "active",
+            "tasks_completed": self._tasks_completed,
+            "actions_taken": self._actions_taken,
+            "web_hspw": round(self._web_hspw, 2),
+            "output": "\n".join(lines),
         }
 
 

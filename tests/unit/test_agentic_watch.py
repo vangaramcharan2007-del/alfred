@@ -355,10 +355,33 @@ def test_scripted_source_exhausts_to_none():
     assert source.poll() is None
 
 
-def test_clipboard_source_is_unavailable_without_pyperclip():
-    """No pyperclip in this environment: must report unavailable, not raise."""
+def test_clipboard_source_degrades_when_pyperclip_is_missing(monkeypatch):
+    """No clipboard library: must report unavailable, not raise."""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def no_pyperclip(name, *args, **kwargs):
+        if name == "pyperclip":
+            raise ImportError("No module named 'pyperclip'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", no_pyperclip)
     source = ClipboardSource()
     assert source.available is False
+    assert source.poll() is None
+
+
+def test_clipboard_source_poll_is_safe_with_no_clipboard_backend():
+    """A present library is not the same as a working clipboard.
+
+    Headless and CI machines import pyperclip fine and then have no clipboard
+    to read, so ``poll`` must return None rather than propagate. Asserting on
+    ``available`` here would make the test pass or fail on which packages
+    happen to be installed rather than on the behaviour that matters.
+    """
+    source = ClipboardSource()
+    assert source.poll() is None
     assert source.poll() is None
 
 

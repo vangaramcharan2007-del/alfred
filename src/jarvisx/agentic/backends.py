@@ -290,6 +290,18 @@ class LLMRouterBackend(ModelBackend):
         text = response.get("response") or response.get("result", {}).get(
             "response", ""
         ) or ""
+        if not text.strip():
+            # LLMRouter swallows provider failures and returns an empty string
+            # rather than raising. Reported as a normal completion, that empty
+            # string reads as "the model chose to stop" -- so the harness marks
+            # the run SUCCEEDED having produced nothing, and the user gets a
+            # green tick over an empty file. Same class of fault as a TTS
+            # engine that reports ready with no engine behind it: a false
+            # "ready" is worse than an honest failure.
+            raise BackendError(
+                "LLMRouter returned an empty completion — no provider could "
+                "serve the request (check for a local Ollama or a provider API key)"
+            )
         return ModelMessage(
             content=text,
             tool_calls=_parse_action_block(text),
@@ -372,10 +384,54 @@ def AutoBackend() -> ModelBackend:  # noqa: N802 - factory, reads like a class
         )
 
     try:
-        return LLMRouterBackend()
+        backend = LLMRouterBackend()
     except Exception as exc:  # pragma: no cover - depends on optional deps
         logger.info("LLMRouter unavailable (%s); using offline heuristic", redact(str(exc)))
         return HeuristicBackend()
+
+    # Constructing the router only proves its imports resolved. It registers
+    # five providers unconditionally, so it always constructs -- even on a
+    # machine with no API key and no local Ollama, where every completion
+    # would come back empty. Selecting it there means the agent silently
+    # produces nothing, so check that some provider can actually serve first.
+    if not _router_can_serve(backend):
+        logger.info("LLMRouter has no usable provider; using offline heuristic")
+        return HeuristicBackend()
+    return backend
+
+
+def _router_can_serve(backend: "LLMRouterBackend") -> bool:
+    """True only if some registered provider could plausibly answer.
+
+    Deliberately cheap and offline: a credential check plus one short-timeout
+    TCP probe of the local Ollama port. A slow or unreachable host must not
+    hang startup, and must not be mistaken for a working model.
+    """
+    import socket
+    from urllib.parse import urlparse
+
+    try:
+        providers = backend._router.registry.list_providers()
+    except Exception:  # noqa: BLE001 - never let a probe break selection
+        return False
+
+    for provider in providers:
+        if getattr(provider, "api_key", None):
+            return True
+
+    for provider in providers:
+        endpoint = getattr(provider, "endpoint", None)
+        if not endpoint:
+            continue
+        try:
+            parsed = urlparse(endpoint)
+            host = parsed.hostname or "127.0.0.1"
+            port = parsed.port or (443 if parsed.scheme == "https" else 80)
+            with socket.create_connection((host, port), timeout=0.5):
+                return True
+        except OSError:
+            continue
+    return False
 
 
 def groq_backend(api_key: str) -> "OpenAICompatibleBackend":
