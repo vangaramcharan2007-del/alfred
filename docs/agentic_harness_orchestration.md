@@ -138,7 +138,9 @@ Persona decides HOW that lands when it is spoken.
 A persona must never change the substance. If Stark could talk you out of the
 task the engine picked, you would have a sarcastic procrastination engine — the
 worst possible outcome for an ADHD brain. `test_the_persona_cannot_change_which_task_was_picked`
-runs the same dump through all three personas and asserts they pick identically.
+runs the same dump through every registered persona and asserts they pick
+identically — the test iterates `PERSONAS` rather than naming them, so adding a
+voice cannot leave the guarantee untested.
 
 Every persona also de-shames. Shame produces avoidance, and avoidance is the
 actual problem, not a lack of discipline. Judgemental nudges are replaced
@@ -156,6 +158,27 @@ harness's policy gate, `CONFIRM` permission, tracing and budget.
 | `ls -la`, `echo hi`, `git status` | allow |
 | `sudo apt install x`, `git push`, `kill -9` | confirm — asks you first |
 | `rm -rf /`, `format c:`, `shutdown`, `dd if=` | **blocked even if you say yes** |
+
+**Preferences are remembered, not retyped.** `alfred` takes 20 flags, and
+retyping `--persona jarvis --physical --energy low` on every launch is exactly
+the kind of manual work this project exists to delete. `config.py` discovers
+one small JSON file — `--config <path>`, `./alfred.json`,
+`./var/agentic/config.json`, `~/.alfred.json`, first match wins — and
+`--save-config` writes it from the flags on that line.
+
+Two rules hold it together:
+
+- **A CLI flag always beats the file.** Argparse defaults are set to `None` for
+  every configurable flag so the loader can tell "the user chose this" from
+  "nobody chose anything". Without that distinction the file could never win.
+- **A broken config must never stop the agent starting.** Malformed JSON, a
+  wrong top-level type, or `"persona": "ultron"` all cost a preference, not the
+  assistant. Each is reported on stderr and ignored. For someone who depends on
+  this to function, that is the difference between a bad day and no day.
+
+`store_true` flags are written only when asserted. Recording `quiet: false`
+would freeze the default into the file, and a later change to that default
+would silently stop applying.
 
 An unattended run can never execute a `CONFIRM` command: with no interactive
 input the default is to refuse. Guessing "yes" is the single worst thing this

@@ -202,6 +202,22 @@ alfred> Kid. Opening youtube: lofi.
 Without `--physical` it falls back to capture, because claiming something
 opened when it did not is worse than writing it down.
 
+### 🔁 Set it once
+
+Retyping `--persona jarvis --physical --energy low` every session is manual
+work, so remember it:
+
+```bash
+python -m jarvisx.agentic alfred --persona jarvis --energy low --physical --save-config
+python -m jarvisx.agentic alfred        # same thing, no flags
+```
+
+It writes `var/agentic/config.json` and reads it back automatically. Discovery
+order is `--config <path>`, then `./alfred.json`, then
+`./var/agentic/config.json`, then `~/.alfred.json`. A flag on the command line
+always beats the file, and a malformed file costs you your preference rather
+than your assistant — it is reported and ignored, never fatal.
+
 Two rules keep this from becoming a toy:
 
 - **The persona never changes what you should do** — only how it sounds. If

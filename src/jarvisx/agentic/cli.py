@@ -331,6 +331,18 @@ def _probe_physical():
     return f"{len(names)} tools; 'open spotify' works, rm -rf is blocked", True
 
 
+def _probe_config():
+    from jarvisx.agentic.config import load as load_config
+
+    config = load_config()
+    if not config.found:
+        return "none; `alfred --persona jarvis --save-config` remembers your flags", False
+    detail = f"{config.source}"
+    if config.warnings:
+        return f"{detail} — but {'; '.join(config.warnings)}", False
+    return detail, True
+
+
 def _probe_intake():
     from jarvisx.agentic.intake import Energy, IntakeEngine
     from jarvisx.agentic.persona import PERSONAS
@@ -473,6 +485,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     probe("mouth (speech out)", lambda: _probe_tts())
     probe("eyes (active window)", lambda: _probe_window_sensor())
     probe("hands (physical reach)", lambda: _probe_physical())
+    probe("preferences file", lambda: _probe_config())
     probe("intake + personas", lambda: _probe_intake())
 
     # -- 7. verdict --------------------------------------------------------- #
@@ -603,43 +616,104 @@ def _save_intake(path: Optional[str], intake) -> None:
 
 def cmd_alfred(args: argparse.Namespace) -> int:
     """One agent that talks, listens, watches and does at the same time."""
+    from jarvisx.agentic.config import load as load_config
     from jarvisx.agentic.intake import Energy
     from jarvisx.agentic.runtime import AlfredRuntime, RuntimeConfig
 
+    config = load_config(getattr(args, "config", None))
+    for warning in config.warnings:
+        print(_yellow(f"  config: {warning}"))
+
+    if getattr(args, "save_config", False):
+        return _save_alfred_config(args, config)
+
+    def setting(name: str, default):
+        """CLI flag, else config file, else built-in default."""
+        given = getattr(args, name, None)
+        if given is not None:
+            return given
+        return config.get(name, default)
+
+    if config.found:
+        print(_dim(f"  prefs   {config.describe()}"))
+
     try:
-        energy = Energy(args.energy)
+        energy = Energy(setting("energy", "medium"))
     except ValueError:
-        print(_red(f"unknown energy level '{args.energy}' — try low, medium or high"))
+        print(_red(f"unknown energy level '{setting('energy', '')}' — try low, medium or high"))
         return 2
 
-    state = args.state
-    config = RuntimeConfig(
+    state = setting("state", "var/agentic/intake.json")
+    runtime_config = RuntimeConfig(
         energy=energy,
-        speak_nudges=not args.quiet,
+        speak_nudges=not setting("quiet", False),
+        # --no-agent is a store_true, so it can only ever turn the agent OFF;
+        # it can never contradict a config file asking for it on.
         enable_agent=not args.no_agent,
-        watch=not args.no_watch,
-        watch_interval=args.interval,
-        switch_window_minutes=args.switch_window,
-        switch_threshold=args.switch_threshold,
-        off_task_grace_minutes=args.grace,
-        break_after_minutes=args.break_after,
+        watch=not args.no_watch and bool(setting("watch", True)),
+        watch_interval=float(setting("interval", 15.0)),
+        switch_window_minutes=int(setting("switch_window", 5)),
+        switch_threshold=int(setting("switch_threshold", 6)),
+        off_task_grace_minutes=int(setting("grace", 5)),
+        break_after_minutes=int(setting("break_after", 50)),
         force_text=args.text,
         demo_watch=args.demo,
         state_path=state,
         trace_root=args.trace_root,
-        max_turns=args.turns,
-        persona=args.persona,
-        enable_physical=args.physical,
-        physical_dry_run=args.physical_dry_run,
+        max_turns=int(setting("turns", 200)),
+        persona=setting("persona", "plain"),
+        wake_word=setting("wake_word", "alfred"),
+        enable_physical=bool(setting("physical", False)),
+        physical_dry_run=bool(setting("physical_dry_run", False)),
+        auto_capture=bool(setting("auto_capture", True)),
     )
 
     # Hand the runtime an intake it can share, so speech and clipboard land in
     # one list rather than two.
-    runtime = AlfredRuntime(config, intake=_load_intake(state))
+    runtime = AlfredRuntime(runtime_config, intake=_load_intake(state))
     try:
         runtime.serve()
     finally:
         _save_intake(state, runtime.intake)
+    return 0
+
+
+def _save_alfred_config(args: argparse.Namespace, config) -> int:
+    """Persist the flags given on this line, so next time needs none.
+
+    Only writes what the user actually typed. Dumping argparse's defaults into
+    the file would freeze them, and then a later change to a default would
+    silently stop applying.
+    """
+    from jarvisx.agentic.config import KNOWN_KEYS, save as save_config
+
+    # store_true flags are False whether or not the user passed them, so a
+    # False value carries no information. Writing it anyway would freeze the
+    # default into the file, and a later change to that default would silently
+    # stop applying. Only record what the user actually asserted.
+    explicit = {
+        name: value
+        for name in KNOWN_KEYS
+        for value in (getattr(args, name, None),)
+        if value is not None and value is not False
+    }
+    if args.no_watch:
+        explicit["watch"] = False
+    if args.physical:
+        explicit["physical"] = True
+
+    if not explicit:
+        print(_yellow("  nothing to save — pass the flags you want remembered, e.g."))
+        print(_dim("    python -m jarvisx.agentic alfred --persona jarvis --physical --save-config"))
+        return 2
+
+    merged = dict(config.values)
+    merged.update(explicit)
+    target = save_config(merged, getattr(args, "config", None))
+    print(_green(f"  saved {len(explicit)} preference(s) to {target}"))
+    for key, value in sorted(explicit.items()):
+        print(_dim(f"    {key} = {value!r}"))
+    print(_dim("  next time just run: python -m jarvisx.agentic alfred"))
     return 0
 
 
@@ -857,19 +931,21 @@ def build_parser() -> argparse.ArgumentParser:
         "small step, and let it watch for drift while you work.",
     )
     p_alfred.add_argument("--text", action="store_true", help="force typed input/output")
-    p_alfred.add_argument("--energy", default="medium", choices=["low", "medium", "high"])
-    p_alfred.add_argument("--turns", type=int, default=200)
+    p_alfred.add_argument("--energy", choices=["low", "medium", "high"],
+                          help="default medium; low only offers tiny tasks")
+    p_alfred.add_argument("--turns", type=int, help="default 200")
     p_alfred.add_argument("--quiet", action="store_true", help="print nudges instead of speaking them")
     p_alfred.add_argument("--no-agent", action="store_true", help="capture and nudge only, never execute")
     p_alfred.add_argument("--no-watch", action="store_true", help="disable ambient watching")
     p_alfred.add_argument("--demo", action="store_true", help="synthetic drift instead of real sensors")
-    p_alfred.add_argument("--interval", type=float, default=15.0, help="watch poll seconds")
-    p_alfred.add_argument("--switch-window", type=int, default=5, help="minutes")
-    p_alfred.add_argument("--switch-threshold", type=int, default=6, help="switches per window")
-    p_alfred.add_argument("--grace", type=int, default=5, help="minutes off-task before a nudge")
-    p_alfred.add_argument("--break-after", type=int, default=50, help="minutes before a break nudge")
+    p_alfred.add_argument("--interval", type=float, help="watch poll seconds, default 15")
+    p_alfred.add_argument("--switch-window", type=int, help="minutes, default 5")
+    p_alfred.add_argument("--switch-threshold", type=int, help="switches per window, default 6")
+    p_alfred.add_argument("--grace", type=int, help="minutes off-task before a nudge, default 5")
+    p_alfred.add_argument("--break-after", type=int, help="minutes before a break nudge, default 50")
+    p_alfred.add_argument("--wake-word", help="default 'alfred'")
     p_alfred.add_argument(
-        "--persona", default="plain", choices=["plain", "stark", "friday", "jarvis", "eevee"],
+        "--persona", choices=["plain", "stark", "friday", "jarvis", "eevee"],
         help="how it talks; never changes what it decides",
     )
     p_alfred.add_argument(
@@ -880,7 +956,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--physical-dry-run", action="store_true",
         help="resolve and validate physical actions without performing them",
     )
-    p_alfred.add_argument("--state", default="var/agentic/intake.json")
+    p_alfred.add_argument("--state", help="task list path, default var/agentic/intake.json")
+    p_alfred.add_argument(
+        "--config", help="read preferences from this file instead of auto-discovering",
+    )
+    p_alfred.add_argument(
+        "--save-config", action="store_true",
+        help="remember the flags on this line, then just run `alfred` next time",
+    )
     p_alfred.add_argument("--trace-root", default=str(DEFAULT_TRACE_ROOT))
     p_alfred.set_defaults(func=cmd_alfred)
 

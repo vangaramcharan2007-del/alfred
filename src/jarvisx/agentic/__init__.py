@@ -103,6 +103,11 @@ from jarvisx.agentic.actions import (
     classify_command,
     resolve_target,
 )
+from jarvisx.agentic.config import (
+    KNOWN_KEYS,
+    LoadedConfig,
+    candidate_paths,
+)
 from jarvisx.agentic.persona import (
     PERSONAS,
     EeveePersona,
@@ -232,6 +237,9 @@ __all__ = [
     "resolve_target",
     "PERSONAS",
     "EeveePersona",
+    "KNOWN_KEYS",
+    "LoadedConfig",
+    "candidate_paths",
     "FridayPersona",
     "JarvisPersona",
     "Persona",
