@@ -106,6 +106,49 @@ A fresh `pip install -e .` produced a broken install:
 
 Every third-party import in `src/` is now declared.
 
+**`60b7025` + `b39c538` — pyflakes found 45 undefined names; four were live
+runtime bugs.**
+
+I ran pyflakes over `src/` looking for more faults of the SupabaseClient shape.
+It reported 45 undefined names. Thirty-five were missing `typing`/stdlib imports
+(`Optional`, `Any`, `Dict`, `Tuple`, `Path`, `re`) across 16 modules. Those
+differ from the SupabaseClient bug only in that the annotation is not evaluated
+at import time — so the module loads, and then raises `NameError` the first time
+the function is called.
+
+The remaining ten needed reading. Four were genuine runtime bugs:
+
+- `integrations/llm_prompt_lru_cache.py` defined `HashableKey` at the bottom of
+  the file and used it in four annotations above. Importing raised `NameError`,
+  so **the entire prompt cache was unusable.** Verified working after the fix:
+  put/get, TTL expiry, LRU eviction, and the decorator (a second identical call
+  is served from cache; the underlying function runs once).
+- `interface/cli.py` `_handle_mission(self, args)` read `command` and
+  `raw_input`, neither of which is a parameter of that method — `raw_input`
+  belongs to `handle_command_async`. So `models`/`llm`/`gateways` never routed,
+  and **every fall-through to the orchestrator raised `NameError` instead of
+  running the command.** The identical expression at line 1119 sits inside
+  `handle_command_async`, where `raw_input` *is* in scope, and was left alone.
+- `gaming/game_optimizer_agent.py` called `os_optimizations.append(...)` inside
+  a `try`, but created the list six lines later. The `NameError` was swallowed
+  by `except Exception` and logged as a *"Visual actuator note"* — **hiding the
+  real fault and silently losing the entry.**
+- `automation/dynamic_orchestrator.py` logged to a module-level `logger` that
+  did not exist from two call sites. Any exception there would have raised
+  `NameError` *while handling the original error*, destroying the diagnosis.
+
+The other six were unresolvable forward-reference annotations: `ReviewReport` →
+the already-imported `AdversarialReviewReport` (which is what
+`review_code_or_diff` actually returns), and `JarvisRuntime` / `ToolRegistry`,
+both real classes that were simply never imported, now brought in under
+`TYPE_CHECKING`.
+
+**Undefined names in `src/`: 45 → 0.**
+
+pyflakes also reports 1005 unused imports, 146 f-strings with no placeholders
+and 86 assigned-but-unused locals. Those are noise, not faults, and were left
+alone deliberately.
+
 **`5474b26`, `bde6b6a`, `74ba775` — four provably dead files removed.**
 
 - `tools/workflow.py` imported `WorkflowEngine` from `jarvisx.core.workflows`.
