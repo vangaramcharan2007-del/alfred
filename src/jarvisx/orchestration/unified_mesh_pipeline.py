@@ -139,7 +139,7 @@ class UnifiedMeshOrchestrator:
             output = self._query_worker_inference(worker_url, spec.preferred_model_family, prompt, spec.system_prompt)
 
             # 3. Adversarial Review
-            review_report: ReviewReport = self.reviewer.review_code_or_diff(output, file_path=f"step_{idx}_{role.value}.py")
+            review_report: AdversarialReviewReport = self.reviewer.review_code_or_diff(output, file_path=f"step_{idx}_{role.value}.py")
             if review_report.decision == "REJECTED":
                 overall_success = False
 

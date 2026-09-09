@@ -12,12 +12,19 @@ import glob
 import time
 import asyncio
 import datetime
+import logging
 import subprocess
 import webbrowser
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
 from jarvisx.kernel.personal_os import PersonalOSKernel
+
+# Two call sites logged to a module-level `logger` that was never defined;
+# the only logger in this file was a local inside one method. Any exception
+# on those paths would have raised NameError while handling the original
+# error, hiding it completely.
+logger = logging.getLogger("jarvisx.orchestrator.dynamic")
 from jarvisx.automation.real_system_cleaner import RealSystemCleaner
 from jarvisx.automation.real_project_builder import RealProjectBuilder
 from jarvisx.llm.llm_router import LLMRouter

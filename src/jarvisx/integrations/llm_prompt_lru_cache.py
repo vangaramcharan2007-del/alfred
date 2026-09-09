@@ -13,6 +13,11 @@ import time
 
 F = TypeVar("F", bound=Callable[..., Any])
 
+# Cache keys. This alias used to be defined at the bottom of the module,
+# after the four annotations that reference it -- so importing this file
+# raised NameError and the whole prompt cache was unusable.
+HashableKey = Tuple[Any, ...]
+
 
 @dataclass(slots=True)
 class CacheEntry:
@@ -131,8 +136,6 @@ class TTLLRUCache:
                 maxsize=self.maxsize,
             )
 
-
-HashableKey = Tuple[Any, ...]
 
 
 def ttl_lru_cache(maxsize: int = 1024, ttl: float = 300.0) -> Callable[[F], F]:

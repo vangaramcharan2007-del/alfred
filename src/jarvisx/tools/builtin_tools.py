@@ -12,7 +12,10 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from jarvisx.tools.tool_kernel import ToolRegistry
 
 from jarvisx.tools.tool_kernel import (
     PermissionLevel,

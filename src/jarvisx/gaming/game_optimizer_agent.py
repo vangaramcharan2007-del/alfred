@@ -263,6 +263,12 @@ class GameOptimizerAgent:
         elif hw.hardware_tier == "ULTRA_FIDELITY":
             adapted_settings["texture_quality"] = "High / Ultra"
             adapted_settings["shadow_quality"] = "High"
+        # Created before its first use below. It used to be initialised in
+        # section 3, *after* this block appended to it, so the NameError was
+        # swallowed by the except clause and logged as a visual-actuator
+        # note -- hiding the real fault and silently losing the entry.
+        os_optimizations: List[str] = []
+
         # If The Last of Us is targeted, engage live on-screen visual actuator
         if game_key == "the_last_of_us":
             try:
@@ -273,7 +279,6 @@ class GameOptimizerAgent:
                 logger.warning(f"Visual actuator note: {e}")
 
         # 3. Apply Windows OS Optimizations
-        os_optimizations: List[str] = []
 
         
         # A. Memory Compaction

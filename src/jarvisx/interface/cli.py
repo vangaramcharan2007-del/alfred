@@ -1212,14 +1212,17 @@ class JarvisCLI:
             result = disk_usage(path)
             return {"action": "disk", "status": result["status"], "result": result}
 
-        if command in ("models", "llm", "gateways") or cmd in ("models", "llm", "gateways"):
+        if cmd in ("models", "llm", "gateways"):
             return self._handle_models()
 
         # Route general conversational or unhandled commands to DynamicOrchestrator
         try:
             from jarvisx.automation.dynamic_orchestrator import DynamicOrchestrator
             orch = DynamicOrchestrator()
-            query = raw_input.strip()
+            # `raw_input` is a parameter of handle_command_async(), not of
+            # this method, so it was never in scope here: every fall-through
+            # to the orchestrator raised NameError instead of running.
+            query = args.strip()
             if query.lower().startswith("chat "):
                 query = query[5:].strip()
             res = orch.execute_voice_command(query)

@@ -1,5 +1,10 @@
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    # Runtime-only this would be a circular import; the annotation is a
+    # forward reference, so it is only ever needed by type checkers.
+    from jarvisx.runtime.runtime import JarvisRuntime
 
 logger = logging.getLogger(__name__)
 
