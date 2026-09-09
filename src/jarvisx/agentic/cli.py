@@ -869,7 +869,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_alfred.add_argument("--grace", type=int, default=5, help="minutes off-task before a nudge")
     p_alfred.add_argument("--break-after", type=int, default=50, help="minutes before a break nudge")
     p_alfred.add_argument(
-        "--persona", default="plain", choices=["plain", "stark", "friday", "jarvis"],
+        "--persona", default="plain", choices=["plain", "stark", "friday", "jarvis", "eevee"],
         help="how it talks; never changes what it decides",
     )
     p_alfred.add_argument(

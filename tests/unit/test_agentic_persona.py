@@ -15,6 +15,7 @@ import pytest
 
 from jarvisx.agentic.persona import (
     PERSONAS,
+    EeveePersona,
     FridayPersona,
     JarvisPersona,
     Persona,
@@ -30,7 +31,7 @@ from jarvisx.agentic.voice_loop import ConsoleInput, ConsoleOutput
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize("name", ["plain", "stark", "friday", "jarvis"])
+@pytest.mark.parametrize("name", ["plain", "stark", "friday", "jarvis", "eevee"])
 def test_known_personas_resolve(name):
     assert get_persona(name).name == name
 
@@ -189,14 +190,53 @@ def test_jarvis_greet_adapts_to_energy():
     assert "small" in persona.greet("low")
 
 
-def test_the_four_personas_are_distinct():
-    """If they all sound the same, offering a choice is theatre."""
-    voices = {
-        name: PERSONAS[name]().render("", {"kind": "picked", "task": "Pay the bill", "minutes": 5})
-        for name in ("stark", "friday", "jarvis")
-    }
-    assert len(set(voices.values())) == 3, voices
-    assert len({PERSONAS[n]().address for n in ("stark", "friday", "jarvis")}) == 3
+# --------------------------------------------------------------------------- #
+# Eevee (E.V.)
+# --------------------------------------------------------------------------- #
+
+
+def test_eevee_addresses_the_user_by_name():
+    persona = EeveePersona()
+    assert persona.address == "Charan"
+    assert "Charan" in persona.greet()
+
+
+def test_eevee_is_distinct_from_friday():
+    """Both came out of the same E.V./Friday prompt; they must not be twins."""
+    ctx = {"kind": "picked", "task": "Pay the bill", "minutes": 5}
+    assert EeveePersona().address != FridayPersona().address
+    assert EeveePersona().render("", ctx) != FridayPersona().render("", ctx)
+
+
+def test_eevee_keeps_a_picked_task_concrete():
+    line = EeveePersona().render(
+        "ignored", {"kind": "picked", "task": "Write the OS assignment", "minutes": 45}
+    )
+    assert "Write the OS assignment" in line
+    assert "45" in line
+
+
+@pytest.mark.parametrize(
+    "shaming",
+    ["You wasted an hour again? Stop wasting time.", "That was lazy.", "You always do this."],
+)
+def test_eevee_never_repeats_a_shaming_nudge(shaming):
+    out = EeveePersona().render(shaming, {"kind": "nudge"})
+    assert not StarkPersona._SHAME_RE.search(out), out
+
+
+def test_eevee_passes_through_what_it_does_not_understand():
+    message = "The build failed on step 3 with a timeout."
+    assert EeveePersona().render(message) == message
+
+
+def test_all_character_voices_are_mutually_distinct():
+    """If they sound the same, offering a choice is theatre."""
+    ctx = {"kind": "picked", "task": "Pay the bill", "minutes": 5}
+    names = ("stark", "friday", "jarvis", "eevee")
+    voices = {n: PERSONAS[n]().render("", ctx) for n in names}
+    assert len(set(voices.values())) == len(names), voices
+    assert len({PERSONAS[n]().address for n in names}) == len(names)
 
 
 # --------------------------------------------------------------------------- #
@@ -292,21 +332,37 @@ def test_plain_has_no_voice_prompt():
     assert Persona().voice_prompt == ""
 
 
-@pytest.mark.parametrize("name", ["stark", "friday", "jarvis"])
+@pytest.mark.parametrize("name", ["stark", "friday", "jarvis", "eevee"])
 def test_a_character_persona_carries_a_model_prompt(name):
     persona = get_persona(name)
     assert persona.voice_prompt
     assert persona.address in persona.voice_prompt
 
 
-@pytest.mark.parametrize("name", ["stark", "friday", "jarvis"])
+# Each persona forbids contempt in its own words. Assert the property, not one
+# phrasing — otherwise adding a persona means editing this list every time.
+_PROHIBITION_MARKERS = (
+    "never mock", "never belittle", "do not editorialise", "do not scold",
+    "never sarcastic at the user", "contempt",
+)
+
+
+@pytest.mark.parametrize("name", ["stark", "friday", "jarvis", "eevee"])
 def test_the_voice_prompt_forbids_shaming(name):
     """The same rule applies to a real model as to a re-voiced nudge."""
     prompt = get_persona(name).voice_prompt.lower()
-    assert "never mock" in prompt or "do not editorialise" in prompt
+    assert any(marker in prompt for marker in _PROHIBITION_MARKERS), prompt
 
 
-@pytest.mark.parametrize("name", ["stark", "friday", "jarvis"])
+@pytest.mark.parametrize("name", ["stark", "friday", "jarvis", "eevee"])
+def test_the_voice_prompt_mentions_why_shaming_is_harmful(name):
+    """Or keeps its own equivalent reason; the point is that it is not arbitrary."""
+    prompt = get_persona(name).voice_prompt.lower()
+    assert ("executive dysfunction" in prompt or "impatience makes that worse" in prompt
+            or "contempt makes that worse" in prompt or "never pad a failure" in prompt), prompt
+
+
+@pytest.mark.parametrize("name", ["stark", "friday", "jarvis", "eevee"])
 def test_the_voice_prompt_keeps_reporting_honest(name):
     """Character must never cost accuracy."""
     assert "accurately" in get_persona(name).voice_prompt

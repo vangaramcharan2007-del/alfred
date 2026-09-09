@@ -271,11 +271,91 @@ class JarvisPersona(Persona):
         return f"Very good, sir. {open_items} item(s) remain for later."
 
 
+class EeveePersona(Persona):
+    """E.V. (Executive Vision) — the persona the repo already shipped.
+
+    Lifted from the system prompt in ``voice/eevee_groq.py``: sleek, warm,
+    sharp, and fast to act. Addresses the user as Charan, which is what that
+    prompt actually says to do, and which keeps it distinct from Friday's
+    "Boss" rather than being the same voice under a new label.
+    """
+
+    name = "eevee"
+    address = "Charan"
+
+    voice_prompt = (
+        "You are E.V. (Executive Vision), Charan's AI operating partner and "
+        "tactical copilot: sleek, brilliant, warm, and highly capable. Address "
+        "the user naturally as Charan. You are loyal, sharp and witty, and you "
+        "act on a request rather than narrating your intention to.\n"
+        "Keep every reply to one or two sentences. Zero corporate filler, and "
+        "no hedging — if something failed, say it failed.\n"
+        "Never belittle the user for being slow, stuck or distracted; they are "
+        "working against executive dysfunction. When they finish something, "
+        "mark it plainly and move to the next step.\n"
+        "The voice must never override the work: report tool results and "
+        "failures accurately, in character."
+    )
+
+    _PICKED = (
+        "{task}. About {minutes} minutes, Charan — that is the only thing on the board.",
+        "Next up: {task}. {minutes} minutes and it is off your plate.",
+        "{task}, Charan. {minutes} minutes, then we take the next one.",
+    )
+
+    _DONE = (
+        "Done. That one is genuinely closed, Charan.",
+        "Cleared. Onto the next?",
+        "Marked complete.",
+    )
+
+    _NOT_YOURS = (
+        "That is not yours, Charan. Handing it back.",
+        "Not on your board — someone else owns that.",
+        "Dropping that one. It was never yours to carry.",
+    )
+
+    _DRIFT = (
+        "You drifted, Charan. Bring it back, or I move the task — your call.",
+        "That is not the task. Switch back, or reschedule?",
+    )
+
+    def render(self, message: str, context: Optional[Dict[str, Any]] = None) -> str:
+        ctx = context or {}
+        kind = ctx.get("kind")
+        if kind == "picked":
+            return random.choice(self._PICKED).format(
+                task=ctx.get("task", message), minutes=ctx.get("minutes", "?")
+            )
+        if kind == "done":
+            return random.choice(self._DONE)
+        if kind == "not_yours":
+            return random.choice(self._NOT_YOURS)
+        if kind == "drift":
+            return random.choice(self._DRIFT)
+        if kind == "nudge":
+            # Shared detector: the no-shaming rule is not persona specific.
+            if StarkPersona._SHAME_RE.search(message):
+                return random.choice(self._DRIFT)
+            return message
+        return f"{message}"
+
+    def greet(self, energy: str = "medium") -> str:
+        return {
+            "low": "Low battery day, Charan. Small tasks only.",
+            "high": "You have got charge today. Let us put it to work.",
+        }.get(energy, "Ready when you are, Charan. What is first?")
+
+    def farewell(self, open_items: int = 0) -> str:
+        return f"Standing by, Charan. {open_items} item(s) still queued."
+
+
 PERSONAS = {
     "plain": Persona,
     "stark": StarkPersona,
     "friday": FridayPersona,
     "jarvis": JarvisPersona,
+    "eevee": EeveePersona,
 }
 
 

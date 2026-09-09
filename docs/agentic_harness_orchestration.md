@@ -120,6 +120,7 @@ Captured items persist to `var/agentic/intake.json` between sessions.
 python -m jarvisx.agentic alfred --persona jarvis     # J.A.R.V.I.S., calls you "sir"
 python -m jarvisx.agentic alfred --persona stark      # Tony Stark, calls you "kid"
 python -m jarvisx.agentic alfred --persona friday     # F.R.I.D.A.Y., calls you "Boss"
+python -m jarvisx.agentic alfred --persona eevee      # E.V., the repo's own shipped voice
 python -m jarvisx.agentic alfred --physical           # real desktop reach
 python -m jarvisx.agentic alfred --physical --physical-dry-run
 ```

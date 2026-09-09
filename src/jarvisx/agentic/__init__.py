@@ -105,6 +105,7 @@ from jarvisx.agentic.actions import (
 )
 from jarvisx.agentic.persona import (
     PERSONAS,
+    EeveePersona,
     FridayPersona,
     JarvisPersona,
     Persona,
@@ -230,6 +231,7 @@ __all__ = [
     "classify_command",
     "resolve_target",
     "PERSONAS",
+    "EeveePersona",
     "FridayPersona",
     "JarvisPersona",
     "Persona",

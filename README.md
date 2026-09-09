@@ -179,6 +179,7 @@ added to it. State persists to `var/agentic/intake.json`.
 python -m jarvisx.agentic alfred --persona jarvis   # J.A.R.V.I.S., calls you "sir"
 python -m jarvisx.agentic alfred --persona stark    # Tony Stark, calls you "kid"
 python -m jarvisx.agentic alfred --persona friday   # F.R.I.D.A.Y., calls you "Boss"
+python -m jarvisx.agentic alfred --persona eevee    # E.V., the voice this repo already shipped
 python -m jarvisx.agentic alfred --physical         # open apps, run gated commands
 ```
 
