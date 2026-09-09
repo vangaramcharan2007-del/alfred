@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alfred — New Tab</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400&display=swap');
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 100vw; height: 100vh;
+      overflow: hidden;
+      background: #000;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+    }
+
+    canvas#bg {
+      position: fixed;
+      inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      transition: opacity 0.8s ease;
+    }
+
+    /* ── OVERLAY ── */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+    }
+
+    /* ── CLOCK CARD ── */
+    .glass-card {
+      backdrop-filter: blur(28px) saturate(160%);
+      -webkit-backdrop-filter: blur(28px) saturate(160%);
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 28px;
+      padding: 44px 72px 36px;
+      text-align: center;
+      box-shadow:
+        0 8px 48px rgba(0,0,0,0.35),
+        inset 0 1px 0 rgba(255,255,255,0.12);
+      animation: cardIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(24px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    #clock {
+      font-size: clamp(64px, 10vw, 108px);
+      font-weight: 200;
+      color: #fff;
+      letter-spacing: -5px;
+      line-height: 1;
+      text-shadow:
+        0 0 60px rgba(255,255,255,0.25),
+        0 2px 4px rgba(0,0,0,0.4);
+      font-variant-numeric: tabular-nums;
+      transition: color 0.8s ease;
+    }
+
+    #date-line {
+      margin-top: 10px;
+      font-size: 13px;
+      font-weight: 300;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+
+    #greeting {
+      margin-top: 18px;
+      font-size: 20px;
+      font-weight: 300;
+      color: rgba(255,255,255,0.88);
+      letter-spacing: 0.5px;
+    }
+
+    /* ── SEARCH ── */
+    .search-wrap {
+      position: relative;
+      width: min(500px, 90vw);
+      animation: cardIn 0.8s 0.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    #search {
+      width: 100%;
+      padding: 15px 52px 15px 22px;
+      background: rgba(255,255,255,0.09);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 50px;
+      color: #fff;
+      font-size: 15px;
+      font-family: inherit;
+      font-weight: 300;
+      outline: none;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+    }
+    #search::placeholder { color: rgba(255,255,255,0.38); }
+    #search:focus {
+      background: rgba(255,255,255,0.13);
+      border-color: rgba(255,255,255,0.35);
+      box-shadow: 0 0 0 4px rgba(255,255,255,0.07), 0 4px 24px rgba(0,0,0,0.2);
+    }
+    .search-icon {
+      position: absolute;
+      right: 18px; top: 50%;
+      transform: translateY(-50%);
+      opacity: 0.4;
+      pointer-events: none;
+      font-size: 16px;
+    }
+
+    /* ── THEME SWITCHER ── */
+    #theme-bar {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 20;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(0,0,0,0.35);
+      padding: 10px 18px;
+      border-radius: 50px;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 4px 32px rgba(0,0,0,0.3);
+      animation: slideUp 0.6s 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    .t-btn {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.22);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+      position: relative;
+    }
+    .t-btn::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      font-size: 11px;
+      white-space: nowrap;
+      padding: 4px 8px;
+      border-radius: 6px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .t-btn:hover::after { opacity: 1; }
+    .t-btn:hover, .t-btn.active {
+      border-color: rgba(255,255,255,0.85);
+      transform: scale(1.2);
+      box-shadow: 0 0 18px rgba(255,255,255,0.3);
+    }
+    .t-btn.active { border-color: #fff; }
+
+    /* ── SUBTLE TOP FADE ── */
+    .top-info {
+      position: fixed;
+      top: 24px; right: 28px;
+      color: rgba(255,255,255,0.35);
+      font-size: 11px;
+      font-weight: 300;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      z-index: 20;
+      animation: fadeIn 1.2s ease both;
+    }
+    @keyframes fadeIn { from {opacity:0} to {opacity:1} }
+  </style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+
+<div id="overlay">
+  <div class="glass-card">
+    <div id="clock">00:00</div>
+    <div id="date-line">Loading...</div>
+    <div id="greeting">✦</div>
+  </div>
+
+  <div class="search-wrap">
+    <input id="search" type="text" placeholder="Search the web..."
+      autocomplete="off"
+      onkeydown="if(event.key==='Enter'&&this.value.trim())window.location='https://www.google.com/search?q='+encodeURIComponent(this.value)" />
+    <span class="search-icon">⌕</span>
+  </div>
+</div>
+
+<div class="top-info" id="theme-name">Firefly</div>
+
+<div id="theme-bar">
+  <div class="t-btn active" data-theme="firefly" data-tip="Firefly Forest"
+       style="background:radial-gradient(circle,#0b0b30,#1e1e5c)">🌙</div>
+  <div class="t-btn" data-theme="aurora" data-tip="Aurora Borealis"
+       style="background:radial-gradient(circle,#001820,#003d2a)">🌌</div>
+  <div class="t-btn" data-theme="matrix" data-tip="Matrix Rain"
+       style="background:radial-gradient(circle,#000,#0a1a0a)">💚</div>
+  <div class="t-btn" data-theme="nebula" data-tip="Cosmic Nebula"
+       style="background:radial-gradient(circle,#0d0020,#200050)">🔮</div>
+  <div class="t-btn" data-theme="sakura" data-tip="Sakura"
+       style="background:radial-gradient(circle,#fff0f5,#ffd6e7)">🌸</div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   ALFRED ANIMATED NEW TAB  –  v2.0
+   5 Live Motion Wallpaper Themes
+═══════════════════════════════════════ */
+
+const canvas = document.getElementById('bg');
+const ctx    = canvas.getContext('2d');
+let W, H, animId, particles = [];
+let currentTheme = 'firefly';
+
+// ── RESIZE ──────────────────────────────
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  initTheme(currentTheme);
+}
+window.addEventListener('resize', resize);
+
+// ── CLOCK ───────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m}`;
+
+  const days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  document.getElementById('date-line').textContent =
+    `${days[now.getDay()]}  •  ${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+
+  const hr = now.getHours();
+  const greet = hr < 5  ? '🌙 Good Night' :
+                hr < 12 ? '🌤 Good Morning' :
+                hr < 17 ? '☀️ Good Afternoon' :
+                hr < 21 ? '🌆 Good Evening' : '🌙 Good Night';
+  document.getElementById('greeting').textContent = `${greet}, Ram Charan ✦`;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ═══════════════════════════════════════
+//  THEME: FIREFLY FOREST
+// ═══════════════════════════════════════
+function initFirefly() {
+  particles = [];
+  for (let i = 0; i < 140; i++) {
+    particles.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 2.8 + 0.6,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      alpha: Math.random(),
+      dAlpha: (Math.random() * 0.012 + 0.004) * (Math.random() < 0.5 ? 1 : -1),
+      hue: Math.random() < 0.6 ? 200 + Math.random() * 60 : 50 + Math.random() * 30,
+    });
+  }
+}
+
+function drawFirefly() {
+  // Sky gradient
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0,   '#02020f');
+  sky.addColorStop(0.5, '#080825');
+  sky.addColorStop(1,   '#0a1230');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  // Distant forest silhouette
+  ctx.fillStyle = '#050515';
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  const treeCount = 26;
+  for (let i = 0; i <= treeCount; i++) {
+    const x = (i / treeCount) * W;
+    const h = H * 0.28 + Math.sin(i * 1.7) * H * 0.08 + Math.cos(i * 0.9) * H * 0.06;
+    if (i === 0) { ctx.lineTo(x, H - h); continue; }
+    // Pine shape
+    ctx.lineTo(x - 14, H - h + 30);
+    ctx.lineTo(x, H - h);
+    ctx.lineTo(x + 14, H - h + 30);
+  }
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fill();
+
+  // Ground fog
+  const fog = ctx.createLinearGradient(0, H * 0.7, 0, H);
+  fog.addColorStop(0, 'rgba(10,20,60,0)');
+  fog.addColorStop(1, 'rgba(8,15,45,0.6)');
+  ctx.fillStyle = fog;
+  ctx.fillRect(0, H * 0.7, W, H * 0.3);
+
+  // Stars
+  if (!drawFirefly._stars) {
+    drawFirefly._stars = Array.from({length: 180}, () => ({
+      x: Math.random() * W, y: Math.random() * H * 0.6,
+      r: Math.random() * 0.9 + 0.2,
+      a: Math.random(),
+    }));
+  }
+  drawFirefly._stars.forEach(s => {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${s.a})`;
+    ctx.fill();
+  });
+
+  // Fireflies
+  particles.forEach(p => {
+    p.x += p.vx + Math.sin(Date.now() * 0.0008 + p.y) * 0.15;
+    p.y += p.vy + Math.cos(Date.now() * 0.0006 + p.x) * 0.1;
+    p.alpha += p.dAlpha;
+    if (p.alpha > 1 || p.alpha < 0) p.dAlpha *= -1;
+    if (p.x < -10) p.x = W + 10;
+    if (p.x > W + 10) p.x = -10;
+    if (p.y < -10) p.y = H + 10;
+    if (p.y > H + 10) p.y = -10;
+
+    const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 14);
+    glow.addColorStop(0,   `hsla(${p.hue}, 80%, 75%, ${p.alpha})`);
+    glow.addColorStop(0.3, `hsla(${p.hue}, 70%, 65%, ${p.alpha * 0.5})`);
+    glow.addColorStop(1,   `hsla(${p.hue}, 70%, 65%, 0)`);
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * 14, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${p.hue}, 100%, 90%, ${p.alpha})`;
+    ctx.fill();
+  });
+}
+
+// ═══════════════════════════════════════
+//  THEME: AURORA BOREALIS
+// ═══════════════════════════════════════
+function initAurora() {
+  particles = Array.from({length: 6}, (_, i) => ({
+    offset: (i / 6) * Math.PI * 2,
+    speed: 0.0003 + Math.random() * 0.0002,
+    hue: 140 + i * 30,
+    amp: 0.08 + Math.random() * 0.06,
+    yBase: 0.2 + Math.random() * 0.35,
+    width: 0.5 + Math.random() * 0.4,
+  }));
+}
+
+function drawAurora() {
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0,   '#000d0a');
+  sky.addColorStop(0.6, '#001a14');
+  sky.addColorStop(1,   '#00120f');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  if (!drawAurora._stars) {
+    drawAurora._stars = Array.from({length: 200}, () => ({
+      x: Math.random() * W, y: Math.random() * H * 0.7,
+      r: Math.random() * 0.8 + 0.2, a: Math.random() * 0.7 + 0.1
+    }));
+  }
+  drawAurora._stars.forEach(s => {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${s.a})`;
+    ctx.fill();
+  });
+
+  const t = Date.now();
+  particles.forEach(band => {
+    const steps = 80;
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const x = (i / steps) * W;
+      const wave1 = Math.sin(i * 0.06 + t * band.speed + band.offset) * band.amp;
+      const wave2 = Math.sin(i * 0.03 + t * band.speed * 0.7 + band.offset * 1.3) * band.amp * 0.5;
+      const y = H * (band.yBase + wave1 + wave2);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+
+    const bandH = H * 0.22;
+    for (let i = steps; i >= 0; i--) {
+      const x = (i / steps) * W;
+      const wave1 = Math.sin(i * 0.06 + t * band.speed + band.offset) * band.amp;
+      const wave2 = Math.sin(i * 0.03 + t * band.speed * 0.7 + band.offset * 1.3) * band.amp * 0.5;
+      const y = H * (band.yBase + wave1 + wave2) + bandH;
+      ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+
+    const grad = ctx.createLinearGradient(0, H * band.yBase, 0, H * band.yBase + bandH);
+    const pulse = 0.12 + 0.06 * Math.sin(t * 0.001 + band.offset);
+    grad.addColorStop(0,   `hsla(${band.hue}, 80%, 55%, 0)`);
+    grad.addColorStop(0.3, `hsla(${band.hue}, 80%, 55%, ${pulse})`);
+    grad.addColorStop(0.5, `hsla(${band.hue + 20}, 75%, 60%, ${pulse * 1.4})`);
+    grad.addColorStop(0.7, `hsla(${band.hue}, 80%, 55%, ${pulse})`);
+    grad.addColorStop(1,   `hsla(${band.hue}, 80%, 55%, 0)`);
+    ctx.fillStyle = grad;
+    ctx.fill();
+  });
+
+  // Ground / horizon
+  const ground = ctx.createLinearGradient(0, H * 0.72, 0, H);
+  ground.addColorStop(0, 'rgba(0,8,6,0)');
+  ground.addColorStop(1, '#000a08');
+  ctx.fillStyle = ground;
+  ctx.fillRect(0, H * 0.72, W, H * 0.28);
+
+  // Snowy mountain silhouette
+  ctx.fillStyle = '#000d0a';
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  ctx.lineTo(0, H * 0.78);
+  ctx.lineTo(W * 0.12, H * 0.65);
+  ctx.lineTo(W * 0.22, H * 0.75);
+  ctx.lineTo(W * 0.34, H * 0.58);
+  ctx.lineTo(W * 0.45, H * 0.72);
+  ctx.lineTo(W * 0.56, H * 0.60);
+  ctx.lineTo(W * 0.67, H * 0.74);
+  ctx.lineTo(W * 0.78, H * 0.63);
+  ctx.lineTo(W * 0.88, H * 0.75);
+  ctx.lineTo(W, H * 0.70);
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// ═══════════════════════════════════════
+//  THEME: MATRIX RAIN
+// ═══════════════════════════════════════
+function initMatrix() {
+  const cols = Math.floor(W / 18);
+  particles = Array.from({length: cols}, (_, i) => ({
+    x: i * 18,
+    y: Math.random() * H * -1,
+    speed: 2 + Math.random() * 5,
+    chars: [],
+    len: Math.floor(Math.random() * 24 + 10),
+    hue: Math.random() < 0.08 ? 180 : 120,
+  }));
+}
+
+const matrixChars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF'.split('');
+
+function drawMatrix() {
+  ctx.fillStyle = 'rgba(0,0,0,0.08)';
+  ctx.fillRect(0, 0, W, H);
+
+  particles.forEach(col => {
+    col.y += col.speed;
+
+    // Generate random chars as it falls
+    while (col.chars.length < col.len) {
+      col.chars.unshift(matrixChars[Math.floor(Math.random() * matrixChars.length)]);
+    }
+    if (col.chars.length > col.len) col.chars.pop();
+
+    col.chars.forEach((ch, i) => {
+      const y = col.y - i * 18;
+      if (y < 0 || y > H) return;
+      const brightness = 1 - i / col.len;
+      if (i === 0) {
+        ctx.fillStyle = `hsla(${col.hue}, 20%, 95%, 0.95)`;
+        ctx.shadowColor = `hsl(${col.hue}, 80%, 70%)`;
+        ctx.shadowBlur = 12;
+      } else {
+        ctx.fillStyle = `hsla(${col.hue}, 80%, ${30 + brightness * 35}%, ${brightness * 0.9})`;
+        ctx.shadowBlur = 0;
+      }
+      ctx.font = '15px monospace';
+      ctx.fillText(ch, col.x, y);
+    });
+
+    // Occasionally shuffle a char
+    if (Math.random() < 0.04) {
+      const idx = Math.floor(Math.random() * col.chars.length);
+      col.chars[idx] = matrixChars[Math.floor(Math.random() * matrixChars.length)];
+    }
+
+    if (col.y - col.len * 18 > H) {
+      col.y = Math.random() * H * -0.5;
+      col.speed = 2 + Math.random() * 5;
+      col.chars = [];
+    }
+  });
+  ctx.shadowBlur = 0;
+}
+
+// ═══════════════════════════════════════
+//  THEME: COSMIC NEBULA
+// ═══════════════════════════════════════
+function initNebula() {
+  particles = Array.from({length: 280}, () => ({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    r: Math.random() * 2.5 + 0.3,
+    vx: (Math.random() - 0.5) * 0.15,
+    vy: (Math.random() - 0.5) * 0.15,
+    hue: Math.random() * 80 + 240, // blue-purple-pink
+    alpha: Math.random() * 0.8 + 0.2,
+    pulse: Math.random() * Math.PI * 2,
+    pulseSpeed: 0.01 + Math.random() * 0.015,
+  }));
+}
+
+function drawNebula() {
+  ctx.fillStyle = 'rgba(4,0,12,0.15)';
+  ctx.fillRect(0, 0, W, H);
+
+  if (!drawNebula._init) {
+    drawNebula._init = true;
+    const bg = ctx.createRadialGradient(W*0.5, H*0.5, 0, W*0.5, H*0.5, Math.max(W,H)*0.7);
+    bg.addColorStop(0,   '#0d0028');
+    bg.addColorStop(0.4, '#06001a');
+    bg.addColorStop(1,   '#020008');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  const t = Date.now() * 0.0004;
+
+  // Nebula clouds
+  const clouds = [
+    { x: W*0.3, y: H*0.4, r: W*0.35, h: 270, s: 0.06 },
+    { x: W*0.7, y: H*0.6, r: W*0.28, h: 310, s: 0.04 },
+    { x: W*0.5, y: H*0.2, r: W*0.25, h: 200, s: 0.08 },
+  ];
+  clouds.forEach(c => {
+    const pulse = 0.025 + 0.01 * Math.sin(t * c.s * 10);
+    const g = ctx.createRadialGradient(
+      c.x + Math.sin(t*c.s)*30, c.y + Math.cos(t*c.s)*20, 0,
+      c.x, c.y, c.r
+    );
+    g.addColorStop(0,   `hsla(${c.h}, 70%, 40%, ${pulse * 2.5})`);
+    g.addColorStop(0.5, `hsla(${c.h + 30}, 65%, 35%, ${pulse})`);
+    g.addColorStop(1,   `hsla(${c.h}, 70%, 40%, 0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(c.x + Math.sin(t*c.s)*30, c.y + Math.cos(t*c.s)*20, c.r, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // Stars / particles
+  particles.forEach(p => {
+    p.pulse += p.pulseSpeed;
+    p.x += p.vx;
+    p.y += p.vy;
+    if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+    if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+
+    const a = p.alpha * (0.7 + 0.3 * Math.sin(p.pulse));
+    const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 12);
+    glow.addColorStop(0,   `hsla(${p.hue}, 85%, 75%, ${a})`);
+    glow.addColorStop(1,   `hsla(${p.hue}, 85%, 75%, 0)`);
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${p.hue}, 90%, 92%, ${a})`;
+    ctx.fill();
+  });
+}
+
+// ═══════════════════════════════════════
+//  THEME: SAKURA RAIN
+// ═══════════════════════════════════════
+function initSakura() {
+  particles = Array.from({length: 100}, () => ({
+    x: Math.random() * W,
+    y: Math.random() * H - H,
+    size: Math.random() * 10 + 5,
+    speed: Math.random() * 1.5 + 0.6,
+    swing: Math.random() * Math.PI * 2,
+    swingSpeed: 0.015 + Math.random() * 0.02,
+    rotation: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.04,
+    opacity: Math.random() * 0.5 + 0.4,
+    pink: Math.floor(Math.random() * 40), // 0–39 for hue variation
+  }));
+}
+
+function drawPetal(ctx, x, y, size, rotation, opacity, pink) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rotation);
+  ctx.globalAlpha = opacity;
+
+  // Draw a 5-petal sakura flower
+  const h = 340 + pink;
+  ctx.fillStyle = `hsl(${h}, 75%, 82%)`;
+  for (let i = 0; i < 5; i++) {
+    ctx.save();
+    ctx.rotate((i / 5) * Math.PI * 2);
+    ctx.beginPath();
+    ctx.ellipse(0, -size * 0.5, size * 0.28, size * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  // Center
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 0.18, 0, Math.PI * 2);
+  ctx.fillStyle = `hsl(${h + 10}, 60%, 90%)`;
+  ctx.fill();
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawSakura() {
+  // Soft white/pink gradient background
+  const bg = ctx.createLinearGradient(0, 0, W * 0.3, H);
+  bg.addColorStop(0, '#fff5f8');
+  bg.addColorStop(0.5, '#fde8ef');
+  bg.addColorStop(1, '#fad4e3');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle vignette
+  const vig = ctx.createRadialGradient(W/2, H/2, H*0.1, W/2, H/2, H*0.85);
+  vig.addColorStop(0, 'rgba(253,220,232,0)');
+  vig.addColorStop(1, 'rgba(240,170,195,0.25)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, W, H);
+
+  particles.forEach(p => {
+    p.swing += p.swingSpeed;
+    p.x += Math.sin(p.swing) * 1.2;
+    p.y += p.speed;
+    p.rotation += p.rotSpeed;
+
+    if (p.y > H + 30) {
+      p.y = -30;
+      p.x = Math.random() * W;
+    }
+
+    drawPetal(ctx, p.x, p.y, p.size, p.rotation, p.opacity, p.pink);
+  });
+}
+
+// ═══════════════════════════════════════
+//  THEME ENGINE
+// ═══════════════════════════════════════
+const themes = {
+  firefly: { init: initFirefly, draw: drawFirefly, name: 'Firefly Forest',  clockColor: '#a8d8ff' },
+  aurora:  { init: initAurora,  draw: drawAurora,  name: 'Aurora Borealis', clockColor: '#80ffb8' },
+  matrix:  { init: initMatrix,  draw: drawMatrix,  name: 'Matrix Rain',     clockColor: '#00ff41' },
+  nebula:  { init: initNebula,  draw: drawNebula,  name: 'Cosmic Nebula',   clockColor: '#c8a0ff' },
+  sakura:  { init: initSakura,  draw: drawSakura,  name: 'Sakura',          clockColor: '#ff9ab5' },
+};
+
+function initTheme(name) {
+  // Reset memoized state
+  delete drawFirefly._stars;
+  delete drawAurora._stars;
+  delete drawNebula._init;
+
+  ctx.clearRect(0, 0, W, H);
+  themes[name].init();
+  document.getElementById('theme-name').textContent = themes[name].name;
+  document.getElementById('clock').style.textShadow =
+    `0 0 60px ${themes[name].clockColor}55, 0 2px 4px rgba(0,0,0,0.4)`;
+}
+
+function setTheme(name) {
+  if (animId) cancelAnimationFrame(animId);
+  currentTheme = name;
+  document.querySelectorAll('.t-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.theme === name);
+  });
+
+  // Body bg for sakura (light theme)
+  if (name === 'sakura') {
+    document.body.style.background = '#fde8ef';
+    document.getElementById('overlay').style.color = '#4a2030';
+  } else {
+    document.body.style.background = '#000';
+    document.getElementById('overlay').style.color = '';
+  }
+
+  initTheme(name);
+  loop();
+}
+
+function loop() {
+  themes[currentTheme].draw();
+  animId = requestAnimationFrame(loop);
+}
+
+// ── KEYBOARD SHORTCUT: 1-5 for themes ──
+const themeKeys = ['firefly','aurora','matrix','nebula','sakura'];
+window.addEventListener('keydown', e => {
+  if (e.key >= '1' && e.key <= '5' && document.activeElement !== document.getElementById('search')) {
+    setTheme(themeKeys[parseInt(e.key) - 1]);
+  }
+});
+
+// ── INIT ────────────────────────────────
+document.querySelectorAll('.t-btn').forEach(btn => {
+  btn.addEventListener('click', () => setTheme(btn.dataset.theme));
+});
+resize();
+setTheme('firefly');
+</script>
+</body>
+</html>
