@@ -8,6 +8,7 @@ When no existing tool matches a user request, this module:
 5. Executes it immediately
 """
 
+import ast
 import os
 import re
 import json
@@ -15,7 +16,7 @@ import logging
 import importlib
 import importlib.util
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,120 @@ BLOCKED_PATTERNS = [
     r'\bos\.remove\b',
     r'\bos\.unlink\b',
 ]
+
+# Builtins that hand back arbitrary execution or the interpreter's guts.
+BLOCKED_BUILTINS = frozenset({
+    "eval", "exec", "compile", "__import__", "globals", "locals", "vars",
+    "getattr", "setattr", "delattr", "breakpoint", "open", "input", "memoryview",
+})
+
+# Modules that reach the OS, the network, or the interpreter itself.
+BLOCKED_MODULES = frozenset({
+    "os", "subprocess", "shutil", "ctypes", "socket", "importlib", "sys",
+    "builtins", "multiprocessing", "pty", "signal", "pathlib", "pickle",
+    "marshal", "code", "codeop", "runpy", "platform",
+})
+
+# Attribute names that constitute the classic interpreter escape hatch.
+# ().__class__.__bases__[0].__subclasses__() walks from any object to every
+# class in the process, which includes subprocess.Popen and os._wrap_close.
+ESCAPE_ATTRS = frozenset({
+    "__class__", "__bases__", "__subclasses__", "__globals__", "__builtins__",
+    "__mro__", "__code__", "__reduce__", "__import__", "__loader__",
+    "__spec__", "__dict__", "__qualname__",
+})
+
+
+class ToolSafetyError(Exception):
+    """Raised when generated tool code fails safety validation."""
+
+
+def validate_code_safety(code: str) -> Tuple[bool, Optional[str]]:
+    """Validate generated tool code before it is ever written to disk or run.
+
+    Returns ``(True, None)`` when the code is acceptable, or
+    ``(False, reason)`` describing the first violation found.
+
+    This deliberately parses an AST rather than pattern-matching text. A regex
+    blocklist cannot see the difference between a variable named ``execute``
+    and the builtin ``exec``, and — far worse — it cannot see the dunder walk
+    ``(().__class__.__bases__[0].__subclasses__())`` at all, because that
+    contains none of the blocked words. That escape reaches every class in the
+    process, including ``subprocess.Popen``, so a text-only check lets
+    arbitrary command execution through a module whose entire purpose is to
+    execute LLM-written code.
+    """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as exc:
+        return False, f"SyntaxError: {exc.msg} (line {exc.lineno})"
+
+    for node in ast.walk(tree):
+        # Direct builtin calls: eval(...), exec(...), __import__(...), open(...)
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name) and func.id in BLOCKED_BUILTINS:
+                return False, f"Forbidden builtin call: {func.id}()"
+            # getattr(obj, "__globals__") style indirection
+            if isinstance(func, ast.Attribute) and func.attr in ESCAPE_ATTRS:
+                return False, f"Forbidden sandbox escape via attribute: {func.attr}"
+
+        # Any dunder attribute access on the escape list, however it is used.
+        if isinstance(node, ast.Attribute) and node.attr in ESCAPE_ATTRS:
+            return False, (
+                f"Forbidden sandbox escape: access to '{node.attr}' "
+                f"allows walking to arbitrary classes"
+            )
+
+        # Imports, in both `import x` and `from x import y` form.
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                root = alias.name.split(".")[0]
+                if root in BLOCKED_MODULES:
+                    return False, f"Forbidden module import: {alias.name}"
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                root = node.module.split(".")[0]
+                if root in BLOCKED_MODULES:
+                    return False, f"Forbidden module import: {node.module}"
+
+        # os.system / shutil.rmtree style calls survive as a second line of
+        # defence for anything the name checks above did not already catch.
+        if isinstance(node, ast.Attribute):
+            dotted = _dotted(node)
+            for pattern in BLOCKED_PATTERNS:
+                if re.search(pattern, dotted):
+                    return False, f"Forbidden pattern: {dotted}"
+
+    # Fall back to the raw-text scan for constructs the AST walk is not
+    # structured to notice (string-built code, comments smuggling payloads).
+    for pattern in BLOCKED_PATTERNS:
+        if re.search(pattern, code):
+            return False, f"Forbidden pattern: {pattern}"
+
+    return True, None
+
+
+def _dotted(node: ast.AST) -> str:
+    """Render an attribute chain back to dotted source text, e.g. os.system."""
+    parts: List[str] = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        parts.append(node.id)
+    return ".".join(reversed(parts))
+
+
+def get_dynamic_tool_forge() -> "DynamicToolForge":
+    """Return the process-wide DynamicToolForge, creating it if needed.
+
+    This is the accessor ``jarvisx.engineering`` advertises in ``__all__``;
+    without it ``from jarvisx.engineering import get_dynamic_tool_forge``
+    raised ImportError, because the package's ``__getattr__`` imported the
+    name from here and the name did not exist.
+    """
+    return DynamicToolForge.get_instance()
 
 DYNAMIC_TOOLS_DIR = Path(__file__).parent.parent / "tools" / "dynamic"
 
@@ -55,10 +170,10 @@ class DynamicToolForge:
 
     def _validate_code(self, code: str) -> bool:
         """Check generated code against safety blocklist."""
-        for pattern in BLOCKED_PATTERNS:
-            if re.search(pattern, code):
-                logger.warning(f"[ToolForge] BLOCKED unsafe pattern: {pattern}")
-                return False
+        is_safe, violation = validate_code_safety(code)
+        if not is_safe:
+            logger.warning(f"[ToolForge] BLOCKED unsafe code: {violation}")
+            return False
         return True
 
     def _generate_tool_code(self, intent: str, existing_tools: List[str]) -> Optional[Dict[str, str]]:

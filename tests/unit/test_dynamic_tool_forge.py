@@ -71,6 +71,30 @@ def escape():
         assert "sandbox escape" in violation.lower() or "Forbidden" in violation
 
 
+def _ollama_server_available() -> bool:
+    """True if a local Ollama server is accepting connections.
+
+    The lifecycle tests below drive the real code-generation path, which calls
+    ollama.chat(model="qwen2.5-coder:1.5b") and expects a model to write a
+    working tool. They are skipped rather than stubbed: canned SHA256 and
+    temperature-converter implementations would turn a test of "can the forge
+    actually generate tools?" into a test of a fixture hand-written to pass,
+    which is precisely the self-graded-completeness pattern this repo has too
+    much of already.
+    """
+    import socket
+
+    try:
+        with socket.create_connection(("127.0.0.1", 11434), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
+@pytest.mark.skipif(
+    not _ollama_server_available(),
+    reason="requires a local Ollama server on 127.0.0.1:11434 to generate tool code",
+)
 class TestDynamicToolForgeLifecycle:
     """Tests for tool forging, importing, registration, and immediate execution."""
 
