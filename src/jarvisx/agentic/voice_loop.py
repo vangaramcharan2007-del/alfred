@@ -172,6 +172,169 @@ class WhisperMicInput:
             return self._fallback.listen()
 
 
+class WakeWordInput:
+    """Hands-free input: hear a wake word, then take the command after it.
+
+    Wraps the repo's shipped :class:`SovereignWakeWordEngine`, which until now
+    was imported by six other modules but never by the agent itself. Two things
+    needed fixing to make it usable here:
+
+    - **It ignores the configured wake word.** ``WAKE_WORDS`` is a hardcoded
+      class list, so ``--wake-word eevee`` would have been silently unheard.
+      The configured word is injected onto the instance, which shadows the
+      class attribute without editing the voice module.
+    - **"Nothing heard" is not the end of the session.** :meth:`listen` on the
+      other sources returns ``None`` to mean *input exhausted*, and
+      ``VoiceAgentLoop.run`` stops on that. For a wake word, silence is the
+      normal state, so this keeps listening until something is actually said.
+    """
+
+    name = "wake-word"
+
+    def __init__(
+        self,
+        wake_word: str = "alfred",
+        fallback: Optional[SpeechInput] = None,
+        engine: Optional[Any] = None,
+        attempts: int = 1000,
+        clip_seconds: float = 3.5,
+        should_stop: Optional[Callable[[], bool]] = None,
+    ):
+        self.wake_word = (wake_word or "alfred").strip().lower()
+        self.attempts = max(1, attempts)
+        self.clip_seconds = clip_seconds
+        self._fallback = fallback or WhisperMicInput(wake_word=self.wake_word)
+        self._should_stop = should_stop
+
+        if engine is not None:
+            # Injected for tests: no audio stack exists in CI, and the
+            # wake-phrase logic should still be exercised.
+            self._engine = engine
+            self.available = True
+        else:
+            self._engine = None
+            self.available = False
+            try:
+                from jarvisx.voice.sovereign_wake_word_engine import (
+                    SovereignWakeWordEngine,
+                )
+
+                engine_ = SovereignWakeWordEngine()
+                # Shadow the hardcoded list so the configured word is the one
+                # actually listened for. The originals stay, because a user who
+                # says "jarvis" out of habit should still be heard.
+                engine_.WAKE_WORDS = [self.wake_word, *SovereignWakeWordEngine.WAKE_WORDS]
+                self._engine = engine_
+                self.available = True
+            except Exception as exc:  # noqa: BLE001 - missing audio stack
+                logger.info("wake word unavailable (%s); falling back", exc)
+
+    def listen(self) -> Optional[str]:
+        """Block until something is actually said, then return the command.
+
+        Silence is the normal state for a hands-free agent, so this keeps
+        waiting rather than returning. It gives up only when ``should_stop``
+        says so or :attr:`attempts` clips pass, which is what lets the runtime
+        shut down cleanly while the room is quiet.
+        """
+        if not self.available or self._engine is None:
+            return self._fallback.listen()
+
+        for _ in range(self.attempts):
+            if self._should_stop is not None and self._should_stop():
+                return None
+            heard = self._capture()
+            if not heard:
+                continue
+            command = self._extract(heard)
+            if command:
+                return command
+        return None
+
+    def _capture(self) -> Optional[str]:
+        try:
+            text = self._engine.record_and_transcribe_manual(self.clip_seconds)
+        except Exception as exc:  # noqa: BLE001 - hardware can fail any time
+            logger.warning("wake word capture failed: %s", exc)
+            return None
+        return (text or "").strip() or None
+
+    # Words that are part of getting someone's attention rather than part of a
+    # request. "hey alfred" is a bare wake phrase; stripping only "alfred"
+    # would leave "hey" behind, and "hey" would then be routed as a command.
+    _FILLER = frozenset({
+        "hey", "hi", "hello", "ok", "okay", "yo", "please", "um", "uh",
+        "and", "so", "then", "well",
+    })
+
+    def _wake_phrases(self) -> List[str]:
+        """Every phrase that counts as addressing us, longest first."""
+        engine_words = list(getattr(self._engine, "WAKE_WORDS", []) or [])
+        phrases = {self.wake_word, *engine_words}
+        # Include "<filler> <wake word>" so "hey alfred" is matched whole.
+        phrases.update(f"{filler} {self.wake_word}" for filler in ("hey", "hi", "ok", "okay", "yo"))
+        return sorted((p.lower() for p in phrases if p), key=len, reverse=True)
+
+    def _extract(self, heard: str) -> Optional[str]:
+        """Return the command if this clip was addressed to us, else ``None``.
+
+        Deliberately stricter than the shipped engine's own gate, which also
+        fires on any two-word utterance. That means a conversation across the
+        room drives the agent, and an agent that acts on things it was not
+        asked to do is worse than one that waits.
+        """
+        clean = heard.strip()
+        lower = clean.lower()
+        if self.wake_word not in lower:
+            return None
+
+        # Strip the longest matching wake phrase here rather than trusting the
+        # engine. Its extract_command only knows its own hardcoded list, so a
+        # custom --wake-word would survive into the command text and the router
+        # would see "eevee what should i do".
+        command = clean
+        lowered = lower
+        for phrase in self._wake_phrases():
+            index = lowered.find(phrase)
+            if index >= 0:
+                command = (
+                    command[:index] + " " + command[index + len(phrase):]
+                )
+                lowered = command.lower()
+                break
+        # Removing a phrase mid-sentence leaves a gap; collapse it so the
+        # router sees one clean sentence rather than "ok   pay the bill".
+        command = " ".join(command.split()).strip(" ,:.-\t\n")
+
+        # Also let the engine tidy up any wake word it recognises, then strip
+        # ours again in case it handed the prefix straight back.
+        strip = getattr(self._engine, "extract_command", None)
+        if callable(strip):
+            try:
+                engine_result = (strip(command) or "").strip()
+            except Exception as exc:  # noqa: BLE001 - never lose the utterance
+                logger.warning("extract_command failed: %s", exc)
+            else:
+                if engine_result:
+                    command = engine_result
+            lowered = command.lower()
+            if lowered.startswith(self.wake_word):
+                command = command[len(self.wake_word):].strip(" ,:.-\t\n")
+
+        return self._drop_filler(command)
+
+    def _drop_filler(self, command: str) -> Optional[str]:
+        """Return ``None`` when all that is left is attention-getting noise."""
+        words = [w for w in command.split() if w.strip(" ,:.-")]
+        if not words:
+            return None
+        if all(w.lower().strip(" ,:.-?!") in self._FILLER for w in words):
+            return None
+        return command or None
+
+        return command or None
+
+
 class TTSOutput:
     """Real speech output via the repo's existing pyttsx3 engine."""
 

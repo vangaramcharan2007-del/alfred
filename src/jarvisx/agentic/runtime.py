@@ -40,6 +40,7 @@ from jarvisx.agentic.voice_loop import (
     SpeechOutput,
     TTSOutput,
     VoiceAgentLoop,
+    WakeWordInput,
     WhisperMicInput,
 )
 from jarvisx.agentic.watch import (
@@ -140,10 +141,21 @@ class AlfredRuntime:
             self.stt = ConsoleInput()
             self.status.voice_input = "keyboard"
         else:
+            # Wake word first: that is what makes this hands-free. It falls
+            # back to push-to-talk whisper, then to the keyboard, and the
+            # status line always says which one actually won.
             mic = WhisperMicInput(wake_word=self.config.wake_word)
-            self.stt = mic
-            if mic.available:
+            wake = WakeWordInput(
+                wake_word=self.config.wake_word,
+                fallback=mic,
+                should_stop=self._stop.is_set,
+            )
+            self.stt = wake
+            if wake.available:
+                self.status.voice_input = f"microphone (wake word: {self.config.wake_word})"
+            elif mic.available:
                 self.status.voice_input = "microphone (whisper)"
+                self.status.notes.append("wake word engine unavailable — press enter, then speak")
             else:
                 self.status.voice_input = "keyboard (no microphone)"
                 self.status.notes.append("no microphone — type instead of speaking")

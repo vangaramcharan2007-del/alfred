@@ -288,13 +288,37 @@ def cmd_trace(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------- #
 
 
-def _probe_mic():
-    from jarvisx.agentic.voice_loop import WhisperMicInput
+def _doctor_wake_word() -> str:
+    """The wake word the user actually configured, for the microphone probe.
 
-    mic = WhisperMicInput()
+    Hardcoding "alfred" here would have doctor certify a wake word the runtime
+    is not listening for, which is the same failure as certifying a TTS engine
+    that cannot speak.
+    """
+    from jarvisx.agentic.config import load as load_config
+
+    try:
+        return str(load_config().get("wake_word") or "alfred")
+    except Exception:  # noqa: BLE001 - a probe must never crash doctor
+        return "alfred"
+
+
+def _probe_mic(wake_word: str = "alfred"):
+    """Probe the input the runtime actually picks, not a different one.
+
+    The runtime prefers the wake word, then push-to-talk whisper, then the
+    keyboard. Reporting on a source the runtime would never construct is how a
+    self-diagnosis tool tells you everything is fine and then hears nothing.
+    """
+    from jarvisx.agentic.voice_loop import WakeWordInput, WhisperMicInput
+
+    mic = WhisperMicInput(wake_word=wake_word)
+    wake = WakeWordInput(wake_word=wake_word, fallback=mic)
+    if wake.available:
+        return f"microphone ready — say \"{wake_word}\" hands-free", True
     if mic.available:
-        return "microphone ready — `alfred` will listen", True
-    return "no microphone; `alfred --text` types instead", False
+        return "microphone ready — press enter, then speak (no wake word engine)", True
+    return f"no microphone; `alfred --text` types instead (wake word \"{wake_word}\" unavailable)", False
 
 
 def _probe_tts():
@@ -481,7 +505,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         line(_green("OK") if ok else _yellow("--"), label, detail)
         return ok
 
-    probe("ears (microphone)", lambda: _probe_mic())
+    probe("ears (microphone)", lambda: _probe_mic(_doctor_wake_word()))
     probe("mouth (speech out)", lambda: _probe_tts())
     probe("eyes (active window)", lambda: _probe_window_sensor())
     probe("hands (physical reach)", lambda: _probe_physical())

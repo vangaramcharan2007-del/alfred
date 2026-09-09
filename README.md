@@ -202,6 +202,34 @@ alfred> Kid. Opening youtube: lofi.
 Without `--physical` it falls back to capture, because claiming something
 opened when it did not is worse than writing it down.
 
+### 🎙️ Hands-free
+
+Say the wake word and the rest of the sentence is the command:
+
+```
+you> alfred write the report, pay the bill, call mom
+alfred> Wrote down 3 things. Do this one: Pay the bill. About 5 minutes.
+you> alfred what should i do
+alfred> Do this one: Pay the bill. Start by opening the banking app.
+you> alfred open spotify
+alfred> Opening spotify.
+```
+
+Change the word with `--wake-word eevee` (or set it in the config file). Three
+rules keep this from being a toy:
+
+- **It only acts on what it was addressed about.** The shipped engine's own
+  gate fires on any two-word utterance, so a conversation across the room would
+  drive the agent. Here "who left the printer on" is ignored.
+- **A bare wake word is not a command.** "hey alfred" waits instead of running
+  whatever is left over after the wake word is stripped.
+- **Silence does not end the session.** Every other input source returns
+  nothing to mean "input exhausted"; for hands-free, quiet is the normal state,
+  so it keeps listening and shuts down on a stop signal.
+
+Without an audio stack it falls back to push-to-talk, then to the keyboard, and
+the startup banner and `doctor` both say which one actually won.
+
 ### 🔁 Set it once
 
 Retyping `--persona jarvis --physical --energy low` every session is manual

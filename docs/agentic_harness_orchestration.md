@@ -180,6 +180,38 @@ Two rules hold it together:
 would freeze the default into the file, and a later change to that default
 would silently stop applying.
 
+**Hands-free listening was already written and never connected.**
+`voice/sovereign_wake_word_engine.py` is imported by six modules — the master
+OS, the situation room, the agent fleet — but never by the agent itself, so the
+one capability that makes a voice assistant hands-free was unreachable.
+`WakeWordInput` wires it into the input chain as the preferred source.
+
+Three problems had fixing first:
+
+- **It ignored the configured wake word.** `WAKE_WORDS` is a hardcoded class
+  list with no `eevee` in it, so `--wake-word eevee` would have been unheard.
+  The configured word is injected onto the instance, shadowing the class
+  attribute without editing the voice module, and the wake phrase is stripped
+  by `WakeWordInput` rather than delegated to an engine that cannot know it.
+- **Its gate was too loose.** `_continuous_mic_loop` fires on any utterance of
+  two words or more, which means a conversation across the room drives the
+  agent. An agent that acts on things it was not asked to do is worse than one
+  that waits, so anything without the wake word is dropped.
+- **Silence ended the session.** Every other input source returns `None` to
+  mean *input exhausted*, and `VoiceAgentLoop.run` stops on that. For hands-free
+  listening, quiet is the normal state, so this keeps waiting and exits on a
+  stop signal — which the runtime supplies as `self._stop.is_set`, so shutdown
+  works while the room is silent rather than only after someone speaks.
+
+A bare wake phrase yields nothing. Stripping only `alfred` from `"hey alfred"`
+leaves `hey`, and `hey` would then be routed as a command. The longest matching
+wake phrase is removed whole and filler-only residue is discarded.
+
+`doctor` probes the source the runtime actually constructs — wake word, then
+push-to-talk, then keyboard — and names the configured word. Certifying a
+microphone the runtime would never build is the same failure as certifying a
+TTS engine that cannot speak.
+
 An unattended run can never execute a `CONFIRM` command: with no interactive
 input the default is to refuse. Guessing "yes" is the single worst thing this
 agent could do.
