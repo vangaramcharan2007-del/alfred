@@ -341,7 +341,13 @@ def _probe_intake():
         return f"brain dump split into {len(engine.items)}, expected 3", False
     if engine.pick(Energy.LOW) is None:
         return "energy-based picking returned nothing", False
-    return f"{len(PERSONAS)} personas; blob splits, low energy picks small", True
+    # Report the number, not just the claim. "blob splits" is unverifiable
+    # prose; "3 items from 1 dump" is something a reader can check.
+    return (
+        f"1 dump -> {len(engine.items)} items; "
+        f"{len(PERSONAS)} personas; low energy picks small",
+        True,
+    )
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
@@ -863,7 +869,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_alfred.add_argument("--grace", type=int, default=5, help="minutes off-task before a nudge")
     p_alfred.add_argument("--break-after", type=int, default=50, help="minutes before a break nudge")
     p_alfred.add_argument(
-        "--persona", default="plain", choices=["plain", "stark", "friday"],
+        "--persona", default="plain", choices=["plain", "stark", "friday", "jarvis"],
         help="how it talks; never changes what it decides",
     )
     p_alfred.add_argument(

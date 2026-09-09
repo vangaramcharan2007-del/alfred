@@ -16,6 +16,7 @@ import pytest
 from jarvisx.agentic.persona import (
     PERSONAS,
     FridayPersona,
+    JarvisPersona,
     Persona,
     PersonaOutput,
     StarkPersona,
@@ -29,7 +30,7 @@ from jarvisx.agentic.voice_loop import ConsoleInput, ConsoleOutput
 # --------------------------------------------------------------------------- #
 
 
-@pytest.mark.parametrize("name", ["plain", "stark", "friday"])
+@pytest.mark.parametrize("name", ["plain", "stark", "friday", "jarvis"])
 def test_known_personas_resolve(name):
     assert get_persona(name).name == name
 
@@ -38,7 +39,7 @@ def test_lookup_is_case_insensitive():
     assert get_persona("STARK").name == "stark"
 
 
-@pytest.mark.parametrize("name", ["does-not-exist", "", None, "jarvis"])
+@pytest.mark.parametrize("name", ["does-not-exist", "", None, "ultron"])
 def test_an_unknown_persona_falls_back_instead_of_raising(name):
     # A bad --persona flag should make the agent less fun, not stop it starting.
     assert get_persona(name).name == "plain"
@@ -140,6 +141,65 @@ def test_friday_does_not_add_colour_it_was_not_given():
 
 
 # --------------------------------------------------------------------------- #
+# JARVIS
+# --------------------------------------------------------------------------- #
+
+
+def test_jarvis_addresses_the_user_as_sir():
+    persona = JarvisPersona()
+    assert persona.address == "sir"
+    assert "sir" in persona.greet().lower()
+
+
+def test_jarvis_keeps_a_picked_task_concrete():
+    line = JarvisPersona().render(
+        "ignored", {"kind": "picked", "task": "Write the OS assignment", "minutes": 45}
+    )
+    assert "Write the OS assignment" in line
+    assert "45" in line
+
+
+@pytest.mark.parametrize(
+    "shaming",
+    [
+        "You wasted an hour again? Stop wasting time.",
+        "You should have started earlier, as usual.",
+        "That was lazy.",
+    ],
+)
+def test_jarvis_never_repeats_a_shaming_nudge(shaming):
+    out = JarvisPersona().render(shaming, {"kind": "nudge"})
+    assert not StarkPersona._SHAME_RE.search(out), out
+    assert out.endswith((".", "!", "?")), out
+
+
+def test_jarvis_leaves_a_clean_nudge_alone():
+    clean = "You are 5 minutes into chrome. Shall I bring the task back?"
+    assert JarvisPersona().render(clean, {"kind": "nudge"}) == clean
+
+
+def test_jarvis_passes_through_what_it_does_not_understand():
+    message = "The build failed on step 3 with a timeout."
+    assert message in JarvisPersona().render(message)
+
+
+def test_jarvis_greet_adapts_to_energy():
+    persona = JarvisPersona()
+    assert persona.greet("low") != persona.greet("high")
+    assert "small" in persona.greet("low")
+
+
+def test_the_four_personas_are_distinct():
+    """If they all sound the same, offering a choice is theatre."""
+    voices = {
+        name: PERSONAS[name]().render("", {"kind": "picked", "task": "Pay the bill", "minutes": 5})
+        for name in ("stark", "friday", "jarvis")
+    }
+    assert len(set(voices.values())) == 3, voices
+    assert len({PERSONAS[n]().address for n in ("stark", "friday", "jarvis")}) == 3
+
+
+# --------------------------------------------------------------------------- #
 # The output wrapper
 # --------------------------------------------------------------------------- #
 
@@ -232,21 +292,21 @@ def test_plain_has_no_voice_prompt():
     assert Persona().voice_prompt == ""
 
 
-@pytest.mark.parametrize("name", ["stark", "friday"])
+@pytest.mark.parametrize("name", ["stark", "friday", "jarvis"])
 def test_a_character_persona_carries_a_model_prompt(name):
     persona = get_persona(name)
     assert persona.voice_prompt
     assert persona.address in persona.voice_prompt
 
 
-@pytest.mark.parametrize("name", ["stark", "friday"])
+@pytest.mark.parametrize("name", ["stark", "friday", "jarvis"])
 def test_the_voice_prompt_forbids_shaming(name):
     """The same rule applies to a real model as to a re-voiced nudge."""
     prompt = get_persona(name).voice_prompt.lower()
     assert "never mock" in prompt or "do not editorialise" in prompt
 
 
-@pytest.mark.parametrize("name", ["stark", "friday"])
+@pytest.mark.parametrize("name", ["stark", "friday", "jarvis"])
 def test_the_voice_prompt_keeps_reporting_honest(name):
     """Character must never cost accuracy."""
     assert "accurately" in get_persona(name).voice_prompt

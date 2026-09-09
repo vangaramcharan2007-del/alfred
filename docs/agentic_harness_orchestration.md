@@ -117,6 +117,7 @@ Captured items persist to `var/agentic/intake.json` between sessions.
 ### Voice and reach: `--persona` and `--physical`
 
 ```bash
+python -m jarvisx.agentic alfred --persona jarvis     # J.A.R.V.I.S., calls you "sir"
 python -m jarvisx.agentic alfred --persona stark      # Tony Stark, calls you "kid"
 python -m jarvisx.agentic alfred --persona friday     # F.R.I.D.A.Y., calls you "Boss"
 python -m jarvisx.agentic alfred --physical           # real desktop reach

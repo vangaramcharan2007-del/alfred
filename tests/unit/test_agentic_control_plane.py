@@ -670,7 +670,8 @@ def test_doctor_detects_a_broken_policy_gate(monkeypatch):
 def test_doctor_verifies_the_brain_dump_actually_splits():
     detail, ok = cli._probe_intake()
     assert ok, detail
-    assert "3" in detail
+    # Assert on the split, not on a digit that could match the persona count.
+    assert "1 dump -> 3 items" in detail, detail
 
 
 def test_doctor_detects_a_broken_split(monkeypatch):

@@ -57,7 +57,7 @@ def _demo_adhd_layer(workspace: Path) -> None:
     """
     from jarvisx.agentic.actions import build_action_tools, classify_command
     from jarvisx.agentic.intake import Energy, IntakeEngine
-    from jarvisx.agentic.persona import get_persona
+    from jarvisx.agentic.persona import PERSONAS, get_persona
     from jarvisx.agentic.types import ToolCall
     from jarvisx.agentic.voice_loop import (
         ConsoleInput,
@@ -101,7 +101,9 @@ def _demo_adhd_layer(workspace: Path) -> None:
 
     print("\npersona re-voices the decision, it never changes it:")
     picks = {}
-    for name in ("plain", "stark", "friday"):
+    # Iterate the registry rather than a hardcoded list, so adding a persona
+    # cannot silently leave the demo demonstrating a stale subset.
+    for name in PERSONAS:
         persona = get_persona(name)
         # A fresh engine from the same state: proves the voice changes without
         # the pick changing, rather than reusing one mutated engine.
@@ -115,7 +117,7 @@ def _demo_adhd_layer(workspace: Path) -> None:
         print(f"  {name:7} {line}")
     same = len(set(picks.values())) == 1
     mark = f"{GREEN}ok{RESET}" if same else f"{YELLOW}!!{RESET}"
-    print(f"  {mark}   all three picked the same task: {same}")
+    print(f"  {mark}   all {len(picks)} picked the same task: {same}")
 
     print("\nphysical reach, and the gate in front of it:")
     registry = build_action_tools(dry_run=True, workspace=str(workspace / "reach"))
