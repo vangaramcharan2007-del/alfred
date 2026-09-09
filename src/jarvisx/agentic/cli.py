@@ -282,6 +282,68 @@ def cmd_trace(args: argparse.Namespace) -> int:
     return 0
 
 
+# --------------------------------------------------------------------------- #
+# Doctor probes for the optional layers. Each returns (detail, ok) and must
+# never raise: doctor is the thing you run when something is already wrong.
+# --------------------------------------------------------------------------- #
+
+
+def _probe_mic():
+    from jarvisx.agentic.voice_loop import WhisperMicInput
+
+    mic = WhisperMicInput()
+    if mic.available:
+        return "microphone ready — `alfred` will listen", True
+    return "no microphone; `alfred --text` types instead", False
+
+
+def _probe_tts():
+    from jarvisx.agentic.voice_loop import TTSOutput
+
+    tts = TTSOutput()
+    if tts.available:
+        return "speech output ready — replies are spoken", True
+    return "no TTS engine; replies are printed", False
+
+
+def _probe_window_sensor():
+    from jarvisx.agentic.watch import ActiveWindowSource
+
+    source = ActiveWindowSource()
+    if source.available:
+        return "can see the active window — `watch` works", True
+    return "no desktop sensor; use `watch --demo`", False
+
+
+def _probe_physical():
+    from jarvisx.agentic.actions import build_action_tools, classify_command
+    from jarvisx.agentic.types import ToolCall
+
+    registry = build_action_tools(dry_run=True)
+    names = set(registry.names())
+    if "open_app_or_website" not in names:
+        return "action tools failed to register", False
+    # Prove the gate rather than assume it: physical reach with a soft policy
+    # gate is worse than no physical reach at all.
+    if classify_command("rm -rf /") != "blocked":
+        return "POLICY GATE BROKEN — destructive commands not blocked", False
+    registry.invoke(ToolCall(name="open_app_or_website", arguments={"target": "x"}))
+    return f"{len(names)} tools; 'open spotify' works, rm -rf is blocked", True
+
+
+def _probe_intake():
+    from jarvisx.agentic.intake import Energy, IntakeEngine
+    from jarvisx.agentic.persona import PERSONAS
+
+    engine = IntakeEngine()
+    engine.plan("write the assignment, pay the bill, i am so stressed")
+    if len(engine.items) != 3:
+        return f"brain dump split into {len(engine.items)}, expected 3", False
+    if engine.pick(Energy.LOW) is None:
+        return "energy-based picking returned nothing", False
+    return f"{len(PERSONAS)} personas; blob splits, low energy picks small", True
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     """One command that tells you exactly what is wired and what is not."""
     from jarvisx.agentic.env import (
@@ -388,7 +450,26 @@ def cmd_doctor(args: argparse.Namespace) -> int:
              "pytest available", "verification checks will run"
              if pytest_check.ok else "install pytest for real verification")
 
-    # -- 6. verdict --------------------------------------------------------- #
+    # -- 6. the ADHD layer --------------------------------------------------- #
+    # Ears, mouth, eyes and hands are all optional and all degrade. Reporting
+    # them here means nobody has to read a README to find out what works.
+    print("\n" + _bold("6. Alfred (talk / listen / watch / do)"))
+
+    def probe(label, fn):
+        try:
+            detail, ok = fn()
+        except Exception as exc:  # noqa: BLE001 - a probe must never crash doctor
+            detail, ok = f"probe failed: {exc}", False
+        line(_green("OK") if ok else _yellow("--"), label, detail)
+        return ok
+
+    probe("ears (microphone)", lambda: _probe_mic())
+    probe("mouth (speech out)", lambda: _probe_tts())
+    probe("eyes (active window)", lambda: _probe_window_sensor())
+    probe("hands (physical reach)", lambda: _probe_physical())
+    probe("intake + personas", lambda: _probe_intake())
+
+    # -- 7. verdict --------------------------------------------------------- #
     print()
     if ok_all:
         print("  " + _green(_bold("READY")) + "  run: python -m jarvisx.agentic run \"your goal\"")

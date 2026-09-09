@@ -634,3 +634,67 @@ def test_physical_reach_is_reported_when_enabled(tmp_path):
     )
     assert any("physical reach ON" in n for n in runtime.status.notes)
     assert any("dry run" in n for n in runtime.status.notes)
+
+
+# --------------------------------------------------------------------------- #
+# doctor: the thing you run instead of reading a README
+# --------------------------------------------------------------------------- #
+
+
+def test_doctor_probes_never_raise_and_report_honestly():
+    """doctor is what you run when something is already wrong; it must not crash."""
+    for probe in (cli._probe_mic, cli._probe_tts, cli._probe_window_sensor,
+                  cli._probe_physical, cli._probe_intake):
+        detail, ok = probe()
+        assert isinstance(detail, str) and detail, probe.__name__
+        assert isinstance(ok, bool), probe.__name__
+
+
+def test_doctor_proves_the_policy_gate_rather_than_assuming_it():
+    """Physical reach with a soft gate is worse than no physical reach."""
+    detail, ok = cli._probe_physical()
+    assert ok, detail
+    assert "blocked" in detail
+
+
+def test_doctor_detects_a_broken_policy_gate(monkeypatch):
+    monkeypatch.setattr(cli, "_probe_physical", cli._probe_physical)
+    import jarvisx.agentic.actions as actions
+
+    monkeypatch.setattr(actions, "classify_command", lambda cmd: "allow")
+    detail, ok = cli._probe_physical()
+    assert ok is False
+    assert "POLICY GATE BROKEN" in detail
+
+
+def test_doctor_verifies_the_brain_dump_actually_splits():
+    detail, ok = cli._probe_intake()
+    assert ok, detail
+    assert "3" in detail
+
+
+def test_doctor_detects_a_broken_split(monkeypatch):
+    import jarvisx.agentic.intake as intake
+
+    class BrokenEngine:
+        items = []
+
+        def plan(self, dump):
+            self.items = ["one big blob"]
+            return {}
+
+        def pick(self, energy, minutes_available=None):
+            return None
+
+    monkeypatch.setattr(intake, "IntakeEngine", BrokenEngine)
+    detail, ok = cli._probe_intake()
+    assert ok is False
+
+
+def test_doctor_runs_end_to_end_and_reports_the_alfred_layer(capsys, tmp_path):
+    code = cli.main(["doctor"])
+    out = capsys.readouterr().out
+    assert "6. Alfred (talk / listen / watch / do)" in out
+    for label in ("ears", "mouth", "eyes", "hands", "intake"):
+        assert label in out, label
+    assert code in (0, 1)

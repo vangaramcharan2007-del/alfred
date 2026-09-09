@@ -124,9 +124,16 @@ class WhisperMicInput:
             import sounddevice  # noqa: F401
             from jarvisx.voice.stt_engine import FastSTTEngine
 
-            self._stt = FastSTTEngine(model_size=model_size)
-            self._sounddevice = sounddevice
-            self.available = True
+            stt = FastSTTEngine(model_size=model_size)
+            # Same trap as TTSOutput: FastSTTEngine swallows a missing
+            # faster_whisper and leaves _whisper_model as None. sounddevice can
+            # be installed while whisper is not, and then the loop would claim
+            # to be listening and hear nothing, forever.
+            self.available = getattr(stt, "_whisper_model", None) is not None
+            self._stt = stt if self.available else None
+            self._sounddevice = sounddevice if self.available else None
+            if not self.available:
+                logger.info("whisper model unavailable; using text input")
         except Exception as exc:  # noqa: BLE001 - missing audio stack
             logger.info("microphone unavailable (%s); using text input", exc)
             self.available = False
@@ -176,8 +183,15 @@ class TTSOutput:
         try:
             from jarvisx.voice.tts_engine import RealTTSEngine
 
-            self._engine = RealTTSEngine(**kwargs)
-            self.available = True
+            engine = RealTTSEngine(**kwargs)
+            # Importing the engine is not the same as having a working one.
+            # RealTTSEngine swallows a missing pyttsx3 and leaves _engine as
+            # None, so treating a successful import as success makes `doctor`
+            # promise speech that will never come. Check the real signal.
+            self.available = getattr(engine, "_engine", None) is not None
+            self._engine = engine if self.available else None
+            if not self.available:
+                logger.info("TTS engine constructed but has no audio backend; using text")
         except Exception as exc:  # noqa: BLE001
             logger.info("TTS unavailable (%s); using text output", exc)
             self.available = False

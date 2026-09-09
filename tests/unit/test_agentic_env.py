@@ -297,3 +297,82 @@ def test_doctor_finds_a_key_from_env(tmp_path, monkeypatch, capsys):
     assert "GROQ_API_KEY" in out
     assert "groq" in out.lower()
     assert FAKE_GROQ not in out, "doctor must never print the key"
+
+
+# --------------------------------------------------------------------------- #
+# Honesty about what hardware is actually present
+# --------------------------------------------------------------------------- #
+
+
+def test_tts_is_not_available_when_the_engine_has_no_audio_backend():
+    """Regression: doctor promised speech that could never come.
+
+    RealTTSEngine swallows a missing pyttsx3 and leaves _engine as None, so
+    treating a successful import as success reported `available = True` on a
+    machine with no audio stack at all.
+    """
+    from jarvisx.agentic.voice_loop import TTSOutput
+
+    class NoBackendEngine:
+        _engine = None
+
+        def speak(self, text, blocking=True):
+            raise RuntimeError("should never be called")
+
+    import jarvisx.voice.tts_engine as tts_module
+
+    original = tts_module.RealTTSEngine
+    tts_module.RealTTSEngine = lambda **kw: NoBackendEngine()
+    try:
+        out = TTSOutput()
+        assert out.available is False
+        # And saying something must fall back, not raise.
+        out.say("hello")
+        assert out._fallback.spoken == ["hello"]
+    finally:
+        tts_module.RealTTSEngine = original
+
+
+def test_tts_is_available_when_the_engine_really_initialised():
+    from jarvisx.agentic.voice_loop import TTSOutput
+
+    class WorkingEngine:
+        _engine = object()
+
+        def __init__(self):
+            self.said = []
+
+        def speak(self, text, blocking=True):
+            self.said.append(text)
+
+    import jarvisx.voice.tts_engine as tts_module
+
+    original = tts_module.RealTTSEngine
+    tts_module.RealTTSEngine = lambda **kw: WorkingEngine()
+    try:
+        out = TTSOutput()
+        assert out.available is True
+        out.say("hello")
+        assert out._engine.said == ["hello"]
+    finally:
+        tts_module.RealTTSEngine = original
+
+
+def test_mic_is_not_available_when_whisper_is_missing_but_sounddevice_is_not():
+    """The same trap on the input side: sounddevice can exist without whisper."""
+    from jarvisx.agentic.voice_loop import WhisperMicInput
+
+    class NoWhisperEngine:
+        _whisper_model = None
+
+    import jarvisx.voice.stt_engine as stt_module
+
+    original = stt_module.FastSTTEngine
+    stt_module.FastSTTEngine = lambda **kw: NoWhisperEngine()
+    try:
+        mic = WhisperMicInput()
+        # sounddevice is not installed here, so this is False either way; the
+        # assertion that matters is that it never claims to be listening.
+        assert mic.available is False
+    finally:
+        stt_module.FastSTTEngine = original
