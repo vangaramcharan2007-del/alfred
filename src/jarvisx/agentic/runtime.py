@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from jarvisx.agentic.intake import Energy, IntakeEngine
+from jarvisx.agentic.persona import Persona, PersonaOutput, get_persona
 from jarvisx.agentic.voice_loop import (
     ConsoleInput,
     ConsoleOutput,
@@ -73,6 +74,15 @@ class RuntimeConfig:
     state_path: Optional[str] = None
     trace_root: Optional[str] = None
     max_turns: int = 200
+    # "plain" | "stark" | "friday". Cosmetic only: the persona re-voices what
+    # the intake engine already decided, it never changes the decision.
+    persona: str = "plain"
+    # Give the agent real reach: open apps, run gated shell commands. Off by
+    # default, because an assistant that can touch your machine should only do
+    # so when you asked for that.
+    enable_physical: bool = False
+    physical_dry_run: bool = False
+    workspace: Optional[str] = None
 
 
 @dataclass
@@ -152,6 +162,14 @@ class AlfredRuntime:
             else:
                 self.status.voice_output = "text (no TTS engine)"
                 self.status.notes.append("no TTS engine — replies are printed")
+
+        # -- voice ---------------------------------------------------------- #
+        # Wrapped after the sink is chosen, so the persona sits on top of
+        # whichever output actually came up, including an injected one.
+        self.persona = get_persona(self.config.persona)
+        if self.persona.name != "plain":
+            self.tts = PersonaOutput(self.tts, self.persona)
+            self.status.voice_output = f"{self.persona.name} -> {self.status.voice_output}"
 
         # -- eyes ----------------------------------------------------------- #
         self.ledger = ledger or AttentionLedger(
@@ -273,6 +291,24 @@ class AlfredRuntime:
     # Internals
     # ------------------------------------------------------------------ #
 
+    def _confirm(self, command: str) -> bool:
+        """Ask the human before anything hard to undo.
+
+        Defaults to refusing when there is no interactive input, so an
+        unattended or scripted run can never execute a CONFIRM-level command.
+        Guessing "yes" here is the single worst thing this agent could do.
+        """
+        if self.config.physical_dry_run:
+            return True
+        try:
+            answer = input(
+                f"\n  {self.persona.address and self.persona.address + ', this'} needs your say-so:\n"
+                f"    {command}\n  run it? [y/N] "
+            )
+        except (EOFError, KeyboardInterrupt):
+            return False
+        return answer.strip().lower() in ("y", "yes")
+
     def _watch_loop(self) -> None:
         while not self._stop.is_set():
             try:
@@ -315,11 +351,34 @@ class AlfredRuntime:
                     "no model key — agent work will write a placeholder, not real code"
                 )
 
+            # Physical reach is opt-in. When enabled the model gets the real
+            # desktop tools, but still through the harness: policy gate,
+            # CONFIRM permission, trace and budget all still apply.
+            tool_factory = None
+            if self.config.enable_physical:
+                from jarvisx.agentic.actions import build_action_tools
+                from jarvisx.agentic.builtin_tools import build_default_tools
+
+                def tool_factory(sandbox, _confirm=self._confirm):  # noqa: ANN001
+                    reg = build_default_tools(sandbox)
+                    return build_action_tools(
+                        registry=reg,
+                        confirm=_confirm,
+                        workspace=str(sandbox.workspace),
+                        dry_run=self.config.physical_dry_run,
+                    )
+
+                self.status.notes.append(
+                    "physical reach ON — the agent can open apps and run gated commands"
+                    + (" (dry run)" if self.config.physical_dry_run else "")
+                )
+
             def run_goal(goal: str) -> Dict[str, Any]:
                 with Orchestrator(
                     backend=backend,
                     default_budget=Budget(max_steps=10, max_tool_calls=24, max_seconds=300),
                     trace_root=self.config.trace_root,
+                    tool_factory=tool_factory,
                 ) as orch:
                     return orch.run(goal).to_dict()
 

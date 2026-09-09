@@ -582,3 +582,55 @@ def test_intake_endpoints_are_listed_on_the_index(server):
     _, body = _get(f"{base}/")
     for endpoint in ("GET /intake", "POST /intake", "POST /intake/{item_id}/done"):
         assert endpoint in body["endpoints"], endpoint
+
+
+# --------------------------------------------------------------------------- #
+# alfred: persona and physical reach
+# --------------------------------------------------------------------------- #
+
+from jarvisx.agentic.voice_loop import ConsoleInput as _ConsoleInput
+from jarvisx.agentic.voice_loop import ConsoleOutput as _ConsoleOutput
+
+
+def test_cli_alfred_speaks_in_the_chosen_persona(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr("builtins.input", _scripted_input(["quit"]))
+    cli.main([
+        "alfred", "--text", "--persona", "stark", "--no-agent", "--no-watch",
+        "--state", str(tmp_path / "intake.json"),
+    ])
+    out = capsys.readouterr().out
+    assert "stark -> text" in out
+
+
+def test_cli_alfred_rejects_an_unknown_persona(tmp_path):
+    with pytest.raises(SystemExit):
+        cli.main([
+            "alfred", "--persona", "ultron", "--no-watch",
+            "--state", str(tmp_path / "intake.json"),
+        ])
+
+
+def test_cli_alfred_has_no_physical_reach_by_default(tmp_path, monkeypatch):
+    """An assistant that can touch your machine must be asked to."""
+    from jarvisx.agentic.runtime import AlfredRuntime, RuntimeConfig
+
+    runtime = AlfredRuntime(
+        RuntimeConfig(force_text=True, watch=False),
+        stt=_ConsoleInput(lines=["quit"]), tts=_ConsoleOutput(),
+    )
+    assert runtime.config.enable_physical is False
+    assert not any("physical reach" in n for n in runtime.status.notes)
+
+
+def test_physical_reach_is_reported_when_enabled(tmp_path):
+    from jarvisx.agentic.runtime import AlfredRuntime, RuntimeConfig
+
+    runtime = AlfredRuntime(
+        RuntimeConfig(
+            force_text=True, watch=False, enable_agent=True,
+            enable_physical=True, physical_dry_run=True,
+        ),
+        stt=_ConsoleInput(lines=["quit"]), tts=_ConsoleOutput(),
+    )
+    assert any("physical reach ON" in n for n in runtime.status.notes)
+    assert any("dry run" in n for n in runtime.status.notes)

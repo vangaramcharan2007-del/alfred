@@ -541,6 +541,9 @@ def cmd_alfred(args: argparse.Namespace) -> int:
         state_path=state,
         trace_root=args.trace_root,
         max_turns=args.turns,
+        persona=args.persona,
+        enable_physical=args.physical,
+        physical_dry_run=args.physical_dry_run,
     )
 
     # Hand the runtime an intake it can share, so speech and clipboard land in
@@ -778,6 +781,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_alfred.add_argument("--switch-threshold", type=int, default=6, help="switches per window")
     p_alfred.add_argument("--grace", type=int, default=5, help="minutes off-task before a nudge")
     p_alfred.add_argument("--break-after", type=int, default=50, help="minutes before a break nudge")
+    p_alfred.add_argument(
+        "--persona", default="plain", choices=["plain", "stark", "friday"],
+        help="how it talks; never changes what it decides",
+    )
+    p_alfred.add_argument(
+        "--physical", action="store_true",
+        help="let the agent open apps and run gated shell commands",
+    )
+    p_alfred.add_argument(
+        "--physical-dry-run", action="store_true",
+        help="resolve and validate physical actions without performing them",
+    )
     p_alfred.add_argument("--state", default="var/agentic/intake.json")
     p_alfred.add_argument("--trace-root", default=str(DEFAULT_TRACE_ROOT))
     p_alfred.set_defaults(func=cmd_alfred)

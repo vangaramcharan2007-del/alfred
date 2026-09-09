@@ -45,7 +45,20 @@ class SpeechInput(Protocol):
 
 @runtime_checkable
 class SpeechOutput(Protocol):
-    def say(self, text: str) -> None: ...
+    def say(self, text: str, context: Optional[Dict[str, Any]] = None) -> None: ...
+
+
+def _speak(sink: "SpeechOutput", text: str, context: Optional[Dict[str, Any]] = None) -> None:
+    """Speak through a sink that may or may not accept context.
+
+    Sinks injected from outside (tests, third-party TTS) may still have a
+    one-argument ``say``. Refusing to speak because a persona could not be told
+    the intent would be the wrong trade, so fall back to text only.
+    """
+    try:
+        sink.say(text, context)
+    except TypeError:
+        sink.say(text)
 
 
 class ConsoleInput:
@@ -80,7 +93,7 @@ class ConsoleOutput:
     def __init__(self) -> None:
         self.spoken: List[str] = []
 
-    def say(self, text: str) -> None:
+    def say(self, text: str, context: Optional[Dict[str, Any]] = None) -> None:
         self.spoken.append(text)
         print(f"alfred> {text}")
 
@@ -169,9 +182,9 @@ class TTSOutput:
             logger.info("TTS unavailable (%s); using text output", exc)
             self.available = False
 
-    def say(self, text: str) -> None:
+    def say(self, text: str, context: Optional[Dict[str, Any]] = None) -> None:
         if not self.available:
-            self._fallback.say(text)
+            self._fallback.say(text, context)
             return
         try:
             self._engine.speak(text)
@@ -385,6 +398,28 @@ class VoiceTurn:
         }
 
 
+def _context_for(turn: "VoiceTurn") -> Dict[str, Any]:
+    """Derive persona context from a finished turn.
+
+    Kept deliberately narrow: only what the payload actually proves. Inventing
+    context here would let a persona say something the engine did not decide.
+    """
+    payload = turn.payload or {}
+    if turn.intent in (Intent.WHAT_NEXT, Intent.BRAIN_DUMP):
+        item = payload.get("item") or payload.get("do_this_next")
+        if item:
+            return {
+                "kind": "picked",
+                "task": item.get("title", ""),
+                "minutes": item.get("est_minutes", "?"),
+            }
+    if turn.intent is Intent.DONE:
+        return {"kind": "done"}
+    if turn.intent is Intent.UNKNOWN:
+        return {"kind": "captured"}
+    return {}
+
+
 class VoiceAgentLoop:
     """Listens, routes, acts, and reports back out loud."""
 
@@ -475,8 +510,12 @@ class VoiceAgentLoop:
             return None
         turn = self.handle(transcript)
         if turn.spoken:
-            self.tts.say(turn.spoken)
+            # Pass the turn's context so a persona can re-voice by intent
+            # rather than guessing from prose. Without this every reply takes
+            # the persona's fall-through branch and the templates are dead code.
+            _speak(self.tts, turn.spoken, _context_for(turn))
         return turn
+
 
     def run(self, max_turns: int = 20) -> List[VoiceTurn]:
         """Loop until input is exhausted, the user quits, or `max_turns`."""

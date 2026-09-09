@@ -98,6 +98,19 @@ from jarvisx.agentic.verifier import (
     TestsPassCheck,
     Verifier,
 )
+from jarvisx.agentic.actions import (
+    build_action_tools,
+    classify_command,
+    resolve_target,
+)
+from jarvisx.agentic.persona import (
+    PERSONAS,
+    FridayPersona,
+    Persona,
+    PersonaOutput,
+    StarkPersona,
+    get_persona,
+)
 from jarvisx.agentic.runtime import (
     AlfredRuntime,
     RuntimeConfig,
@@ -211,6 +224,16 @@ __all__ = [
     "WhisperMicInput",
     "route",
     "strip_trigger",
+    # physical reach + persona
+    "build_action_tools",
+    "classify_command",
+    "resolve_target",
+    "PERSONAS",
+    "FridayPersona",
+    "Persona",
+    "PersonaOutput",
+    "StarkPersona",
+    "get_persona",
     # unified runtime
     "AlfredRuntime",
     "RuntimeConfig",

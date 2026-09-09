@@ -114,6 +114,79 @@ python -m jarvisx.agentic talk --enable-agent        # let "build X" run real wo
 
 Captured items persist to `var/agentic/intake.json` between sessions.
 
+### Voice and reach: `--persona` and `--physical`
+
+```bash
+python -m jarvisx.agentic alfred --persona stark      # Tony Stark, calls you "kid"
+python -m jarvisx.agentic alfred --persona friday     # F.R.I.D.A.Y., calls you "Boss"
+python -m jarvisx.agentic alfred --physical           # real desktop reach
+python -m jarvisx.agentic alfred --physical --physical-dry-run
+```
+
+**Persona is cosmetic, and that is a hard rule.** The repo already had two
+personas hard-coded as system prompts inside thousand-line classes, so you
+could not use one without dragging the other's mic handling with it. Here a
+persona is only something that can rewrite a sentence:
+
+```
+IntakeEngine decides WHAT you should do next.
+Persona decides HOW that lands when it is spoken.
+```
+
+A persona must never change the substance. If Stark could talk you out of the
+task the engine picked, you would have a sarcastic procrastination engine — the
+worst possible outcome for an ADHD brain. `test_the_persona_cannot_change_which_task_was_picked`
+runs the same dump through all three personas and asserts they pick identically.
+
+Every persona also de-shames. Shame produces avoidance, and avoidance is the
+actual problem, not a lack of discipline. Judgemental nudges are replaced
+wholesale rather than patched: deleting the offending words from a sentence
+yields `"an hour on YouTube again? time."`, which is worse than the original.
+
+**Physical reach is opt-in.** `voice/eevee_groq.py` already shelled out to
+`powershell -Command` with no policy gate — a model that decided to run
+`rm -rf ~` was stopped by nothing but its own judgement. `actions.py`
+re-exposes those capabilities as ordinary tools, which buys them the
+harness's policy gate, `CONFIRM` permission, tracing and budget.
+
+| Command | Verdict |
+|---|---|
+| `ls -la`, `echo hi`, `git status` | allow |
+| `sudo apt install x`, `git push`, `kill -9` | confirm — asks you first |
+| `rm -rf /`, `format c:`, `shutdown`, `dd if=` | **blocked even if you say yes** |
+
+An unattended run can never execute a `CONFIRM` command: with no interactive
+input the default is to refuse. Guessing "yes" is the single worst thing this
+agent could do.
+
+### Seeing it: the dashboard
+
+```bash
+python -m jarvisx.agentic serve            # then open http://localhost:8123/
+python -m jarvisx.agentic serve --state other/list.json
+```
+
+The control plane reads and writes the **same** `var/agentic/intake.json` the
+CLI and voice loop use, so the browser, the terminal and your voice all show
+one list rather than three private copies of it.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /intake` | the list, plus the next pick at each energy level |
+| `POST /intake` `{"dump": "..."}` | capture a brain dump |
+| `POST /intake/{item_id}/done` | complete an item, get what to do next |
+| `GET /` with `Accept: text/html` | the dashboard |
+| `GET /` | the JSON endpoint index (curl still works) |
+
+The page is one big "do this next" card with the list below it, deliberately
+quieter. A grid of twelve equally-weighted tasks is not a tool for an ADHD
+brain — it *is* the problem. An energy toggle re-picks live, and worries,
+ideas and delegated items are collected under **"not your problem"** rather
+than mixed into the queue, because holding those is itself the work.
+
+Completing an item returns the next one in the same response, so momentum does
+not require a round trip.
+
 ### Why `next` is the important one
 
 The bottleneck for an ADHD brain is **initiation, not capacity**. Being handed

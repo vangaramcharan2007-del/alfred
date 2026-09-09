@@ -173,6 +173,50 @@ DO THIS NEXT: Reply to that email from the professor  (~5m)
 Worries, ideas and other people's problems are taken **out** of your queue, not
 added to it. State persists to `var/agentic/intake.json`.
 
+### 🎭 Give it a voice, and hands
+
+```bash
+python -m jarvisx.agentic alfred --persona stark    # Tony Stark, calls you "kid"
+python -m jarvisx.agentic alfred --persona friday   # F.R.I.D.A.Y., calls you "Boss"
+python -m jarvisx.agentic alfred --physical         # open apps, run gated commands
+```
+
+```
+you> alfred> One thing. Pay the bill. 5 minutes, then you are done with it.
+you> alfred> Good. That one is actually finished, not 'basically finished'.
+you> alfred> Alright, kid. You have 3 open items, 2 of them actual tasks.
+```
+
+Two rules keep this from becoming a toy:
+
+- **The persona never changes what you should do** — only how it sounds. If
+  Stark could talk you out of a task, it would be a sarcastic procrastination
+  engine. It is tested: the same brain dump picks the same task in every voice.
+- **Physical reach is opt-in and gated.** `rm -rf /`, `format c:` and
+  `shutdown` are refused *even when you say yes*. `sudo`, `git push` and
+  `kill` ask first, and an unattended run always refuses rather than guessing.
+
+### 📺 See it in a browser
+
+```bash
+python -m jarvisx.agentic serve      # open http://localhost:8123/
+```
+
+One big **"do this next"** card, an energy toggle that re-picks live, and a
+dump box. It reads the same `var/agentic/intake.json` as the CLI, so the
+browser, the terminal and your voice all show one list.
+
+```
+GET  /intake                      the list + next pick per energy level
+POST /intake          {"dump": "everything on your mind"}
+POST /intake/{id}/done            complete, and get the next one back
+GET  /                            dashboard (Accept: text/html)
+```
+
+Worries and other people's problems are collected under **"not your
+problem"** instead of sitting in the queue, because holding those is itself
+the work.
+
 `talk` wires the existing voice stack (`SecureVoiceGateway`, `FastSTTEngine`,
 `RealTTSEngine`) to the orchestrator. Audio is optional — with no mic, speaker
 or model it still runs end to end on text. Only an explicit `build/write/fix`
