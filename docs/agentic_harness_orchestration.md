@@ -159,6 +159,25 @@ An unattended run can never execute a `CONFIRM` command: with no interactive
 input the default is to refuse. Guessing "yes" is the single worst thing this
 agent could do.
 
+### The line between an assistant and a notepad
+
+`Intent.OPEN` is what makes `--physical` worth turning on. Without it, "open
+spotify" said out loud routes to `UNKNOWN` and is captured as a task — so the
+assistant writes down the thing you asked it to do, and tells you it wrote it
+down. That is the single most disappointing thing a voice assistant can do.
+
+```python
+route("open spotify", physical=True)    # -> Intent.OPEN   (launches it)
+route("open spotify", physical=False)   # -> Intent.UNKNOWN (captures it)
+```
+
+The gate on `physical` is the honest part. `Intent.OPEN` only fires when an
+`AgentToolRegistry` containing `open_app_or_website` was actually injected, so
+the assistant never claims to have opened something on a machine where it
+cannot. Ordering is deliberate: `OPEN` is checked after `WHAT_NEXT`, `DONE` and
+`STATUS` but before `BRAIN_DUMP`, so "what should I do" and "brain dump: open
+the report" still behave.
+
 ### Seeing it: the dashboard
 
 ```bash

@@ -187,6 +187,19 @@ you> alfred> Good. That one is actually finished, not 'basically finished'.
 you> alfred> Alright, kid. You have 3 open items, 2 of them actual tasks.
 ```
 
+With `--physical`, "open spotify" **opens Spotify** — it is not written onto a
+task list:
+
+```
+you> open spotify
+alfred> Kid. Opening spotify.
+you> play lofi on youtube
+alfred> Kid. Opening youtube: lofi.
+```
+
+Without `--physical` it falls back to capture, because claiming something
+opened when it did not is worse than writing it down.
+
 Two rules keep this from becoming a toy:
 
 - **The persona never changes what you should do** — only how it sounds. If

@@ -199,12 +199,30 @@ class AlfredRuntime:
             getattr(self, "_backend", None), "name", "not configured"
         )
 
+        # The voice loop gets its own registry, separate from whatever the
+        # orchestrator builds. Speech needs to open Spotify *now*; it should not
+        # have to spin up a sandbox, a planner and a model to do it.
+        self.physical = None
+        if self.config.enable_physical:
+            from jarvisx.agentic.actions import build_action_tools
+
+            self.physical = build_action_tools(
+                confirm=self._confirm,
+                workspace=self.config.workspace,
+                dry_run=self.config.physical_dry_run,
+            )
+            self.status.notes.append(
+                "you can say 'open spotify' and it will actually open"
+                + (" (dry run)" if self.config.physical_dry_run else "")
+            )
+
         # -- the voice loop, sharing our state ------------------------------ #
         self.voice = VoiceAgentLoop(
             stt=self.stt,
             tts=self.tts,
             intake=self.intake,
             runner=self.runner,
+            physical=self.physical,
             wake_word=self.config.wake_word,
             energy=self.config.energy,
         )

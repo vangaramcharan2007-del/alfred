@@ -202,6 +202,7 @@ class Intent(str, Enum):
     BRAIN_DUMP = "brain_dump"    # capture everything, suggest one thing
     WHAT_NEXT = "what_next"      # just tell me what to do
     DO_WORK = "do_work"          # hand it to the orchestrator
+    OPEN = "open"                # launch an app or site right now
     DONE = "done"                # mark something finished
     STATUS = "status"            # what have I captured / what's the state
     HELP = "help"
@@ -233,6 +234,23 @@ def _do_work_re():
             re.IGNORECASE | re.VERBOSE,
         )
     return _DO_WORK_RE
+
+
+def _open_re():
+    """A request to launch something, rather than a task to remember.
+
+    This is the line between an assistant and a notepad. "open spotify" said
+    out loud means *open Spotify now*; writing it onto a task list and saying
+    "got it, I wrote that down" is the single most disappointing thing a voice
+    assistant can do.
+    """
+    import re
+
+    return re.compile(
+        r"""^(?:please\s+)?(?:hey\s+)?(?:alfred[,\s]+|jarvis[,\s]+|eevee[,\s]+)?
+            (?:open|launch|start|fire\s+up|bring\s+up|play|put\s+on|load)\b""",
+        re.IGNORECASE | re.VERBOSE,
+    )
 
 
 def _artifact_re():
@@ -334,7 +352,7 @@ def strip_trigger(text: str) -> str:
     return cleaned or (text or "").strip()
 
 
-def route(text: str, addressed: bool = False) -> Intent:
+def route(text: str, addressed: bool = False, physical: bool = False) -> Intent:
     """Decide what an utterance means. Deterministic and offline.
 
     Order matters: an explicit "write the report" is work, but "what should I
@@ -343,6 +361,10 @@ def route(text: str, addressed: bool = False) -> Intent:
     ``addressed`` is True when the speaker used the wake word. Naming Alfred is
     an explicit command to Alfred, so it skips the artifact gate that keeps
     personal tasks out of the coding agent.
+
+    ``physical`` is True only when there is something that can actually launch
+    an app. Without it, "open spotify" falls through to capture, which is the
+    honest degradation: writing it down is better than claiming it opened.
     """
     cleaned = (text or "").strip()
     if not cleaned:
@@ -357,6 +379,8 @@ def route(text: str, addressed: bool = False) -> Intent:
         return Intent.WHAT_NEXT
     if _done_re().search(cleaned):
         return Intent.DONE
+    if physical and _open_re().search(cleaned):
+        return Intent.OPEN
     if _dump_re().search(cleaned):
         return Intent.BRAIN_DUMP
     if _do_work_re().search(cleaned):
@@ -432,6 +456,7 @@ class VoiceAgentLoop:
         wake_word: str = "alfred",
         energy: Energy = Energy.MEDIUM,
         event_bus: Optional[Any] = None,
+        physical: Optional[Any] = None,
     ):
         self.stt: SpeechInput = stt or ConsoleInput()
         self.tts: SpeechOutput = tts or ConsoleOutput()
@@ -439,6 +464,10 @@ class VoiceAgentLoop:
         # `runner` is the bridge to the orchestrator. Injected so the loop stays
         # testable without spinning up a model or a sandbox.
         self.runner = runner
+        # `physical` is an AgentToolRegistry with open_app_or_website in it.
+        # Injected for the same reason, and because "open spotify" must only
+        # route to OPEN when something can actually open Spotify.
+        self.physical = physical
         self.wake_word = wake_word.lower()
         self.energy = energy
         self.turns: List[VoiceTurn] = []
@@ -488,11 +517,16 @@ class VoiceAgentLoop:
         else:
             body = self._strip_wake_word(text)
 
-        turn.intent = route(body, addressed=self._addresses_wake_word(text))
+        turn.intent = route(
+            body,
+            addressed=self._addresses_wake_word(text),
+            physical=self.physical is not None,
+        )
         handler = {
             Intent.BRAIN_DUMP: self._on_brain_dump,
             Intent.WHAT_NEXT: self._on_what_next,
             Intent.DO_WORK: self._on_do_work,
+            Intent.OPEN: self._on_open,
             Intent.DONE: self._on_done,
             Intent.STATUS: self._on_status,
             Intent.HELP: self._on_help,
@@ -606,6 +640,31 @@ class VoiceAgentLoop:
             "Say 'what next' for a decision, 'done with X' to close it, "
             "or 'build X' to hand real work to an agent."
         )
+
+    def _on_open(self, body: str, turn: VoiceTurn) -> None:
+        """Launch an app or site now, rather than writing it onto a list."""
+        from jarvisx.agentic.types import ToolCall
+
+        if self.physical is None:
+            # Cannot happen via route(), which needs physical to pick OPEN,
+            # but a handler must never assume its caller checked.
+            turn.spoken = "I cannot open anything right now — no desktop reach."
+            return
+
+        target = strip_trigger(body).strip()
+        obs = self.physical.invoke(
+            ToolCall(name="open_app_or_website", arguments={"target": target}),
+            approve=lambda tool, args: True,   # opening a tab is SAFE, never ask
+        )
+        turn.payload = {"target": target, "observation": obs.to_dict()}
+
+        if obs.denied:
+            turn.spoken = f"I am not opening that: {obs.error}"
+        elif not obs.ok:
+            turn.spoken = f"That did not open — {obs.error}"
+        else:
+            label = (obs.output or {}).get("label", target)
+            turn.spoken = f"Opening {label}."
 
     def _on_unknown(self, body: str, turn: VoiceTurn) -> None:
         """Ambiguous speech is captured, not guessed at."""

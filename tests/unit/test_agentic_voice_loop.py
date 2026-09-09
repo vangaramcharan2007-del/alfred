@@ -10,6 +10,7 @@ from jarvisx.agentic.voice_loop import (
     ConsoleOutput,
     Intent,
     VoiceAgentLoop,
+    VoiceTurn,
     route,
     strip_trigger,
 )
@@ -390,3 +391,79 @@ def test_ambiguous_speech_is_captured_not_dropped():
     assert turn.intent is Intent.UNKNOWN
     assert len(loop.intake.items) == 1
     assert loop.intake.items[0].title.lower() == "pay the bill"
+
+
+# --------------------------------------------------------------------------- #
+# OPEN: the line between an assistant and a notepad
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["open spotify", "open youtube and play lofi", "play spotify",
+     "open vscode", "launch the calculator", "open github", "start the terminal"],
+)
+def test_open_requests_route_to_open_when_there_is_desktop_reach(text):
+    assert route(text, physical=True) is Intent.OPEN
+
+
+@pytest.mark.parametrize("text", ["open spotify", "open vscode", "play lofi on youtube"])
+def test_open_requests_fall_back_to_capture_without_desktop_reach(text):
+    """Honest degradation: never claim something opened when it did not."""
+    assert route(text, physical=False) is not Intent.OPEN
+
+
+def test_open_does_not_steal_a_decision_or_a_dump():
+    assert route("what should I do", physical=True) is Intent.WHAT_NEXT
+    assert route("write the report", physical=True) is Intent.BRAIN_DUMP
+    assert route("brain dump: pay rent", physical=True) is Intent.BRAIN_DUMP
+
+
+def test_saying_open_actually_invokes_the_tool():
+    from jarvisx.agentic.actions import build_action_tools
+
+    reg = build_action_tools(dry_run=True)
+    loop = VoiceAgentLoop(stt=ConsoleInput(lines=["open spotify"]), tts=ConsoleOutput(), physical=reg)
+    turn = loop.listen_once()
+    assert turn.intent is Intent.OPEN
+    assert turn.payload["observation"]["ok"] is True
+    assert "Opening" in turn.spoken
+
+
+def test_a_failed_open_is_reported_not_hidden():
+    """A silent no-op would leave the user believing something opened."""
+
+    class BrokenRegistry:
+        def invoke(self, call, approve=None):
+            from jarvisx.agentic.types import Observation
+
+            return Observation(tool=call.name, call_id=call.id, ok=False,
+                               error="no browser could open it")
+
+    loop = VoiceAgentLoop(stt=ConsoleInput(lines=["open spotify"]),
+                          tts=ConsoleOutput(), physical=BrokenRegistry())
+    turn = loop.listen_once()
+    assert turn.intent is Intent.OPEN
+    assert "did not open" in turn.spoken
+
+
+def test_a_denied_open_says_why():
+    class DenyingRegistry:
+        def invoke(self, call, approve=None):
+            from jarvisx.agentic.types import Observation
+
+            return Observation(tool=call.name, call_id=call.id, ok=False,
+                               denied=True, error="blocked by policy")
+
+    loop = VoiceAgentLoop(stt=ConsoleInput(lines=["open spotify"]),
+                          tts=ConsoleOutput(), physical=DenyingRegistry())
+    turn = loop.listen_once()
+    assert "not opening that" in turn.spoken
+
+
+def test_the_open_handler_survives_a_missing_registry():
+    """route() gates on physical, but a handler must never assume its caller checked."""
+    loop = VoiceAgentLoop(stt=ConsoleInput(lines=["open spotify"]), tts=ConsoleOutput())
+    turn = VoiceTurn(transcript="open spotify", intent=Intent.OPEN)
+    loop._on_open("open spotify", turn)
+    assert "cannot open" in turn.spoken
