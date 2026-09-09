@@ -108,8 +108,16 @@ class TokenBucketRateLimiter:
 
     def get_status(self) -> dict:
         """Return current status of the rate limiter for monitoring."""
-        # Note: This is not thread-safe for exact real-time values, 
+        # Note: This is not thread-safe for exact real-time values,
         # but sufficient for logging/monitoring.
+        #
+        # Refill before reading. Tokens accrue lazily -- _refill_tokens() only
+        # ran inside acquire()/wait_for_tokens() -- so without this the
+        # reported count stayed frozen at whatever the last acquire left behind
+        # and never rose, however long the limiter sat idle. A monitoring
+        # endpoint that reports a bucket as permanently empty is worse than no
+        # endpoint, because it invites "the limiter is stuck" investigations.
+        self._refill_tokens()
         return {
             "current_tokens": self._tokens,
             "max_tokens": self.config.max_tokens,

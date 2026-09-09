@@ -1,6 +1,6 @@
 import pytest
 import time
-from llm_prompt_cache import llm_prompt_cache, LRUCache
+from jarvisx.integrations.prompt_lru_cache import llm_prompt_cache, LRUCache
 
 class TestLRUCache:
     def test_basic_set_get(self):

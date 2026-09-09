@@ -6,7 +6,7 @@ import pytest
 from datetime import datetime
 from unittest.mock import patch
 
-from system_greeting import (
+from jarvisx.integrations.system_telemetry_greeter import (
     SystemGreetingUtility,
     GreetingContext,
     GreetingResult,

@@ -2,7 +2,7 @@ import asyncio
 import time
 import pytest
 
-from rate_limiter import TokenBucket
+from jarvisx.integrations.async_token_limiter import TokenBucket
 
 
 @pytest.mark.asyncio
@@ -17,9 +17,11 @@ async def test_acquire_decreases_tokens():
     """Test that acquiring tokens decreases the available count."""
     bucket = TokenBucket(capacity=10, refill_rate=1.0)
     await bucket.acquire(3.0)
-    # Allow a tiny bit of time for precise assertion if needed, 
-    # but since we just refilled in __post_init__, it should be close to 7.
-    assert 6.9 < bucket.available_tokens <= 7.0
+    # `available_tokens` refills on read, so the microseconds between acquire()
+    # and this assertion legitimately add a few microtokens at 1 token/sec.
+    # A strict `<= 7.0` upper bound therefore fails on elapsed wall-clock time
+    # rather than on the behaviour under test; allow a small tolerance.
+    assert 6.9 < bucket.available_tokens <= 7.01
 
 
 @pytest.mark.asyncio

@@ -5,7 +5,7 @@ Unit tests for Jarvis X Rate Limiter.
 import asyncio
 import time
 import pytest
-from jarvis.rate_limiter import TokenBucketRateLimiter, TokenBucketConfig
+from jarvisx.integrations.async_token_bucket_limiter import TokenBucketRateLimiter, TokenBucketConfig
 
 
 @pytest.fixture
@@ -53,7 +53,11 @@ async def test_acquire_failure():
     # Try to acquire 1 more immediately - should fail
     success = await limiter.acquire(1.0)
     assert success is False
-    assert limiter._tokens == 0.0
+    # Not exactly 0.0: refill_rate is 0.1 tokens/sec, so the microseconds
+    # between the two acquires legitimately add a few e-07 tokens. Asserting
+    # strict equality here fails on elapsed wall-clock time rather than on the
+    # behaviour under test, which is that the second acquire was refused.
+    assert limiter._tokens < 0.01
 
 
 @pytest.mark.asyncio

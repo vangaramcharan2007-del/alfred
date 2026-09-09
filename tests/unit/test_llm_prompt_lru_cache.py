@@ -1,7 +1,7 @@
 import asyncio
 import time
 import pytest
-from prompt_cache import ttl_lru_cache, TTLLRUCache
+from jarvisx.integrations.llm_prompt_lru_cache import ttl_lru_cache, TTLLRUCache
 
 
 def test_cache_hit_and_miss():
