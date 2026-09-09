@@ -22,6 +22,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
 from typing import Any, Dict, List, Optional
+from pathlib import Path
 
 
 class LocalOllamaClient:

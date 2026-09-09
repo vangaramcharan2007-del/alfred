@@ -5,7 +5,7 @@ import base64
 import hashlib
 import os
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from jarvisx.security.models import SecretItem
 from jarvisx.security.security_memory import SecurityMemory

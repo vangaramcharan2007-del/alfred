@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from jarvisx.automation.ev_neural_voice import speak_ev_neural
 from jarvisx.agents.transforms_math_agent import TransformsMathAgent
+from pathlib import Path
 
 
 class EVLiveCoPilotApp:

@@ -11,6 +11,7 @@ from __future__ import annotations
 import sys
 import json
 import asyncio
+from typing import Any, Dict, Optional
 try:
     from playwright.async_api import async_playwright, Browser, Page, Playwright
 except Exception:

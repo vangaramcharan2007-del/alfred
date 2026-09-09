@@ -25,6 +25,7 @@ from jarvisx.communications.models import (
 )
 from jarvisx.mesh.mesh_router import MeshRouter, get_mesh_router
 from jarvisx.security.audit_ledger import CryptographicAuditLedger
+import re
 
 logger = logging.getLogger("jarvisx.call_text_dispatcher")
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import re
-from typing import List, Set, Tuple
+from typing import List, Optional, Set, Tuple
 from jarvisx.evaluation.models import (
     ClaimEvidence,
     EvidenceSource,

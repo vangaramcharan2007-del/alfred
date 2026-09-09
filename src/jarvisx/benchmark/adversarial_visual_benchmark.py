@@ -7,7 +7,7 @@ and failure recovery tests to evaluate closed-loop visual reasoning performance.
 from __future__ import annotations
 import time
 import asyncio
-from typing import Dict, Any, List
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 
 from jarvisx.computer_use.visual_agent_loop import VisualAgentLoop, get_visual_agent_loop

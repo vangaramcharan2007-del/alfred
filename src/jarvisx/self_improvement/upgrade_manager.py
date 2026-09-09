@@ -3,7 +3,7 @@
 from __future__ import annotations
 import time
 import uuid
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from jarvisx.self_improvement.models import SandboxRun, UpgradeProposal, UpgradeStatus
 from jarvisx.self_improvement.self_improvement_memory import SelfImprovementMemory
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import time
 import uuid
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from jarvisx.security.models import AuditEntry
 from jarvisx.security.security_memory import SecurityMemory
 

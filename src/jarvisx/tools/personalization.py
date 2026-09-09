@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 import re
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 from uuid import uuid4
 
 from jarvisx.core.health import HealthStatus

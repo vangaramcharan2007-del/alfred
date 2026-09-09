@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 import traceback
 import uuid
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from jarvisx.reliability.models import CrashEvent, RecoveryAction, RecoveryState
 from jarvisx.reliability.reliability_memory import ReliabilityMemory
 

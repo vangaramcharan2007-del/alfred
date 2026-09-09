@@ -1,7 +1,7 @@
 """Formatting and Presentation for Intelligence Evaluation Reports."""
 
 from __future__ import annotations
-from typing import List
+from typing import Any, List
 from jarvisx.evaluation.models import IntelligenceScorecard, ResponseEvaluation
 
 

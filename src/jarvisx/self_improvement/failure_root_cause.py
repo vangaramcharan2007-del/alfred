@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from jarvisx.self_improvement.models import ErrorClass, FailureRootCause
 from jarvisx.self_improvement.self_improvement_memory import SelfImprovementMemory
 
