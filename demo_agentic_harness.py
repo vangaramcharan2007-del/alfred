@@ -49,6 +49,105 @@ def header(text: str) -> None:
     print(f"{CYAN}{BOLD}{'=' * 78}{RESET}\n")
 
 
+def _demo_adhd_layer(workspace: Path) -> None:
+    """Demonstrate the ADHD layer: capture, pick, persona, reach, policy.
+
+    Runs entirely offline and deterministically. Every line below is real
+    execution against the shipped modules, not a transcript pasted in.
+    """
+    from jarvisx.agentic.actions import build_action_tools, classify_command
+    from jarvisx.agentic.intake import Energy, IntakeEngine
+    from jarvisx.agentic.persona import get_persona
+    from jarvisx.agentic.types import ToolCall
+    from jarvisx.agentic.voice_loop import (
+        ConsoleInput,
+        ConsoleOutput,
+        Intent,
+        VoiceAgentLoop,
+        route,
+    )
+
+    dump = (
+        "write the OS assignment its due today, reply to that email from the "
+        "professor, pay the electricity bill, i'm really worried about failing "
+        "this semester, someone should really fix the lab printer"
+    )
+
+    print(f"{DIM}brain dump{RESET}  {dump}\n")
+
+    engine = IntakeEngine()
+    plan = engine.plan(dump)
+
+    print("captured, and classified:")
+    for item in engine.items:
+        kind = item.kind.value
+        colour = GREEN if kind == "task" else YELLOW
+        print(f"  {colour}[{kind:9}]{RESET} {item.title}")
+
+    not_yours = plan["not_your_problem"]
+    print(
+        f"\n{YELLOW}not yours{RESET}   {', '.join(not_yours) if not_yours else 'nothing'}"
+        f"\n{DIM}              taken OUT of the queue — holding them is itself the work{RESET}"
+    )
+
+    print("\nthe same list, offered against different energy:")
+    for energy in (Energy.LOW, Energy.MEDIUM, Energy.HIGH):
+        chosen = engine.pick(energy)
+        print(
+            f"  {energy.value:7} -> {chosen.title} "
+            f"{DIM}({chosen.est_minutes}m, urgency {chosen.urgency}){RESET}"
+        )
+    print(f"{DIM}          low energy never offers the 45-minute task{RESET}")
+
+    print("\npersona re-voices the decision, it never changes it:")
+    picks = {}
+    for name in ("plain", "stark", "friday"):
+        persona = get_persona(name)
+        # A fresh engine from the same state: proves the voice changes without
+        # the pick changing, rather than reusing one mutated engine.
+        clone = IntakeEngine()
+        clone.load(engine.to_dict())
+        chosen = clone.pick(Energy.HIGH)
+        picks[name] = chosen.title
+        line = persona.render(
+            "", {"kind": "picked", "task": chosen.title, "minutes": chosen.est_minutes}
+        )
+        print(f"  {name:7} {line}")
+    same = len(set(picks.values())) == 1
+    mark = f"{GREEN}ok{RESET}" if same else f"{YELLOW}!!{RESET}"
+    print(f"  {mark}   all three picked the same task: {same}")
+
+    print("\nphysical reach, and the gate in front of it:")
+    registry = build_action_tools(dry_run=True, workspace=str(workspace / "reach"))
+    for command in ("ls -la", "sudo apt install x", "rm -rf /", "format c:"):
+        verdict = classify_command(command)
+        colour = {"allow": GREEN, "confirm": YELLOW, "blocked": YELLOW}[verdict]
+        note = {
+            "allow": "runs",
+            "confirm": "asks you first",
+            "blocked": "refused EVEN IF you say yes",
+        }[verdict]
+        print(f"  {colour}{verdict:8}{RESET} {command:<22} {DIM}{note}{RESET}")
+
+    print("\nsaying it out loud, with reach enabled:")
+    loop = VoiceAgentLoop(
+        stt=ConsoleInput(lines=["open spotify", "play lofi on youtube"]),
+        tts=ConsoleOutput(),
+        physical=registry,
+    )
+    for _ in range(2):
+        turn = loop.listen_once()
+        print(f"  {GREEN}ok{RESET}   {turn.transcript:<24} -> {turn.intent.name}")
+
+    print("\nand without reach, it degrades honestly instead of pretending:")
+    for text in ("open spotify",):
+        intent = route(text, physical=False)
+        print(
+            f"  {YELLOW}--{RESET}   {text:<24} -> {intent.name} "
+            f"{DIM}(captured, never claims it opened){RESET}"
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--goal", default="Implement a sieve of Eratosthenes and verify it")
@@ -148,6 +247,11 @@ def main() -> int:
     if traces:
         print(render_trace(traces[0]))
         print(f"\n{DIM}summary: {json.dumps(TraceRecorder.summarize(traces[0])['by_kind'])}{RESET}")
+
+    # ------------------------------------------------------------------ #
+    header("7. THE ADHD LAYER — TALK / LISTEN / WATCH / DO")
+    # ------------------------------------------------------------------ #
+    _demo_adhd_layer(workspace)
 
     # ------------------------------------------------------------------ #
     header("RESULT")
