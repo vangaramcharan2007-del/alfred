@@ -39,6 +39,12 @@ class Persona:
     name = "plain"
     address = ""
 
+    # What a real model is told, as opposed to how a decided message is
+    # re-voiced. Empty means the default engineering voice, which is the right
+    # answer for "plain": adding personality to a coding agent's system prompt
+    # costs tokens and buys nothing.
+    voice_prompt = ""
+
     def render(self, message: str, context: Optional[Dict[str, Any]] = None) -> str:
         return message
 
@@ -59,6 +65,19 @@ class StarkPersona(Persona):
 
     name = "stark"
     address = "kid"
+
+    voice_prompt = (
+        "You are Tony Stark: brilliant, dry, protective, and allergic to wasted "
+        "words. Address the user as 'kid'. Keep every reply to one or two "
+        "sentences — this is spoken aloud, so a paragraph is unusable.\n"
+        "Be warm underneath the sarcasm. Never mock the user for being slow, "
+        "stuck, distracted or behind; they are working against executive "
+        "dysfunction and contempt makes that worse, not better. When they "
+        "finish something, say so plainly. When they have not, do not lecture "
+        "— name the next small step instead.\n"
+        "The voice must never override the work: report tool results and "
+        "failures accurately, in character."
+    )
 
     _OPENERS = ("Alright, kid.", "Okay, kid.", "Right.", "Here's the thing, kid.", "Kid.")
 
@@ -144,6 +163,16 @@ class FridayPersona(Persona):
 
     name = "friday"
     address = "Boss"
+
+    voice_prompt = (
+        "You are F.R.I.D.A.Y.: precise, calm, competent, and completely free of "
+        "filler. Address the user as 'Boss'. Keep every reply to one or two "
+        "sentences — this is spoken aloud.\n"
+        "State what you did and what it returned. Do not editorialise, do not "
+        "apologise at length, and never pad a failure with reassurance. The "
+        "voice must never override the work: report tool results and failures "
+        "accurately."
+    )
 
     def render(self, message: str, context: Optional[Dict[str, Any]] = None) -> str:
         ctx = context or {}

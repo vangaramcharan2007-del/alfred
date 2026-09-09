@@ -220,3 +220,84 @@ def test_the_persona_cannot_change_which_task_was_picked():
         runtime.voice.listen_once()
         picks[persona] = runtime.ledger.intended_task
     assert len(set(picks.values())) == 1, picks
+
+
+# --------------------------------------------------------------------------- #
+# Reaching the model: the persona must survive into a real conversation
+# --------------------------------------------------------------------------- #
+
+
+def test_plain_has_no_voice_prompt():
+    """Adding personality to a coding agent's prompt costs tokens and buys nothing."""
+    assert Persona().voice_prompt == ""
+
+
+@pytest.mark.parametrize("name", ["stark", "friday"])
+def test_a_character_persona_carries_a_model_prompt(name):
+    persona = get_persona(name)
+    assert persona.voice_prompt
+    assert persona.address in persona.voice_prompt
+
+
+@pytest.mark.parametrize("name", ["stark", "friday"])
+def test_the_voice_prompt_forbids_shaming(name):
+    """The same rule applies to a real model as to a re-voiced nudge."""
+    prompt = get_persona(name).voice_prompt.lower()
+    assert "never mock" in prompt or "do not editorialise" in prompt
+
+
+@pytest.mark.parametrize("name", ["stark", "friday"])
+def test_the_voice_prompt_keeps_reporting_honest(name):
+    """Character must never cost accuracy."""
+    assert "accurately" in get_persona(name).voice_prompt
+
+
+def test_the_voice_prompt_reaches_the_model_system_prompt():
+    from jarvisx.agentic.roles import RoleRegistry
+    from jarvisx.agentic.runtime import AlfredRuntime, RuntimeConfig
+
+    for name in ("stark", "friday"):
+        runtime = AlfredRuntime(
+            RuntimeConfig(force_text=True, watch=False, persona=name),
+            stt=ConsoleInput(lines=["quit"]), tts=ConsoleOutput(),
+        )
+        prompt = runtime._voiced_roles().get("coder").system_prompt("(tools)")
+        assert runtime.persona.voice_prompt in prompt, name
+
+
+def test_plain_leaves_the_system_prompt_untouched():
+    from jarvisx.agentic.roles import RoleRegistry
+    from jarvisx.agentic.runtime import AlfredRuntime, RuntimeConfig
+
+    runtime = AlfredRuntime(
+        RuntimeConfig(force_text=True, watch=False, persona="plain"),
+        stt=ConsoleInput(lines=["quit"]), tts=ConsoleOutput(),
+    )
+    default = RoleRegistry().get("coder").system_prompt("(tools)")
+    assert runtime._voiced_roles().get("coder").system_prompt("(tools)") == default
+
+
+@pytest.mark.parametrize("role_name", ["coder", "tester", "reviewer", "planner", "generalist"])
+def test_a_voice_changes_how_a_role_talks_but_not_what_it_does(role_name):
+    """Same job, same budget, same tools. Only the voice differs."""
+    from jarvisx.agentic.roles import RoleRegistry
+    from jarvisx.agentic.runtime import AlfredRuntime, RuntimeConfig
+
+    runtime = AlfredRuntime(
+        RuntimeConfig(force_text=True, watch=False, persona="stark"),
+        stt=ConsoleInput(lines=["quit"]), tts=ConsoleOutput(),
+    )
+    plain = RoleRegistry().get(role_name)
+    voiced = runtime._voiced_roles().get(role_name)
+    for attr in ("name", "title", "focus", "budget", "allowed_tools", "temperature"):
+        assert getattr(plain, attr) == getattr(voiced, attr), attr
+    assert plain.voice != voiced.voice
+
+
+def test_with_voice_does_not_mutate_the_original():
+    from jarvisx.agentic.roles import RoleRegistry
+
+    original = RoleRegistry().get("coder")
+    copy = original.with_voice("be dramatic")
+    assert original.voice == ""
+    assert copy.voice == "be dramatic"

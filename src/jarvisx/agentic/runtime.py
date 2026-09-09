@@ -309,6 +309,25 @@ class AlfredRuntime:
     # Internals
     # ------------------------------------------------------------------ #
 
+    def _voiced_roles(self):
+        """The default roles, talking in the active persona's voice.
+
+        Same jobs, same budgets, same tool allowances — only the voice changes.
+        Without this the persona decorates decisions it did not make, and the
+        moment a real model starts doing the work it reverts to the generic
+        engineering voice, which is exactly when the character matters most.
+        """
+        from jarvisx.agentic.roles import RoleRegistry
+
+        registry = RoleRegistry()
+        voice = self.persona.voice_prompt
+        if not voice:
+            return registry
+        for name in registry.names():
+            role = registry.get(name)
+            registry.register(role.with_voice(voice))
+        return registry
+
     def _confirm(self, command: str) -> bool:
         """Ask the human before anything hard to undo.
 
@@ -394,6 +413,7 @@ class AlfredRuntime:
             def run_goal(goal: str) -> Dict[str, Any]:
                 with Orchestrator(
                     backend=backend,
+                    roles=self._voiced_roles(),
                     default_budget=Budget(max_steps=10, max_tool_calls=24, max_seconds=300),
                     trace_root=self.config.trace_root,
                     tool_factory=tool_factory,

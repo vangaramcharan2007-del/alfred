@@ -7,7 +7,7 @@ is what turns "one big agent" into a workforce you can reason about.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, Iterable, List, Optional
 
 from jarvisx.agentic.types import Budget
@@ -23,18 +23,29 @@ class RoleSpec:
     budget: Budget = field(default_factory=Budget)
     allowed_tools: Optional[tuple] = None  # None = every registered tool
     temperature: float = 0.2
+    # How the agent talks, independent of what it is for. Empty means the
+    # default engineering voice. Set by the runtime from the active persona so
+    # that a real model actually sounds like the character instead of the
+    # persona only decorating decisions it did not make.
+    voice: str = ""
 
     def system_prompt(self, tool_schemas: str = "(tools injected at runtime)") -> str:
         """Render the persona prompt. Uses concatenation, not ``str.format``,
         so braces inside persona text can never break the render."""
+        voice = f"\n{self.voice}\n" if self.voice else ""
         return (
             f"You are {self.title}, Alfred's {self.name} agent.\n"
-            f"Your focus: {self.focus}\n\n"
+            f"Your focus: {self.focus}\n"
+            + voice + "\n"
             "You work inside a sandboxed workspace. Call tools to gather evidence and "
             "make changes, read every observation before acting, verify your work, and "
             "stop as soon as the goal is met.\n\n"
             "Available tools:\n" + tool_schemas + "\n"
         )
+
+    def with_voice(self, voice: str) -> "RoleSpec":
+        """A copy of this role that talks differently. Same job, same budget."""
+        return replace(self, voice=voice)
 
     def to_dict(self) -> Dict[str, object]:
         return {
