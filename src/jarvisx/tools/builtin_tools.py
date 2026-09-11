@@ -30,14 +30,33 @@ from jarvisx.tools.tool_kernel import (
 # ---------------------------------------------------------------------------
 
 _BLOCKED_SYSTEM_DIRS = {
-    "c:\\windows", "c:\\program files", "c:\\program files (x86)",
-    "c:\\programdata", "c:\\$recycle.bin", "c:\\system volume information",
+    "c:/windows", "c:/program files", "c:/program files (x86)",
+    "c:/programdata", "c:/$recycle.bin", "c:/system volume information",
+    # POSIX equivalents. The original list was Windows-only, so on Linux or
+    # macOS this guard matched nothing at all.
+    "/etc", "/bin", "/sbin", "/boot", "/usr", "/lib", "/lib64", "/sys",
+    "/proc", "/dev", "/root", "/var/lib",
 }
 
 
 def _is_system_path(p: str) -> bool:
-    resolved = str(Path(p).resolve()).lower()
-    return any(resolved.startswith(d) for d in _BLOCKED_SYSTEM_DIRS)
+    """True if *p* names a system-critical location that must not be written.
+
+    Backslashes are normalised to forward slashes before matching. That
+    matters more than it looks: ``Path("C:\\\\Windows\\\\system32\\\\x").resolve()``
+    on POSIX returns ``<cwd>/C:\\Windows\\system32\\x`` because a backslash is an
+    ordinary filename character there, so a ``startswith("c:\\\\windows")`` check
+    silently returned False and create_file happily wrote a file whose name
+    contained the path. The guard was therefore a no-op on every platform
+    except the one it happened to be written on, while still reporting that
+    the write had been blocked-by-design.
+    """
+    resolved = str(Path(p).resolve()).lower().replace("\\", "/")
+    raw = p.lower().replace("\\", "/")
+    for candidate in (resolved, raw):
+        if any(candidate.startswith(d) for d in _BLOCKED_SYSTEM_DIRS):
+            return True
+    return False
 
 
 def _validate_path(p: str) -> Dict[str, Any]:
@@ -203,6 +222,15 @@ class ReadFileTool(Tool):
     def execute(self, arguments: Dict[str, Any]) -> ToolResult:
         target = arguments.get("path", "")
         path = Path(target)
+
+        # Block system-critical locations. Without this the tool had no path
+        # check whatsoever -- read_file("../../../etc/passwd") returned
+        # status "success" with the file contents, and so would ~/.ssh/id_rsa
+        # or ~/.aws/credentials. Its scope is "filesystem.read", not the
+        # "filesystem.read(project_only)" that create_file declares, so the
+        # permission layer would not have caught it either.
+        if _is_system_path(target):
+            return ToolResult(status="failed", tool="read_file", error=f"Blocked: cannot read system location '{target}'")
 
         if not path.exists():
             return ToolResult(status="failed", tool="read_file", error=f"File does not exist: '{target}'")
