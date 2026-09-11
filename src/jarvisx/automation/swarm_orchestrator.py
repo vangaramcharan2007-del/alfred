@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 MAX_AGENTS = 5
 AGENT_TIMEOUT = 30
+DEFAULT_MODEL = "qwen2.5-coder:1.5b"
 
 
 class SwarmOrchestrator:
@@ -22,19 +23,46 @@ class SwarmOrchestrator:
     _instance = None
 
     @classmethod
-    def get_instance(cls) -> "SwarmOrchestrator":
+    def get_instance(
+        cls,
+        model: str = DEFAULT_MODEL,
+        max_agents: int = MAX_AGENTS,
+        timeout_per_agent: float = AGENT_TIMEOUT,
+    ) -> "SwarmOrchestrator":
         if cls._instance is None:
-            cls._instance = cls()
+            cls._instance = cls(
+                model=model, max_agents=max_agents, timeout_per_agent=timeout_per_agent
+            )
         return cls._instance
 
-    def __init__(self):
-        self.model = "qwen2.5-coder:1.5b"
+    def __init__(
+        self,
+        model: str = DEFAULT_MODEL,
+        max_agents: int = MAX_AGENTS,
+        timeout_per_agent: float = AGENT_TIMEOUT,
+    ):
+        # These were previously hardcoded on the instance and as module-level
+        # constants, so there was no way to run the swarm against a different
+        # model, cap fan-out, or shorten the per-agent timeout without editing
+        # the source. Callers now supply them; the old constants remain the
+        # defaults so existing behaviour is unchanged.
+        self.model = model
+        # MAX_AGENTS is a ceiling, not a default: each agent is a separate
+        # model call, so an uncapped fan-out is a way to spend a request budget
+        # by accident. Clamp rather than trust the caller.
+        self.max_agents = min(max_agents, MAX_AGENTS)
+        self.timeout_per_agent = timeout_per_agent
+        # A single shared client rather than importing ollama inside each
+        # coroutine. It is also the seam the tests mock: without an attribute
+        # to patch, the only way to test decomposition was to stand up a real
+        # model server.
+        import ollama
+
+        self._client = ollama.AsyncClient()
 
     async def decompose(self, intent: str) -> List[Dict[str, str]]:
         """Ask LLM to split a complex intent into parallel sub-tasks."""
-        import ollama
-
-        prompt = f"""Break this complex request into 2-{MAX_AGENTS} independent sub-tasks that can run in parallel.
+        prompt = f"""Break this complex request into 2-{self.max_agents} independent sub-tasks that can run in parallel.
 
 Request: "{intent}"
 
@@ -46,7 +74,7 @@ Output ONLY a JSON array of objects, each with:
 Example: [{{"task_id": "research", "description": "Research topic X", "prompt": "Research and summarize..."}}]
 Output ONLY the JSON array."""
 
-        res = ollama.chat(model=self.model, messages=[{"role": "user", "content": prompt}])
+        res = await self._client.chat(model=self.model, messages=[{"role": "user", "content": prompt}])
         text = res["message"]["content"].strip()
 
         # Parse JSON
@@ -58,7 +86,7 @@ Output ONLY the JSON array."""
         try:
             tasks = json.loads(text)
             if isinstance(tasks, list):
-                return tasks[:MAX_AGENTS]
+                return tasks[:self.max_agents]
         except json.JSONDecodeError:
             logger.warning("[Swarm] Failed to parse decomposition, running as single task")
 
@@ -66,21 +94,24 @@ Output ONLY the JSON array."""
 
     async def _run_agent(self, task: Dict[str, str]) -> Dict[str, Any]:
         """Run a single sub-agent with timeout."""
-        import ollama
-
         task_id = task.get("task_id", "unknown")
         prompt = task.get("prompt", "")
         logger.info(f"[Swarm] Agent '{task_id}' starting...")
         t0 = time.perf_counter()
 
         try:
+            # Await the async client directly. The previous version wrapped a
+            # blocking ollama.chat in asyncio.to_thread, which meant every
+            # "parallel" sub-agent consumed a real OS thread for its whole
+            # lifetime -- the fan-out was bounded by the thread pool, not by
+            # max_agents, and the concurrency the swarm exists to provide was
+            # largely spent on thread handoff.
             res = await asyncio.wait_for(
-                asyncio.to_thread(
-                    ollama.chat,
+                self._client.chat(
                     model=self.model,
                     messages=[{"role": "user", "content": prompt}]
                 ),
-                timeout=AGENT_TIMEOUT,
+                timeout=self.timeout_per_agent,
             )
             duration = round(time.perf_counter() - t0, 2)
             logger.info(f"[Swarm] Agent '{task_id}' completed in {duration}s")
@@ -91,7 +122,7 @@ Output ONLY the JSON array."""
                 "duration_sec": duration,
             }
         except asyncio.TimeoutError:
-            logger.warning(f"[Swarm] Agent '{task_id}' timed out after {AGENT_TIMEOUT}s")
+            logger.warning(f"[Swarm] Agent '{task_id}' timed out after {self.timeout_per_agent}s")
             return {"task_id": task_id, "status": "timeout", "result": ""}
         except Exception as e:
             logger.error(f"[Swarm] Agent '{task_id}' failed: {e}")
@@ -124,5 +155,11 @@ Output ONLY the JSON array."""
         }
 
 
-def get_swarm_orchestrator() -> SwarmOrchestrator:
-    return SwarmOrchestrator.get_instance()
+def get_swarm_orchestrator(
+    model: str = DEFAULT_MODEL,
+    max_agents: int = MAX_AGENTS,
+    timeout_per_agent: float = AGENT_TIMEOUT,
+) -> SwarmOrchestrator:
+    return SwarmOrchestrator.get_instance(
+        model=model, max_agents=max_agents, timeout_per_agent=timeout_per_agent
+    )
