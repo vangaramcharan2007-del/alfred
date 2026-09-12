@@ -7,7 +7,20 @@ import unittest
 from unittest.mock import patch, MagicMock
 import numpy as np
 
-from jarvisx.voice.ev_handy_engine import EVHandyVoiceDictationEngine
+import pytest
+
+try:
+    from jarvisx.voice.ev_handy_engine import EVHandyVoiceDictationEngine
+except (ImportError, OSError) as _exc:
+    # Skipped, not failed: "this never ran because its dependency is missing"
+    # is different information from "the implementation is broken", and a
+    # collection error conflates the two. OSError is caught alongside
+    # ImportError because sounddevice is installed but raises
+    # OSError("PortAudio library not found") at import time.
+    pytest.skip(
+        "E-V handy voice engine (needs PortAudio) unavailable: " + str(_exc), allow_module_level=True
+    )
+
 
 
 class TestEVHandyVoiceDictationEngine(unittest.TestCase):

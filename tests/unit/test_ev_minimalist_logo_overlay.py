@@ -6,7 +6,20 @@ Unit Test Suite for Minimalist Logo Overlay Widget.
 import unittest
 from unittest.mock import patch, MagicMock
 
-from jarvisx.gui.ev_minimalist_logo_overlay import EVMinimalistLogoOverlay
+import pytest
+
+try:
+    from jarvisx.gui.ev_minimalist_logo_overlay import EVMinimalistLogoOverlay
+except (ImportError, OSError) as _exc:
+    # Skipped, not failed: "this never ran because its dependency is missing"
+    # is different information from "the implementation is broken", and a
+    # collection error conflates the two. OSError is caught alongside
+    # ImportError because sounddevice is installed but raises
+    # OSError("PortAudio library not found") at import time.
+    pytest.skip(
+        "Minimalist logo overlay (needs tkinter) unavailable: " + str(_exc), allow_module_level=True
+    )
+
 
 
 class TestEVMinimalistLogoOverlay(unittest.TestCase):

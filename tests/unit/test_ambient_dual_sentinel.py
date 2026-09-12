@@ -6,7 +6,20 @@ Unit Test Suite for Ambient Dual-Voice Sentinel & Proactive Coding Watcher.
 import unittest
 from unittest.mock import patch, MagicMock
 
-from jarvisx.voice.ambient_dual_sentinel import AmbientDualSentinel
+import pytest
+
+try:
+    from jarvisx.voice.ambient_dual_sentinel import AmbientDualSentinel
+except (ImportError, OSError) as _exc:
+    # Skipped, not failed: "this never ran because its dependency is missing"
+    # is different information from "the implementation is broken", and a
+    # collection error conflates the two. OSError is caught alongside
+    # ImportError because sounddevice is installed but raises
+    # OSError("PortAudio library not found") at import time.
+    pytest.skip(
+        "Ambient dual-voice sentinel (needs PortAudio) unavailable: " + str(_exc), allow_module_level=True
+    )
+
 
 
 class TestAmbientDualSentinel(unittest.TestCase):
