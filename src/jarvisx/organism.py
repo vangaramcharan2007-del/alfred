@@ -287,14 +287,25 @@ class Eyes:
             return {"status": "failed", "error": str(e)}
 
     def read_screen_text(self) -> str:
-        """Extract text from the current screen via OCR."""
+        """Extract text from the current screen via OCR.
+
+        Returns an empty string when OCR is unavailable. It used to return the
+        literal "Active Desktop Window" instead, which is worse than no result:
+        a caller cannot distinguish fabricated text from text actually read off
+        the screen, and the failure was logged at debug level so it never
+        surfaced.
+
+        `jarvisx.vision.ocr_engine` does not exist in this tree, and no OCR
+        backend (pytesseract, easyocr) is imported anywhere in `src/`, so this
+        method cannot currently succeed. Returning "" states that honestly.
+        """
         try:
             from jarvisx.vision.ocr_engine import OCREngine
             ocr = OCREngine()
             return ocr.extract_screen_text()
         except Exception as e:
-            logger.debug(f"[Eyes] OCR extraction fallback: {e}")
-            return "Active Desktop Window"
+            logger.warning(f"[Eyes] OCR unavailable, returning no text: {e}")
+            return ""
 
 
 # ===========================================================================

@@ -89,7 +89,20 @@ async def async_main():
         if first_word in {"analyze", "explain", "debug", "engineer"}:
             sys.exit(_handle_engineering_command(first_word, sys.argv[2:]))
         elif first_word in {"desktop", "app", "widget", "waveform", "overlay"}:
-            from jarvisx.automation.glowing_waveform_overlay import launch_sovereign_waveform
+            # jarvisx.automation.glowing_waveform_overlay does not exist in this
+            # tree, so this branch used to dump a raw ModuleNotFoundError
+            # traceback for every one of the five aliases that reach it.
+            try:
+                from jarvisx.automation.glowing_waveform_overlay import (
+                    launch_sovereign_waveform,
+                )
+            except ImportError as exc:
+                print(
+                    "[Alfred] The waveform overlay is not available: "
+                    f"{exc}. jarvisx.automation.glowing_waveform_overlay is "
+                    "missing from this checkout."
+                )
+                sys.exit(1)
             launch_sovereign_waveform()
             sys.exit(0)
 
@@ -152,7 +165,17 @@ def main():
                 print("\n[Alfred Master OS]: Closed cleanly.")
             return 0
         elif first_word in {"desktop", "app", "widget", "waveform", "overlay"}:
-            from jarvisx.automation.glowing_waveform_overlay import launch_sovereign_waveform
+            try:
+                from jarvisx.automation.glowing_waveform_overlay import (
+                    launch_sovereign_waveform,
+                )
+            except ImportError as exc:
+                print(
+                    "[Alfred] The waveform overlay is not available: "
+                    f"{exc}. jarvisx.automation.glowing_waveform_overlay is "
+                    "missing from this checkout."
+                )
+                return 1
             try:
                 launch_sovereign_waveform()
             except KeyboardInterrupt:
@@ -163,5 +186,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Was `main()`, which throws the return value away. main() has several
+    # `return 1` paths, and none of them could reach the process exit status, so
+    # this entry point reported success no matter what happened. Anything
+    # scripting it had no way to detect a failure.
+    sys.exit(main())
 
