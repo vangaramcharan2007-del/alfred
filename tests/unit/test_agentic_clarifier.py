@@ -248,3 +248,51 @@ def test_report_surfaces_clarifications_in_to_dict():
 
     from jarvisx.agentic.voice_loop import _speak_run
     assert _speak_run(d) == "Which ones exactly?"
+
+
+# --------------------------------------------------------------------- #
+# End to end through the real voice loop
+# --------------------------------------------------------------------- #
+
+def _voice_runner(gate):
+    """Same shape as AlfredRuntime._make_runner()."""
+    from jarvisx.agentic.scheduler import Orchestrator
+    from jarvisx.agentic.types import Budget
+
+    def run_goal(goal):
+        with Orchestrator(
+            default_budget=Budget(max_steps=10, max_tool_calls=24, max_seconds=300),
+            clarifier=gate,
+        ) as orch:
+            return orch.run(goal).to_dict()
+
+    return run_goal
+
+
+@pytest.mark.parametrize("gate,speaks_question", [(ClarificationGate(), True), (None, False)])
+def test_voice_loop_speaks_the_question_end_to_end(gate, speaks_question):
+    """The whole chain, not the parts: STT -> intent -> runner -> gate -> TTS.
+
+    Testing _speak_run and _make_runner separately would have passed while the
+    real path stayed broken, because the integration is where the "That did not
+    work: something" stall lived.
+    """
+    from jarvisx.agentic.voice_loop import ConsoleInput, ConsoleOutput, Intent, VoiceAgentLoop
+
+    tts = ConsoleOutput()
+    loop = VoiceAgentLoop(
+        stt=ConsoleInput(lines=["alfred, run the cleanup and delete them"]),
+        tts=tts,
+        runner=_voice_runner(gate),
+    )
+
+    turns = loop.run()
+
+    assert turns and turns[0].intent is Intent.DO_WORK, "phrase no longer routes to the work path"
+    assert tts.spoken, "the agent said nothing at all"
+    spoken = tts.spoken[0]
+    if speaks_question:
+        assert spoken == "Which ones exactly? I would rather ask than delete something you wanted kept."
+        assert "did not work" not in spoken, "a question was reported as a failure"
+    else:
+        assert spoken.startswith("Done.")
