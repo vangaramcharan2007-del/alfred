@@ -848,13 +848,30 @@ the unwired files.
 **Do not act on the number 22 in this section's original title.** I re-measured
 reachability before treating it as a deletion list, and it does not hold up.
 
-Parsing every file in `src/`, `tests/` and the repo root with `ast` and building
-the first-party import graph gives **95 modules that nothing imports
-statically**, not 22. My first pass at this reported 145; that was a bug in the
-measuring script, which had a `pass` where the `from pkg import name` case
-should have been handled, so it silently recorded nothing for that form of
-import. The 95 is the corrected figure. I do not know how 22 was originally
-derived, and I am not going to present either number as authoritative.
+There are now three numbers for this, from three different methods, and none of
+them is authoritative:
+
+| Method | Count |
+|---|---|
+| Import graph over `src/`, `tests/`, repo-root `.py` | **95** |
+| The method described later in this document — references counted from `pyproject.toml`, docs, scripts and the demo, not just `import` statements | **22 files, 1558 lines** |
+| Regex search for each filename stem across 1048 source and doc files | **32 files, 3677 lines** |
+
+The 22 was not a mistake, and I was wrong to imply I could not account for it.
+This document already states its method, and it is a *broader* reference set
+than mine — packaging config and prose count as references, because those are
+real ways a file gets used. My 95 counts only `import` statements, so it is a
+different and much stricter question, not a correction of theirs.
+
+The third figure I do not trust and include only for honesty about the spread:
+matching a filename stem as a whole word anywhere in 1048 files is too crude to
+mean anything, since a file called `state.py` matches the word "state". It is
+recorded here as a warning about how easily a plausible-looking number can be
+produced by a method that will not bear weight.
+
+My own first pass at the 95 reported 145, and that *was* a bug — the measuring
+script had a `pass` where the `from pkg import name` case should have been
+handled, so it silently recorded nothing for that form of import.
 
 More important than which count is right: **no static analysis can prove a file
 here is unreachable.** Seven call sites load modules by computed name or file
