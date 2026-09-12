@@ -890,12 +890,16 @@ Do NOT mention JSON schemas, validation codes, or raw tool logs.
 
     async def _execute_subsystem(self, category: str, prompt: str) -> Dict[str, Any]:
         """
-        Pure Autonomous LLM Multi-Agent Reasoning Engine.
-        Executes single-turn and multi-step directives through genuine LLM reasoning and ToolExecutor.
+        Dispatch a directive through the LLM ReAct turn.
+
+        Every category currently routes to the same autonomous tool-calling
+        turn -- there is no per-subsystem specialisation yet. The category is
+        recorded on the result so a caller can tell which subsystem was asked
+        to handle the request, rather than having to infer it.
         """
         prompt_clean = prompt.strip()
         if not prompt_clean:
-            return {"status": "success", "response": "Standing by, Sir."}
+            return {"status": "success", "subsystem": category, "response": "Standing by, Sir."}
 
         # 1. Pure LLM ReAct Turn (Autonomous Tool Selection + Conversational Speech)
         react_res = await self.execute_llm_react_turn_async(prompt_clean, persona="ALFRED")
@@ -906,6 +910,7 @@ Do NOT mention JSON schemas, validation codes, or raw tool logs.
             pass
 
         print(f"\n[JARVIS X]: {resp_text}")
+        react_res["subsystem"] = category
         return react_res
 
 
