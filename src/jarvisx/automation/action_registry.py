@@ -50,9 +50,23 @@ class OpenAppAction(Action):
     def _run(self, context: Dict[str, Any]) -> Dict[str, Any]:
         target_path = context.get("path", ".")
         if self.app_name in ["vscode", "code"]:
-            code_bin = shutil.which("code") or "code"
-            subprocess.Popen([code_bin, target_path], shell=True)
-            return {"status": "SUCCESS", "app": "VS Code", "path": target_path}
+            # Same false success as the terminal branch below. `shutil.which`
+            # was already consulted here, but its answer was discarded: the
+            # `or "code"` fallback handed Popen a bare name that need not exist.
+            # Reproduced with VS Code not installed:
+            #     .: 1: code: not found
+            #     vscode -> {'status': 'SUCCESS', 'app': 'VS Code', 'path': '.'}
+            # shell=True with a list is why the error was attributed to "."
+            # rather than to `code`.
+            code_bin = shutil.which("code")
+            if code_bin is None:
+                return {
+                    "status": "NOT_SUPPORTED",
+                    "app": "VS Code",
+                    "reason": f"VS Code is not installed or not on PATH ({sys.platform})",
+                }
+            subprocess.Popen([code_bin, target_path])
+            return {"status": "SUCCESS", "app": "VS Code", "path": target_path, "binary": code_bin}
         elif self.app_name in ["browser", "chrome", "edge"]:
             import webbrowser
             webbrowser.open(context.get("url", "https://github.com"))
