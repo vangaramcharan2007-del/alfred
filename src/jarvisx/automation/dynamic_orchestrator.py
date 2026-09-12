@@ -333,6 +333,90 @@ class DynamicOrchestrator:
                         "status": "FAILED",
                     }
 
+        # 0e. DSA tutor and VS Code control. Same situation as chess: the
+        # engines exist and are already routed from interface/cli.py, just not
+        # from here, so one capability answered one entry point and not the
+        # other. Both imports are cheap and neither needs hardware to
+        # construct, so they are routed directly rather than left as a Phase 2
+        # dependency.
+        if clean_text in ("teach me dsa", "teach me data structures", "dsa",
+                          "dsa lesson", "start dsa", "learn dsa", "dsa tutor",
+                          "daily dsa", "curriculum"):
+            try:
+                from jarvisx.tutor.dsa_tutor import DSATutorEngine
+
+                lesson = DSATutorEngine().launch_daily_lesson(
+                    day=None, open_video=False, open_vscode=False
+                )
+                return {
+                    "action": "dsa_tutor",
+                    "status": "SUCCESS" if lesson.get("status") == "SUCCESS" else "FAILED",
+                    "response": (
+                        f"{lesson.get('spoken_script', '')}\n"
+                        f"Topic: {lesson.get('topic', '')}\n"
+                        f"Lesson file: {lesson.get('filename', '')}"
+                    ),
+                    "day": lesson.get("day"),
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("DSA tutor failed: %s", exc)
+                return {
+                    "action": "dsa_tutor",
+                    "status": "FAILED",
+                    "response": f"The DSA tutor did not start, {salutation}: {exc}",
+                }
+
+        if ("vs code" in clean_text or "vscode" in clean_text) and (
+            "do it yourself" in clean_text or "type it" in clean_text
+            or "write the code" in clean_text or "write it" in clean_text
+            or "code it" in clean_text
+        ):
+            try:
+                from jarvisx.automation.vscode_controller import VSCodeController
+
+                typed = VSCodeController().create_and_type_code(live_type=True)
+                return {
+                    "action": "vscode_type",
+                    "status": "SUCCESS" if typed.get("status") == "SUCCESS" else "FAILED",
+                    "response": typed.get(
+                        "message",
+                        f"Created {typed.get('filename', 'the file')} in VS Code.",
+                    ),
+                    "file": typed.get("file"),
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("VS Code typing failed: %s", exc)
+                return {
+                    "action": "vscode_type",
+                    "status": "FAILED",
+                    "response": f"I could not write that into VS Code, {salutation}: {exc}",
+                }
+
+        if ("vs code" in clean_text or "vscode" in clean_text) and (
+            "control" in clean_text or "open" in clean_text or "focus" in clean_text
+            or "launch" in clean_text or "can u" in clean_text or "can you" in clean_text
+        ):
+            try:
+                from jarvisx.automation.vscode_controller import VSCodeController
+
+                ok = VSCodeController().focus_or_launch()
+                return {
+                    "action": "vscode_control",
+                    "status": "SUCCESS" if ok else "FAILED",
+                    "response": (
+                        f"Yes {salutation}, VS Code is under control -- focused and ready."
+                        if ok else
+                        f"I could not bring VS Code to the front, {salutation}."
+                    ),
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("VS Code control failed: %s", exc)
+                return {
+                    "action": "vscode_control",
+                    "status": "FAILED",
+                    "response": f"VS Code control failed, {salutation}: {exc}",
+                }
+
         # 1. Full Agentic ReAct Execution via Living Organism (replaces all static if-statement keyword traps)
         try:
             from jarvisx.organism import get_organism

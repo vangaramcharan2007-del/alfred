@@ -27,3 +27,7 @@ build/
 dist/
 *.egg-info/
 alfred_readme_restored.md
+
+# Written by VSCodeController.create_and_type_code() into the workspace root
+# during live demos and by tests/unit/test_vscode_controller.py. Generated, not source.
+array_implementation.py
