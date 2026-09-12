@@ -541,7 +541,42 @@ class DynamicOrchestrator:
         except Exception:
             pass
 
-        # Deterministic heuristic fallback
+        # Deterministic heuristic fallback.
+        #
+        # This comment was committed with no code under it, and the
+        # `mission_planner` property below was written at class level directly
+        # after it -- so the method fell off the end and returned None on every
+        # call that could not reach a local Ollama server, which is the normal
+        # case on a machine without one. Five tests failed on that None, and
+        # more importantly the orchestrator could route nothing at all offline.
+        lowered = user_prompt.lower()
+
+        web_markers = (
+            "http://", "https://", "www.", ".com", ".org", ".net", ".io",
+            "browse", "website", "webpage", "web page", "search the internet",
+            "search online", "google ", "scrape", "crawl", "url", "link to",
+            "fetch the page", "open the site",
+        )
+        visual_markers = (
+            "click", "double click", "double-click", "right click", "tap ",
+            "type ", "press ", "keystroke", "screenshot", "my screen",
+            "the screen", "on screen", "cursor", "mouse", "keyboard",
+            "ms paint", "notepad", "look at", "see my", "watch my",
+            "drag ", "scroll", "highlight",
+        )
+
+        web_score = sum(1 for m in web_markers if m in lowered)
+        visual_score = sum(1 for m in visual_markers if m in lowered)
+
+        # A URL is close to decisive; otherwise let the stronger signal win and
+        # default to KNOWLEDGE_RAG, which is the conversational bucket the
+        # system instruction reserves for general questions and coding help.
+        if web_score and web_score >= visual_score:
+            return "WEB_RESEARCH"
+        if visual_score:
+            return "VISUAL_ACTUATION"
+        return "KNOWLEDGE_RAG"
+
     @property
     def mission_planner(self):
         if not hasattr(self, "_mission_planner") or self._mission_planner is None:
