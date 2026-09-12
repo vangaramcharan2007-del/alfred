@@ -238,6 +238,37 @@ is recorded here rather than done.
 | Full suite | **28 failed / 1065 passed / 5 skipped / 4 errors** |
 | Baseline before this work | 38 failed / 751 passed / 56 errors |
 
+**Those numbers were not reproducible when first written, and that is its own
+finding.** Re-running the full suite twice back to back, same environment, same
+collection order, gave 31 failed / 1062 passed and then 28 failed / 1065
+passed. Three release tests failed only on some runs:
+
+```
+test_phase87_sovereign_release.py::test_sovereign_release_manager_manifest_generation
+test_phase87_sovereign_release.py::test_kernel_objective_routing_phase87
+test_phase90_grand_finale.py::test_grand_finale_release_manifest_generation
+```
+
+All three asserted `total_hspw_achieved >= 40.0`. That figure is the sum of
+~24 per-subsystem counters read off `PersonalOSKernel` (`personal_os.py:635`),
+each of which accumulates mutable state at runtime. In a clean process the
+total is a deterministic **45.5** and they pass; inside a full-suite run
+something earlier has already moved those counters and the total lands at
+**39.5**, half a unit under the threshold. So the assertion was not measuring
+the release engine at all — it was measuring whatever had run before it.
+
+Fixed in `fc7cdb7` by asserting the contract each engine actually implements
+(the milestone flag must agree with the value it was derived from) rather than
+an absolute threshold on a contaminated aggregate. Verified across three
+consecutive full-suite runs — warm `var/` twice, and once with `var/` moved
+aside, the cold condition that had produced 31. All three agree on
+28 / 1065 / 5 / 4.
+
+A suite that cannot reproduce its own result cannot be used to judge anything,
+so this mattered more than the three tests it unblocked. It is also a warning
+about the numbers elsewhere in this document: **any count quoted here should be
+treated as suspect until it survives a second run.**
+
 **A correction to something this document claimed earlier.** An earlier
 revision of this section said the failures and collection errors "are all
 `ModuleNotFoundError` for optional dependencies this sandbox does not have",
