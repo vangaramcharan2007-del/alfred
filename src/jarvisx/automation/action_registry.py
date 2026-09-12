@@ -58,8 +58,31 @@ class OpenAppAction(Action):
             webbrowser.open(context.get("url", "https://github.com"))
             return {"status": "SUCCESS", "app": "Browser", "url": context.get("url", "https://github.com")}
         elif self.app_name in ["terminal", "powershell", "cmd"]:
-            subprocess.Popen(["cmd.exe", "/c", "start", "cmd"], shell=True)
-            return {"status": "SUCCESS", "app": "Terminal"}
+            # cmd.exe is Windows-only and this branch returned SUCCESS whether
+            # or not anything launched. Reproduced on Linux: the shell printed
+            # "cmd.exe: not found" while the action still reported
+            # {'status': 'SUCCESS', 'app': 'Terminal'}. A false success is worse
+            # than the loud failure fixed in vision_engine.py, because nothing
+            # downstream has any reason to doubt it.
+            #
+            # shell=True with a list was also wrong on POSIX: it makes the first
+            # element the command and the rest shell arguments, which is why the
+            # error above was reported by "/c" rather than by cmd.exe.
+            terminal = next(
+                (c for c in ("cmd.exe", "wt.exe", "gnome-terminal", "konsole",
+                             "xfce4-terminal", "x-terminal-emulator", "xterm")
+                 if shutil.which(c)),
+                None,
+            )
+            if terminal is None:
+                return {
+                    "status": "NOT_SUPPORTED",
+                    "app": "Terminal",
+                    "reason": f"No terminal emulator found on this platform ({sys.platform})",
+                }
+            args = [terminal, "/c", "start", terminal] if terminal == "cmd.exe" else [terminal]
+            subprocess.Popen(args)
+            return {"status": "SUCCESS", "app": "Terminal", "terminal": terminal}
         return {"status": "NOT_SUPPORTED", "app": self.app_name, "reason": f"Application '{self.app_name}' launcher not configured"}
 
 
