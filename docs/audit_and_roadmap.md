@@ -63,9 +63,9 @@ The same job is implemented several times, and most copies are live:
 | `capability_registry.py` | 4 | 3 reachable, 1 orphan |
 | `research_agent.py` | 2 | both reachable |
 | `planner.py` | 2 | both reachable |
-| `*Orchestrator` classes | 12 | 8 prod, 2 test, 2 orphan |
+| `*Orchestrator` classes | 11 | 8 referenced, 3 orphan |
 
-Twelve orchestrators is not twelve features. It is one feature discovered
+Eleven orchestrators is not eleven features. It is one feature discovered
 twelve times, and every copy is a place a bug can hide that the others do not
 have.
 
@@ -262,7 +262,7 @@ same false-success bug found in `execute_swarm`; here it is backed by a real
 
 One correction to the earlier reasoning recorded here: this was described as
 belonging to Phase 2, on the grounds that the routes should be added once the
-12 orchestrators are collapsed into one. That was wrong — the engines import
+11 orchestrators are collapsed into one. That was wrong — the engines import
 cleanly and were testable immediately, so there was no dependency on the
 consolidation. Wiring them first also gives Phase 2 five concrete routes that
 the single surviving orchestrator must keep answering, which is a useful
@@ -356,7 +356,7 @@ response    : 'INJECTED-ROUTER-REACHED-THE-BRAIN'
 ```
 
 **This is the prerequisite for the Phase 2 consolidation**, not a substitute for
-it. The 12 orchestrators still exist; what changed is that a model can now
+it. The 11 orchestrators still exist; what changed is that a model can now
 actually be handed to the one that runs.
 
 ### A wrong diagnosis, corrected: why `test_router_both_providers_failure` fails
@@ -588,7 +588,7 @@ cannot see, and it should be fixed before any new feature is built.**
 ### Phase 2 — Collapse the duplicates
 Pick one canonical implementation per concept and delete the rest:
 
-- 12 orchestrators → 1. `agentic/scheduler.py::Orchestrator` is the strongest
+- **11** orchestrators → 1. `agentic/scheduler.py::Orchestrator` is the strongest
   candidate: it has budgets, a policy gate, tracing, verification and 553
   passing tests behind it.
 - 3 event buses → 1. 3 mission executors → 1. 4 capability registries → 1.
@@ -596,6 +596,37 @@ Pick one canonical implementation per concept and delete the rest:
 Do this behind the test suite, one concept at a time, and expect the file count
 to drop by hundreds. This is the single biggest reduction in "where could this
 bug be hiding".
+
+**The count in the duplication table above says 12; the verified number is 11.**
+Counting `^class .*Orchestrator` across `src/` gives eleven. The twelfth was
+most likely `OrchestrationReport`, which is a result dataclass rather than an
+orchestrator, or a test-only class. Worth correcting before anyone plans the
+merge against the wrong number.
+
+Reachability was measured rather than assumed — "external files" counts files
+outside the class's own module that mention it:
+
+| Class | Lines | External files |
+|---|---|---|
+| `Orchestrator` (`agentic/scheduler.py`) | 300 | **52** |
+| `DynamicOrchestrator` | 1043 | **23** |
+| `LinuxDevOpsOrchestrator` | 133 | 3 |
+| `MetaOrchestrator` | 110 | 3 |
+| `MultiAgentOrchestrator` | 48 | 2 |
+| `SwarmOrchestrator` | 183 | 1 (its own test) |
+| `AOVOrchestratorBridge` | 97 | 1 |
+| `EventOrchestrator` | 20 | 1 |
+| `FreeLLMIntentOrchestrator` | 141 | **0** |
+| `UnifiedMeshOrchestrator` | 199 | **0** |
+| `AmbientSovereignOrchestrator` | 171 | **0** |
+
+Two carry the actual load. Three — 511 lines — are referenced by nothing at all
+and could be deleted without touching a caller, which is the cheapest first
+step and a useful test of whether the rest of the plan holds.
+
+This is recorded as analysis, not done. Deleting orchestrators is destructive
+and needs a decision rather than a heuristic; Phase 3 below says the same about
+the unwired files.
 
 ### Phase 3 — Decide the fate of the 22 unwired files
 Not deletion by heuristic. For each: **wire it, or delete it on purpose.**
