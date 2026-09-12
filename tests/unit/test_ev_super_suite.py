@@ -58,7 +58,9 @@ def test_ev_mobile_neural_bridge():
     mobile = EVMobileNeuralBridge.get_instance()
     res = mobile.send_mobile_update("Linux model training finished with 95% accuracy!", is_voice_note=True)
     assert res["status"] == "success"
-    assert "807481520" in res["recipient"]
+    # The registered number is "+91 8074881520" (ev_super_engine.py), so the
+    # expected digits here were missing an 8 and could never match.
+    assert "8074881520" in res["recipient"]
 
 
 def test_ev_holographic_visor():

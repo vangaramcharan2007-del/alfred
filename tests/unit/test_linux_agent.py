@@ -21,7 +21,11 @@ def test_linux_agent_singleton():
 def test_linux_runtime_detection():
     agent = LinuxBridgeAgent.get_instance()
     runtime = agent.detect_runtime()
-    assert runtime in ("wsl", "virtualbox", "native", "bridge")
+    # "posix_bash" was missing from this set even though detect_runtime()
+    # returns it and the executor explicitly branches on
+    # `runtime in ("posix_bash", "native")`, so a plain Linux/macOS host failed
+    # a test that was only ever listing the Windows-hosted backends.
+    assert runtime in ("wsl", "virtualbox", "native", "bridge", "posix_bash")
 
 
 def test_linux_bash_execution_echo():
