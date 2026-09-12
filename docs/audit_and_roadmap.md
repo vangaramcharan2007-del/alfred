@@ -220,21 +220,23 @@ purge, WhatsApp send, the omni screen sentinel) cannot run on any machine.
 Removing the call sites is not an audit cleanup but a product decision, so it
 is recorded here rather than done.
 
-### Resolved: three features that were built but not reachable by voice
+### Resolved: four capabilities that were built but not reachable by voice
 
 A different category from the above, and easy to confuse with it. These
 subsystems **existed and worked**; what was missing was the routing from
 `DynamicOrchestrator._execute_single_voice_command`, which fell through to
 `action: "speak"` instead of dispatching to them.
 
-| Feature | Exists at | Action now returned |
+| Capability | Exists at | Action now returned |
 |---|---|---|
 | Chess | `games/chess_engine.py` (`ChessGame`) | `chess_start`, `chess_move` |
 | DSA tutor | `tutor/dsa_tutor.py`, wired in `interface/cli.py:770` | `dsa_tutor` |
 | VS Code control | `automation/vscode_controller.py` | `vscode_control`, `vscode_type` |
+| Multi-step missions | `missions/unified_mission_planner.py`, wired to `DynamicOrchestrator.execute_mission()` at line 448 | `mission` |
 
-All five routes were added to `_execute_single_voice_command` in commits
-`3c235cb` and `16421f7`, and verified by driving the real `DynamicOrchestrator`:
+All six routes were added to `_execute_single_voice_command` in commits
+`3c235cb`, `16421f7` and `a578eba`, and verified by driving the real
+`DynamicOrchestrator`:
 
 ```
 $ play chess with me      -> chess_start    SUCCESS  "Visual Chess Arena opened in browser." + board
@@ -242,10 +244,20 @@ $ move e4                 -> chess_move     SUCCESS  "You played e2->e4. Alfred 
 $ teach me dsa            -> dsa_tutor      SUCCESS  "Welcome to Day 1 ... Arrays & Hash Maps ..."
 $ control vs code         -> vscode_control SUCCESS  "VS Code is under control -- focused and ready."
 $ do it yourself in vs code -> vscode_type  SUCCESS  "created 'array_implementation.py' and loaded it"
+$ mission give me a system overview -> mission completed  steps=1 completed=1 tool=get_system_info
 ```
 
 The chess game is held on `self._chess_game` so that a bare `"move e4"` refers
 to the game the previous command started, rather than inventing a fresh board.
+The mission route passes `interactive=False`, because a hands-free agent must
+not block on stdin waiting for a prompt the user cannot see.
+
+The mission route is worth pausing on. `execute_mission()` had been wired to
+`UnifiedMissionPlanner` since it was written — the gap was purely that nothing
+in the voice path called it. Its `status: "completed"` was checked rather than
+trusted, since a planner that reports completion with nothing executed is the
+same false-success bug found in `execute_swarm`; here it is backed by a real
+`get_system_info` call with `completed_count` matching `steps_count`.
 
 One correction to the earlier reasoning recorded here: this was described as
 belonging to Phase 2, on the grounds that the routes should be added once the
@@ -270,21 +282,23 @@ acceptance test for the merge rather than an argument for waiting.
 | Check | Result |
 |---|---|
 | Agentic suite | **553 passed**, 0 failures |
-| Full suite | **15 failed / 1089 passed / 5 skipped / 3 errors** |
+| Full suite | **13 failed / 1091 passed / 5 skipped / 3 errors** |
 | Baseline before this work | 38 failed / 751 passed / 56 errors |
 
 Identical across two consecutive runs. Progression through the audit:
 751 → 781 → 862 → 1000 → 1014 → 1017 → 1045 → 1051 → 1060 → 1065 → 1076 →
-1086 → 1088 → **1089** passing, with collection errors 56 → 3 and failures
-38 → 15. Most of the gain in passing tests came from installing the declared
-dependency set, which let whole files collect for the first time; the drop in
-failures came from fixing what those newly-running tests found.
+1086 → 1088 → 1089 → 1090 → **1091** passing, with collection errors 56 → 3
+and failures 38 → 13. Most of the gain in passing tests came from installing
+the declared dependency set, which let whole files collect for the first time;
+the drop in failures came from fixing what those newly-running tests found.
 
-The last three steps are the work described above: chess took the suite from
-1076 to 1086, the DSA tutor plus VS Code routes took it from 1086 to 1088, and
-the `_execute_subsystem` fix took it from 1088 to 1089.
+The last five steps are the work described above: chess took the suite from
+1076 to 1086, the DSA tutor plus VS Code routes took it from 1086 to 1088, the
+`_execute_subsystem` fix took it from 1088 to 1089, the mission route took it
+from 1089 to 1090, and removing an order dependency from the sentinel test took
+it from 1090 to 1091.
 
-### Two silent-failure fixes found while chasing the remaining failures
+### Three silent-failure fixes found while chasing the remaining failures
 
 **`_execute_subsystem` accepted a `category` and never used it.** It returned
 whatever the ReAct turn produced, so a caller had no way to tell which
@@ -300,6 +314,17 @@ every agent sleeping 1.0 s, it returned `agents_succeeded=0`,
 `merged_response=''` and `status='success'`. Status is now derived —
 `COMPLETED` / `PARTIAL` / `FAILED` — and the timeout and error counts are
 surfaced so the caller need not recount `individual_results`.
+
+**A test that passed alone and failed in the suite.**
+`test_organism_fastpath_integration` was 7/7 green when its file ran by itself
+and failed in the full suite with `RuntimeError: There is no current event loop
+in thread 'MainThread'`. It called `asyncio.get_event_loop()` and then
+`run_until_complete`, which only works while nothing earlier in the same
+process has unset the current loop — `get_event_loop()` has not created a loop
+on demand since Python 3.10. The test was asserting something about test
+ordering, not about the organism. `asyncio.run()` gives it its own loop either
+way. Worth naming because a failure that depends on what ran before it will
+move around and look like a different bug each time.
 
 ### Why the three swarm tests still fail
 
@@ -385,12 +410,19 @@ count (38 → 50) as masked tests began to run. That was progress, not
 regression, and a dashboard that only reports a green/red count would have read
 it as the latter.
 
-The 4 remaining collection errors are genuinely environmental and were checked
+The 3 remaining collection errors are genuinely environmental and were checked
 individually: `test_ambient_dual_sentinel.py` and `test_ev_handy_engine.py`
 need the PortAudio system library (`OSError: PortAudio library not found`, not
-a Python package); `test_ev_max_agent.py` needs `pygame`, which is imported but
-not declared in `pyproject.toml`; `test_ev_minimalist_logo_overlay.py` needs
-`tkinter`, which ships with the system Python rather than pip.
+a Python package, and not pip-installable — the `pyaudio` wheel fails to build
+here because there is no `libportaudio` and no `portaudio.h`);
+`test_ev_minimalist_logo_overlay.py` needs `tkinter`, which ships with the
+system Python rather than pip.
+
+An earlier revision of this paragraph claimed a fourth error in
+`test_ev_max_agent.py` caused by `pygame` being "imported but not declared in
+`pyproject.toml`". Both halves were wrong and have been corrected: `pygame` is
+declared at `pyproject.toml:47`, and `test_ev_max_agent.py` exists and
+collects without error.
 
 ---
 
