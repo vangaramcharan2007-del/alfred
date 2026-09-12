@@ -772,13 +772,54 @@ duplex voice implementation that nothing calls, for the exact voice this
 project was asked for. Wiring it is a feature; deleting it is a decision. Both
 are better than leaving it.
 
-### Phase 4 — Replace the self-graded claims with evidence
-136 places in `src/` assert their own completeness (`100%`, `COMPLETE`,
-`production ready`), and 84 files carry `simulate`/`mock`/`fake`/`placeholder`
-markers. None of that is checked by anything. The pattern already exists in
-`agentic/`: `doctor` probes a capability and reports `OK` or `--` based on
-actually calling it. Extending that discipline is what turns a claim into a
-fact.
+### Phase 4 — Withdrawn: the numbers behind it were wrong
+
+This phase was written on the strength of two counts, both of which I have now
+measured properly. **Neither holds, and the premise largely does not exist.**
+
+The claim was *136 places in `src/` assert their own completeness*. Grepping for
+the actual claim shapes finds five matches, and **none of them is a file grading
+itself**:
+
+| File | What the match actually is |
+|---|---|
+| `friday/persistence.py:148` | a seeded *user goal* string |
+| `orchestration/agent_worker.py:114` | an *instruction to a model*: "Write production-ready code" |
+| `tools/test_voice.py:16` | a `print()` in a manual test script |
+| `organism.py:122` | persona prompt text |
+| `mesh/rag_ingestor.py:180` | a runtime progress line, "✅ INGESTION COMPLETE" |
+
+Comment lines of the form `# Status: ...` or `# State: ...` — the shape a real
+self-grade would take — number **zero**. The original 136 was counting prompt
+text, persona strings and print statements as though each were a claim about the
+file it sat in.
+
+The companion claim was *84 files carry `simulate`/`mock`/`fake`/`placeholder`
+markers*. That count was too low, not too high: **102** files match. But the
+number is misleading in the other direction — 63 of them mention one of those
+words only in a comment or docstring, and exactly **four** define anything named
+that way:
+
+    evolution_simulator.py:24    def simulate_upgrade
+    prediction_engine.py:16      def simulate_trajectory
+    telephony/remote_uplink.py:38  def simulate_incoming_message
+    voice/desktop_gui_app.py:260   def simulate_double_clap
+
+Two are legitimately simulators by nature; two are test helpers. None is a
+stubbed-out feature pretending to be real.
+
+**So Phase 4 is withdrawn rather than done.** It was the clearest case in this
+audit of a conclusion outrunning its evidence, and it is worth keeping visible:
+an audit is a document of claims, and this one made the same error it was
+written to criticise. If self-grading is real in this codebase it is in the
+`ev_*` GUI modules and the demo scripts, where "COMPLETE" appears in printed
+output rather than in a claim about implementation state — which is a much
+smaller and much less alarming problem than 136 unverified assertions.
+
+The useful part of the original idea survives: the `doctor` pattern in
+`agentic/` already probes a capability and reports `OK` or `--` based on
+actually calling it. Extending that to the capabilities that matter is still
+worth doing. It is just not the 136-claim cleanup this section described.
 
 ### Phase 5 — Wire the ambient layer
 Three shipped modules were unreferenced by the agent:
@@ -808,10 +849,17 @@ exists to catch, so it is left for the real machine.
 The architecture was never the problem. There is a working agentic harness with
 budgets, a policy gate, verification and tracing, and 584 tests pass against it.
 
-The problems are **duplication** (eleven orchestrators), **unverified claims**
-(136 self-graded, 84 simulated), and **unwired real code** (189 unreachable
-files that mostly work). None of those are fixed by deleting files, which is why
-I deleted four and stopped.
+The problems are **duplication** (eleven orchestrators) and **unwired real
+code** (189 unreachable files that mostly work). None of those are fixed by
+deleting files, which is why I deleted four and stopped.
+
+A third problem was listed here — unverified claims, "136 self-graded, 84
+simulated" — and I have withdrawn it. Measured properly, the 136 was prompt
+text and print statements, not files grading themselves; the real count of
+genuine self-grades is zero. See the Phase 4 section. The correction matters
+more than the phase would have: it is the audit's own claim, made with the same
+confidence and the same lack of checking that the audit was written to call
+out.
 
 And the one thing that matters most cannot be done in this sandbox: nobody has
 yet run this against a real model on a real machine with a real microphone.
