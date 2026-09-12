@@ -25,10 +25,25 @@ matters more than the count.
 | Modules that fail to import | 33 |
 | …of those, failing on a **missing dependency** | 33 |
 | …of those, failing on a **code fault** | **0** (see caveat) |
-| Files reachable from the declared entry points | 499 |
-| Files reachable from the test suite | 474 |
-| Files neither entry point nor test can reach | 189 |
+| Files reachable from the declared entry points | 550 |
+| Files reachable from the test suite | 536 |
+| Files neither entry point nor test can reach | 180 |
 | Files referenced by **nothing at all** | ~~22~~ **95** — see Phase 3 caveat |
+
+**Caveat on the reachability rows.** Measured by resolving the three console
+scripts in `pyproject.toml` (`jarvisx.cli:main`, `jarvisx.__main__:main`,
+`friday.__main__:main`) plus `jarvisx.main`, `jarvisx.agentic.__main__` and
+`main`, then following static imports transitively: **550** files reachable from
+entry points, **536** from the test suite, **569** from either, and **180** from
+neither, out of 749. The doc previously said 499 / 474 / 189. The headline
+"neither" figure was close; the two components were each off by 50-60, so
+whichever traversal produced them did not match the one described here.
+
+Those 180 are an **upper bound on dead code, not a list of it.** The traversal
+follows static imports only, and seven sites in this codebase load modules by
+computed name or file path — see the Phase 3 caveat. Any file reachable only
+through the skills loader, the tool forge or the plugin fleet lands on this list
+while being perfectly live at runtime.
 
 **Caveat on the zero.** It is correct, and it is also luck. Importing each of
 the 749 modules in `src/` produces 716 clean imports and 33 failures, every one
