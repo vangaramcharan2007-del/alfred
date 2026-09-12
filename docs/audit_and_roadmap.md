@@ -484,13 +484,25 @@ count (38 → 50) as masked tests began to run. That was progress, not
 regression, and a dashboard that only reports a green/red count would have read
 it as the latter.
 
-The 3 remaining collection errors are genuinely environmental and were checked
-individually: `test_ambient_dual_sentinel.py` and `test_ev_handy_engine.py`
+The 3 remaining collection errors were checked individually. Two are genuinely
+environmental: `test_ambient_dual_sentinel.py` and `test_ev_handy_engine.py`
 need the PortAudio system library (`OSError: PortAudio library not found`, not
 a Python package, and not pip-installable — the `pyaudio` wheel fails to build
-here because there is no `libportaudio` and no `portaudio.h`);
-`test_ev_minimalist_logo_overlay.py` needs `tkinter`, which ships with the
-system Python rather than pip.
+here because there is no `libportaudio` and no `portaudio.h`).
+
+The third is only partly environmental, and an earlier revision of this
+paragraph said it was `tkinter` and stopped there. That is what fails *here*,
+but it is not the only thing wrong. `ev_minimalist_logo_overlay.py` line 25
+also imports `jarvisx.automation.ev_master_automation_engine` at module level,
+and that module does not exist anywhere in `src/`. So on a machine that *does*
+have `tkinter` — which is most of them, since it ships with the system Python
+rather than pip — the import simply fails one line later instead. The file
+cannot be imported on any platform.
+
+Nothing in `src/` imports it; its only importer is its own test. So it is both
+dead and broken, which makes it a Phase 3 decision rather than a fix: writing
+the missing engine would be inventing a feature, and deleting the file is
+destructive and needs a decision rather than a heuristic.
 
 An earlier revision of this paragraph claimed a fourth error in
 `test_ev_max_agent.py` caused by `pygame` being "imported but not declared in
