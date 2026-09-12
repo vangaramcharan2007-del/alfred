@@ -66,7 +66,7 @@ The same job is implemented several times, and most copies are live:
 | `*Orchestrator` classes | 11 | 8 referenced, 3 orphan |
 
 Eleven orchestrators is not eleven features. It is one feature discovered
-twelve times, and every copy is a place a bug can hide that the others do not
+eleven times, and every copy is a place a bug can hide that the others do not
 have.
 
 ---
@@ -282,14 +282,14 @@ acceptance test for the merge rather than an argument for waiting.
 
 | Check | Result |
 |---|---|
-| Agentic suite | **553 passed**, 0 failures |
-| Full suite | **5 failed / 1099 passed / 5 skipped / 3 errors** |
+| Agentic suite | **584 passed**, 0 failures |
+| Full suite | **2 failed / 1131 passed / 7 skipped / 3 errors** |
 | Baseline before this work | 38 failed / 751 passed / 56 errors |
 
 Identical across two consecutive runs. Progression through the audit:
 751 → 781 → 862 → 1000 → 1014 → 1017 → 1045 → 1051 → 1060 → 1065 → 1076 →
 1086 → 1088 → 1089 → 1090 → 1091 → 1092 → 1093 → 1094 → 1097 → 1098 →
-**1099** passing, with collection errors 56 → 3 and failures 38 → 5. Most of the gain in passing
+**1131** passing, with collection errors 56 → 3 and failures 38 → 2. Most of the gain in passing
 tests came from installing the declared dependency set, which let whole files
 collect for the first time; the drop in failures came from fixing what those
 newly-running tests found.
@@ -299,6 +299,12 @@ The steps after 1076 are the work described above: chess took the suite to
 to 1089, the mission route to 1090, removing an order dependency from the
 sentinel test to 1091, correcting the crest labels to 1092, threading router
 injection through the organism to 1093, and the temp-cleanup route to 1094.
+
+After that: the clarification gate and its 31 tests took the suite to 1130,
+fixing the misreported `primary` in the router to 1131. Failures fell 5 → 2, the
+remaining two both requiring resources this sandbox does not have. Skips rose
+5 → 7 when the two browser tests started skipping on a missing dependency
+instead of failing on it.
 
 ### Three silent-failure fixes found while chasing the remaining failures
 
@@ -382,10 +388,31 @@ environment: `gemini.google` at score 0.892, with profile order
 `ollama.local ×4, gemini.google ×2, openrouter.gateway, omniroute.gateway ×2`.
 Provider health and registry contents are irrelevant to the choice.
 
-So the test asserts a score-dependent outcome as though it were fixed. It passes
-only where local Ollama outscores the cloud profiles. That makes it
-environment-dependent, in the same bucket as the hardware and network failures
-— not a production bug, and not fixable from the registry side.
+**This was itself a wrong diagnosis, and the third one.** It concluded the test
+was environment-dependent and the product was fine. It was not.
+
+`select_model()` scoring a static list is real but is not the defect. The defect
+is one line in `route_request()`:
+
+    provider = self.registry.get("ollama.local") or self.registry.get(profile.provider_id)
+
+The primary attempt always resolves to `ollama.local` when it is registered —
+which `_ensure_default_providers()` makes the normal case. Every `success`
+return correctly reported `ollama.local`. But all three `provider_unavailable`
+returns reported `profile.provider_id` instead: the highest-*scoring* profile,
+which is a different provider from the one that was actually called. The
+returned error text contradicted its own field — "Both local Ollama and cloud
+OpenRouter failed" beside `primary: gemini.google`.
+
+That is a production bug of the same shape as the hardcoded `"status": "success"`
+in `execute_swarm`: a status field that does not describe what happened. It was
+fixed by resolving the id once and reporting that, in all three places, leaving
+resolution order unchanged. `test_openrouter_fallback.py` is now 7 passed.
+
+The lesson is worth keeping: two refuted explanations made a third, plausible
+one look settled. "I have eliminated the wrong answers" is not the same as "I
+have found the right one", and the test in question was never environment-
+dependent at all.
 
 ### Resolved: three swarm tests that had never tested anything
 
@@ -573,6 +600,69 @@ identical from the failure list.** Two of the three platform bugs above were
 found by reading the code behind a failure that had already been categorised and
 set aside.
 
+### New: stop and ask instead of guessing
+
+OpenAI led its GPT-6 Astra announcement with this behaviour. In the company's
+own side-by-side, GPT-5.6 Sol autonomously built a personal career website in 13
+minutes 15 seconds; Astra paused after 20 seconds to ask what career the user
+was moving into. Sol's output was not so much wrong as unanchored — thirteen
+minutes of confident work aimed at a guess.
+
+Alfred had no equivalent. An ambiguous instruction went straight into the tool
+loop, and whatever the model inferred became the answer. The only trace of the
+idea anywhere in the tree was one log string in `initiative_engine.py:70`.
+
+`agentic/clarifier.py` adds `ClarificationGate`, wired into `AgentHarness.run()`
+before any tool is touched. The hard part is the restraint, so it fires only
+when **both** hold:
+
+1. The action is irreversible or externally visible — it deletes, sends,
+   publishes, or spends.
+2. The target or recipient is not actually named — only referred to by pronoun
+   or vague quantifier ("it", "them", "the old ones").
+
+Read-only work never fires it; asking "which files?" before listing files would
+be absurd. Fully-specified destructive work never fires it either —
+`delete build/ and dist/` says what it means and runs. An agent that asks about
+everything is worse than one that guesses, because every question is an
+interruption the user did not budget for.
+
+The checks are deterministic and offline on purpose: testable without a model,
+and identical every run. A gate that asks on Tuesday and not Wednesday is worse
+than none, because the user cannot form an expectation of it.
+
+A new `RunStatus.NEEDS_INPUT` is in `TERMINAL_STATUSES` but deliberately **not**
+in `_FAILURE_STATUSES`. Pausing to ask is not failing, and counting it as a
+failure would let an orchestration report treat a correct question as a broken
+run.
+
+It is off by default and threaded through `Orchestrator`, so nothing changes for
+existing callers. `jarvisx.agentic run` turns it on, because a human is at the
+keyboard; `--no-ask` turns it off, because an orchestrator running unattended has
+nobody to answer and a question nobody can answer is not a pause, it is a stall.
+
+Verified live from the command line, both directions:
+
+```
+$ python -m jarvisx.agentic run "delete the old logs" --backend offline
+node execute attempt 1 -> needs_input (None)
+Result
+## execute (generalist)
+Which ones exactly? I would rather ask than delete something you wanted kept.
+
+$ python -m jarvisx.agentic run "delete the old logs" --backend offline --no-ask
+Result
+## execute (generalist)
+Completed 'delete the old logs'. 4 messages in transcript, 7 tools available.
+```
+
+31 tests, weighted as heavily toward the cases that must **not** trigger as
+toward the ones that must. Two bugs were caught writing them: my own new
+`trace.emit(kind=...)` collided with `TraceRecorder.emit()`'s positional `kind`
+parameter, and the gate shipped unreachable until `Orchestrator` threaded it
+down — a capability no code path reaches being the same defect as the dead
+chess, DSA and VS Code routes fixed above.
+
 ## 3. Next phases
 
 Ordered by what unblocks the most for the least risk. Each is independently
@@ -601,7 +691,7 @@ cannot see, and it should be fixed before any new feature is built.**
 Pick one canonical implementation per concept and delete the rest:
 
 - **11** orchestrators → 1. `agentic/scheduler.py::Orchestrator` is the strongest
-  candidate: it has budgets, a policy gate, tracing, verification and 553
+  candidate: it has budgets, a policy gate, tracing, verification and 584
   passing tests behind it.
 - 3 event buses → 1. 3 mission executors → 1. 4 capability registries → 1.
 
@@ -681,9 +771,9 @@ exists to catch, so it is left for the real machine.
 ## 4. The honest summary
 
 The architecture was never the problem. There is a working agentic harness with
-budgets, a policy gate, verification and tracing, and 553 tests pass against it.
+budgets, a policy gate, verification and tracing, and 584 tests pass against it.
 
-The problems are **duplication** (twelve orchestrators), **unverified claims**
+The problems are **duplication** (eleven orchestrators), **unverified claims**
 (136 self-graded, 84 simulated), and **unwired real code** (189 unreachable
 files that mostly work). None of those are fixed by deleting files, which is why
 I deleted four and stopped.
