@@ -283,13 +283,13 @@ acceptance test for the merge rather than an argument for waiting.
 | Check | Result |
 |---|---|
 | Agentic suite | **553 passed**, 0 failures |
-| Full suite | **7 failed / 1097 passed / 5 skipped / 3 errors** |
+| Full suite | **5 failed / 1099 passed / 5 skipped / 3 errors** |
 | Baseline before this work | 38 failed / 751 passed / 56 errors |
 
 Identical across two consecutive runs. Progression through the audit:
 751 → 781 → 862 → 1000 → 1014 → 1017 → 1045 → 1051 → 1060 → 1065 → 1076 →
-1086 → 1088 → 1089 → 1090 → 1091 → 1092 → 1093 → 1094 → **1097** passing,
-with collection errors 56 → 3 and failures 38 → 7. Most of the gain in passing
+1086 → 1088 → 1089 → 1090 → 1091 → 1092 → 1093 → 1094 → 1097 → 1098 →
+**1099** passing, with collection errors 56 → 3 and failures 38 → 5. Most of the gain in passing
 tests came from installing the declared dependency set, which let whole files
 collect for the first time; the drop in failures came from fixing what those
 newly-running tests found.
@@ -499,6 +499,67 @@ declared at `pyproject.toml:47`, and `test_ev_max_agent.py` exists and
 collects without error.
 
 ---
+
+### A bug class worth naming: Windows-only calls on a Linux target
+
+This project's own HUD is titled `SPIDER-MAN EV // DUAL-CORE LINUX
+WORKSTATION` and reports `WSL2 LINUX ENGINE`, but several actuation paths were
+written against Windows binaries with no platform guard at all. Three were found
+and fixed, and each failed differently — which is the useful part.
+
+**`vision_engine.py` launched `notepad.exe` and killed the whole task.** A bare
+`subprocess.Popen(["notepad.exe"])` inside `execute_visual_task()`. On Linux it
+raised `FileNotFoundError`, and because nothing caught it, the exception
+propagated out and discarded the entire visual action — screenshot, UI scan,
+policy gate, actuation and reflection. Loud, and caught by a test. Now resolves
+a real editor via `shutil.which()`, and treats "none found" as a skipped step.
+
+**`action_registry.py` reported success when nothing launched — twice.** The
+terminal branch ran `cmd.exe` and returned `{"status": "SUCCESS"}` regardless.
+Reproduced:
+
+```
+/c: 1: cmd.exe: not found
+terminal   -> {'status': 'SUCCESS', 'app': 'Terminal'}
+```
+
+The VS Code branch had the same shape, and it was arguably worse because
+`shutil.which("code")` *was* already being called there — its answer was then
+thrown away by an `or "code"` fallback that handed `Popen` a bare name that need
+not exist:
+
+```
+.: 1: code: not found
+vscode -> {'status': 'SUCCESS', 'app': 'VS Code', 'path': '.'}
+```
+
+These are more dangerous than the `notepad.exe` crash. A false success gives
+nothing downstream any reason to doubt it, so a workflow continues as though a
+terminal or an editor were open. No test covered `OpenAppAction` at all, which
+is how both branches survived. Both now return `NOT_SUPPORTED`.
+
+`shell=True` with a list argument was wrong in all three places. On POSIX it
+makes the first element the command and the rest shell arguments, which is why
+the errors above were attributed to `/c` and `.` rather than to the missing
+binaries — the diagnostics pointed away from the actual cause.
+
+**One failure labelled environmental was not.** `test_power_and_cdp_guards.py`
+was counted as Windows-only code that cannot run on Linux. `KeepAwakeGuard` is
+in fact correct — `activate()` and `deactivate()` both check `self.is_windows`
+and return early elsewhere, and a separate test covers that path and passes.
+The test died before reaching any of it, because
+`patch("ctypes.windll.kernel32.SetThreadExecutionState")` cannot resolve a path
+whose first element does not exist. Note that `create=True` does not fix that at
+depth: it creates the final attribute only. The patch has to target
+`ctypes.windll` itself and let `MagicMock` supply the chain, and the test must
+also force `is_windows` on, or the guard returns early and the mock is never
+called.
+
+The lesson generalises: **a failure attributed to the platform deserves a
+second look, because "this needs Windows" and "this test never ran" look
+identical from the failure list.** Two of the three platform bugs above were
+found by reading the code behind a failure that had already been categorised and
+set aside.
 
 ## 3. Next phases
 
