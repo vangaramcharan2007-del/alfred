@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict, List, Optional
 from jarvisx.agentic.backends import ModelBackend
 from jarvisx.agentic.builtin_tools import build_default_tools
 from jarvisx.agentic.graph import GraphError, TaskGraph
+from jarvisx.agentic.clarifier import ClarificationGate
 from jarvisx.agentic.harness import AgentHarness, Approver
 from jarvisx.agentic.planner import AutoPlanner, Planner
 from jarvisx.agentic.registry import AgentToolRegistry
@@ -58,6 +59,7 @@ class Orchestrator:
         max_workers: int = 4,
         default_budget: Optional[Budget] = None,
         approver: Optional[Approver] = None,
+        clarifier: Optional[ClarificationGate] = None,
         on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
     ):
         if backend is None:
@@ -74,6 +76,11 @@ class Orchestrator:
         self.trace_root = Path(trace_root) if trace_root else DEFAULT_TRACE_ROOT
         self.max_workers = max(1, max_workers)
         self.approver = approver
+        # Threaded down to every harness this orchestrator builds, so a caller
+        # can switch the ambiguity gate on once rather than per node. Stays
+        # None unless asked: an orchestrator running unattended has nobody to
+        # answer a question, and a question nobody can answer is just a stall.
+        self.clarifier = clarifier
         self.on_event = on_event
 
     # ------------------------------------------------------------------ #
@@ -249,6 +256,7 @@ class Orchestrator:
             verifier=Verifier.from_config(node.verify),
             trace_root=self.trace_root,
             approver=self.approver,
+            clarifier=self.clarifier,
             temperature=role.temperature,
             on_event=self.on_event,
         )

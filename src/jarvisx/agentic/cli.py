@@ -24,6 +24,7 @@ from jarvisx.agentic.backends import AutoBackend, HeuristicBackend
 from jarvisx.agentic.builtin_tools import build_default_tools
 from jarvisx.agentic.env import redact
 from jarvisx.agentic.graph import TaskGraph
+from jarvisx.agentic.clarifier import ClarificationGate
 from jarvisx.agentic.harness import AgentHarness
 from jarvisx.agentic.roles import RoleRegistry
 from jarvisx.agentic.sandbox import SandboxedRunner
@@ -190,6 +191,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         max_workers=args.workers,
         trace_root=args.trace_root,
         on_event=printer,
+        clarifier=None if args.no_ask else ClarificationGate(),
     ) as orch:
         report = orch.run(args.goal)
 
@@ -886,6 +888,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("goal")
     p_run.add_argument("--json", action="store_true")
     p_run.add_argument("--workers", type=int, default=4)
+    p_run.add_argument(
+        "--no-ask",
+        action="store_true",
+        help=(
+            "Never stop to ask a clarifying question. On by default here "
+            "because a human is at the keyboard; turn it off for unattended "
+            "runs where a question would just stall."
+        ),
+    )
     add_common(p_run)
     p_run.set_defaults(func=cmd_run)
 
