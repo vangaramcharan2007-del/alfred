@@ -19,10 +19,30 @@ class TestKeepAwakeGuard:
         guard = KeepAwakeGuard("unit_test_mission")
         assert guard.is_active is False
 
-        with patch("ctypes.windll.kernel32.SetThreadExecutionState", return_value=1) as mock_win32:
+        # This test exercises the Windows branch, so it has to force that
+        # branch on. KeepAwakeGuard.activate() returns early when is_windows is
+        # False and never reaches ctypes at all, so without this the mock below
+        # would never be called and the assertion on it would fail.
+        #
+        # ctypes.windll does not exist on non-Windows, which is the
+        # AttributeError this test was dying on. That was reported as an
+        # environment failure but it is a test bug: the production guard is
+        # correct, and test_guard_graceful_non_windows below already covers the
+        # non-Windows path.
+        #
+        # Patching has to target "ctypes.windll" itself with create=True.
+        # Targeting the deeper "ctypes.windll.kernel32.SetThreadExecutionState"
+        # path does not work even with create=True, because create=True only
+        # creates the final attribute -- patch() still fails resolving the
+        # missing ctypes.windll above it. MagicMock then supplies the rest of
+        # the chain on access, and removes it again on exit.
+        guard.is_windows = True
+
+        with patch("ctypes.windll", create=True) as mock_windll:
+            mock_windll.kernel32.SetThreadExecutionState.return_value = 1
             with guard:
                 assert guard.is_active is True
-                assert mock_win32.called
+                assert mock_windll.kernel32.SetThreadExecutionState.called
 
             assert guard.is_active is False
 
