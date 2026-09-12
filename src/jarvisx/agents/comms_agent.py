@@ -46,8 +46,29 @@ class OmnichannelCommunicationsAgent:
             gw = TelephonyGateway.get_instance()
             res = gw.send_sms(to_number=recipient, message=message)
         else: # WhatsApp default
-            from jarvisx.automation.whatsapp_actuation import send_whatsapp_live
-            res = send_whatsapp_live(recipient=recipient, message=message)
+            # whatsapp_actuation is Windows-only at module scope: line 28 runs
+            # `user32 = ctypes.windll.user32` at import time, so importing it on
+            # Linux raises AttributeError before any function is reached. It
+            # also needs pyperclip and pyautogui. None of that was guarded, so
+            # send_message() raised straight out to the caller on any
+            # non-Windows host -- while the Instagram and SMS branches alongside
+            # it return a dict. Reproduced:
+            #     send_message(platform='whatsapp', ...)
+            #     -> ModuleNotFoundError: No module named 'pyperclip'
+            # A messaging agent that throws instead of reporting is worse than
+            # one that says the platform is unavailable, because the caller has
+            # no result to inspect and no way to fall back.
+            try:
+                from jarvisx.automation.whatsapp_actuation import send_whatsapp_live
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("WhatsApp actuation unavailable on this platform: %s", exc)
+                res = {
+                    "status": "NOT_SUPPORTED",
+                    "platform": "whatsapp",
+                    "reason": f"WhatsApp actuation requires Windows: {exc}",
+                }
+            else:
+                res = send_whatsapp_live(recipient=recipient, message=message)
             
         record = {
             "timestamp": time.time(),
