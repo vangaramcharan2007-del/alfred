@@ -417,6 +417,34 @@ class DynamicOrchestrator:
                     "response": f"VS Code control failed, {salutation}: {exc}",
                 }
 
+        # 0f. Multi-step missions. execute_mission() has been wired to
+        # UnifiedMissionPlanner since it was written, but no voice route ever
+        # reached it, so a spoken "mission ..." fell through to the LLM and came
+        # back as plain speech. Same gap as chess, the DSA tutor and VS Code:
+        # the capability existed, the routing did not.
+        #
+        # interactive=False deliberately. This is a hands-free path, and
+        # blocking on stdin mid-conversation would hang the agent waiting for a
+        # prompt the user cannot see.
+        for _mission_prefix in ("run mission ", "start mission ", "mission "):
+            if clean_text.startswith(_mission_prefix):
+                goal = clean_text[len(_mission_prefix):].strip()
+                if goal:
+                    try:
+                        result = self.execute_mission(
+                            goal, persona=persona, interactive=False
+                        )
+                        result["action"] = "mission"
+                        return result
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("Mission execution failed: %s", exc)
+                        return {
+                            "action": "mission",
+                            "status": "failed",
+                            "response": f"The mission did not run, {salutation}: {exc}",
+                        }
+                break
+
         # 1. Full Agentic ReAct Execution via Living Organism (replaces all static if-statement keyword traps)
         try:
             from jarvisx.organism import get_organism
