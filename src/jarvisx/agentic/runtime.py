@@ -36,6 +36,7 @@ from jarvisx.agentic.voice_loop import (
     ConsoleInput,
     ConsoleOutput,
     Intent,
+    InterruptibleOutput,
     SpeechInput,
     SpeechOutput,
     TTSOutput,
@@ -160,6 +161,10 @@ class AlfredRuntime:
                 self.status.voice_input = "keyboard (no microphone)"
                 self.status.notes.append("no microphone — type instead of speaking")
 
+        # Set before the branch below so every construction path has the
+        # attribute; only the TTS path actually gets a duplex controller.
+        self.interruptible: Optional[InterruptibleOutput] = None
+
         if tts is not None:
             self.tts = tts
             self.status.voice_output = getattr(tts, "name", "injected")
@@ -168,12 +173,22 @@ class AlfredRuntime:
             self.status.voice_output = "text"
         else:
             speaker = TTSOutput()
-            self.tts = speaker
+            # Make speech interruptible. This is what lets you talk over the
+            # assistant instead of waiting for it to finish its paragraph --
+            # the difference between a scripted reader and a conversation.
+            # InterruptibleOutput degrades to a pass-through if the duplex
+            # controller cannot be built, so this cannot cost us the message.
+            self.interruptible = InterruptibleOutput(fallback=speaker)
+            self.tts = self.interruptible
             if speaker.available:
                 self.status.voice_output = "speakers (tts)"
             else:
                 self.status.voice_output = "text (no TTS engine)"
                 self.status.notes.append("no TTS engine — replies are printed")
+            if self.interruptible.available:
+                self.status.voice_output += ", interruptible"
+            else:
+                self.status.notes.append("full-duplex controller unavailable — cannot be interrupted mid-sentence")
 
         # -- voice ---------------------------------------------------------- #
         # Wrapped after the sink is chosen, so the persona sits on top of

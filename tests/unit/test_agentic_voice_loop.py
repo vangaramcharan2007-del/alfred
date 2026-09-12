@@ -467,3 +467,138 @@ def test_the_open_handler_survives_a_missing_registry():
     turn = VoiceTurn(transcript="open spotify", intent=Intent.OPEN)
     loop._on_open("open spotify", turn)
     assert "cannot open" in turn.spoken
+
+
+# --------------------------------------------------------------------------- #
+# Interruptible output — being able to talk over the assistant
+# --------------------------------------------------------------------------- #
+
+
+class _RecordingOutput:
+    """Minimal SpeechOutput that records what it was asked to say."""
+
+    name = "recorder"
+
+    def __init__(self):
+        self.said = []
+
+    def say(self, text, context=None):
+        self.said.append(text)
+
+
+def test_interruptible_output_degrades_to_a_pass_through():
+    """No duplex controller means no interruptibility, but never a lost message."""
+    from jarvisx.agentic.voice_loop import InterruptibleOutput
+
+    rec = _RecordingOutput()
+    out = InterruptibleOutput(fallback=rec, controller=object.__new__(object))
+    out.available = False
+    out._controller = None
+
+    out.say("Anything at all.")
+    assert rec.said == ["Anything at all."]
+
+
+def test_interruptible_output_splits_long_replies_into_sentences():
+    from jarvisx.agentic.voice_loop import InterruptibleOutput
+
+    rec = _RecordingOutput()
+    out = InterruptibleOutput(fallback=rec)
+
+    out.say(
+        "The first sentence is comfortably long. "
+        "The second sentence is also long enough. "
+        "The third one is long enough as well."
+    )
+    assert len(rec.said) == 3
+    assert out.sentences_spoken == rec.said
+    assert out.last_interrupted is False
+
+
+def test_interruptible_output_merges_short_fragments():
+    """Splitting on every full stop would emit 'Yes.' as its own utterance."""
+    from jarvisx.agentic.voice_loop import InterruptibleOutput
+
+    out = InterruptibleOutput(fallback=_RecordingOutput())
+    parts = out._split(
+        "Yes. Do the long thing now, it is plenty long enough. "
+        "And this closing clause is comfortably long enough too."
+    )
+    # "Yes." is 4 chars, below the 24-char floor, so it is joined onto the
+    # sentence that follows rather than spoken on its own.
+    assert len(parts) == 2
+    assert parts[0].startswith("Yes. Do the long thing")
+
+
+def test_interruptible_output_joins_a_short_trailing_clause():
+    """A stubby final sentence is folded back instead of left dangling."""
+    from jarvisx.agentic.voice_loop import InterruptibleOutput
+
+    out = InterruptibleOutput(fallback=_RecordingOutput())
+    parts = out._split("This opening sentence is comfortably long enough. Done.")
+    assert len(parts) == 1
+    assert parts[0].endswith("Done.")
+
+
+def test_interruptible_output_passes_a_single_sentence_straight_through():
+    """Nothing to interrupt mid-way, so do not pretend otherwise."""
+    from jarvisx.agentic.voice_loop import InterruptibleOutput
+
+    rec = _RecordingOutput()
+    out = InterruptibleOutput(fallback=rec)
+    out.say("Just one short reply.")
+    assert rec.said == ["Just one short reply."]
+
+
+def test_barge_in_stops_the_rest_of_the_utterance():
+    """The point of the whole feature: talking over the assistant cuts it off."""
+    from jarvisx.agentic.voice_loop import InterruptibleOutput
+    from jarvisx.voice.full_duplex_controller import DuplexState
+
+    rec = _RecordingOutput()
+    out = InterruptibleOutput(fallback=rec)
+
+    class _InterruptAfterFirst:
+        name = "wrapper"
+
+        def say(self, text, context=None):
+            rec.say(text, context)
+            if len(rec.said) == 1:
+                assert out.interrupt() is True
+
+    out._fallback = _InterruptAfterFirst()
+    out.say(
+        "One is long enough to speak aloud. "
+        "Two is long enough as well here. "
+        "Three is long enough indeed too."
+    )
+
+    assert len(rec.said) == 1, "barge-in must suppress the remaining sentences"
+    assert out.last_interrupted is True
+    assert out._controller.current_state is DuplexState.INTERRUPTED
+
+
+def test_interrupt_returns_false_without_a_controller():
+    from jarvisx.agentic.voice_loop import InterruptibleOutput
+
+    out = InterruptibleOutput(fallback=_RecordingOutput())
+    out._controller = None
+    out.available = False
+    assert out.interrupt() is False
+    assert out.speaking is False
+
+
+def test_runtime_exposes_interruptible_on_every_construction_path():
+    """An injected sink and force_text skip the duplex controller but must not
+    leave the attribute missing -- that turns a feature gap into an AttributeError."""
+    from jarvisx.agentic.runtime import AlfredRuntime, RuntimeConfig
+
+    default = AlfredRuntime(RuntimeConfig())
+    injected = AlfredRuntime(RuntimeConfig(), tts=ConsoleOutput())
+    text_only = AlfredRuntime(RuntimeConfig(force_text=True))
+
+    assert all(hasattr(rt, "interruptible") for rt in (default, injected, text_only))
+    assert default.interruptible is not None
+    assert injected.interruptible is None
+    assert text_only.interruptible is None
+    assert "interruptible" in default.status.voice_output

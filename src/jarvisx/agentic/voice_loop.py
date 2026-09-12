@@ -370,6 +370,152 @@ class TTSOutput:
             self._fallback.say(text)
 
 
+class InterruptibleOutput:
+    """Speech output you can talk over.
+
+    Wraps any ``SpeechOutput`` and the repo's existing
+    ``FullDuplexVoiceController`` so that an utterance is delivered sentence by
+    sentence and abandoned the moment a barge-in fires. Without this the
+    assistant has to finish its whole paragraph before it will hear you, which
+    is the single biggest thing separating a scripted assistant from one that
+    feels like it is in the room.
+
+    Degrades deliberately. The controller needs no audio hardware to construct,
+    but if it cannot be built at all this becomes a thin pass-through to the
+    wrapped output -- losing interruptibility, never the message.
+    """
+
+    name = "interruptible"
+
+    def __init__(
+        self,
+        fallback: Optional[SpeechOutput] = None,
+        controller: Optional[Any] = None,
+        min_sentence_chars: int = 24,
+    ) -> None:
+        self._fallback = fallback or ConsoleOutput()
+        self._min_sentence_chars = max(1, min_sentence_chars)
+        self.last_interrupted = False
+        self.sentences_spoken: List[str] = []
+
+        self._controller = controller
+        self.available = controller is not None
+        if self._controller is None:
+            try:
+                from jarvisx.voice.full_duplex_controller import FullDuplexVoiceController
+
+                self._controller = FullDuplexVoiceController()
+                self.available = True
+            except Exception as exc:  # noqa: BLE001
+                logger.info("Full-duplex controller unavailable (%s); output is not interruptible", exc)
+                self._controller = None
+                self.available = False
+
+    # -- barge-in ------------------------------------------------------------ #
+
+    def interrupt(self) -> bool:
+        """Cut off whatever is being said right now. True if something was cut."""
+        if self._controller is None:
+            return False
+        try:
+            self._controller.trigger_barge_in()
+            self.last_interrupted = True
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Barge-in failed (%s)", exc)
+            return False
+
+    @property
+    def speaking(self) -> bool:
+        if self._controller is None:
+            return False
+        return getattr(self._controller, "current_state", None) == _duplex_speaking()
+
+    def feed_audio(self, pcm_bytes: bytes) -> Any:
+        """Pass a microphone frame to the VAD so speech can trigger a barge-in."""
+        if self._controller is None:
+            return None
+        try:
+            return self._controller.process_incoming_audio_frame(pcm_bytes)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Audio frame dropped (%s)", exc)
+            return None
+
+    # -- output -------------------------------------------------------------- #
+
+    def say(self, text: str, context: Optional[Dict[str, Any]] = None) -> None:
+        if not self.available:
+            self._fallback.say(text, context)
+            return
+
+        sentences = self._split(text)
+        if len(sentences) <= 1:
+            # Nothing to interrupt mid-way; do not pretend otherwise.
+            self._fallback.say(text, context)
+            return
+
+        try:
+            from jarvisx.voice.full_duplex_controller import DuplexState
+
+            self._controller.current_state = DuplexState.SPEAKING
+            self._controller._playback_cancel_flag.clear()
+        except Exception:  # noqa: BLE001
+            self._fallback.say(text, context)
+            return
+
+        self.last_interrupted = False
+        self.sentences_spoken = []
+        spoken: List[str] = []
+
+        for sentence in sentences:
+            if self._controller._playback_cancel_flag.is_set():
+                self.last_interrupted = True
+                break
+            self._fallback.say(sentence, context)
+            spoken.append(sentence)
+
+        self.sentences_spoken = spoken
+        try:
+            from jarvisx.voice.full_duplex_controller import DuplexState
+
+            self._controller.current_state = (
+                DuplexState.INTERRUPTED if self.last_interrupted else DuplexState.LISTENING
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
+        if self.last_interrupted:
+            dropped = len(sentences) - len(spoken)
+            logger.info("Interrupted after %d sentence(s); %d not spoken", len(spoken), dropped)
+
+    def _split(self, text: str) -> List[str]:
+        """Break text into speakable clauses, merging fragments that are too short.
+
+        Splitting on every full stop would emit "Yes." as its own utterance and
+        make the assistant sound like a telegram, so short pieces are joined
+        back onto their neighbour.
+        """
+        import re as _re
+
+        raw = [s.strip() for s in _re.split(r"(?<=[.!?])\s+", text.strip()) if s.strip()]
+        merged: List[str] = []
+        for piece in raw:
+            if merged and len(merged[-1]) < self._min_sentence_chars:
+                merged[-1] = f"{merged[-1]} {piece}"
+            else:
+                merged.append(piece)
+        if len(merged) > 1 and len(merged[-1]) < self._min_sentence_chars:
+            merged[-2] = f"{merged[-2]} {merged[-1]}"
+            merged.pop()
+        return merged
+
+
+def _duplex_speaking() -> Any:
+    from jarvisx.voice.full_duplex_controller import DuplexState
+
+    return DuplexState.SPEAKING
+
+
 # --------------------------------------------------------------------------- #
 # Routing
 # --------------------------------------------------------------------------- #
