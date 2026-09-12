@@ -1098,7 +1098,23 @@ class WhatsAppSendTool(Tool):
         recipient = arguments.get("recipient", "Dakshith")
         msg = arguments.get("message", "hello")
         
-        from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+        # ev_master_automation_engine does not exist anywhere in src/. This
+        # import raised ModuleNotFoundError out of execute(), and because the
+        # tool is registered in the builtin registry the model can select it --
+        # so Alfred would confidently offer to send a WhatsApp message and then
+        # crash instead of reporting. Reproduced:
+        #     execute -> RAISED ModuleNotFoundError: No module named
+        #                'jarvisx.automation.ev_master_automation_engine'
+        # A tool has to return an observation the model can reason about.
+        try:
+            from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+        except ImportError as exc:
+            return ToolResult(
+                status="failed",
+                tool="send_whatsapp_message",
+                result=None,
+                error=f"WhatsApp automation backend is not available: {exc}",
+            )
         res = EVMasterAutomationEngine.get_instance().level_4_send_whatsapp_message(recipient, msg)
         return ToolResult(status="success", tool="send_whatsapp_message", result=res)
 
@@ -1124,7 +1140,18 @@ class InitializeWhatsAppBridgeTool(Tool):
         )
 
     def execute(self, arguments: Dict[str, Any]) -> ToolResult:
-        from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+        # Same missing backend as send_whatsapp_message above, with the same
+        # consequence: a registered tool that raised ModuleNotFoundError the
+        # moment the model selected it.
+        try:
+            from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+        except ImportError as exc:
+            return ToolResult(
+                status="failed",
+                tool="initialize_whatsapp_bridge",
+                result=None,
+                error=f"WhatsApp automation backend is not available: {exc}",
+            )
         EVMasterAutomationEngine.get_instance().initialize_whatsapp_bridge()
         return ToolResult(status="success", tool="initialize_whatsapp_bridge", result={"status": "initialized"})
 
