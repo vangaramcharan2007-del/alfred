@@ -32,7 +32,13 @@ voice = [
     "piper-tts>=1.2.0",
     "elevenlabs>=1.0.0",
     "edge-tts>=6.1.0",
-    "sounddevice>=0.4.6"
+    "sounddevice>=0.4.6",
+    # Imported at module level by voice/sovereign_neural_tts.py and
+    # automation/ev_neural_voice.py for audio playback, and lazily by
+    # tools/builtin_tools.py. It was imported but never declared, so
+    # `pip install -e ".[voice]"` produced an environment in which those
+    # modules still raised ModuleNotFoundError.
+    "pygame>=2.5.0"
 ]
 vision = [
     "pytesseract>=0.3.10",

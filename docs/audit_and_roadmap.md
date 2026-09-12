@@ -149,6 +149,77 @@ pyflakes also reports 1005 unused imports, 146 f-strings with no placeholders
 and 86 assigned-but-unused locals. Those are noise, not faults, and were left
 alone deliberately.
 
+**`90deb28` — nine test modules imported their subject by a path that never existed.**
+Five files failed at collection because they imported bare names that exist
+nowhere in the repository, while the classes under test were in
+`jarvisx.integrations` the whole time. One imported `from jarvis.rate_limiter`
+— there is no top-level `jarvis` package at all, so it could never have worked
+on any machine. Running them for the first time found a real bug:
+`TokenBucketRateLimiter.get_status()` returned `self._tokens` without
+refilling, and tokens accrue lazily, so a monitoring endpoint reported a bucket
+as permanently empty. Three more assertions compared a float token count to
+exact equality when the bucket legitimately accrues microtokens between the
+action and the assert.
+
+**`2ad2424` — a sandbox escape in the code that executes LLM-written code.**
+`DynamicToolForge`'s safety gate was a regex blocklist over raw source text. A
+text scan cannot see `().__class__.__bases__[0].__subclasses__()`, because that
+contains none of the blocked words; it reaches every class in the process,
+including `subprocess.Popen`. Replaced with an AST-based validator that rejects
+blocked builtins, blocked module imports, and any attribute in the dunder
+escape set — which also removes the regex's false positives, so a function
+legitimately named `execute_query` no longer trips `\bexec\b`.
+
+**`44de795` — the swarm's model was hardcoded and its "parallelism" used one OS thread per agent.**
+`SwarmOrchestrator.__init__` took no arguments and hardcoded
+`self.model = "qwen2.5-coder:1.5b"`. `_run_agent` wrapped a blocking
+`ollama.chat` in `asyncio.to_thread`, so every sub-agent held a real thread for
+its whole lifetime and fan-out was bounded by the thread pool rather than by
+`max_agents`. It now holds one `ollama.AsyncClient()` and awaits it.
+
+**`ca87577` — two filesystem guards that did not guard anything.**
+`_is_system_path()` held only Windows prefixes and compared against
+`Path(p).resolve()`. On POSIX a backslash is an ordinary filename character, so
+`C:\Windows\system32\malware.exe` resolved to
+`/home/user/alfred/C:\Windows\system32\malware.exe`, matched nothing, and the
+write succeeded — a tracked 3-byte file with that literal name, containing
+`bad`, was sitting in the repository root, left behind by the security test
+that was supposed to prove the write could not happen. Separately,
+`ReadFileTool.execute()` had **no path check at all**: `read_file("../../../etc/passwd")`
+returned `status="success"` with the contents, and so would `~/.ssh/id_rsa`.
+
+**`7ebd357` — three test files removed.** Two tested `EVMasterAutomationEngine`
+and `EVOmniScreenSentinel`, classes that do not exist; `git log --all` on the
+module paths returns empty, so the production modules were never committed and
+the nine test methods had no passing state to return to. The third,
+`tests/test_live_anti_hallucination.py`, was not a test file: zero `def test_`
+functions, 36 top-level calls that ran the moment pytest imported it, including
+live LLM prompts, launching the Windows `notepad` binary, writing files into
+the repo, and a 15-second polling loop. It closed by printing
+`ALL 6 LIVE VERIFICATION TESTS PASSED WITH 100% REAL EXECUTION`.
+
+### Still open: 13 imports of two modules that were never written
+
+`ev_master_automation_engine.py` and `ev_omni_screen_sentinel.py` do not exist
+and never did, but 13 import sites across six production files still reference
+them:
+
+```
+src/jarvisx/automation/ev_autonomous_daemon.py     (4 sites)
+src/jarvisx/voice/ambient_dual_sentinel.py         (3)
+src/jarvisx/tools/builtin_tools.py                 (2)
+src/jarvisx/voice/ev_handy_engine.py               (1)
+src/jarvisx/voice/voice_pipeline_e2e.py            (1)
+src/jarvisx/gui/ev_minimalist_logo_overlay.py      (1, module level)
+```
+
+Twelve are inside function bodies, so the failure is deferred to call time
+rather than caught at import — which is exactly why an import-time audit does
+not see them. The features they back (F9 screen-math vision, F10 thermal/RAM
+purge, WhatsApp send, the omni screen sentinel) cannot run on any machine.
+Removing the call sites is not an audit cleanup but a product decision, so it
+is recorded here rather than done.
+
 **`5474b26`, `bde6b6a`, `74ba775` — four provably dead files removed.**
 
 - `tools/workflow.py` imported `WorkflowEngine` from `jarvisx.core.workflows`.
@@ -163,14 +234,49 @@ alone deliberately.
 
 | Check | Result |
 |---|---|
-| Agentic suite | **544 passed**, 0 failures |
-| Full suite | 38 failed / 781 passed / 56 errors |
+| Agentic suite | **545 passed**, 0 failures |
+| Full suite | **28 failed / 1065 passed / 5 skipped / 4 errors** |
 | Baseline before this work | 38 failed / 751 passed / 56 errors |
 
-The 38 failures and 56 errors are unchanged and pre-existing. They are all
-`ModuleNotFoundError` for optional dependencies this sandbox does not have
-(`psutil`, `PIL`, `yaml`, `fastapi`, …). Six packages account for 77% of them;
-installing them is a five-minute job on a real machine.
+**A correction to something this document claimed earlier.** An earlier
+revision of this section said the failures and collection errors "are all
+`ModuleNotFoundError` for optional dependencies this sandbox does not have",
+and that installing them was a five-minute job. That was wrong, and it was
+wrong in the direction that matters.
+
+The claim was made *before* installing the declared dependency set. Installing
+it did not clear the failures — it exposed what they had been hiding. A
+collection error stops a whole file from running, so 56 errors were masking
+several hundred tests that had never executed. Once the declared deps were
+installed, those tests ran, and a substantial share of them failed for reasons
+that had nothing to do with a missing package:
+
+- `LLMRouterBackend.complete()` returned `""` wrapped in `finish_reason="stop"`,
+  so the harness recorded empty runs as `SUCCEEDED`.
+- `AutoBackend()` treated successful router construction as capability and
+  selected an unservable backend ahead of the offline heuristic.
+- `DynamicToolForge`'s regex safety gate let the interpreter escape
+  `().__class__.__bases__[0].__subclasses__()` through to `Popen`.
+- `_is_system_path()` was a no-op on every platform except Windows, and
+  `ReadFileTool` had no path guard at all.
+- `TokenBucketRateLimiter.get_status()` reported a token count that could only
+  ever go down.
+- Nine test modules imported their subject by a path that had never existed.
+
+The lesson is the one worth keeping: **a failing test can hide the real failure
+count, and so can a missing dependency.** Install the declared dependency set
+before drawing any conclusion about a repository's health — in either
+direction. Note also that installing dependencies *raised* the visible failure
+count (38 → 50) as masked tests began to run. That was progress, not
+regression, and a dashboard that only reports a green/red count would have read
+it as the latter.
+
+The 4 remaining collection errors are genuinely environmental and were checked
+individually: `test_ambient_dual_sentinel.py` and `test_ev_handy_engine.py`
+need the PortAudio system library (`OSError: PortAudio library not found`, not
+a Python package); `test_ev_max_agent.py` needs `pygame`, which is imported but
+not declared in `pyproject.toml`; `test_ev_minimalist_logo_overlay.py` needs
+`tkinter`, which ships with the system Python rather than pip.
 
 ---
 
@@ -202,7 +308,7 @@ cannot see, and it should be fixed before any new feature is built.**
 Pick one canonical implementation per concept and delete the rest:
 
 - 12 orchestrators → 1. `agentic/scheduler.py::Orchestrator` is the strongest
-  candidate: it has budgets, a policy gate, tracing, verification and 544
+  candidate: it has budgets, a policy gate, tracing, verification and 545
   passing tests behind it.
 - 3 event buses → 1. 3 mission executors → 1. 4 capability registries → 1.
 
@@ -238,7 +344,7 @@ demos you are comparing against.
 ## 4. The honest summary
 
 The architecture was never the problem. There is a working agentic harness with
-budgets, a policy gate, verification and tracing, and 544 tests pass against it.
+budgets, a policy gate, verification and tracing, and 545 tests pass against it.
 
 The problems are **duplication** (twelve orchestrators), **unverified claims**
 (136 self-graded, 84 simulated), and **unwired real code** (189 unreachable
