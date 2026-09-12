@@ -359,6 +359,36 @@ class OrchestrationReport:
             v.status == RunStatus.SUCCEEDED for v in self.outcomes.values()
         )
 
+    @property
+    def clarifications(self) -> List[Dict[str, Any]]:
+        """Questions the run stopped to ask, in graph order.
+
+        Kept separate from `failed` because NEEDS_INPUT is deliberately not a
+        failure. A node that paused to ask did not break, and a caller -- a
+        voice loop especially -- needs the question itself rather than a status
+        code it would have to reverse-engineer.
+        """
+        out: List[Dict[str, Any]] = []
+        for node in self.nodes:
+            outcome = self.outcomes.get(node.id)
+            if outcome is None or outcome.status != RunStatus.NEEDS_INPUT:
+                continue
+            result = outcome.result
+            clarification = result.clarification if result is not None else None
+            question = ""
+            if clarification is not None:
+                question = clarification.question
+            if not question and result is not None:
+                question = result.output
+            out.append(
+                {
+                    "node_id": node.id,
+                    "question": question,
+                    "kind": clarification.kind if clarification is not None else "",
+                }
+            )
+        return out
+
     def final_output(self) -> str:
         """Concatenate node outputs in graph order for a human-readable summary."""
         parts: List[str] = []
@@ -382,5 +412,6 @@ class OrchestrationReport:
             "succeeded": self.succeeded,
             "failed": self.failed,
             "skipped": self.skipped,
+            "clarifications": self.clarifications,
             "ok": self.ok,
         }

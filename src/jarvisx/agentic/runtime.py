@@ -30,6 +30,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
+from jarvisx.agentic.clarifier import ClarificationGate
 from jarvisx.agentic.intake import Energy, IntakeEngine
 from jarvisx.agentic.persona import Persona, PersonaOutput, get_persona
 from jarvisx.agentic.voice_loop import (
@@ -84,6 +85,12 @@ class RuntimeConfig:
     # so when you asked for that.
     enable_physical: bool = False
     physical_dry_run: bool = False
+    # Stop and ask before an irreversible or externally visible action whose
+    # target was never actually named. On by default here because the agent is
+    # talking to someone who can answer, and _speak_run() speaks the question.
+    # Turn it off only for an unattended run, where a question nobody can answer
+    # is not a pause but a stall.
+    ask_when_ambiguous: bool = True
     workspace: Optional[str] = None
 
 
@@ -444,6 +451,7 @@ class AlfredRuntime:
                     default_budget=Budget(max_steps=10, max_tool_calls=24, max_seconds=300),
                     trace_root=self.config.trace_root,
                     tool_factory=tool_factory,
+                    clarifier=ClarificationGate() if self.config.ask_when_ambiguous else None,
                 ) as orch:
                     return orch.run(goal).to_dict()
 

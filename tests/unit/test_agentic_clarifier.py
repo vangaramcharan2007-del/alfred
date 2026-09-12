@@ -173,3 +173,78 @@ def test_harness_lets_specific_destructive_work_through():
 
     assert result.status != RunStatus.NEEDS_INPUT
     assert len(backend.calls) >= 1
+
+
+# --------------------------------------------------------------------- #
+# The voice path: a question must be spoken, not reported as a failure
+# --------------------------------------------------------------------- #
+
+def test_speak_run_speaks_the_question():
+    """Without this the question falls through to the error branch, because a
+    run that stopped to ask is neither `ok` nor in `failed` -- NEEDS_INPUT is
+    deliberately not a failure. The agent would say "That did not work:
+    something" while holding a question it never asked."""
+    from jarvisx.agentic.voice_loop import _speak_run
+
+    result = {
+        "ok": False,
+        "succeeded": [],
+        "failed": [],
+        "clarifications": [
+            {"node_id": "execute", "question": "Which ones exactly?", "kind": "destructive_target"}
+        ],
+    }
+    assert _speak_run(result) == "Which ones exactly?"
+
+
+def test_speak_run_still_reports_real_failures():
+    from jarvisx.agentic.voice_loop import _speak_run
+
+    assert "did not work" in _speak_run({"ok": False, "failed": ["boom"], "clarifications": []})
+    assert "did not work" in _speak_run({"ok": False, "failed": ["boom"]})
+    assert _speak_run({"ok": True, "succeeded": ["a"]}).startswith("Done.")
+
+
+def test_speak_run_ignores_an_empty_question():
+    from jarvisx.agentic.voice_loop import _speak_run
+
+    result = {"ok": True, "succeeded": ["a"], "clarifications": [{"question": ""}]}
+    assert _speak_run(result).startswith("Done.")
+
+
+def test_report_surfaces_clarifications_in_to_dict():
+    """The voice loop receives to_dict(), so the question has to survive that
+    hop or the whole chain silently degrades."""
+    from jarvisx.agentic.types import (
+        NodeOutcome, OrchestrationReport, RunResult, TaskNode,
+    )
+
+    clarification = Clarification(
+        needed=True, kind="destructive_target", question="Which ones exactly?"
+    )
+    node = TaskNode(id="execute", instruction="delete the old logs")
+    outcome = NodeOutcome(
+        node_id="execute",
+        status=RunStatus.NEEDS_INPUT,
+        result=RunResult(
+            run_id="r1",
+            task="delete the old logs",
+            status=RunStatus.NEEDS_INPUT,
+            output="Which ones exactly?",
+            clarification=clarification,
+        ),
+    )
+    report = OrchestrationReport(goal="delete the old logs", graph_id="g1", nodes=[node])
+    report.outcomes["execute"] = outcome
+
+    assert report.ok is False
+    assert report.failed == [], "asking is not failing"
+    assert report.clarifications == [
+        {"node_id": "execute", "question": "Which ones exactly?", "kind": "destructive_target"}
+    ]
+
+    d = report.to_dict()
+    assert d["clarifications"][0]["question"] == "Which ones exactly?"
+
+    from jarvisx.agentic.voice_loop import _speak_run
+    assert _speak_run(d) == "Which ones exactly?"

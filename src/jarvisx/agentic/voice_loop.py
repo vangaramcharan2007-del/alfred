@@ -1053,6 +1053,16 @@ def _speak_plan(plan: Dict[str, Any]) -> str:
 def _speak_run(result: Dict[str, Any]) -> str:
     if not isinstance(result, dict):
         return "Done."
+    # A run that stopped to ask has to have its question spoken. This branch has
+    # to come first: such a run is neither `ok` nor in `failed` -- NEEDS_INPUT is
+    # deliberately not a failure -- so without it the question falls through to
+    # the error line below and the agent says "That did not work: something"
+    # while holding a perfectly good question it never asked.
+    questions = result.get("clarifications") or []
+    if questions:
+        question = (questions[0] or {}).get("question") or ""
+        if question:
+            return question
     if result.get("ok") is True:
         succeeded = result.get("succeeded") or []
         return f"Done. {len(succeeded)} step{'s' if len(succeeded) != 1 else ''} finished."

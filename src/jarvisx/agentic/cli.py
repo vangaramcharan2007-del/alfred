@@ -557,6 +557,7 @@ def cmd_talk(args: argparse.Namespace) -> int:
                 max_workers=args.workers,
                 trace_root=args.trace_root,
                 on_event=LivePrinter(verbose=args.verbose),
+                clarifier=None if args.no_ask else ClarificationGate(),
             ) as orch:
                 return orch.run(goal).to_dict()
 
@@ -934,6 +935,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="let explicit 'build/write/fix ...' commands run real agent work",
     )
     p_talk.add_argument("--state", default="var/agentic/intake.json")
+    p_talk.add_argument(
+        "--no-ask",
+        action="store_true",
+        help=(
+            "Never stop to ask a clarifying question before an irreversible "
+            "action. On by default in the talk loop, because you are here to "
+            "answer."
+        ),
+    )
     add_common(p_talk)
     p_talk.set_defaults(func=cmd_talk)
 
