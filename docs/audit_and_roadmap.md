@@ -220,7 +220,7 @@ purge, WhatsApp send, the omni screen sentinel) cannot run on any machine.
 Removing the call sites is not an audit cleanup but a product decision, so it
 is recorded here rather than done.
 
-### Resolved: four capabilities that were built but not reachable by voice
+### Resolved: five capabilities that were built but not reachable by voice
 
 A different category from the above, and easy to confuse with it. These
 subsystems **existed and worked**; what was missing was the routing from
@@ -233,6 +233,7 @@ subsystems **existed and worked**; what was missing was the routing from
 | DSA tutor | `tutor/dsa_tutor.py`, wired in `interface/cli.py:770` | `dsa_tutor` |
 | VS Code control | `automation/vscode_controller.py` | `vscode_control`, `vscode_type` |
 | Multi-step missions | `missions/unified_mission_planner.py`, wired to `DynamicOrchestrator.execute_mission()` at line 448 | `mission` |
+| Temp-storage cleanup | `automation/real_system_cleaner.py`, assigned to `self.cleaner` at line 44 and never called | `clean` |
 
 All six routes were added to `_execute_single_voice_command` in commits
 `3c235cb`, `16421f7` and `a578eba`, and verified by driving the real
@@ -282,21 +283,22 @@ acceptance test for the merge rather than an argument for waiting.
 | Check | Result |
 |---|---|
 | Agentic suite | **553 passed**, 0 failures |
-| Full suite | **13 failed / 1091 passed / 5 skipped / 3 errors** |
+| Full suite | **10 failed / 1094 passed / 5 skipped / 3 errors** |
 | Baseline before this work | 38 failed / 751 passed / 56 errors |
 
 Identical across two consecutive runs. Progression through the audit:
 751 → 781 → 862 → 1000 → 1014 → 1017 → 1045 → 1051 → 1060 → 1065 → 1076 →
-1086 → 1088 → 1089 → 1090 → **1091** passing, with collection errors 56 → 3
-and failures 38 → 13. Most of the gain in passing tests came from installing
-the declared dependency set, which let whole files collect for the first time;
-the drop in failures came from fixing what those newly-running tests found.
+1086 → 1088 → 1089 → 1090 → 1091 → 1092 → 1093 → **1094** passing, with
+collection errors 56 → 3 and failures 38 → 10. Most of the gain in passing
+tests came from installing the declared dependency set, which let whole files
+collect for the first time; the drop in failures came from fixing what those
+newly-running tests found.
 
-The last five steps are the work described above: chess took the suite from
-1076 to 1086, the DSA tutor plus VS Code routes took it from 1086 to 1088, the
-`_execute_subsystem` fix took it from 1088 to 1089, the mission route took it
-from 1089 to 1090, and removing an order dependency from the sentinel test took
-it from 1090 to 1091.
+The steps after 1076 are the work described above: chess took the suite to
+1086, the DSA tutor plus VS Code routes to 1088, the `_execute_subsystem` fix
+to 1089, the mission route to 1090, removing an order dependency from the
+sentinel test to 1091, correcting the crest labels to 1092, threading router
+injection through the organism to 1093, and the temp-cleanup route to 1094.
 
 ### Three silent-failure fixes found while chasing the remaining failures
 
@@ -325,6 +327,65 @@ on demand since Python 3.10. The test was asserting something about test
 ordering, not about the organism. `asyncio.run()` gives it its own loop either
 way. Worth naming because a failure that depends on what ran before it will
 move around and look like a different bug each time.
+
+### The one that mattered: an injected model could not reach the brain
+
+`Brain._get_router()` lazily constructed its own `LLMRouter()` and nothing could
+supply one. `AlfredOrganism` took only a persona and `get_organism()` took
+nothing, so `think()` and `decide_action()` — every model call the organism
+makes — went to a router no caller could configure.
+
+This is why fixing the orchestrator's ReAct turn changed nothing on its own:
+`_execute_single_voice_command` step 1 routes through
+`get_organism().react_turn()`, not through `execute_llm_react_turn_async()`. The
+same discarded-dependency bug existed one level up, on the path actually taken.
+
+An optional `router` now threads through `Brain` → `AlfredOrganism` →
+`get_organism`, and the orchestrator passes `self.llm_router` at both step-1
+call sites. `get_organism()` applies the router to the singleton even when that
+singleton already exists; without that override the first caller to touch the
+organism would permanently pin the default router and every later injection
+would be ignored — the same bug relocated rather than removed. The other 16
+`get_organism()` call sites omit the parameter and are unchanged.
+
+Verified end to end through `execute_voice_command()` with a probe router:
+
+```
+probe calls : 1
+response    : 'INJECTED-ROUTER-REACHED-THE-BRAIN'
+```
+
+**This is the prerequisite for the Phase 2 consolidation**, not a substitute for
+it. The 12 orchestrators still exist; what changed is that a model can now
+actually be handed to the one that runs.
+
+### A wrong diagnosis, corrected: why `test_router_both_providers_failure` fails
+
+Recorded here because the first two explanations given for this one were both
+false, and the correct answer is a useful warning about reading selection code.
+
+The test registers two failing providers and asserts `primary == "ollama.local"`.
+It gets `gemini.google`. Two plausible-sounding explanations were checked and
+refuted:
+
+- *"Auto-registration clobbers same-named providers."* False.
+  `_ensure_default_providers()` guards every registration with
+  `if not self.registry.get(name)`. Verified: a stub registered as
+  `ollama.local` survives router construction intact.
+- *"Gemini reads as available in the registry, so the router falls through to
+  it."* False, and the reason a stub registered as `gemini.google` did not fix
+  the test.
+
+The actual cause: `select_model()` never reads the registry at all. It scores
+`self.profiles` — a static list — and returns the highest. Measured in this
+environment: `gemini.google` at score 0.892, with profile order
+`ollama.local ×4, gemini.google ×2, openrouter.gateway, omniroute.gateway ×2`.
+Provider health and registry contents are irrelevant to the choice.
+
+So the test asserts a score-dependent outcome as though it were fixed. It passes
+only where local Ollama outscores the cloud profiles. That makes it
+environment-dependent, in the same bucket as the hardware and network failures
+— not a production bug, and not fixable from the registry side.
 
 ### Why the three swarm tests still fail
 
