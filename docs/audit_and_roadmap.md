@@ -789,7 +789,38 @@ model APIs. So the following are unit-tested but never executed for real:
 the live Groq model path, wake-word audio, TTS, the active-window sensor, and
 `--physical` actually opening an app.
 
-1. On your machine: `pip install -e ".[voice,vision,desktop,dev]"`.
+1. Install the system build prerequisites **first**, then the Python packages:
+
+   ```bash
+   # Debian / Ubuntu
+   sudo apt install -y python3-dev libportaudio2 portaudio19-dev
+   # Fedora
+   sudo dnf install -y python3-devel portaudio-devel
+   # macOS
+   brew install portaudio
+
+   pip install -e ".[voice,vision,desktop,dev]"
+   ```
+
+   This step is not optional and the ordering matters. The `voice` group
+   contains `pyaudio`, which is a **compiled** package: it builds a C extension
+   against `Python.h` and links PortAudio. Without those headers `pip` fails with
+   a compiler error, not a resolver error, which reads like a broken project
+   rather than a missing system package. Measured in this sandbox, where both
+   headers are absent and `apt` cannot supply them:
+
+   ```
+   src/pyaudio/device_api.h:7:10: fatal error: Python.h: No such file or directory
+   ERROR: Failed building wheel for pyaudio
+   ```
+
+   If you would rather not install PortAudio at all, drop the group and install
+   `".[vision,desktop,dev]"` instead — voice input and output then stay
+   unavailable, but everything else works, and `doctor` reports ears and mouth as
+   `--` rather than failing. Note that `pywinauto` in the `desktop` group does
+   install cleanly on Linux despite the name; it pulls `python-xlib`. That was
+   checked rather than assumed, because it looked like a Windows-only dependency
+   and is not.
 2. `python -m jarvisx.agentic doctor` — it probes ears, mouth, eyes, hands,
    preferences and personas, and tells you which are live.
 3. Put your Groq key in `.env`, re-run `doctor`, confirm it stops saying
