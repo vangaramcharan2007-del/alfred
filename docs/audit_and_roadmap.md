@@ -270,19 +270,56 @@ acceptance test for the merge rather than an argument for waiting.
 | Check | Result |
 |---|---|
 | Agentic suite | **553 passed**, 0 failures |
-| Full suite | **16 failed / 1088 passed / 5 skipped / 3 errors** |
+| Full suite | **15 failed / 1089 passed / 5 skipped / 3 errors** |
 | Baseline before this work | 38 failed / 751 passed / 56 errors |
 
 Identical across two consecutive runs. Progression through the audit:
 751 → 781 → 862 → 1000 → 1014 → 1017 → 1045 → 1051 → 1060 → 1065 → 1076 →
-1086 → **1088** passing, with collection errors 56 → 3 and failures 38 → 16.
-Most of the gain in passing tests came from installing the declared dependency
-set, which let whole files collect for the first time; the drop in failures came
-from fixing what those newly-running tests found.
+1086 → 1088 → **1089** passing, with collection errors 56 → 3 and failures
+38 → 15. Most of the gain in passing tests came from installing the declared
+dependency set, which let whole files collect for the first time; the drop in
+failures came from fixing what those newly-running tests found.
 
-The last two steps are the voice routing described above: chess took the suite
-from 1076 to 1086, and the DSA tutor plus VS Code routes took it from 1086 to
-1088 while removing two more failures.
+The last three steps are the work described above: chess took the suite from
+1076 to 1086, the DSA tutor plus VS Code routes took it from 1086 to 1088, and
+the `_execute_subsystem` fix took it from 1088 to 1089.
+
+### Two silent-failure fixes found while chasing the remaining failures
+
+**`_execute_subsystem` accepted a `category` and never used it.** It returned
+whatever the ReAct turn produced, so a caller had no way to tell which
+subsystem had been asked to handle a request. `test_dynamic_orchestrator_
+subsystem_dispatch` died on `KeyError: 'subsystem'`. The category is now
+recorded on the result, and the docstring no longer claims "Pure Autonomous
+LLM Multi-Agent Reasoning Engine" with "multi-step directives through genuine
+LLM reasoning" — every category routes to the same single ReAct turn.
+
+**`execute_swarm` reported success when every agent timed out.** Its status was
+a hardcoded `"success"`. Reproduced directly: with `timeout_per_agent=0.05` and
+every agent sleeping 1.0 s, it returned `agents_succeeded=0`,
+`merged_response=''` and `status='success'`. Status is now derived —
+`COMPLETED` / `PARTIAL` / `FAILED` — and the timeout and error counts are
+surfaced so the caller need not recount `individual_results`.
+
+### Why the three swarm tests still fail
+
+They are not fixed by the above and cannot be, because **both of their mock
+branches are dead**:
+
+| The test matches on | What the source actually does |
+|---|---|
+| `"Decompose this intent" in user_msg` | `decompose()` sends `"Break this complex request into 2-N independent sub-tasks…"` (line 65) |
+| `"Lead Swarm Synthesizer" in system_msg` | the module never sends a system message at all — only a single user message |
+
+Every mocked call therefore falls through to its default branch. Those three
+tests have never once exercised the fan-out, the timeout path or the synthesis
+step they claim to test. They also assert a result schema (`subtasks_count`,
+`unified_response`, `swarms_executed`) that this module has never had.
+
+`SwarmOrchestrator` has **zero callers** outside its own module, so building the
+missing synthesiser to satisfy them would mean adding a feature to dead code.
+That belongs to the Phase 2 consolidation, where the surviving orchestrator
+decides the schema. Fixing the false success stands on its own merits.
 
 **Those numbers were not reproducible when first written, and that is its own
 finding.** Re-running the full suite twice back to back, same environment, same
