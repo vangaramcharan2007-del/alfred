@@ -87,8 +87,20 @@ async def test_decompose_fallback_on_invalid_json():
         intent = "Perform data pipeline analysis"
         subtasks = await orchestrator.decompose(intent)
 
-        assert len(subtasks) >= 2
-        assert all("task_id" in t and "role" in t and "prompt" in t for t in subtasks)
+        # The graceful fallback is a single runnable task, not a fabricated
+        # decomposition. decompose() logs "running as single task" and returns
+        # exactly one entry; inventing two sub-tasks from an intent the LLM
+        # failed to split would mean sending the same prompt to two agents and
+        # calling that parallelism.
+        #
+        # This used to assert len(subtasks) >= 2 and require a "role" key on
+        # each task. Neither matched the source: the fallback returns one task,
+        # and the keys decompose() asks the LLM for are task_id, description
+        # and prompt -- there is no "role" anywhere in its prompt.
+        assert len(subtasks) == 1
+        assert subtasks[0]["task_id"] == "main"
+        assert subtasks[0]["prompt"] == intent
+        assert all("task_id" in t and "description" in t and "prompt" in t for t in subtasks)
 
 
 @pytest.mark.asyncio
@@ -99,21 +111,18 @@ async def test_execute_swarm_concurrent_execution():
     # Mock decompose and subagent responses
     async def fake_chat(model, messages):
         user_msg = messages[-1]["content"]
-        system_msg = messages[0]["content"]
 
-        if "Decompose this intent" in user_msg:
+        # decompose() sends "Break this complex request into 2-N independent
+        # sub-tasks...". This mock used to branch on "Decompose this intent",
+        # a string the source has never sent, so every call fell through to
+        # the default branch and the fan-out below was never exercised.
+        if "Break this complex request into" in user_msg:
             return {
                 "message": {
                     "content": """[
-                        {"task_id": "t1", "name": "Task 1", "role": "Worker 1", "prompt": "Prompt 1"},
-                        {"task_id": "t2", "name": "Task 2", "role": "Worker 2", "prompt": "Prompt 2"}
+                        {"task_id": "t1", "description": "Task 1", "prompt": "Prompt 1"},
+                        {"task_id": "t2", "description": "Task 2", "prompt": "Prompt 2"}
                     ]"""
-                }
-            }
-        elif "Lead Swarm Synthesizer" in system_msg:
-            return {
-                "message": {
-                    "content": "Unified synthesis: All tasks were successfully completed."
                 }
             }
         else:
@@ -128,15 +137,21 @@ async def test_execute_swarm_concurrent_execution():
     with patch.object(orchestrator._client, "chat", side_effect=fake_chat):
         res = await orchestrator.execute_swarm("Optimize database queries")
 
-        assert res["status"] == "COMPLETED"
-        assert res["subtasks_count"] == 2
-        assert res["completed_count"] == 2
-        assert res["timed_out_count"] == 0
-        assert res["failed_count"] == 0
-        assert len(res["subtasks"]) == 2
-        assert "Unified synthesis" in res["unified_response"]
-        assert orchestrator.swarms_executed == 1
-        assert orchestrator.total_subtasks_executed == 2
+    # Asserted against the schema execute_swarm() actually returns. The
+    # previous assertions named subtasks_count, completed_count,
+    # timed_out_count, failed_count, subtasks, unified_response,
+    # swarms_executed and total_subtasks_executed -- none of which this
+    # module has ever produced. There is also no synthesis step: the module
+    # never sends a system message, so the "Lead Swarm Synthesizer" branch
+    # this test used to mock was unreachable.
+    assert res["status"] == "COMPLETED"
+    assert res["agents_deployed"] == 2
+    assert res["agents_succeeded"] == 2
+    assert res["agents_timed_out"] == 0
+    assert res["agents_failed"] == 0
+    assert len(res["individual_results"]) == 2
+    assert "Output for Prompt 1" in res["merged_response"]
+    assert "Output for Prompt 2" in res["merged_response"]
 
 
 @pytest.mark.asyncio
@@ -146,21 +161,19 @@ async def test_execute_swarm_timeout_handling():
 
     async def fake_chat_with_delay(model, messages):
         user_msg = messages[-1]["content"]
-        system_msg = messages[0]["content"]
 
-        if "Decompose this intent" in user_msg:
+        # See the note in test_execute_swarm_concurrent_execution: this branched
+        # on "Decompose this intent", which decompose() never sends, so
+        # decomposition always fell back to a single task and the slow branch
+        # below could never be reached. The timeout path this test exists to
+        # cover was never executed.
+        if "Break this complex request into" in user_msg:
             return {
                 "message": {
                     "content": """[
-                        {"task_id": "fast", "name": "Fast Task", "role": "Fast Worker", "prompt": "Fast prompt"},
-                        {"task_id": "slow", "name": "Slow Task", "role": "Slow Worker", "prompt": "Slow prompt"}
+                        {"task_id": "fast", "description": "Fast Task", "prompt": "Fast prompt"},
+                        {"task_id": "slow", "description": "Slow Task", "prompt": "Slow prompt"}
                     ]"""
-                }
-            }
-        elif "Lead Swarm Synthesizer" in system_msg:
-            return {
-                "message": {
-                    "content": "Partial synthesis completed."
                 }
             }
         elif "Slow prompt" in user_msg:
@@ -174,11 +187,20 @@ async def test_execute_swarm_timeout_handling():
     with patch.object(orchestrator._client, "chat", side_effect=fake_chat_with_delay):
         res = await orchestrator.execute_swarm("Process dual stream")
 
-        assert res["status"] == "PARTIAL"
-        assert res["completed_count"] == 1
-        assert res["timed_out_count"] == 1
-        assert any(t["status"] == "TIMEOUT" for t in res["subtasks"])
-        assert any(t["status"] == "COMPLETED" for t in res["subtasks"])
+    # One agent finishes, one exceeds timeout_per_agent=0.1 -- so the swarm is
+    # PARTIAL, not COMPLETED and not FAILED. _run_agent() reports per-agent
+    # status in lowercase ("success"/"timeout"/"error"); the uppercase
+    # COMPLETED/TIMEOUT values asserted here before do not exist in the module.
+    assert res["status"] == "PARTIAL"
+    assert res["agents_deployed"] == 2
+    assert res["agents_succeeded"] == 1
+    assert res["agents_timed_out"] == 1
+    assert res["agents_failed"] == 0
+    assert any(t["status"] == "timeout" and t["task_id"] == "slow" for t in res["individual_results"])
+    assert any(t["status"] == "success" and t["task_id"] == "fast" for t in res["individual_results"])
+    # The timed-out agent produced nothing, so it must not appear in the merge.
+    assert "Fast task done" in res["merged_response"]
+    assert "Too late" not in res["merged_response"]
 
 
 @pytest.mark.asyncio
