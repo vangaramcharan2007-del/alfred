@@ -30,8 +30,16 @@ class TestSymbolicCrests(unittest.TestCase):
     def test_html_template_contains_crests(self):
         self.assertIn("spider-btn", HTML_TEMPLATE)
         self.assertIn("bat-btn", HTML_TEMPLATE)
-        self.assertIn("E-V CO-PILOT", HTML_TEMPLATE)
-        self.assertIn("ALFRED BUTLER", HTML_TEMPLATE)
+        # The crests are deliberately minimalist SVG-only icons, so their names
+        # live in the button `title` tooltips rather than as visible text.
+        #
+        # These two assertions used to read "E-V CO-PILOT" and "ALFRED BUTLER"
+        # -- all-caps strings the template has never contained. The real labels
+        # are title case and worded differently ("E-V Cyber Co-Pilot",
+        # "Alfred Sovereign Butler"), so the test was asserting branding that
+        # does not exist rather than checking that the crests are labelled.
+        self.assertIn("E-V Cyber Co-Pilot", HTML_TEMPLATE)
+        self.assertIn("Alfred Sovereign Butler", HTML_TEMPLATE)
 
 
 if __name__ == "__main__":
