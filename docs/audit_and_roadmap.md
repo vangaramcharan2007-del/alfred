@@ -45,24 +45,34 @@ computed name or file path — see the Phase 3 caveat. Any file reachable only
 through the skills loader, the tool forge or the plugin fleet lands on this list
 while being perfectly live at runtime.
 
-**Caveat on the zero.** It is correct, and it is also luck. Importing each of
-the 749 modules in `src/` produces 716 clean imports and 33 failures, every one
-of them a missing dependency — `pyperclip` ×5, `pystray` ×2, PortAudio ×2, and
-one each of `playwright`, `pynput`, `pyautogui`, `pygetwindow`, `tkinter`,
-`winreg`, `twilio` and `win32gui`. None is a fault in this codebase.
+**Caveat on the zero — since resolved.** Importing each of the 749 modules in
+`src/` produces 716 clean imports and 33 failures, every one of them a missing
+dependency — `pyperclip` ×5, `pystray` ×2, PortAudio ×2, and one each of
+`playwright`, `pynput`, `pyautogui`, `pygetwindow`, `tkinter`, `winreg`,
+`twilio` and `win32gui`. None is a fault in this codebase.
 
-But one of those 33 is hiding a real fault. `gui/ev_minimalist_logo_overlay.py`
-fails at line 16 with `ModuleNotFoundError: No module named 'tkinter'`. At line
-25 it does:
+The count was originally correct but lucky, and it is worth keeping the record of
+why. One of those 33 was hiding a real fault: `gui/ev_minimalist_logo_overlay.py`
+fails at line 16 on `import tkinter`, and at line 25 it did
 
     from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
 
-and no such module exists anywhere in the tree. On a machine that *has* tkinter,
-that import fails — on every platform, unconditionally. It is recorded as a
-missing-dependency failure here only because tkinter dies first and Python never
-reaches it. So "zero code faults" is the right count and the wrong impression:
-the audit cannot see a code fault that an absent dependency is standing in front
-of, and there is at least one.
+a module that exists nowhere in the tree. On a machine that *has* tkinter that
+import fails on every platform, unconditionally — but it was recorded here as a
+missing-dependency failure only because tkinter died first and Python never
+reached it. An import-time audit cannot see a code fault that an absent
+dependency is standing in front of.
+
+**That luck has since been removed.** An AST walk over every import in `src/`,
+tracking whether each sits inside an enclosing `Try`, found 18 dangling
+first-party import sites: 9 already guarded and failing honestly, and **9
+unguarded**. All nine are now guarded (commit `1ce1b35`), the module-level one
+above among them. So "zero code faults" is now correct for the right reason
+rather than by accident.
+
+The methodological point survives the fix and is the one worth keeping: a clean
+import-health result is only as good as the dependencies that happen to be
+absent while you measure it.
 
 That last row is the important one. My first pass reported 115 dead files. It
 was wrong, and worth being precise about why: it treated "no other file imports
