@@ -232,6 +232,48 @@ class DynamicOrchestrator:
                 "response": f"The current time is {time_str} on {date_str}, {salutation}.",
             }
 
+        # 0b. Deterministic greeting fast-path.
+        #
+        # Without this, a bare "hi" fell all the way through to the LLM ReAct
+        # path and came back as the canned "Standing by, Sir." whenever no
+        # model was reachable -- so on a machine without a model, the very
+        # first thing a user said got a non-answer. Same reasoning as the
+        # _classify_intent fallback: the offline path should still behave like
+        # an assistant, not like a stub.
+        _greetings = (
+            "hi", "hii", "hiii", "hlo", "hloo", "hllo", "hello", "helloo",
+            "hey", "heya", "hey there", "hi there", "hi alfred",
+            "hey alfred", "hello alfred", "good morning", "good afternoon",
+            "good evening", "yo", "sup", "whats up", "howdy", "namaste",
+        )
+        if clean_text in _greetings:
+            return {
+                "action": "speak",
+                "response": f"Hello, {salutation}. Alfred here, online and ready to work.",
+            }
+
+        # 0c. Deterministic self-description fast-path, for the same reason as
+        # the greeting above. The wording reuses the description this repo
+        # already ships in telephony/telephony_gateway.py and
+        # telephony/android_gsm_bridge.py rather than inventing a new one, so
+        # the agent describes itself identically on a phone call and at a
+        # terminal.
+        _identity_queries = (
+            "wdym", "what do you mean", "who are you", "what are you",
+            "whats your name", "what is your name", "introduce yourself",
+            "tell me about yourself", "what can you do",
+        )
+        if clean_text in _identity_queries:
+            return {
+                "action": "speak",
+                "response": (
+                    f"I am Alfred, Charan's personal AI assistant, {salutation}. "
+                    "I listen, watch the screen when you let me, and carry out the "
+                    "work -- running commands, writing code, and keeping track of "
+                    "what is next."
+                ),
+            }
+
         # 1. Full Agentic ReAct Execution via Living Organism (replaces all static if-statement keyword traps)
         try:
             from jarvisx.organism import get_organism
