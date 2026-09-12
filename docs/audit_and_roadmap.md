@@ -283,13 +283,13 @@ acceptance test for the merge rather than an argument for waiting.
 | Check | Result |
 |---|---|
 | Agentic suite | **553 passed**, 0 failures |
-| Full suite | **10 failed / 1094 passed / 5 skipped / 3 errors** |
+| Full suite | **7 failed / 1097 passed / 5 skipped / 3 errors** |
 | Baseline before this work | 38 failed / 751 passed / 56 errors |
 
 Identical across two consecutive runs. Progression through the audit:
 751 → 781 → 862 → 1000 → 1014 → 1017 → 1045 → 1051 → 1060 → 1065 → 1076 →
-1086 → 1088 → 1089 → 1090 → 1091 → 1092 → 1093 → **1094** passing, with
-collection errors 56 → 3 and failures 38 → 10. Most of the gain in passing
+1086 → 1088 → 1089 → 1090 → 1091 → 1092 → 1093 → 1094 → **1097** passing,
+with collection errors 56 → 3 and failures 38 → 7. Most of the gain in passing
 tests came from installing the declared dependency set, which let whole files
 collect for the first time; the drop in failures came from fixing what those
 newly-running tests found.
@@ -387,25 +387,38 @@ only where local Ollama outscores the cloud profiles. That makes it
 environment-dependent, in the same bucket as the hardware and network failures
 — not a production bug, and not fixable from the registry side.
 
-### Why the three swarm tests still fail
+### Resolved: three swarm tests that had never tested anything
 
-They are not fixed by the above and cannot be, because **both of their mock
-branches are dead**:
+Both of their mock branches were dead:
 
-| The test matches on | What the source actually does |
+| The test matched on | What the source actually does |
 |---|---|
 | `"Decompose this intent" in user_msg` | `decompose()` sends `"Break this complex request into 2-N independent sub-tasks…"` (line 65) |
 | `"Lead Swarm Synthesizer" in system_msg` | the module never sends a system message at all — only a single user message |
 
-Every mocked call therefore falls through to its default branch. Those three
-tests have never once exercised the fan-out, the timeout path or the synthesis
-step they claim to test. They also assert a result schema (`subtasks_count`,
-`unified_response`, `swarms_executed`) that this module has never had.
+Every mocked call therefore fell through to its default branch. Those three
+tests never once exercised the fan-out, the timeout path or the status
+derivation they were written for. They also asserted a result schema
+(`subtasks_count`, `unified_response`, `swarms_executed`) that this module has
+never had; the real keys are `agents_deployed`, `agents_succeeded`,
+`agents_timed_out`, `agents_failed`, `individual_results` and
+`merged_response`.
 
-`SwarmOrchestrator` has **zero callers** outside its own module, so building the
-missing synthesiser to satisfy them would mean adding a feature to dead code.
-That belongs to the Phase 2 consolidation, where the surviving orchestrator
-decides the schema. Fixing the false success stands on its own merits.
+Rewritten against the real prompt and the real schema in `bd57a43`. The timeout
+test now genuinely times an agent out and asserts `PARTIAL` — which means it
+would now catch the hardcoded `"success"` status fixed in `952763d`. Before, it
+could not have, because it never reached the timeout path.
+
+The decompose fallback test now asserts the actual graceful contract: one
+runnable task with `task_id`/`description`/`prompt`. It previously demanded two
+sub-tasks and a `role` key. Fabricating a split from an intent the LLM failed to
+parse would mean sending the same prompt to two agents and calling that
+parallelism, and `role` appears nowhere in the prompt `decompose()` sends.
+
+`SwarmOrchestrator` still has **zero callers** outside its own module. The
+synthesis step the old tests imagined was never built, and building it remains
+a Phase 2 decision rather than something to add to dead code — but the tests no
+longer pretend it exists.
 
 **Those numbers were not reproducible when first written, and that is its own
 finding.** Re-running the full suite twice back to back, same environment, same
