@@ -82,9 +82,33 @@ class VisionEngine:
 
         # Step 4: Actuate (Mouse / Keyboard)
         if "notepad" in inst_lower:
+            import shutil
             import subprocess
-            subprocess.Popen(["notepad.exe"])
-            time.sleep(0.5)
+
+            # This was a bare Popen(["notepad.exe"]). That raises
+            # FileNotFoundError on every non-Windows host, and because nothing
+            # caught it, the exception propagated out of execute_visual_task
+            # and took the entire visual action down with it -- screenshot,
+            # policy gate, actuation and reflection all discarded. This project
+            # targets WSL2/Linux, so a Windows-only binary cannot be the only
+            # path.
+            #
+            # Resolve whatever text editor actually exists. "None found" is a
+            # skipped step, not a fatal error: this task is about actuating and
+            # visually verifying a UI action, not about Notepad specifically.
+            editor = next(
+                (c for c in ("notepad.exe", "gedit", "xed", "kate", "mousepad", "leafpad")
+                 if shutil.which(c)),
+                None,
+            )
+            if editor:
+                try:
+                    subprocess.Popen([editor])
+                    time.sleep(0.5)
+                except OSError as exc:
+                    print(f"[Vision Actuation]: Could not launch {editor}: {exc}")
+            else:
+                print("[Vision Actuation]: No text editor available on this platform; continuing.")
         elif "folder" in inst_lower and "desktop" in inst_lower:
             from pathlib import Path
             desktop_dir = Path("var/missions/Jarvis_Test")
