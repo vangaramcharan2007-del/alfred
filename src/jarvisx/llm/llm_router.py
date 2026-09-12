@@ -345,7 +345,19 @@ class LLMRouter:
         from jarvisx.hardware.npu_accelerator import get_npu_accelerator
         npu = get_npu_accelerator()
 
-        provider = self.registry.get("ollama.local") or self.registry.get(profile.provider_id)
+        # Resolve the primary provider once and remember which one it was.
+        #
+        # The provider_unavailable returns below used to report
+        # `profile.provider_id`, which is the highest-*scoring* profile -- a
+        # different provider from the one this line actually calls whenever
+        # ollama.local is registered (which _ensure_default_providers makes the
+        # normal case). A caller debugging a failed run was therefore told to
+        # look at a provider that had never been invoked, and the returned
+        # error text contradicted its own `primary` field.
+        #
+        # Resolution order is unchanged; the id is simply no longer lost.
+        primary_id = "ollama.local" if self.registry.get("ollama.local") else profile.provider_id
+        provider = self.registry.get(primary_id)
         try:
             await provider.connect()
         except Exception:
@@ -412,7 +424,7 @@ class LLMRouter:
             print("[LLM] Ollama unavailable and offline required.")
             return {
                 "status": "provider_unavailable",
-                "primary": profile.provider_id,
+                "primary": primary_id,
                 "fallback": None,
                 "error": "Local LLM provider is offline and offline operation is required.",
                 "result": output
@@ -426,7 +438,7 @@ class LLMRouter:
             print("[LLM] OpenRouter provider not registered.")
             return {
                 "status": "provider_unavailable",
-                "primary": profile.provider_id,
+                "primary": primary_id,
                 "fallback": "openrouter.gateway",
                 "error": "OpenRouter provider is not registered in LLMRegistry.",
                 "result": output
@@ -493,7 +505,7 @@ class LLMRouter:
 
         return {
             "status": "provider_unavailable",
-            "primary": profile.provider_id,
+            "primary": primary_id,
             "fallback": "openrouter.gateway",
             "error": f"Both local Ollama and cloud OpenRouter failed. Error: {err_msg}",
             "result": cloud_output
