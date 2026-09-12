@@ -8,6 +8,9 @@ from jarvisx.automation.real_web_navigator import AutonomousWebResearcher
 @pytest.mark.asyncio
 async def test_autonomous_web_researcher_tool_execution():
     """Test local execution of navigation, text extraction, and js evaluation tools."""
+    # See the note in test_playwright_mcp_server.py: absent dependency is a
+    # skip, not a failure.
+    pytest.importorskip("playwright", reason="needs playwright + a chromium build")
     researcher = AutonomousWebResearcher()
     try:
         # 1. Test direct tool navigation

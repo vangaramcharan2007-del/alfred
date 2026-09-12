@@ -101,6 +101,17 @@ class PlaywrightSessionEngine:
 
     async def ensure_browser(self, headless: bool = True) -> Page:
         """Lazy-initializes and retains the Chromium browser session."""
+        # The module-level import at the top of this file swallows its failure
+        # and leaves async_playwright as None. Without this check the call below
+        # raises "TypeError: 'NoneType' object is not callable", which tells the
+        # user nothing except that something is None. Name the real cause and
+        # how to fix it instead.
+        if async_playwright is None:
+            raise RuntimeError(
+                "Playwright is not installed, so browser automation is "
+                "unavailable. Install it with: "
+                "pip install playwright && playwright install chromium"
+            )
         async with self._lock:
             if self._page is None or self._page.is_closed():
                 if self._playwright is None:

@@ -13,6 +13,11 @@ from jarvisx.mcp.playwright_server import (
 @pytest.mark.asyncio
 async def test_playwright_engine_stateful_session_and_navigation():
     """Test stateful browser session lifecycle, navigation, and DOM text extraction."""
+    # Skipped rather than failed when playwright is absent: "this test never
+    # ran because its dependency is missing" is different information from
+    # "the implementation is broken", and a failure list conflates the two.
+    # It still runs wherever playwright and a chromium build are installed.
+    pytest.importorskip("playwright", reason="needs playwright + a chromium build")
     engine = PlaywrightSessionEngine()
     try:
         # 1. Test Navigation
