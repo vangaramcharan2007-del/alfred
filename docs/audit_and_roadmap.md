@@ -220,6 +220,29 @@ purge, WhatsApp send, the omni screen sentinel) cannot run on any machine.
 Removing the call sites is not an audit cleanup but a product decision, so it
 is recorded here rather than done.
 
+### Still open: three features that are built but not reachable by voice
+
+A different category from the above, and easy to confuse with it. These
+subsystems **exist and work**; what is missing is the routing from
+`DynamicOrchestrator._execute_single_voice_command`, which falls through to
+`action: "speak"` instead of dispatching to them.
+
+| Feature | Exists at | Test expects action |
+|---|---|---|
+| Chess | `games/chess_engine.py` (`ChessGame`) | `chess_start`, `chess_move` |
+| DSA tutor | `tutor/dsa_tutor.py`, wired in `interface/cli.py:770` | `dsa_tutor` |
+| VS Code control | `automation/vscode_controller.py` | `vscode_control` |
+
+Chess is the clearest case: `test_chess_engine.py` has three tests, two of
+which pass — the board renders and the moves work. Only the orchestrator
+routing test fails. The DSA tutor is already routed from the CLI, just not from
+the orchestrator, so the same capability answers one entry point and not the
+other.
+
+This is a wiring decision, not a bug fix, and it belongs in Phase 2 rather than
+the audit: once the 12 orchestrators are collapsed into one, there is a single
+place to add these routes instead of three.
+
 **`5474b26`, `bde6b6a`, `74ba775` — four provably dead files removed.**
 
 - `tools/workflow.py` imported `WorkflowEngine` from `jarvisx.core.workflows`.
