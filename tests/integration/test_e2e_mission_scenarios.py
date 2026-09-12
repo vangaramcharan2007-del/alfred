@@ -37,7 +37,7 @@ class FakeScenarioRouter:
         self.call_history = []
         self._index = 0
 
-    def route_request_sync(self, prompt: str, require_offline: bool = False, model_override: str = None):
+    def _next_response(self, prompt: str) -> dict:
         self.call_history.append(prompt)
         if self._index < len(self.responses):
             resp = self.responses[self._index]
@@ -49,6 +49,17 @@ class FakeScenarioRouter:
             "provider_id": "fake.local",
             "result": {"status": "AVAILABLE", "response": resp},
         }
+
+    def route_request_sync(self, prompt: str, require_offline: bool = False, model_override: str = None):
+        return self._next_response(prompt)
+
+    async def route_request(self, prompt: str, require_offline: bool = False, model_override: str = None):
+        # DynamicOrchestrator.execute_llm_react_turn_async() is a coroutine and
+        # awaits route_request(), not route_request_sync(). This fake only had
+        # the sync method, so it could never stand in for the real router on
+        # the primary reasoning path -- the scenarios that injected it were not
+        # exercising the code they said they were.
+        return self._next_response(prompt)
 
 
 @pytest.fixture(autouse=True)

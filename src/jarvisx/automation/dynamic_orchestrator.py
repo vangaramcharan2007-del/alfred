@@ -818,12 +818,17 @@ class DynamicOrchestrator:
         from jarvisx.tools.tool_kernel import ToolRegistry
         from jarvisx.tools.builtin_tools import register_builtin_tools
         from jarvisx.tools.tool_executor import ToolExecutor
-        from jarvisx.llm.llm_router import LLMRouter
 
         reg = ToolRegistry.get_instance()
         register_builtin_tools(reg)
         executor = ToolExecutor(registry=reg)
-        router = LLMRouter()
+        # Use the injected router. This used to construct a fresh LLMRouter()
+        # here, which silently discarded whatever router the caller had passed
+        # to the constructor. self.llm_router was honoured by execute_mission()
+        # and by the sync paths at lines 539 and 656, but not by this one --
+        # the primary reasoning path -- so an injected model was unreachable
+        # exactly where it mattered most.
+        router = self.llm_router
 
         tools_schemas = reg.get_schemas_for_llm()
         tools_summary = "\n".join([f"- {s['name']}: {s['description']}" for s in tools_schemas])
