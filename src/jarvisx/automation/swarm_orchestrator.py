@@ -145,10 +145,28 @@ Output ONLY the JSON array."""
                 merged_text.append(f"### {r['task_id']}\n{r['result']}")
 
         total_time = round(time.perf_counter() - t0, 2)
+
+        succeeded = sum(1 for r in results if r["status"] == "success")
+        timed_out = sum(1 for r in results if r["status"] == "timeout")
+        failed = sum(1 for r in results if r["status"] == "error")
+
+        # The swarm's status has to describe what actually happened. It used to
+        # be a hardcoded "success", so a run where every agent timed out and
+        # merged_response came back empty still reported success -- the caller
+        # had to recount the per-agent results to find out the truth.
+        if not results or succeeded == 0:
+            status = "FAILED"
+        elif succeeded == len(results):
+            status = "COMPLETED"
+        else:
+            status = "PARTIAL"
+
         return {
-            "status": "success",
+            "status": status,
             "agents_deployed": len(tasks),
-            "agents_succeeded": sum(1 for r in results if r["status"] == "success"),
+            "agents_succeeded": succeeded,
+            "agents_timed_out": timed_out,
+            "agents_failed": failed,
             "merged_response": "\n\n".join(merged_text),
             "individual_results": results,
             "total_duration_sec": total_time,
