@@ -445,6 +445,47 @@ class DynamicOrchestrator:
                         }
                 break
 
+        # 0g. Temporary-storage cleanup. RealSystemCleaner was constructed in
+        # __init__ (line 44) and never called from anywhere in the codebase, so
+        # "clean temporary storage" fell through to the LLM and came back as
+        # plain speech. Same gap as chess, the DSA tutor, VS Code and missions.
+        #
+        # Scoped to the system temp directory deliberately. The cleaner's own
+        # default is target_root=".", which walks whatever working directory the
+        # process happens to be in and deletes every .log, .tmp and .pyc file
+        # plus __pycache__/.pytest_cache/.mypy_cache directories under it. That
+        # is an unbounded blast radius for a bare spoken command, so this route
+        # never passes the default.
+        if clean_text in ("clean temporary storage", "clean temp storage", "clean temp",
+                          "clear temp", "clean cache", "clear cache", "purge temp",
+                          "clean temporary files", "clean junk files", "clean junk"):
+            try:
+                import tempfile
+
+                target = tempfile.gettempdir()
+                result = self.cleaner.scan_and_clean_temp_bloat(target_root=target, delete=True)
+                reclaimed = result.get("bytes_reclaimed", 0)
+                mb = reclaimed / (1024.0 * 1024.0)
+                size = f"{mb:.2f} MB" if mb >= 0.1 else f"{reclaimed / 1024.0:.2f} KB"
+                return {
+                    "action": "clean",
+                    "status": "SUCCESS" if result.get("status") == "completed" else "FAILED",
+                    "response": (
+                        f"Cleaned temporary storage, {salutation}. Reclaimed {size} -- "
+                        f"{result.get('files_deleted', 0)} files and "
+                        f"{result.get('dirs_deleted', 0)} cache folders removed from {target}."
+                    ),
+                    "directory": result.get("directory"),
+                    "bytes_reclaimed": reclaimed,
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Temporary storage cleanup failed: %s", exc)
+                return {
+                    "action": "clean",
+                    "status": "FAILED",
+                    "response": f"I could not clean temporary storage, {salutation}: {exc}",
+                }
+
         # 1. Full Agentic ReAct Execution via Living Organism (replaces all static if-statement keyword traps)
         try:
             from jarvisx.organism import get_organism
