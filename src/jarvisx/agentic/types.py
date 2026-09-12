@@ -30,6 +30,10 @@ class RunStatus(str, Enum):
     CANCELLED = "cancelled"
     BUDGET_EXCEEDED = "budget_exceeded"
     DENIED = "denied"
+    #: The run stopped to ask the user something rather than guessing. This is
+    #: not a failure and must never be counted as one -- but it is terminal for
+    #: this run, because nothing further can happen until the user answers.
+    NEEDS_INPUT = "needs_input"
 
 
 TERMINAL_STATUSES = frozenset(
@@ -40,6 +44,7 @@ TERMINAL_STATUSES = frozenset(
         RunStatus.CANCELLED,
         RunStatus.BUDGET_EXCEEDED,
         RunStatus.DENIED,
+        RunStatus.NEEDS_INPUT,
     }
 )
 
@@ -230,6 +235,9 @@ class RunResult:
     verdict: Optional[Verdict] = None
     budget: Optional[Budget] = None
     error: Optional[str] = None
+    #: Populated when status is NEEDS_INPUT: the question the run stopped to
+    #: ask. Kept off the failure path on purpose -- see _FAILURE_STATUSES.
+    clarification: Optional[Any] = None
     started_at: float = field(default_factory=time.time)
     ended_at: Optional[float] = None
 

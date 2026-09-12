@@ -38,6 +38,7 @@ from jarvisx.agentic.types import (
     Verdict,
     new_id,
 )
+from jarvisx.agentic.clarifier import ClarificationGate
 from jarvisx.agentic.verifier import Verifier
 
 logger = logging.getLogger("jarvisx.agentic.harness")
@@ -79,6 +80,7 @@ class AgentHarness:
         verifier: Optional[Verifier] = None,
         trace_root: Optional[Path | str] = None,
         approver: Optional[Approver] = None,
+        clarifier: Optional[ClarificationGate] = None,
         repeat_limit: int = 3,
         temperature: float = 0.2,
         on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
@@ -94,6 +96,10 @@ class AgentHarness:
         self.verifier = verifier or Verifier()
         self.trace_root = Path(trace_root) if trace_root else None
         self.approver = approver
+        # Off by default so that adding this does not silently change the
+        # behaviour of every existing caller. Opt in where a wrong guess would
+        # actually cost the user something.
+        self.clarifier = clarifier
         self.repeat_limit = repeat_limit
         self.temperature = temperature
         self.on_event = on_event
@@ -122,6 +128,28 @@ class AgentHarness:
             tools=self.registry.names(),
             budget=self.budget.__dict__,
         )
+
+        # Consequential-ambiguity gate. Runs before any tool is touched, so an
+        # unanchored instruction costs one question instead of a whole run of
+        # confident work aimed at a guess.
+        if self.clarifier is not None:
+            clarification = self.clarifier.inspect(task)
+            if clarification.needed:
+                trace.emit(
+                    "clarification_needed",
+                    # Not `kind=`: TraceRecorder.emit() already takes `kind` as
+                    # its positional event name, so reusing it here raises
+                    # "got multiple values for argument 'kind'".
+                    ambiguity=clarification.kind,
+                    question=clarification.question,
+                    reason=clarification.reason,
+                    unresolved=clarification.unresolved,
+                )
+                result.status = RunStatus.NEEDS_INPUT
+                result.clarification = clarification
+                result.output = clarification.question
+                result.ended_at = time.time()
+                return result
 
         messages: List[Dict[str, Any]] = [
             {"role": "system", "content": self._system_prompt()},
