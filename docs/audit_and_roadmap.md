@@ -19,15 +19,35 @@ matters more than the count.
 |---|---|
 | Python files | 1110 |
 | Lines | ~144,000 |
-| Subpackages under `src/jarvisx/` | 78 |
-| Modules that import cleanly | 439 |
-| Modules that fail to import | 58 |
-| …of those, failing on a **missing pip package** | 58 |
-| …of those, failing on a **code fault** | **0** |
+| Subpackages under `src/jarvisx/` (dirs with `__init__.py`) | 52 |
+| Modules on disk under `src/` | 749 |
+| Modules that import cleanly | 716 |
+| Modules that fail to import | 33 |
+| …of those, failing on a **missing dependency** | 33 |
+| …of those, failing on a **code fault** | **0** (see caveat) |
 | Files reachable from the declared entry points | 499 |
 | Files reachable from the test suite | 474 |
 | Files neither entry point nor test can reach | 189 |
 | Files referenced by **nothing at all** | 22 |
+
+**Caveat on the zero.** It is correct, and it is also luck. Importing each of
+the 749 modules in `src/` produces 716 clean imports and 33 failures, every one
+of them a missing dependency — `pyperclip` ×5, `pystray` ×2, PortAudio ×2, and
+one each of `playwright`, `pynput`, `pyautogui`, `pygetwindow`, `tkinter`,
+`winreg`, `twilio` and `win32gui`. None is a fault in this codebase.
+
+But one of those 33 is hiding a real fault. `gui/ev_minimalist_logo_overlay.py`
+fails at line 16 with `ModuleNotFoundError: No module named 'tkinter'`. At line
+25 it does:
+
+    from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+
+and no such module exists anywhere in the tree. On a machine that *has* tkinter,
+that import fails — on every platform, unconditionally. It is recorded as a
+missing-dependency failure here only because tkinter dies first and Python never
+reaches it. So "zero code faults" is the right count and the wrong impression:
+the audit cannot see a code fault that an absent dependency is standing in front
+of, and there is at least one.
 
 That last row is the important one. My first pass reported 115 dead files. It
 was wrong, and worth being precise about why: it treated "no other file imports
