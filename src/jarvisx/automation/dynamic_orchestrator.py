@@ -274,6 +274,65 @@ class DynamicOrchestrator:
                 ),
             }
 
+        # 0d. Chess. games/chess_engine.py already implements a full game --
+        # board rendering, algebraic move parsing, an AI opponent and a browser
+        # arena -- and two of its three tests pass. What was missing was the
+        # route here, so "play chess with me" fell through to the LLM and came
+        # back as a spoken non-answer. The game instance is kept on self so a
+        # move command refers to the game that was started, not a fresh board.
+        if clean_text in ("play chess", "play chess with me", "chess", "start chess",
+                          "lets play chess", "let's play chess", "new chess game"):
+            try:
+                from jarvisx.games.chess_engine import ChessGame
+
+                self._chess_game = ChessGame()
+                arena = self._chess_game.launch_browser_arena()
+                board = self._chess_game.render_board()
+                message = arena.get("message") or "Visual Chess Arena ready."
+                return {
+                    "action": "chess_start",
+                    "response": f"{message}\n{board}",
+                    "status": "SUCCESS" if arena.get("status") == "SUCCESS" else "FAILED",
+                    "url": arena.get("url"),
+                }
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Chess start failed: %s", exc)
+                return {
+                    "action": "chess_start",
+                    "response": f"I could not start the chess arena, {salutation}: {exc}",
+                    "status": "FAILED",
+                }
+
+        if clean_text.startswith("move ") or clean_text.startswith("play "):
+            game = getattr(self, "_chess_game", None)
+            if game is not None:
+                move_str = clean_text.split(None, 1)[1].strip()
+                try:
+                    res_move = game.make_user_move(move_str)
+                    if res_move.get("status") != "SUCCESS":
+                        return {
+                            "action": "chess_move",
+                            "response": res_move.get("message", "That move is not legal."),
+                            "status": "FAILED",
+                        }
+                    reply = game.alfred_ai_move()
+                    return {
+                        "action": "chess_move",
+                        "response": (
+                            f"{res_move.get('message', '')} "
+                            f"{reply.get('message', '')}".strip()
+                        ),
+                        "status": "SUCCESS",
+                        "move": res_move.get("move"),
+                    }
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Chess move failed: %s", exc)
+                    return {
+                        "action": "chess_move",
+                        "response": f"That move did not work, {salutation}: {exc}",
+                        "status": "FAILED",
+                    }
+
         # 1. Full Agentic ReAct Execution via Living Organism (replaces all static if-statement keyword traps)
         try:
             from jarvisx.organism import get_organism
