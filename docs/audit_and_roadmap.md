@@ -951,9 +951,13 @@ exists to catch, so it is left for the real machine.
 The architecture was never the problem. There is a working agentic harness with
 budgets, a policy gate, verification and tracing, and 584 tests pass against it.
 
-The problems are **duplication** (eleven orchestrators) and **unwired real
-code** (189 unreachable files that mostly work). None of those are fixed by
-deleting files, which is why I deleted four and stopped.
+The problems are **duplication** (eleven orchestrators — this count verified
+exact) and **unwired real code**. On the second, the honest number is now
+qualified rather than clean: 180 modules are reachable from neither a declared
+entry point nor the test suite, but that figure is an upper bound on dead code
+and not a list of it, because seven sites in this codebase load modules by
+computed name or path. None of this is fixed by deleting files, which is why I
+deleted four and stopped.
 
 A third problem was listed here — unverified claims, "136 self-graded, 84
 simulated" — and I have withdrawn it. Measured properly, the 136 was prompt
