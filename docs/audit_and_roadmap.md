@@ -235,8 +235,15 @@ is recorded here rather than done.
 | Check | Result |
 |---|---|
 | Agentic suite | **545 passed**, 0 failures |
-| Full suite | **28 failed / 1065 passed / 5 skipped / 4 errors** |
+| Full suite | **20 failed / 1076 passed / 5 skipped / 3 errors** |
 | Baseline before this work | 38 failed / 751 passed / 56 errors |
+
+Identical across two consecutive runs. Progression through the audit:
+751 → 781 → 862 → 1000 → 1014 → 1017 → 1045 → 1051 → 1060 → 1065 → **1076**
+passing, with collection errors 56 → 3 and failures 38 → 20. Most of the gain
+in passing tests came from installing the declared dependency set, which let
+whole files collect for the first time; the drop in failures came from fixing
+what those newly-running tests found.
 
 **Those numbers were not reproducible when first written, and that is its own
 finding.** Re-running the full suite twice back to back, same environment, same
