@@ -79,7 +79,11 @@ def main():
     
     # chat
     chat_p = subparsers.add_parser("chat", help="Send a direct text command")
-    chat_p.add_parser("prompt", help="The text prompt")
+    # `add_parser` belongs to the subparsers action, not to the parser that
+    # add_parser() returns, so this line raised AttributeError on every
+    # invocation of the CLI -- including --help, before any command ran. It was
+    # a stray duplicate of the add_argument below, which is the real
+    # declaration of `prompt`.
     chat_p.add_argument("prompt", nargs="+", help="The text command")
     
     args = parser.parse_args()
