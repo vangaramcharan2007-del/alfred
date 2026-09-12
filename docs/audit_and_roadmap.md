@@ -218,11 +218,43 @@ live LLM prompts, launching the Windows `notepad` binary, writing files into
 the repo, and a 15-second polling loop. It closed by printing
 `ALL 6 LIVE VERIFICATION TESTS PASSED WITH 100% REAL EXECUTION`.
 
-### Still open: 13 imports of two modules that were never written
+### Still open: 18 imports of six modules that were never written
 
-`ev_master_automation_engine.py` and `ev_omni_screen_sentinel.py` do not exist
-and never did, but 13 import sites across six production files still reference
-them:
+**This section originally said 13 imports of two modules. The two-module part
+was right and the scope was not.** Re-measured by parsing every file in `src/`
+with `ast` and resolving each first-party import against the set of modules that
+actually exist on disk, the true figure is **18 import statements across 10
+files, referencing 6 modules that were never written**.
+
+The two this section already named account for 13 of those sites in 6 files,
+exactly as recorded. The other four modules, and the five sites that reference
+them, were missing from the audit entirely:
+
+```
+automation/task_scheduler.py:143      -> automation.smart_notifier
+kernel/jarvisd.py:206                 -> browser.ghost_browser
+main.py:92                            -> automation.glowing_waveform_overlay
+main.py:155                           -> automation.glowing_waveform_overlay
+organism.py:292                       -> vision.ocr_engine
+```
+
+Two of those matter more than the `ev_*` ones. `organism.py` is the file that
+builds the `Brain`, so a reference to `vision.ocr_engine` sits on the main
+reasoning path rather than in a peripheral GUI tool. `main.py` is a declared
+entry point, and it references `glowing_waveform_overlay` twice.
+
+Full distribution of all 18 sites:
+
+```
+automation.ev_master_automation_engine    10 sites
+automation.ev_omni_screen_sentinel         3
+automation.glowing_waveform_overlay        2
+automation.smart_notifier                  1
+browser.ghost_browser                      1
+vision.ocr_engine                          1
+```
+
+The two modules below account for 13 sites across these six files:
 
 ```
 src/jarvisx/automation/ev_autonomous_daemon.py     (4 sites)
@@ -233,9 +265,10 @@ src/jarvisx/voice/voice_pipeline_e2e.py            (1)
 src/jarvisx/gui/ev_minimalist_logo_overlay.py      (1, module level)
 ```
 
-Twelve are inside function bodies, so the failure is deferred to call time
-rather than caught at import — which is exactly why an import-time audit does
-not see them. The features they back (F9 screen-math vision, F10 thermal/RAM
+Most sit inside function bodies, so the failure is deferred to call time rather
+than caught at import — which is exactly why an import-time audit does not see
+them, and why the count here had to be measured by parsing the source rather
+than by importing it. The features they back (F9 screen-math vision, F10 thermal/RAM
 purge, WhatsApp send, the omni screen sentinel) cannot run on any machine.
 Removing the call sites is not an audit cleanup but a product decision, so it
 is recorded here rather than done.
