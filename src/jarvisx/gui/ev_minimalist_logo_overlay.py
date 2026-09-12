@@ -22,7 +22,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+# This module does not exist anywhere in the tree. The import used to be bare at
+# module level, so on any machine that HAS tkinter this file raised
+# ModuleNotFoundError at import. It was invisible to an import audit here only
+# because line 16 (`import tkinter`) fails first.
+try:
+    from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+except ImportError:
+    EVMasterAutomationEngine = None
 from jarvisx.voice.ev_handy_engine import EVHandyVoiceDictationEngine
 from jarvisx.automation.ev_neural_voice import speak_ev_neural
 

@@ -138,8 +138,11 @@ class EVHandyVoiceDictationEngine:
                 sol = TransformsMathAgent.get_instance().solve_1d_wave_equation()
                 speak_ev_neural(f"Handy voice command received! Solved {sol.topic}, boss!")
             elif "cool" in t_lower or "ram" in t_lower:
-                from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
-                EVMasterAutomationEngine.get_instance().level_5_turbo_cool()
+                try:
+                    from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+                    EVMasterAutomationEngine.get_instance().level_5_turbo_cool()
+                except ImportError:
+                    print("[!] Unavailable: jarvisx.automation.ev_master_automation_engine is missing.")
             else:
                 self.type_text_into_active_window(text)
         return text

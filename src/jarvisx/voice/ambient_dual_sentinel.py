@@ -137,14 +137,23 @@ class AmbientDualSentinel:
 
         print(f"🕷️ [E-V REACTING]: \"{cmd}\"")
         if "math" in cmd or "heat" in cmd or "wave" in cmd or "solve" in cmd:
-            from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
-            EVMasterAutomationEngine.get_instance().level_2_screen_vision_solve()
+            try:
+                from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+                EVMasterAutomationEngine.get_instance().level_2_screen_vision_solve()
+            except ImportError:
+                print("[!] Unavailable: jarvisx.automation.ev_master_automation_engine is missing.")
         elif "cool" in cmd:
-            from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
-            EVMasterAutomationEngine.get_instance().level_5_turbo_cool()
+            try:
+                from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+                EVMasterAutomationEngine.get_instance().level_5_turbo_cool()
+            except ImportError:
+                print("[!] Unavailable: jarvisx.automation.ev_master_automation_engine is missing.")
         elif any(w in cmd for w in ["check", "watch", "scan", "look"]):
-            from jarvisx.automation.ev_omni_screen_sentinel import EVOmniScreenSentinel
-            EVOmniScreenSentinel.get_instance().inspect_now()
+            try:
+                from jarvisx.automation.ev_omni_screen_sentinel import EVOmniScreenSentinel
+                EVOmniScreenSentinel.get_instance().inspect_now()
+            except ImportError:
+                print("[!] Unavailable: jarvisx.automation.ev_omni_screen_sentinel is missing.")
         else:
             async_speak_ev_neural(f"On it, boss! Processing {cmd}!")
 

@@ -27,7 +27,12 @@ from jarvisx.agents.transforms_math_agent import TransformsMathAgent
 def run_math_vision_automation():
     """F9: Instant Screen Math Snap & Solve."""
     print("\n[⚡ AUTOMATION] F9 Triggered: Spider-Sense Math Vision...")
-    from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+    try:
+        from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+    except ImportError:
+        print("[!] Unavailable: jarvisx.automation.ev_master_automation_engine "
+                  "is missing from this checkout.")
+        return
     EVMasterAutomationEngine.get_instance().level_2_screen_vision_solve()
     print("[✓] Math Vision complete.")
 
@@ -35,7 +40,12 @@ def run_math_vision_automation():
 def run_turbo_cool_automation():
     """F10: Instant RAM Purge & Thermal Drop."""
     print("\n[⚡ AUTOMATION] F10 Triggered: Instant Turbo Cool...")
-    from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+    try:
+        from jarvisx.automation.ev_master_automation_engine import EVMasterAutomationEngine
+    except ImportError:
+        print("[!] Unavailable: jarvisx.automation.ev_master_automation_engine "
+                  "is missing from this checkout.")
+        return
     EVMasterAutomationEngine.get_instance().level_5_turbo_cool()
     print("[✓] Turbo Cool complete.")
 
@@ -76,7 +86,12 @@ def run_handy_dictation_automation():
 
 
 def on_global_hotkey_omni():
-    from jarvisx.automation.ev_omni_screen_sentinel import EVOmniScreenSentinel
+    try:
+        from jarvisx.automation.ev_omni_screen_sentinel import EVOmniScreenSentinel
+    except ImportError:
+        print("[!] Unavailable: jarvisx.automation.ev_omni_screen_sentinel "
+                  "is missing from this checkout.")
+        return
     threading.Thread(target=lambda: EVOmniScreenSentinel.get_instance().toggle(), daemon=True).start()
 
 
@@ -114,8 +129,13 @@ def main():
     print("[*] Listening for global hotkeys (Alt+O, Alt+V, Alt+S, Alt+C, Alt+Q, Alt+A & F7-F11)...")
 
     # Start 24/7 Continuous Omni Screen Sentinel in background
-    from jarvisx.automation.ev_omni_screen_sentinel import EVOmniScreenSentinel
-    EVOmniScreenSentinel.get_instance().start()
+    try:
+        from jarvisx.automation.ev_omni_screen_sentinel import EVOmniScreenSentinel
+    except ImportError:
+        print("[!] Unavailable: jarvisx.automation.ev_omni_screen_sentinel "
+                  "is missing from this checkout.")
+    else:
+        EVOmniScreenSentinel.get_instance().start()
 
     # Start Ambient Microphone Dual-Voice Sentinel
     from jarvisx.voice.ambient_dual_sentinel import AmbientDualSentinel
