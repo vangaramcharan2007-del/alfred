@@ -67,9 +67,15 @@ def test_organism_fastpath_integration():
     assert organism.sentinel is not None
     assert organism.sentinel.is_running is True
 
-    # Run fast-path turn
-    loop = asyncio.get_event_loop()
-    res = loop.run_until_complete(organism.react_turn("open youtube and play lo-fi hip hop"))
+    # Run fast-path turn.
+    #
+    # This used to be `loop = asyncio.get_event_loop()` followed by
+    # `loop.run_until_complete(...)`. That only worked when nothing earlier in
+    # the same process had unset the current loop, so the test passed alone and
+    # failed in the full suite with "There is no current event loop in thread
+    # 'MainThread'" -- get_event_loop() has not created a loop on demand since
+    # Python 3.10. asyncio.run() gives this test its own loop either way.
+    res = asyncio.run(organism.react_turn("open youtube and play lo-fi hip hop"))
     assert res["status"] == "success"
     assert res["fastpath"] is True
     assert res["tool_used"] == "browser_open"
