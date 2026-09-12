@@ -637,9 +637,44 @@ failure would let an orchestration report treat a correct question as a broken
 run.
 
 It is off by default and threaded through `Orchestrator`, so nothing changes for
-existing callers. `jarvisx.agentic run` turns it on, because a human is at the
-keyboard; `--no-ask` turns it off, because an orchestrator running unattended has
-nobody to answer and a question nobody can answer is not a pause, it is a stall.
+existing callers. It is turned on in the three places a human is present to
+answer -- `run`, `talk`, and `AlfredRuntime` (via
+`RuntimeConfig.ask_when_ambiguous`) -- and `--no-ask` turns it off in the two
+commands, because an orchestrator running unattended has nobody to answer and a
+question nobody can answer is not a pause, it is a stall.
+
+**Wiring it into the voice agent nearly shipped a worse bug than the one being
+fixed.** Before turning it on there, I checked what a returned question would
+actually do, and `_speak_run()` had no case for it. A run that stops to ask is
+not `ok`, and `NEEDS_INPUT` is deliberately absent from `_FAILURE_STATUSES`, so
+`failed` is empty too. The function fell through to:
+
+    error = result.get("error") or (result.get("failed") or ["something"])[0]
+    return f"That did not work: {str(error)[:120]}"
+
+The agent would have said, verbatim, *"That did not work: something"* -- while
+holding a good question it never asked. A stall reported as an error, with the
+useful part discarded: strictly worse than having no gate at all.
+
+So the voice path learned to speak a question first. `OrchestrationReport`
+gained a `clarifications` property, surfaced separately from `failed` because
+asking is not failing, and included in `to_dict()` because the voice loop only
+ever sees the dict -- without that hop the question would not survive the
+boundary. `_speak_run()` speaks it, in a branch placed before the `ok` check.
+
+Verified through the real `AlfredRuntime._make_runner()`, not a stand-in:
+
+```
+ask_when_ambiguous=True  -> 'Which ones exactly? I would rather ask than delete
+                             something you wanted kept.'
+                              ok=False failed=[] clarifications=1
+ask_when_ambiguous=False -> 'Done. 1 step finished.'
+                              ok=True  failed=[] clarifications=0
+```
+
+The general lesson is the one that mattered: a feature is not wired until the
+*consumer* can handle what it produces. Passing the gate down was easy; the
+silent stall was in the code that receives its output.
 
 Verified live from the command line, both directions:
 
