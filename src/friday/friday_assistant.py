@@ -170,5 +170,13 @@ class FridayAssistant:
             print(f"  [{g['type'].upper()}] {g['content']}")
         print("==============================================\n")
 
-    def run_interactive_shell(self):
+    def show_dashboard(self) -> None:
+        """Print today's dashboard and return.
+
+        This used to be named `run_interactive_shell`, which promised something
+        that does not exist: there is no input loop anywhere in this package.
+        The method printed the dashboard once and returned, so the name was a
+        claim the code did not back. Renamed rather than built out -- a shell
+        that was never written should not be advertised by a method name.
+        """
         self.print_daily_dashboard()
