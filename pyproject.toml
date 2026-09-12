@@ -18,6 +18,12 @@ dependencies = [
     "psutil>=5.9.0",
     "scikit-learn>=1.4.0",
     "ollama>=0.2.0",
+    # Provides `google.genai`, imported by llm/gemini_provider.py inside
+    # _init_client(). It was undeclared, and the import sits inside a bare
+    # `except Exception` that sets self._client = None, so the provider
+    # degraded silently: is_connected False, every generate() returning
+    # NOT_AVAILABLE, with no error naming the missing package.
+    "google-genai>=1.0.0",
     "opencv-python>=4.8.0",
     "mediapipe>=0.10.0",
     "scipy>=1.11.0"
