@@ -457,9 +457,9 @@ class DynamicOrchestrator:
             if loop and loop.is_running():
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as pool:
-                    res = pool.submit(lambda: asyncio.run(get_organism().react_turn(raw_text))).result(timeout=35)
+                    res = pool.submit(lambda: asyncio.run(get_organism(router=self.llm_router).react_turn(raw_text))).result(timeout=35)
             else:
-                res = asyncio.run(get_organism().react_turn(raw_text))
+                res = asyncio.run(get_organism(router=self.llm_router).react_turn(raw_text))
 
             action_type = res.get("decision", "speak")
             if res.get("tool"):

@@ -32,10 +32,15 @@ logger = logging.getLogger("jarvisx.organism")
 class Brain:
     """The central intelligence: reasons, plans, decides tools, and synthesizes thoughts."""
 
-    def __init__(self, model: str = "gemini-3.6-flash", persona: str = "ALFRED") -> None:
+    def __init__(self, model: str = "gemini-3.6-flash", persona: str = "ALFRED",
+                 router: Optional[Any] = None) -> None:
         self.model = model
         self.persona = persona
-        self._router = None
+        # An injected router is honoured; otherwise _get_router() lazily builds
+        # a default LLMRouter. Without this parameter there was no way to reach
+        # the brain's model calls at all -- both think() and decide_action() go
+        # through _get_router(), so a caller-configured model was unreachable.
+        self._router = router
 
     def _get_router(self):
         if self._router is None:
@@ -490,9 +495,9 @@ class AlfredOrganism:
     Ears (STT) -> Nerves (Bus) -> Brain (LLM) -> Eyes/Hands (Tools/Vision) -> Mouth (TTS)
     """
 
-    def __init__(self, persona: str = "ALFRED") -> None:
+    def __init__(self, persona: str = "ALFRED", router: Optional[Any] = None) -> None:
         self.persona = persona
-        self.brain = Brain(persona=persona)
+        self.brain = Brain(persona=persona, router=router)
         self.ears = Ears()
         self.mouth = Mouth()
         self.eyes = Eyes()
@@ -688,9 +693,22 @@ class AlfredOrganism:
 # Singleton accessor
 _organism_instance: Optional[AlfredOrganism] = None
 
-def get_organism() -> AlfredOrganism:
-    """Get the global unified Alfred Organism instance."""
+def get_organism(router: Optional[Any] = None) -> AlfredOrganism:
+    """Get the global unified Alfred Organism instance.
+
+    `router` is optional and every existing caller omits it, so nothing that
+    already calls get_organism() changes behaviour.
+
+    When a router *is* passed it is applied to the singleton even if that
+    singleton already exists. That override is the point: the organism is a
+    process-wide singleton, so without it the first caller to touch the
+    organism would permanently pin the default router and every later
+    injection would be silently ignored -- the same discarded-dependency bug
+    this exists to remove, just relocated.
+    """
     global _organism_instance
     if _organism_instance is None:
-        _organism_instance = AlfredOrganism()
+        _organism_instance = AlfredOrganism(router=router)
+    elif router is not None:
+        _organism_instance.brain._router = router
     return _organism_instance
