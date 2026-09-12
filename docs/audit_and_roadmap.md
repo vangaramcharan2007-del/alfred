@@ -220,28 +220,40 @@ purge, WhatsApp send, the omni screen sentinel) cannot run on any machine.
 Removing the call sites is not an audit cleanup but a product decision, so it
 is recorded here rather than done.
 
-### Still open: three features that are built but not reachable by voice
+### Resolved: three features that were built but not reachable by voice
 
 A different category from the above, and easy to confuse with it. These
-subsystems **exist and work**; what is missing is the routing from
-`DynamicOrchestrator._execute_single_voice_command`, which falls through to
+subsystems **existed and worked**; what was missing was the routing from
+`DynamicOrchestrator._execute_single_voice_command`, which fell through to
 `action: "speak"` instead of dispatching to them.
 
-| Feature | Exists at | Test expects action |
+| Feature | Exists at | Action now returned |
 |---|---|---|
 | Chess | `games/chess_engine.py` (`ChessGame`) | `chess_start`, `chess_move` |
 | DSA tutor | `tutor/dsa_tutor.py`, wired in `interface/cli.py:770` | `dsa_tutor` |
-| VS Code control | `automation/vscode_controller.py` | `vscode_control` |
+| VS Code control | `automation/vscode_controller.py` | `vscode_control`, `vscode_type` |
 
-Chess is the clearest case: `test_chess_engine.py` has three tests, two of
-which pass — the board renders and the moves work. Only the orchestrator
-routing test fails. The DSA tutor is already routed from the CLI, just not from
-the orchestrator, so the same capability answers one entry point and not the
-other.
+All five routes were added to `_execute_single_voice_command` in commits
+`3c235cb` and `16421f7`, and verified by driving the real `DynamicOrchestrator`:
 
-This is a wiring decision, not a bug fix, and it belongs in Phase 2 rather than
-the audit: once the 12 orchestrators are collapsed into one, there is a single
-place to add these routes instead of three.
+```
+$ play chess with me      -> chess_start    SUCCESS  "Visual Chess Arena opened in browser." + board
+$ move e4                 -> chess_move     SUCCESS  "You played e2->e4. Alfred played b8->c6."
+$ teach me dsa            -> dsa_tutor      SUCCESS  "Welcome to Day 1 ... Arrays & Hash Maps ..."
+$ control vs code         -> vscode_control SUCCESS  "VS Code is under control -- focused and ready."
+$ do it yourself in vs code -> vscode_type  SUCCESS  "created 'array_implementation.py' and loaded it"
+```
+
+The chess game is held on `self._chess_game` so that a bare `"move e4"` refers
+to the game the previous command started, rather than inventing a fresh board.
+
+One correction to the earlier reasoning recorded here: this was described as
+belonging to Phase 2, on the grounds that the routes should be added once the
+12 orchestrators are collapsed into one. That was wrong — the engines import
+cleanly and were testable immediately, so there was no dependency on the
+consolidation. Wiring them first also gives Phase 2 five concrete routes that
+the single surviving orchestrator must keep answering, which is a useful
+acceptance test for the merge rather than an argument for waiting.
 
 **`5474b26`, `bde6b6a`, `74ba775` — four provably dead files removed.**
 
@@ -257,16 +269,20 @@ place to add these routes instead of three.
 
 | Check | Result |
 |---|---|
-| Agentic suite | **545 passed**, 0 failures |
-| Full suite | **20 failed / 1076 passed / 5 skipped / 3 errors** |
+| Agentic suite | **553 passed**, 0 failures |
+| Full suite | **16 failed / 1088 passed / 5 skipped / 3 errors** |
 | Baseline before this work | 38 failed / 751 passed / 56 errors |
 
 Identical across two consecutive runs. Progression through the audit:
-751 → 781 → 862 → 1000 → 1014 → 1017 → 1045 → 1051 → 1060 → 1065 → **1076**
-passing, with collection errors 56 → 3 and failures 38 → 20. Most of the gain
-in passing tests came from installing the declared dependency set, which let
-whole files collect for the first time; the drop in failures came from fixing
-what those newly-running tests found.
+751 → 781 → 862 → 1000 → 1014 → 1017 → 1045 → 1051 → 1060 → 1065 → 1076 →
+1086 → **1088** passing, with collection errors 56 → 3 and failures 38 → 16.
+Most of the gain in passing tests came from installing the declared dependency
+set, which let whole files collect for the first time; the drop in failures came
+from fixing what those newly-running tests found.
+
+The last two steps are the voice routing described above: chess took the suite
+from 1076 to 1086, and the DSA tutor plus VS Code routes took it from 1086 to
+1088 while removing two more failures.
 
 **Those numbers were not reproducible when first written, and that is its own
 finding.** Re-running the full suite twice back to back, same environment, same
@@ -369,7 +385,7 @@ cannot see, and it should be fixed before any new feature is built.**
 Pick one canonical implementation per concept and delete the rest:
 
 - 12 orchestrators → 1. `agentic/scheduler.py::Orchestrator` is the strongest
-  candidate: it has budgets, a policy gate, tracing, verification and 545
+  candidate: it has budgets, a policy gate, tracing, verification and 553
   passing tests behind it.
 - 3 event buses → 1. 3 mission executors → 1. 4 capability registries → 1.
 
@@ -393,19 +409,32 @@ actually calling it. Extending that discipline is what turns a claim into a
 fact.
 
 ### Phase 5 — Wire the ambient layer
-Three shipped modules are still unreferenced by the agent:
+Three shipped modules were unreferenced by the agent:
 `sovereign_wake_word_engine.py` (now partially wired via `WakeWordInput`),
-`ambient_dual_sentinel.py`, and `full_duplex_controller.py`. The last is what
-makes interruption work — being able to talk over the assistant instead of
-waiting for it to finish. That is the remaining gap between this and the
-demos you are comparing against.
+`ambient_dual_sentinel.py`, and `full_duplex_controller.py`.
+
+`full_duplex_controller.py` is now wired (commit `6a41516`). `InterruptibleOutput`
+in `agentic/voice_loop.py` wraps any `SpeechOutput` with a
+`FullDuplexVoiceController`, splits a reply into sentences, and listens for a
+barge-in between them. Measured: a three-sentence reply interrupted after the
+first delivers exactly one spoken sentence and leaves the controller in
+`DuplexState.INTERRUPTED`; `trigger_barge_in()` returns to `LISTENING` in
+0.01 ms with an audit hash recorded. So the interruption gap described in the
+earlier revision of this document is closed, and the assistant can be talked
+over rather than waited for.
+
+What is still open here is `ambient_dual_sentinel.py`, which cannot even be
+imported in this sandbox (`OSError: PortAudio library not found`). Wiring it
+blind would ship code nobody has run, which is the failure mode this audit
+exists to catch, so it is left for the real machine.
+
 
 ---
 
 ## 4. The honest summary
 
 The architecture was never the problem. There is a working agentic harness with
-budgets, a policy gate, verification and tracing, and 545 tests pass against it.
+budgets, a policy gate, verification and tracing, and 553 tests pass against it.
 
 The problems are **duplication** (twelve orchestrators), **unverified claims**
 (136 self-graded, 84 simulated), and **unwired real code** (189 unreachable
