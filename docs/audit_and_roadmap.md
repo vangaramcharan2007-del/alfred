@@ -28,7 +28,7 @@ matters more than the count.
 | Files reachable from the declared entry points | 499 |
 | Files reachable from the test suite | 474 |
 | Files neither entry point nor test can reach | 189 |
-| Files referenced by **nothing at all** | 22 |
+| Files referenced by **nothing at all** | ~~22~~ **95** — see Phase 3 caveat |
 
 **Caveat on the zero.** It is correct, and it is also luck. Importing each of
 the 749 modules in `src/` produces 716 clean imports and 33 failures, every one
@@ -818,8 +818,42 @@ This is recorded as analysis, not done. Deleting orchestrators is destructive
 and needs a decision rather than a heuristic; Phase 3 below says the same about
 the unwired files.
 
-### Phase 3 — Decide the fate of the 22 unwired files
-Not deletion by heuristic. For each: **wire it, or delete it on purpose.**
+### Phase 3 — Decide the fate of the unwired files
+
+**Do not act on the number 22 in this section's original title.** I re-measured
+reachability before treating it as a deletion list, and it does not hold up.
+
+Parsing every file in `src/`, `tests/` and the repo root with `ast` and building
+the first-party import graph gives **95 modules that nothing imports
+statically**, not 22. My first pass at this reported 145; that was a bug in the
+measuring script, which had a `pass` where the `from pkg import name` case
+should have been handled, so it silently recorded nothing for that form of
+import. The 95 is the corrected figure. I do not know how 22 was originally
+derived, and I am not going to present either number as authoritative.
+
+More important than which count is right: **no static analysis can prove a file
+here is unreachable.** Seven call sites load modules by computed name or file
+path:
+
+```
+skills/skill_loader.py:22            spec_from_file_location
+skills/skill_sandbox.py:49           spec_from_file_location
+skills/skill_discovery.py:45         import_module(candidate_pkg)
+engineering/dynamic_tool_forge.py:259,292   spec_from_file_location
+kernel/metamorphic_core.py:26        import_module(module_name)
+orchestration/unified_agent_fleet.py:359    import_module(module_path)
+```
+
+A skills loader, a tool forge and a plugin fleet are exactly the subsystems
+whose whole purpose is to import things that have no static importer. So a file
+appearing on a "referenced by nothing" list is a prompt to investigate, never
+evidence that it is dead. Deleting from that list would risk removing code that
+only ever runs through a dynamic loader.
+
+The rule for this phase is therefore unchanged and now better founded: **not
+deletion by heuristic.** For each candidate, **wire it, or delete it on
+purpose**, having checked whether any of the seven dynamic loaders can reach
+it.
 The obvious first candidate is `voice/eevee_live.py` — a real Gemini Live
 duplex voice implementation that nothing calls, for the exact voice this
 project was asked for. Wiring it is a feature; deleting it is a decision. Both
