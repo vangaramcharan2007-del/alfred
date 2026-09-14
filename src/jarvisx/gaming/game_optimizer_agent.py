@@ -314,7 +314,7 @@ class GameOptimizerAgent:
                         pid = p.info['pid']
                         if pid in (0, 4) or pid == target_pid:
                             continue
-                        hProc = kernel32.OpenProcess(0x001F0FFF, False, pid)
+                        hProc = kernel32.OpenProcess(0x0500, False, pid)
                         if hProc:
                             if psapi.EmptyWorkingSet(hProc):
                                 trimmed_count += 1

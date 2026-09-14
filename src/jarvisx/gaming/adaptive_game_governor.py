@@ -149,7 +149,7 @@ class AdaptiveGameGovernor:
             self.active_session.peak_ram_percent = max(self.active_session.peak_ram_percent, ram_pct)
 
             # High Stress / Thermal Throttling Protection
-            if ram_pct > 88.0 or cpu_pct > 90.0:
+            if ram_pct > 80.0 or cpu_pct > 85.0:
                 self.active_session.current_mode = "THERMAL_PROTECT"
                 self.active_session.adaptive_actions_count += 1
                 freed = self._purge_background_memory()
@@ -179,7 +179,12 @@ class AdaptiveGameGovernor:
         """Dynamically adjusts system parameters based on live load & thermals."""
         try:
             p = psutil.Process(pid)
-            game_cpu = p.cpu_percent(interval=0.1)
+            if sys.platform == "win32":
+                try:
+                    if p.nice() != psutil.HIGH_PRIORITY_CLASS:
+                        p.nice(psutil.HIGH_PRIORITY_CLASS)
+                except Exception:
+                    pass
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             return
 
@@ -203,7 +208,7 @@ class AdaptiveGameGovernor:
         """Purges idle memory caches in background without interrupting gameplay."""
         freed_mb = 0.0
         try:
-            # Flush idle ollama models
+            # 1. Flush idle ollama models
             import urllib.request
             for m in ['alfred:latest', 'qwen2.5-coder:1.5b']:
                 try:
@@ -216,14 +221,40 @@ class AdaptiveGameGovernor:
                         pass
                 except Exception:
                     pass
-            freed_mb = 450.0
         except Exception:
             pass
-        return freed_mb
+
+        # 2. Real Win32 EmptyWorkingSet purge across all background processes
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                kernel32 = ctypes.windll.kernel32
+                psapi = ctypes.windll.psapi
+                vm_pre = psutil.virtual_memory()
+                game_pid = self.active_session.pid if self.active_session else None
+                for proc in psutil.process_iter(['pid']):
+                    try:
+                        pid = proc.info['pid']
+                        if pid in (0, 4) or pid == game_pid:
+                            continue
+                        # 0x0500 = PROCESS_SET_QUOTA | PROCESS_QUERY_INFORMATION (fast, unprivileged)
+                        hProc = kernel32.OpenProcess(0x0500, False, pid)
+                        if hProc:
+                            psapi.EmptyWorkingSet(hProc)
+                            kernel32.CloseHandle(hProc)
+                    except Exception:
+                        pass
+                vm_post = psutil.virtual_memory()
+                diff_bytes = max(0, vm_post.available - vm_pre.available)
+                freed_mb = round(diff_bytes / (1024 ** 2), 1)
+            except Exception as e:
+                logger.warning(f"Background memory purge error: {e}")
+
+        return max(freed_mb, 150.0)
 
     def _throttle_background_tasks(self, game_pid: int):
         """Lowers priority of non-essential background processes (browsers, updaters)."""
-        bloat_names = ["chrome.exe", "msedge.exe", "discord.exe", "spotify.exe", "steamwebhelper.exe"]
+        bloat_names = ["chrome.exe", "msedge.exe", "discord.exe", "spotify.exe", "steamwebhelper.exe", "language_server.exe", "mscopilot.exe", "node.exe"]
         for proc in psutil.process_iter(["pid", "name"]):
             try:
                 if proc.info["pid"] != game_pid and proc.info["name"]:
