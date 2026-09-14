@@ -1,4 +1,35 @@
 {
+  "elden_ring": {
+    "title": "Elden Ring",
+    "executable": "eldenring.exe",
+    "category": "open_world_action_rpg",
+    "target_fps": 60,
+    "recommended_settings": {
+      "display_mode": "Fullscreen / Borderless",
+      "resolution": "1280x720",
+      "texture_quality": "Low",
+      "antialiasing": "Low",
+      "ssao": "Disable",
+      "depth_of_field": "Disable",
+      "motion_blur": "Disable",
+      "shadow_quality": "Low",
+      "lighting_quality": "Low",
+      "effects_quality": "Low",
+      "reflection_quality": "Low",
+      "water_surface_quality": "Low",
+      "shade_quality": "Low",
+      "volumetric_effect_quality": "Low",
+      "raytracing_quality": "Disable",
+      "gi_data_quality": "Low",
+      "grass_quality": "Low"
+    },
+    "config_pattern": "%APPDATA%/EldenRing/GraphicsConfig.xml",
+    "os_optimizations": {
+      "process_priority": "High",
+      "gpu_preference": "HighPerformance",
+      "memory_compaction": true
+    }
+  },
   "valorant": {
     "title": "VALORANT",
     "executable": "VALORANT-Win64-Shipping.exe",

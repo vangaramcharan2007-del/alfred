@@ -176,6 +176,10 @@ class GameOptimizerAgent:
             "the last of us": "the_last_of_us",
             "tlou": "the_last_of_us",
             "tlou1": "the_last_of_us",
+            "elden": "elden_ring",
+            "elden ring": "elden_ring",
+            "eldenring": "elden_ring",
+            "er": "elden_ring",
             "rdr2": "rdr2",
             "rdr 2": "rdr2",
             "rdr": "rdr2",
@@ -279,7 +283,7 @@ class GameOptimizerAgent:
         # A. Memory Compaction
         freed_mb = 0.0
         try:
-            # Unload heavy local models if in memory
+            # 1. Unload heavy local models if in memory
             for m in ['alfred:latest', 'qwen2.5-coder:1.5b']:
                 try:
                     import urllib.request
@@ -292,10 +296,37 @@ class GameOptimizerAgent:
                         pass
                 except Exception:
                     pass
-            freed_mb += 1200.0  # Approx freed model weights
-            os_optimizations.append("Flushed idle LLM weights & dormant caches (+1.2GB RAM freed)")
         except Exception:
             pass
+
+        # 2. Real Win32 EmptyWorkingSet memory compaction across background processes
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                kernel32 = ctypes.windll.kernel32
+                psapi = ctypes.windll.psapi
+                trimmed_count = 0
+                vm_pre = psutil.virtual_memory()
+                active_match = self.scan_active_running_game()
+                target_pid = active_match[2] if active_match else None
+                for p in psutil.process_iter(['pid', 'name']):
+                    try:
+                        pid = p.info['pid']
+                        if pid in (0, 4) or pid == target_pid:
+                            continue
+                        hProc = kernel32.OpenProcess(0x001F0FFF, False, pid)
+                        if hProc:
+                            if psapi.EmptyWorkingSet(hProc):
+                                trimmed_count += 1
+                            kernel32.CloseHandle(hProc)
+                    except Exception:
+                        pass
+                vm_post = psutil.virtual_memory()
+                freed_bytes = max(0, vm_post.available - vm_pre.available)
+                freed_mb += round(freed_bytes / (1024 ** 2), 1)
+                os_optimizations.append(f"Flushed idle background working sets across {trimmed_count} processes (+{freed_mb:.1f} MB RAM freed)")
+            except Exception as e:
+                logger.warning(f"Win32 memory compaction warning: {e}")
 
         # B. Set High Priority for active game process if running
         active_match = self.scan_active_running_game()
@@ -342,6 +373,32 @@ class GameOptimizerAgent:
                         os_optimizations.append(f"Created config safety backup at '{backup_file.name}'")
                 except Exception:
                     pass
+
+                # Specific Elden Ring GraphicsConfig.xml patch
+                if game_key == "elden_ring":
+                    try:
+                        raw_bytes = p_obj.read_bytes()
+                        encoding = "utf-16" if (raw_bytes.startswith(b"\xff\xfe") or raw_bytes.startswith(b"\xfe\xff") or b"\x00" in raw_bytes[:100]) else "utf-8"
+                        text = raw_bytes.decode(encoding, errors="replace")
+                        mod = False
+                        if "<GrassQuality>MEDIUM</GrassQuality>" in text:
+                            text = text.replace("<GrassQuality>MEDIUM</GrassQuality>", "<GrassQuality>LOW</GrassQuality>")
+                            mod = True
+                        elif "<GrassQuality>HIGH</GrassQuality>" in text:
+                            text = text.replace("<GrassQuality>HIGH</GrassQuality>", "<GrassQuality>LOW</GrassQuality>")
+                            mod = True
+                        elif "<GrassQuality>MAX</GrassQuality>" in text:
+                            text = text.replace("<GrassQuality>MAX</GrassQuality>", "<GrassQuality>LOW</GrassQuality>")
+                            mod = True
+                        if "<RaytracingQuality>DISABLE</RaytracingQuality>" not in text:
+                            import re
+                            text = re.sub(r"<RaytracingQuality>.*?</RaytracingQuality>", "<RaytracingQuality>DISABLE</RaytracingQuality>", text)
+                            mod = True
+                        if mod:
+                            p_obj.write_text(text, encoding=encoding)
+                            os_optimizations.append("Patched GraphicsConfig.xml: GrassQuality locked to LOW (relieves integrated GPU foliage strain)")
+                    except Exception as e:
+                        logger.warning(f"Failed to patch Elden Ring GraphicsConfig: {e}")
 
         return GameOptimizationResult(
             game_name=game_key,
