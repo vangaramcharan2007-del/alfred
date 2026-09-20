@@ -95,26 +95,35 @@ class CompoundIntentDecomposer:
 
     def _resolve_contact(self, raw_name: str) -> Tuple[str, str]:
         """
-        Resolves contact name and phone number from config/contacts.json.
-        Handles phonetic aliases like 'data' -> 'Dakshith'.
+        Resolves contact name and phone number dynamically:
+        1. If raw_name is already a phone number, uses it directly.
+        2. Looks up in config/contacts.json without any hardcoded defaults.
+        3. If not in contacts.json, uses the provided name dynamically with empty phone.
         """
         clean = raw_name.lower().strip()
+
+        # Check if raw_name is directly a phone number (e.g. +91... or digits)
+        digits_only = re.sub(r"[^\d+]", "", clean)
+        if len(digits_only) >= 7 and (clean.startswith("+") or digits_only.isdigit()):
+            return clean, clean
+
         contacts_file = Path("config/contacts.json")
         if contacts_file.exists():
             try:
                 with open(contacts_file, "r", encoding="utf-8") as f:
                     contacts = json.load(f)
-                # Exact / alias match
+                # Exact match
                 if clean in contacts:
                     entry = contacts[clean]
                     return entry.get("name", clean.capitalize()), entry.get("phone", "")
-                # Substring / phonetic match
+                # Substring match
                 for k, v in contacts.items():
-                    if clean in k or k in clean or clean in v.get("name", "").lower():
+                    if clean in k.lower() or k.lower() in clean or clean in v.get("name", "").lower():
                         return v.get("name", clean.capitalize()), v.get("phone", "")
             except Exception as e:
                 logger.debug(f"[CompoundIntent] Contacts load error: {e}")
 
+        # Completely dynamic: return whatever name was requested
         return clean.capitalize(), ""
 
     def detect_and_decompose(self, prompt: str) -> Optional[CompoundPlan]:
@@ -150,11 +159,13 @@ class CompoundIntentDecomposer:
 
         steps = [s for s in (step_1, step_2) if s is not None]
 
-        # Generate sleek, context-aware speech acknowledgment
-        if "spotify" in second_intent_raw and "whatsapp" in first_intent_raw:
-            ack = f"Understood Boss. Prioritizing {step_1.description} first, then handling your {step_2.description}."
+        # Generate sleek, context-aware speech acknowledgment dynamically
+        if len(steps) >= 2:
+            ack = f"Understood Boss. Prioritizing {steps[0].description} first, then handling your {steps[1].description}."
+        elif len(steps) == 1:
+            ack = f"Understood Boss. Executing {steps[0].description}."
         else:
-            ack = f"Understood Boss. Executing {step_1.description} first, followed by {step_2.description}."
+            ack = "Understood Boss."
 
         return CompoundPlan(
             is_compound=True,
@@ -187,19 +198,23 @@ class CompoundIntentDecomposer:
             for phrase in ["open spotify and play", "play on spotify", "open spotify", "play", "songs", "song", "track", "music"]:
                 query = re.sub(rf"\b{re.escape(phrase)}\b", "", query, flags=re.IGNORECASE)
             query = query.strip()
-            if query.lower() in ("mettalica", "metalica"):
-                query = "Metallica"
-            if not query:
-                query = "Metallica"
 
-            target_url = f"https://open.spotify.com/search/{urllib.parse.quote(query)}"
             browser_label = f" in {browser.capitalize()}" if browser else ""
+            if query:
+                target_url = f"https://open.spotify.com/search/{urllib.parse.quote(query)}"
+                step_name = f"Spotify {query.title()}{browser_label}"
+                desc = f"Spotify search for '{query.title()}'{browser_label}"
+            else:
+                target_url = "https://open.spotify.com"
+                step_name = f"Open Spotify{browser_label}"
+                desc = f"Spotify{browser_label}"
+
             return CompoundStep(
                 order=order,
-                name=f"Spotify {query.title()}{browser_label}",
+                name=step_name,
                 tool="browser_open_target",
                 args={"url": target_url, "browser": browser or "brave", "query": query},
-                description=f"Spotify search for '{query.title()}'{browser_label}",
+                description=desc,
                 browser_override=browser,
             )
 
@@ -208,22 +223,30 @@ class CompoundIntentDecomposer:
             query = t_clean
             for phrase in ["open youtube and search", "search youtube for", "open youtube", "search"]:
                 query = re.sub(rf"\b{re.escape(phrase)}\b", "", query, flags=re.IGNORECASE)
-            query = query.strip() or "trending"
-            target_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}"
+            query = query.strip()
             browser_label = f" in {browser.capitalize()}" if browser else ""
+            if query:
+                target_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}"
+                step_name = f"YouTube {query.title()}{browser_label}"
+                desc = f"YouTube search for '{query.title()}'{browser_label}"
+            else:
+                target_url = "https://www.youtube.com"
+                step_name = f"Open YouTube{browser_label}"
+                desc = f"YouTube{browser_label}"
+
             return CompoundStep(
                 order=order,
-                name=f"YouTube {query.title()}{browser_label}",
+                name=step_name,
                 tool="browser_open_target",
                 args={"url": target_url, "browser": browser or "brave", "query": query},
-                description=f"YouTube search for '{query.title()}'{browser_label}",
+                description=desc,
                 browser_override=browser,
             )
 
         # 3. WhatsApp call / communication
         if "whatsapp" in t_clean or "call" in t_clean or "message" in t_clean:
-            contact_match = re.search(r"(?:call|ring|phone|message|text)\s+([a-zA-Z0-9_-]+)", t_clean)
-            raw_target = contact_match.group(1) if contact_match else "data"
+            contact_match = re.search(r"(?:call|ring|phone|message|text)\s+([a-zA-Z0-9_+-]+)", t_clean)
+            raw_target = contact_match.group(1).strip() if contact_match else "Contact"
             resolved_name, phone = self._resolve_contact(raw_target)
 
             is_call = any(w in t_clean for w in ["call", "ring", "phone"]) or ("whatsapp" in t_clean and "message" not in t_clean)
@@ -324,16 +347,20 @@ class CompoundIntentDecomposer:
                 except Exception:
                     pass
 
-            elif step.tool == "call_whatsapp":
-                recipient = step.args.get("recipient", "Dakshith")
+            elif step.tool in ("call_whatsapp", "message_whatsapp"):
+                recipient = step.args.get("recipient", "Contact")
                 phone = step.args.get("phone", "")
+                is_call = step.args.get("is_call", True)
 
-                # Desktop protocol
-                clean_phone = "".join(filter(str.isdigit, phone))
-                if len(clean_phone) >= 10:
+                # Clean phone digits if present
+                clean_phone = "".join(filter(str.isdigit, phone)) if phone else ""
+                if len(clean_phone) >= 7:
                     proto = f"whatsapp://send?phone={clean_phone}"
+                    toast_msg = f"Initiating WhatsApp {'Voice Call' if is_call else 'Message'} to {recipient} ({phone})"
                 else:
+                    # Opens WhatsApp directly without telephone requirement
                     proto = "whatsapp://send?text="
+                    toast_msg = f"Opening WhatsApp for {recipient}"
 
                 try:
                     subprocess.Popen(["cmd.exe", "/c", "start", "", proto], shell=False)
@@ -345,8 +372,8 @@ class CompoundIntentDecomposer:
                 try:
                     from jarvisx.dashboard.event_bus import push_ev_notification
                     push_ev_notification(
-                        title="📞 COMMS DISPATCHED",
-                        message=f"Initiating WhatsApp Voice Call to {recipient} ({phone or 'Desktop Contact'})",
+                        title="📞 COMMS DISPATCHED" if is_call else "💬 COMMS DISPATCHED",
+                        message=toast_msg,
                         level="success",
                     )
                 except Exception:
