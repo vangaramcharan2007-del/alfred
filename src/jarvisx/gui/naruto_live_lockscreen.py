@@ -54,8 +54,14 @@ def get_active_video_path() -> str:
     return PRIMARY_VIDEO
 
 
-def launch_lockscreen(fullscreen: bool = True, timeout: Optional[float] = None) -> subprocess.Popen:
+def launch_lockscreen(fullscreen: bool = True, timeout: Optional[float] = None, sync_native: bool = True) -> subprocess.Popen:
     """Launch the 4K Naruto live lock screen in dedicated app mode."""
+    if sync_native:
+        try:
+            sync_windows_lockscreen()
+        except Exception as e:
+            print(f"[WARN] Native lockscreen sync warning: {e}")
+
     browser_exe = find_browser()
     if not browser_exe:
         raise RuntimeError("No compatible Chromium/Edge browser found to host GPU-accelerated lock screen.")
@@ -96,12 +102,17 @@ def launch_lockscreen(fullscreen: bool = True, timeout: Optional[float] = None) 
 
 
 def sync_windows_lockscreen() -> bool:
-    """Synchronize the 4K frame to Windows native lock screen (Win + L)."""
-    script_path = os.path.join(PROJECT_ROOT, "scripts", "set_windows_lockscreen.py")
-    if os.path.exists(script_path):
-        res = subprocess.run([sys.executable, script_path], capture_output=True, text=True)
+    """Synchronize the 4K frame to Windows native lock screen (Win + L) using official WinRT API."""
+    ps_script = os.path.join(PROJECT_ROOT, "scripts", "set_user_lockscreen.ps1")
+    if os.path.exists(ps_script):
+        cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", ps_script]
+        res = subprocess.run(cmd, capture_output=True, text=True)
         print(res.stdout)
-        return res.returncode == 0
+        if res.returncode == 0:
+            print("[OK] Windows Native Lock Screen updated via WinRT API.")
+            return True
+        else:
+            print(f"[WARN] WinRT LockScreen update warning: {res.stderr}")
     return False
 
 

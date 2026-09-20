@@ -73,18 +73,15 @@ def demo_extracted_4k_frame():
 
 
 def demo_windows_lockscreen_sync():
-    print("\n[+] 3. VALIDATING WINDOWS NATIVE LOCK SCREEN (WIN + L) REGISTRY:")
+    print("\n[+] 3. VALIDATING WINDOWS NATIVE LOCK SCREEN (WIN + L) REGISTRY & WINRT:")
     sync_windows_lockscreen()
-    try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\PersonalizationCSP") as k:
-            path_val, _ = winreg.QueryValueEx(k, "LockScreenImagePath")
-            status_val, _ = winreg.QueryValueEx(k, "LockScreenImageStatus")
-            print(f"    - Registry Key    : HKCU\\...\\PersonalizationCSP")
-            print(f"    - Image Path Value: {path_val}")
-            print(f"    - Status Value    : {status_val} (Active)")
-            print("    - Status          : [PASSED] Windows Win+L Lock Screen synchronized.")
-    except Exception as e:
-        print(f"    - Registry check warning: {e}")
+    import subprocess
+    cmd = ["powershell", "-Command", "[Windows.System.UserProfile.LockScreen,Windows.System.UserProfile,ContentType=WindowsRuntime] | Out-Null; [Windows.System.UserProfile.LockScreen]::OriginalImageFile.AbsoluteUri"]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    uri = res.stdout.strip()
+    print(f"    - WinRT LockScreen URI : {uri}")
+    assert "naruto_4k_lockscreen.jpg" in uri, f"Expected naruto_4k_lockscreen.jpg in WinRT URI, got {uri}"
+    print("    - Status               : [PASSED] Windows Win+L Lock Screen verified active.")
 
 
 def demo_html_lockscreen_interface():
