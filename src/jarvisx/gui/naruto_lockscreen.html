@@ -703,26 +703,14 @@
         window.onLockscreenUnlocked();
       }
 
-      // Request window close to return seamlessly to the user's desktop
+      // Seamlessly transition to the Home Screen Dashboard with widgets and dock
       setTimeout(() => {
         try {
-          if (window.external && window.external.closeWindow) {
-            window.external.closeWindow();
-          } else {
-            window.close();
-          }
-        } catch (e) {}
-      }, 2500);
-
-      // Fallback toast if browser security prevents window.close():
-      setTimeout(() => {
-        unlockedToast.innerHTML = `
-          <div class="unlocked-toast" style="cursor:pointer;" onclick="window.close(); relockScreen();">
-            <span>✦</span>
-            <span>Welcome Back! Click or press Alt+F4 to return to desktop</span>
-          </div>
-        `;
-      }, 3000);
+          window.location.href = '../../../newtab/index.html';
+        } catch (e) {
+          try { window.close(); } catch (err) {}
+        }
+      }, 1200);
     }
 
     function relockScreen() {
