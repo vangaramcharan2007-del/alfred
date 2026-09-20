@@ -161,7 +161,6 @@
       align-items: center;
       position: relative;
       transform-origin: bottom center;
-      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
       will-change: transform;
     }
 
@@ -267,7 +266,7 @@
         0 12px 40px rgba(0, 0, 0, 0.3),
         inset 0 1.5px 1px rgba(255, 255, 255, 0.25);
       cursor: pointer;
-      transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease, background 0.3s ease;
+      transition: box-shadow 0.4s ease, background 0.3s ease;
       transform-style: preserve-3d;
       position: relative;
       overflow: hidden;
@@ -386,17 +385,63 @@
       line-height: 1.4;
     }
 
-    /* ── SUBTLE TOP FADE ── */
-    .top-info {
+    /* ── TOP RIGHT GLASSMORPHIC STATUS (TIME & DATE) ── */
+    .top-right-status {
       position: fixed;
-      top: 24px; right: 28px;
-      color: rgba(255,255,255,0.35);
+      top: 22px;
+      right: 28px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 25;
+      animation: fadeIn 0.8s ease both;
+    }
+
+    .status-clock-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 999px;
+      padding: 7px 18px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+
+    .status-time {
+      font-size: 13.5px;
+      font-weight: 500;
+      color: #ffffff;
+      letter-spacing: 0.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status-sep {
+      color: rgba(255, 255, 255, 0.4);
       font-size: 11px;
-      font-weight: 300;
-      letter-spacing: 1.5px;
+    }
+
+    .status-date {
+      font-size: 12px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.8);
+      letter-spacing: 0.3px;
+    }
+
+    .theme-tag-pill {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 1.2px;
       text-transform: uppercase;
-      z-index: 20;
-      animation: fadeIn 1.2s ease both;
+      color: rgba(255, 255, 255, 0.65);
     }
     @keyframes fadeIn { from {opacity:0} to {opacity:1} }
   </style>
@@ -481,7 +526,15 @@
   </div>
 </div>
 
-<div class="top-info" id="theme-name">Firefly</div>
+<!-- Top Right Status (Time, Date, Theme Badge) -->
+<div class="top-right-status">
+  <div class="status-clock-badge">
+    <span class="status-time" id="top-time">00:00 PM</span>
+    <span class="status-sep">•</span>
+    <span class="status-date" id="top-date">Sun, Sep 20</span>
+  </div>
+  <div class="theme-tag-pill" id="theme-name">Firefly</div>
+</div>
 
 <div id="theme-bar">
   <div class="t-btn-wrap" data-tip="Firefly Forest">
@@ -1050,10 +1103,20 @@ function updateClock() {
   const m = String(now.getMinutes()).padStart(2, '0');
   const period = h >= 12 ? 'PM' : 'AM';
   const displayH = h % 12 || 12;
-  document.getElementById('clock').textContent = `${String(displayH).padStart(2, '0')}:${m}`;
+  const timeStr = `${String(displayH).padStart(2, '0')}:${m}`;
+  document.getElementById('clock').textContent = timeStr;
+
+  const topTimeEl = document.getElementById('top-time');
+  if (topTimeEl) topTimeEl.textContent = `${timeStr} ${period}`;
 
   const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
   document.getElementById('date-line').textContent = now.toLocaleDateString(undefined, options);
+
+  const topDateEl = document.getElementById('top-date');
+  if (topDateEl) {
+    const shortOptions = { weekday: 'short', month: 'short', day: 'numeric' };
+    topDateEl.textContent = now.toLocaleDateString(undefined, shortOptions);
+  }
 
   let greet = 'Good Evening, Hokage';
   if (h >= 5 && h < 12) greet = 'Good Morning, Hokage';
@@ -1070,14 +1133,15 @@ const dock = document.getElementById('theme-bar');
 const dockItems = document.querySelectorAll('.t-btn-wrap');
 
 if (dock && dockItems.length > 0) {
-  const MAX_SCALE = 1.95;       // Apex scale of icon directly under cursor
-  const MAX_LIFT = 26;          // Upward lift in px
-  const INFLUENCE_RADIUS = 135; // Pixel radius of parabolic wave influence
+  const MAX_SCALE = 2.1;        // Apex scale of icon directly under cursor
+  const MAX_LIFT = 30;          // Upward lift in px
+  const INFLUENCE_RADIUS = 155; // Pixel radius of parabolic wave influence
 
   dock.addEventListener('mousemove', e => {
     const mouseX = e.clientX;
 
     dockItems.forEach(item => {
+      item.style.transition = 'none';
       const rect = item.getBoundingClientRect();
       const itemCenterX = rect.left + rect.width / 2;
       const dist = Math.abs(mouseX - itemCenterX);
@@ -1099,8 +1163,10 @@ if (dock && dockItems.length > 0) {
 
   dock.addEventListener('mouseleave', () => {
     dockItems.forEach(item => {
+      item.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
       item.style.transform = 'scale(1) translateY(0px)';
       item.style.zIndex = '1';
+      setTimeout(() => { item.style.transition = ''; }, 400);
     });
   });
 
@@ -1128,11 +1194,12 @@ if (widgetRow && widgets.length > 0) {
     const mouseY = e.clientY;
 
     widgets.forEach(widget => {
+      widget.style.transition = 'none';
       const rect = widget.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
       const dist = Math.hypot(mouseX - cx, mouseY - cy);
-      const influenceRadius = 340;
+      const influenceRadius = 380;
 
       // Check if mouse is directly inside this widget
       const isInside = mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom;
@@ -1140,18 +1207,18 @@ if (widgetRow && widgets.length > 0) {
       if (isInside) {
         const x = mouseX - rect.left;
         const y = mouseY - rect.top;
-        const rotX = ((y - rect.height / 2) / (rect.height / 2)) * -11;
-        const rotY = ((x - rect.width / 2) / (rect.width / 2)) * 11;
+        const rotX = ((y - rect.height / 2) / (rect.height / 2)) * -12;
+        const rotY = ((x - rect.width / 2) / (rect.width / 2)) * 12;
 
         widget.style.setProperty('--mouse-x', `${(x / rect.width) * 100}%`);
         widget.style.setProperty('--mouse-y', `${(y / rect.height) * 100}%`);
-        widget.style.transform = `perspective(800px) rotateX(${rotX.toFixed(2)}deg) rotateY(${rotY.toFixed(2)}deg) scale3d(1.06, 1.06, 1.06) translateZ(14px)`;
+        widget.style.transform = `perspective(800px) rotateX(${rotX.toFixed(2)}deg) rotateY(${rotY.toFixed(2)}deg) scale3d(1.08, 1.08, 1.08) translateZ(16px)`;
         widget.style.zIndex = '5';
       } else if (dist < influenceRadius) {
-        // Neighboring widget proximity wave
+        // Neighboring widget proximity wave (lifts and scales adjacent widgets)
         const proximity = Math.cos((dist / influenceRadius) * (Math.PI / 2));
-        const lift = -6 * (proximity * proximity);
-        const scale = 1.0 + 0.025 * (proximity * proximity);
+        const lift = -12 * (proximity * proximity);
+        const scale = 1.0 + 0.045 * (proximity * proximity);
         widget.style.transform = `perspective(800px) rotateX(0deg) rotateY(0deg) scale3d(${scale.toFixed(3)}, ${scale.toFixed(3)}, 1) translateY(${lift.toFixed(1)}px)`;
         widget.style.zIndex = '2';
       } else {
@@ -1163,8 +1230,10 @@ if (widgetRow && widgets.length > 0) {
 
   widgetRow.addEventListener('mouseleave', () => {
     widgets.forEach(widget => {
+      widget.style.transition = 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
       widget.style.transform = 'perspective(800px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1) translateY(0px)';
       widget.style.zIndex = '1';
+      setTimeout(() => { widget.style.transition = ''; }, 500);
     });
   });
 }
