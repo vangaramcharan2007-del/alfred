@@ -64,7 +64,17 @@ class SovereignNeuralTTS:
         chosen_voice = self.VOICES.get(voice_key, self.voice) if voice_key else self.voice
 
         if blocking:
-            asyncio.run(self._synthesize_and_play(clean, chosen_voice))
+            try:
+                asyncio.get_running_loop()
+                # Event loop already active in this thread — run in joined worker thread
+                t = threading.Thread(
+                    target=lambda: asyncio.run(self._synthesize_and_play(clean, chosen_voice)),
+                    name="NeuralVoiceThreadBlocking"
+                )
+                t.start()
+                t.join(timeout=20.0)
+            except RuntimeError:
+                asyncio.run(self._synthesize_and_play(clean, chosen_voice))
         else:
             threading.Thread(
                 target=lambda: asyncio.run(self._synthesize_and_play(clean, chosen_voice)),

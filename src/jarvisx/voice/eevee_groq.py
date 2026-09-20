@@ -204,6 +204,23 @@ class EeveeGroq:
             {
                 "type": "function",
                 "function": {
+                    "name": "deploy_workspace",
+                    "description": "Orchestrates multi-app workspaces mid-speech with HUD notifications (profiles: 'coding', 'research', 'system_defense').",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "profile": {
+                                "type": "string",
+                                "description": "Workspace profile name: 'coding', 'research', or 'system_defense'"
+                            }
+                        },
+                        "required": ["profile"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
                     "name": "read_file",
                     "description": "Reads and inspects the text contents of a file on disk.",
                     "parameters": {
@@ -517,7 +534,18 @@ class EeveeGroq:
         """
         p_lower = user_prompt.lower().strip()
 
-        # 1. Cooling / Free RAM / Thermal Lag
+        # 1. Workspace Staging & Multi-App Orchestration
+        if any(w in p_lower for w in ["workspace", "coding workspace", "set up workspace", "setup workspace", "dev workspace", "stage workspace", "set up my workspace", "staging workspace"]):
+            profile = "coding"
+            if "research" in p_lower:
+                profile = "research"
+            elif "defense" in p_lower or "security" in p_lower or "system" in p_lower:
+                profile = "system_defense"
+            from jarvisx.automation.workspace_orchestrator import get_workspace_orchestrator
+            orch_res = get_workspace_orchestrator().deploy_workspace(profile, mid_sentence=True)
+            return ("deploy_workspace", f"Staged {profile} workspace for you, Charan. {len(orch_res['launched_apps'])} applications active.")
+
+        # 2. Cooling / Free RAM / Thermal Lag
         if any(w in p_lower for w in ["cool down", "free ram", "flush ram", "thermal", "cooling", "compact ram", "system lag", "lagging", "free up ram"]):
             out = self._exec_cool_system()
             return ("cool_system_and_free_ram", out)
@@ -672,7 +700,16 @@ class EeveeGroq:
         if not self._running:
             return
         if getattr(self, "_is_speaking", False):
-            # Ignore audio feedback while assistant is speaking
+            # 🎙️ FULL-DUPLEX BARGE-IN: If user speaks loudly over assistant speech, kill audio immediately
+            try:
+                import audioop
+                rms = audioop.rms(audio.get_wav_data(), 2)
+                if rms > 650:
+                    from jarvisx.voice.barge_in_controller import get_barge_in_controller
+                    get_barge_in_controller().trigger_barge_in("Voice Barge-In over active speech")
+                    self._is_speaking = False
+            except Exception:
+                pass
             return
         threading.Thread(target=self._process_audio, args=(audio,), daemon=True).start()
 
@@ -957,6 +994,13 @@ class EeveeGroq:
                 elif func_name == "cool_system_and_free_ram":
                     tool_output = self._exec_cool_system()
                     ack_speech = tool_output
+
+                elif func_name == "deploy_workspace":
+                    profile = args.get("profile", "coding")
+                    from jarvisx.automation.workspace_orchestrator import get_workspace_orchestrator
+                    orch_res = get_workspace_orchestrator().deploy_workspace(profile, mid_sentence=True)
+                    tool_output = f"Workspace '{profile}' deployed ({orch_res['duration_ms']:.0f}ms)."
+                    ack_speech = ""  # Handled mid-sentence
 
                 elif func_name == "create_file":
                     fpath = args.get("file_path", "")

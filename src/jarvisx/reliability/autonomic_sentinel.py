@@ -236,4 +236,19 @@ class AutonomicReflexSentinel:
                 "fastpath": True,
             }
 
+        # 4. Workspace Staging Reflex
+        if any(k in intent for k in ("workspace", "coding workspace", "set up workspace", "setup workspace", "dev workspace")):
+            profile = "coding"
+            if "research" in intent:
+                profile = "research"
+            elif "defense" in intent or "security" in intent:
+                profile = "system_defense"
+            return {
+                "action": "execute_tool",
+                "tool": "deploy_workspace",
+                "args": {"profile": profile},
+                "speech": f"Setting up your {profile} workspace right now, Sir.",
+                "fastpath": True,
+            }
+
         return None

@@ -95,3 +95,27 @@ def push_event_sync(event_type: str, data: Any):
             loop.run_until_complete(broadcast_event(event_type, data))
     except Exception as e:
         logger.warning(f"[EventBus] fallback event push failed: {e}")
+
+
+def push_ev_notification(
+    title: str,
+    message: str,
+    level: str = "info",
+    spoken_text: Optional[str] = None,
+    speak_in_background: bool = True,
+):
+    """
+    Broadcasts a high-priority toast notification to all connected E.V. HUD clients,
+    and optionally speaks the notification text in E.V.'s hyper-realistic neural voice.
+    """
+    data = {"title": title, "message": message, "level": level, "text": message}
+    push_event_sync("ev_notification", data)
+
+    if spoken_text:
+        try:
+            from jarvisx.voice.sovereign_neural_tts import get_neural_tts
+            tts = get_neural_tts()
+            tts.speak(spoken_text, voice_key="hyper_realistic_female", blocking=not speak_in_background)
+        except Exception as e:
+            logger.debug(f"[EventBus] EV TTS speech notification error: {e}")
+

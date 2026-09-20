@@ -433,6 +433,10 @@ class Hands:
         elif tool_name == "assimilate_repo_feature":
             self._fill_arg(args, "repo_url")
             self._fill_arg(args, "feature_goal")
+        elif tool_name == "deploy_workspace":
+            from jarvisx.automation.workspace_orchestrator import get_workspace_orchestrator
+            orch_res = get_workspace_orchestrator().deploy_workspace(args.get("profile", "coding"), mid_sentence=True)
+            return {"status": "success", "tool": "deploy_workspace", "result": orch_res}
 
         res = self.executor.execute(tool_name, args)
         return res.to_dict()

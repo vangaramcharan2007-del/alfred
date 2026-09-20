@@ -29,6 +29,7 @@ import psutil
 from jarvisx.dashboard.event_bus import (
     broadcast_event,
     push_event_sync,
+    push_ev_notification,
     set_server_loop,
     register_connection,
     unregister_connection,
