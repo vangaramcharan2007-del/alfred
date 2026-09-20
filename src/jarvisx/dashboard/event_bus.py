@@ -88,13 +88,18 @@ def push_event_sync(event_type: str, data: Any):
 
     # Fallback to current thread event loop if one exists
     try:
-        loop = asyncio.get_event_loop()
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
         if loop.is_running():
             asyncio.ensure_future(broadcast_event(event_type, data))
         else:
             loop.run_until_complete(broadcast_event(event_type, data))
     except Exception as e:
-        logger.warning(f"[EventBus] fallback event push failed: {e}")
+        logger.debug(f"[EventBus] fallback event push notice: {e}")
 
 
 def push_ev_notification(

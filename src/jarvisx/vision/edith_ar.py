@@ -76,7 +76,7 @@ class EdithAREngine:
             try:
                 from jarvisx.voice.sovereign_neural_tts import get_neural_tts
                 tts = get_neural_tts()
-                tts.speak("Scanning your active display now, Charan.", voice_key="hyper_realistic_female", blocking=False)
+                tts.speak("Scanning your active display now, Boss.", voice_key="hyper_realistic_female", blocking=False)
             except Exception as e:
                 logger.debug(f"[E.D.I.T.H.] TTS speech error: {e}")
 

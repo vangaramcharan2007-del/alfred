@@ -97,7 +97,7 @@ class BargeInController:
                 push_event_sync("barge_in_event", {
                     "latency_ms": latency_ms,
                     "reason": reason,
-                    "message": f"Assistant muted in {latency_ms}ms. Listening to Charan...",
+                    "message": f"Assistant muted in {latency_ms}ms. Listening to Boss...",
                     "timestamp": time.time(),
                 })
             except Exception as e:
@@ -109,7 +109,7 @@ class BargeInController:
                     time.sleep(0.08)  # Micro-pause before acknowledgment
                     from jarvisx.voice.sovereign_neural_tts import get_neural_tts
                     tts = get_neural_tts()
-                    tts.speak("Listening, Charan.", voice_key="hyper_realistic_female", blocking=False)
+                    tts.speak("Listening, Boss.", voice_key="hyper_realistic_female", blocking=False)
                 except Exception as e:
                     logger.debug(f"[BargeIn] Ack speech error: {e}")
 
