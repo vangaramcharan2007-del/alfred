@@ -834,12 +834,27 @@ class EeveeGroq:
                         "steps": [
                             f"Directive: Open {target}",
                             "Resolving protocol / application target",
-                            "Initiating process dispatch",
-                            f"Target '{target}' launched"
+                            "🚀 Mid-sentence concurrent dispatch",
+                            f"Target '{target}' launching while speaking"
                         ]
                     })
-                    tool_output = self._exec_open_target(target)
-                    ack_speech = f"On it. {tool_output}"
+                    # 🚀 MID-SENTENCE ACTION: Speak WHILE opening the target
+                    ack_speech = f"Opening {target} for you right now, Charan."
+                    self._push_to_ui("tts_response", {"text": ack_speech})
+                    
+                    # Fire speech immediately (non-blocking)
+                    self._speak(ack_speech)
+                    
+                    # Fire tool action concurrently in background thread
+                    def _concurrent_open():
+                        return self._exec_open_target(target)
+                    action_thread = threading.Thread(target=_concurrent_open, daemon=True, name=f"MidSentence-{target}")
+                    action_thread.start()
+                    action_thread.join(timeout=10.0)
+                    
+                    tool_output = f"Opened {target} (concurrent mid-sentence)"
+                    ack_speech = ""  # Already spoken above
+                    logger.info(f"[EeveeGroq] 🚀 Mid-sentence action: opened '{target}' while speaking")
 
                 elif func_name == "run_browser_task":
                     task = args.get("task", "")
@@ -899,8 +914,12 @@ class EeveeGroq:
                             "Telemetry compiled"
                         ]
                     })
+                    # 🚀 MID-SENTENCE: Speak "Checking vitals" while gathering data
+                    pre_speech = "Checking your system vitals right now, Boss."
+                    self._push_to_ui("tts_response", {"text": pre_speech})
+                    self._speak(pre_speech)
                     tool_output = self._exec_get_vitals()
-                    ack_speech = tool_output
+                    ack_speech = tool_output  # Will speak the actual vitals after
 
                 elif func_name == "run_system_command":
                     cmd = args.get("command", "")
@@ -912,8 +931,12 @@ class EeveeGroq:
                             "Standard output captured"
                         ]
                     })
+                    # 🚀 MID-SENTENCE: Speak while running the command
+                    pre_speech = "Running that command now, Boss."
+                    self._push_to_ui("tts_response", {"text": pre_speech})
+                    self._speak(pre_speech)
                     tool_output = self._exec_system_command(cmd)
-                    ack_speech = "Command executed."
+                    ack_speech = ""  # Already spoken
 
                 elif func_name == "run_cyber_playbook":
                     pb = args.get("playbook_name", "recon")
@@ -946,7 +969,7 @@ class EeveeGroq:
                     tool_output = self._exec_read_file(fpath)
                     ack_speech = tool_output
 
-                # Speak acknowledgement and push to UI
+                # Speak acknowledgement and push to UI (only if not already spoken mid-sentence)
                 if ack_speech:
                     self._push_to_ui("tts_response", {"text": ack_speech})
                     self._speak(ack_speech)

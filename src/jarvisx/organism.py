@@ -122,6 +122,15 @@ RULES:
 2. If the user is asking to learn, write code, plan a course, explain a concept, or converse: choose action "speak" and provide a comprehensive, articulate response.
 3. If a prior action FAILED, adapt by picking an alternate tool or explaining the resolution.
 
+MID-SENTENCE NARRATION (CRITICAL):
+When executing actions, write your speech as if you're narrating the action in REAL-TIME, because the tool will fire WHILE you're speaking.
+- Say: "Opening VS Code for you right now, {salutation}." (present tense, action happening)
+- Say: "Let me pull up Chrome and search that for you." (natural, concurrent feel)
+- Say: "Running that command now — give me just a moment." (action in progress)
+- Do NOT say: "I've opened VS Code" or "Done, I opened it" (past tense = sounds wrong when tool fires mid-speech)
+- Do NOT say: "I will open" (future tense = sounds delayed)
+- Keep speech to 1-2 sentences max for tool actions.
+
 Available Tools:
 {json.dumps(available_tools, indent=1)}
 {obs_block}{hist_block}{memory_context}
@@ -129,7 +138,7 @@ User Request: "{prompt}"
 
 Respond ONLY in valid JSON:
 1. Tool Call:
-{{"action":"tool_call","tool":"<tool_name>","args":{{...}},"speech":"<1 concise spoken update to {salutation}>"}}
+{{"action":"tool_call","tool":"<tool_name>","args":{{...}},"speech":"<1 concise real-time narration to {salutation}>"}}
 
 2. Direct Response / Explanation / Code / Teaching:
 {{"action":"speak","response":"<full markdown explanation, code, or answer for {salutation}>"}}
@@ -545,14 +554,23 @@ class AlfredOrganism:
         t0 = time.perf_counter()
 
         # ⚡ Fast-Path Direct Reflex (Media/App/Web query instant dispatch < 0.05s)
+        # 🚀 Mid-Sentence Action: Speech + tool fire CONCURRENTLY
         fastpath_action = self.sentinel.resolve_fastpath_intent(user_intent)
         if fastpath_action:
             tool_name = fastpath_action["tool"]
             tool_args = fastpath_action["args"]
-            tool_result = self.hands.act(tool_name, tool_args)
             spoken_text = fastpath_action.get("speech", "")
-            if spoken_text:
-                await self.nerves.pulse("speech_requested", {"text": spoken_text})
+
+            # Fire speech + tool concurrently (speech starts, tool fires mid-sentence)
+            from jarvisx.automation.concurrent_action_engine import ConcurrentActionEngine, TriggerMode
+            concurrent_engine = ConcurrentActionEngine(mouth=self.mouth, hands=self.hands)
+            concurrent_result = await concurrent_engine.execute_with_speech(
+                speech_text=spoken_text,
+                tool_name=tool_name,
+                tool_args=tool_args,
+                trigger_mode=TriggerMode.IMMEDIATE,  # Fast-path = instant
+            )
+            tool_result = concurrent_result.tool_result or {}
             
             self.conversation_history.append({"role": "user", "text": user_intent})
             self.conversation_history.append({"role": "assistant", "text": spoken_text})
@@ -567,6 +585,8 @@ class AlfredOrganism:
                 "steps_executed": 1,
                 "duration_sec": round(time.perf_counter() - t0, 3),
                 "fastpath": True,
+                "concurrent": True,
+                "concurrent_timing_ms": concurrent_result.total_duration_ms,
             }
 
         # P1: Smart Tool Selection
@@ -618,7 +638,29 @@ class AlfredOrganism:
                 if inferred:
                     tool_args["application"] = inferred
 
-            tool_result = self.hands.act(tool_name, tool_args)
+            # 🚀 Mid-Sentence Action: Speech + tool fire CONCURRENTLY
+            # The Brain already gave us both tool + speech in one JSON.
+            # Fire speech immediately, tool fires mid-sentence.
+            merged_speech = decision.get("speech", "")
+            
+            if merged_speech:
+                from jarvisx.automation.concurrent_action_engine import ConcurrentActionEngine, TriggerMode
+                concurrent_engine = ConcurrentActionEngine(mouth=self.mouth, hands=self.hands)
+                concurrent_result = await concurrent_engine.execute_with_speech(
+                    speech_text=merged_speech,
+                    tool_name=tool_name,
+                    tool_args=tool_args,
+                    trigger_mode=TriggerMode.MID_SENTENCE,
+                )
+                tool_result = concurrent_result.tool_result or {}
+                logger.info(
+                    f"[Organism] 🚀 Mid-sentence action: '{tool_name}' fired while speaking "
+                    f"(gap={concurrent_result.overlap_ms:.0f}ms, total={concurrent_result.total_duration_ms:.0f}ms)"
+                )
+            else:
+                # No speech to overlay — execute tool normally
+                tool_result = self.hands.act(tool_name, tool_args)
+
             last_tool = tool_name
             last_tool_result = tool_result
 
@@ -634,13 +676,16 @@ class AlfredOrganism:
             if tool_result.get("status") == "failed":
                 obs_entry["error"] = tool_result.get("error", "Unknown error")
                 observations.append(obs_entry)
-                # Brain will see the error on next iteration and can retry or pick alternate tool
+                # If tool failed during concurrent speech, queue a correction
+                if merged_speech:
+                    salutation = "Sir" if self.persona == "ALFRED" else "Boss"
+                    correction = f"Hmm, that didn't quite work, {salutation}. Let me try another approach."
+                    self.mouth.speak(correction, blocking=False)
                 continue
 
             observations.append(obs_entry)
 
-            # P5: Use pre-merged speech from this decision (no second LLM call)
-            merged_speech = decision.get("speech", "")
+            # P5: Track merged speech (already spoken concurrently above)
             if merged_speech:
                 spoken_response = merged_speech
 
@@ -652,8 +697,9 @@ class AlfredOrganism:
             else:
                 spoken_response = f"All done, {salutation}. Mission accomplished."
 
-        # Mouth speaks voice feedback!
-        if spoken_response:
+        # Mouth speaks voice feedback (only if not already spoken concurrently)
+        if spoken_response and not observations:
+            # Only speak here if this is a pure conversational response (no tools were used)
             self.mouth.speak(spoken_response, blocking=False)
             await self.nerves.pulse("speech_uttered", {"text": spoken_response})
 
