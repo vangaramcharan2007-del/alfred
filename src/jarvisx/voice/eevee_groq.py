@@ -534,6 +534,17 @@ class EeveeGroq:
         """
         p_lower = user_prompt.lower().strip()
 
+        # 0. Compound Self-Correction & Multi-Intent Chaining
+        try:
+            from jarvisx.orchestration.compound_intent_decomposer import get_compound_decomposer
+            decomposer = get_compound_decomposer()
+            plan = decomposer.detect_and_decompose(user_prompt)
+            if plan and plan.has_self_correction:
+                decomposer.execute_plan(plan, mid_sentence=True)
+                return ("compound_self_correction", plan.speech_acknowledgment)
+        except Exception as e:
+            logger.debug(f"[ActionInterceptor] Compound intent check error: {e}")
+
         # 1. Workspace Staging & Multi-App Orchestration
         if any(w in p_lower for w in ["workspace", "coding workspace", "set up workspace", "setup workspace", "dev workspace", "stage workspace", "set up my workspace", "staging workspace"]):
             profile = "coding"
@@ -543,7 +554,7 @@ class EeveeGroq:
                 profile = "system_defense"
             from jarvisx.automation.workspace_orchestrator import get_workspace_orchestrator
             orch_res = get_workspace_orchestrator().deploy_workspace(profile, mid_sentence=True)
-            return ("deploy_workspace", f"Staged {profile} workspace for you, Charan. {len(orch_res['launched_apps'])} applications active.")
+            return ("deploy_workspace", f"Staged {profile} workspace for you, Boss. {len(orch_res['launched_apps'])} applications active.")
 
         # 2. Cooling / Free RAM / Thermal Lag
         if any(w in p_lower for w in ["cool down", "free ram", "flush ram", "thermal", "cooling", "compact ram", "system lag", "lagging", "free up ram"]):
@@ -785,6 +796,22 @@ class EeveeGroq:
         self.messages.append({"role": "user", "content": clean_text})
         if len(self.messages) > 16:
             self.messages = [self.messages[0]] + self.messages[-14:]
+
+        # Fast-path: Check Compound Self-Correction & Multi-Intent Decomposer first
+        try:
+            from jarvisx.orchestration.compound_intent_decomposer import get_compound_decomposer
+            decomposer = get_compound_decomposer()
+            plan = decomposer.detect_and_decompose(clean_text)
+            if plan and plan.has_self_correction:
+                decomposer.execute_plan(plan, mid_sentence=False)
+                ack = plan.speech_acknowledgment
+                self._push_to_ui("tts_response", {"text": ack})
+                self._speak(ack)
+                self.messages.append({"role": "assistant", "content": ack})
+                self._push_to_ui("ev_status", {"text": "Listening..."})
+                return
+        except Exception as e:
+            logger.debug(f"[EeveeGroq] Fast-path compound intent error: {e}")
 
         if not self.api_key:
             logger.warning("[EeveeGroq] No GROQ_API_KEY available. Checking action interceptor...")
