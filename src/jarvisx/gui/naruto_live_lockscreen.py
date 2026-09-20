@@ -130,10 +130,12 @@ def main():
     parser.add_argument("--timeout", type=float, default=None, help="Auto-close after N seconds (for testing)")
     args = parser.parse_args()
 
-    if args.sync:
-        sync_windows_lockscreen()
-
-    launch_lockscreen(fullscreen=not args.windowed, timeout=args.timeout)
+    proc = launch_lockscreen(fullscreen=not args.windowed, timeout=args.timeout)
+    if proc and not args.timeout:
+        try:
+            proc.wait()
+        except KeyboardInterrupt:
+            proc.terminate()
 
 
 if __name__ == "__main__":
