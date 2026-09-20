@@ -14,6 +14,7 @@ if exist ".venv\Scripts\python.exe" (
 ) else (
     set "PY_EXE=python.exe"
 )
+set "PYTHONPATH=%~dp0src;%PYTHONPATH%"
 
 echo [1/3] Synchronizing Windows Native Lock Screen (Win + L)...
 powershell -ExecutionPolicy Bypass -File "scripts\set_user_lockscreen.ps1"

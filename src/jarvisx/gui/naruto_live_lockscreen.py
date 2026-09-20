@@ -66,15 +66,21 @@ def launch_lockscreen(fullscreen: bool = True, timeout: Optional[float] = None, 
     if not browser_exe:
         raise RuntimeError("No compatible Chromium/Edge browser found to host GPU-accelerated lock screen.")
 
+    import tempfile
+    profile_dir = os.path.join(tempfile.gettempdir(), "naruto_lock_runtime_profile")
     file_url = f"file:///{os.path.abspath(HTML_PATH).replace(os.sep, '/')}"
     args = [
         browser_exe,
         f"--app={file_url}",
+        f"--user-data-dir={profile_dir}",
         "--disable-pinch",
         "--overscroll-history-navigation=0",
         "--no-first-run",
         "--no-default-browser-check",
     ]
+
+    if "msedge" in browser_exe.lower():
+        args.append("--edge-kiosk-type=fullscreen")
 
     if fullscreen:
         args.extend(["--start-fullscreen", "--kiosk"])
