@@ -11,8 +11,10 @@ import time
 import cv2
 import winreg
 
-# Ensure src is in pythonpath
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+# Ensure src and project root are in pythonpath
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "src"))
+sys.path.insert(0, PROJECT_ROOT)
 
 if sys.platform == "win32":
     try:
@@ -124,6 +126,24 @@ def demo_live_runtime_execution():
     print("    - Status         : [PASSED] Live window executed and closed gracefully.")
 
 
+def demo_auto_wake_sentinel_daemon():
+    print("\n[+] 6. VALIDATING AUTO-WAKE & UNLOCK SENTINEL DAEMON:")
+    from scripts.auto_wake_sentinel import is_workstation_locked, is_lockscreen_open
+    
+    locked_state = is_workstation_locked()
+    open_state = is_lockscreen_open()
+    print(f"    - Workstation Lock Sensor : [OK] (State: {locked_state})")
+    print(f"    - Lockscreen Window Sensor: [OK] (State: {open_state})")
+
+    startup_dir = os.path.expandvars(r"%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup")
+    lnk_path = os.path.join(startup_dir, "NarutoAutoWakeSentinel.lnk")
+    has_shortcut = os.path.exists(lnk_path)
+    print(f"    - Windows Startup Shortcut : {'[OK] ' + lnk_path if has_shortcut else '[MISSING]'}")
+    assert has_shortcut, f"Startup shortcut missing at {lnk_path}"
+
+    print("    - Status                  : [PASSED] Zero-click auto-activation configured permanently.")
+
+
 def main():
     print_banner("Naruto 4K Live Wallpaper Lock Screen — Live Verification")
     
@@ -132,6 +152,7 @@ def main():
     demo_windows_lockscreen_sync()
     demo_html_lockscreen_interface()
     demo_live_runtime_execution()
+    demo_auto_wake_sentinel_daemon()
 
     print_banner("Live Demonstration Summary")
     print("""
@@ -141,7 +162,8 @@ def main():
     [✓] Fluid Unlock Transitions           : Click, Space, Enter, Esc, Drag up
     [✓] Windows Native Lock Screen Sync    : PersonalizationCSP (Win + L)
     [✓] Alfred New Tab 4K Theme Preset    : Key 6 / Theme Bar integration
-    [✓] Quick Batch Launcher               : launch_naruto_lockscreen.bat
+    [✓] Auto-Wake & Unlock Sentinel       : Zero-click autonomous background daemon
+    [✓] Windows Startup Registration      : NarutoAutoWakeSentinel.lnk
     """)
     print("=" * 80)
     print(" 🏆 ALL SYSTEMS OPERATIONAL — NARUTO 4K LIVE LOCK SCREEN VERIFIED!")

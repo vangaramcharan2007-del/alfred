@@ -547,24 +547,26 @@
         window.onLockscreenUnlocked();
       }
 
-      // If in Electron / PyWebView / Chrome App mode, request exit after short celebration
+      // Request window close to return seamlessly to the user's desktop
       setTimeout(() => {
         try {
           if (window.external && window.external.closeWindow) {
             window.external.closeWindow();
-          } else if (window.opener) {
-            window.close();
           } else {
-            // Standalone browser mode: allow re-locking by clicking screen
-            unlockedToast.innerHTML = `
-              <div class="unlocked-toast" style="cursor:pointer;" onclick="relockScreen()">
-                <span>✦</span>
-                <span>Click here to Re-Lock Screen</span>
-              </div>
-            `;
+            window.close();
           }
         } catch (e) {}
-      }, 900);
+      }, 550);
+
+      // Fallback toast if browser security prevents window.close():
+      setTimeout(() => {
+        unlockedToast.innerHTML = `
+          <div class="unlocked-toast" style="cursor:pointer;" onclick="window.close(); relockScreen();">
+            <span>✦</span>
+            <span>Welcome Back! Click or press Alt+F4 to return to desktop</span>
+          </div>
+        `;
+      }, 1000);
     }
 
     function relockScreen() {
