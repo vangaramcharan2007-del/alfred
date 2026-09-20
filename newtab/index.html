@@ -182,6 +182,152 @@
     }
     .t-btn.active { border-color: #fff; }
 
+    /* ── macOS-STYLE WIDGETS ── */
+    .widgets-row {
+      display: flex;
+      gap: 22px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 960px;
+      animation: cardIn 0.8s 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+      perspective: 1200px;
+    }
+
+    .widget {
+      backdrop-filter: blur(40px) saturate(200%);
+      -webkit-backdrop-filter: blur(40px) saturate(200%);
+      background: rgba(255, 255, 255, 0.09);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 28px;
+      padding: 24px 28px;
+      min-width: 215px;
+      min-height: 135px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.3),
+        inset 0 1.5px 1px rgba(255, 255, 255, 0.25);
+      cursor: pointer;
+      transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease, background 0.3s ease;
+      transform-style: preserve-3d;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* macOS dynamic specular sheen highlight */
+    .widget::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 28px;
+      background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.22) 0%, transparent 65%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+    .widget:hover::before {
+      opacity: 1;
+    }
+
+    .widget:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.35);
+      box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.45),
+        0 0 35px rgba(255, 255, 255, 0.1),
+        inset 0 1.5px 1px rgba(255, 255, 255, 0.35);
+    }
+
+    .widget:active {
+      transform: scale(0.96) !important;
+      transition: transform 0.1s ease !important;
+    }
+
+    .widget-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .widget-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .widget:hover .widget-icon {
+      transform: scale(1.12) rotate(4deg);
+    }
+
+    .widget-badge {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 1px;
+      padding: 3px 8px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.7);
+      text-transform: uppercase;
+    }
+
+    .widget-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.55);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .widget-value {
+      font-size: 26px;
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.95);
+      line-height: 1.15;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .widget-sub {
+      font-size: 12px;
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Battery progress bar */
+    .battery-bar-wrap {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 99px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .battery-bar-fill {
+      height: 100%;
+      width: 90%;
+      background: linear-gradient(90deg, #10b981, #34d399);
+      border-radius: 99px;
+      transition: width 0.8s ease;
+    }
+
+    /* Widget-specific accent colors */
+    .widget-weather .widget-value { color: #93c5fd; }
+    .widget-battery .widget-value { color: #86efac; }
+    .widget-uptime .widget-value { color: #fde047; }
+    .widget-quote .widget-value {
+      font-size: 15px;
+      font-style: italic;
+      color: rgba(255, 255, 255, 0.85);
+      line-height: 1.4;
+    }
+
     /* ── SUBTLE TOP FADE ── */
     .top-info {
       position: fixed;
@@ -214,6 +360,66 @@
       autocomplete="off"
       onkeydown="if(event.key==='Enter'&&this.value.trim())window.location='https://www.google.com/search?q='+encodeURIComponent(this.value)" />
     <span class="search-icon">⌕</span>
+  </div>
+
+  <!-- macOS-Style Large Widgets with 3D Tilt & Glassmorphism -->
+  <div class="widgets-row">
+    
+    <!-- Widget 1: Weather (MacBook Cupertino / Tokyo Style) -->
+    <div class="widget widget-weather" id="w-weather" title="Live Weather">
+      <div class="widget-header">
+        <div class="widget-icon">🌤️</div>
+        <span class="widget-badge">Konoha</span>
+      </div>
+      <div>
+        <div class="widget-title">Weather</div>
+        <div class="widget-value" id="w-weather-val">28°C</div>
+        <div class="widget-sub" id="w-weather-sub">Partly Sunny • H:31° L:23°</div>
+      </div>
+    </div>
+
+    <!-- Widget 2: Battery (macOS System Telemetry) -->
+    <div class="widget widget-battery" id="w-battery" title="System Power">
+      <div class="widget-header">
+        <div class="widget-icon" id="w-batt-icon">🔋</div>
+        <span class="widget-badge" id="w-batt-badge">Normal</span>
+      </div>
+      <div>
+        <div class="widget-title">Battery</div>
+        <div class="widget-value" id="w-batt-val">90%</div>
+        <div class="battery-bar-wrap">
+          <div class="battery-bar-fill" id="w-batt-bar" style="width: 90%;"></div>
+        </div>
+        <div class="widget-sub" id="w-batt-sub">Discharging • 5h 20m rem.</div>
+      </div>
+    </div>
+
+    <!-- Widget 3: Session & Focus (MacBook Clock / Focus) -->
+    <div class="widget widget-uptime" id="w-uptime" title="Session Active">
+      <div class="widget-header">
+        <div class="widget-icon">⏱️</div>
+        <span class="widget-badge">Active</span>
+      </div>
+      <div>
+        <div class="widget-title">Focus Session</div>
+        <div class="widget-value" id="w-uptime-val">00:00</div>
+        <div class="widget-sub">Project Jarvis X • Shinobi OS</div>
+      </div>
+    </div>
+
+    <!-- Widget 4: Shinobi Wisdom / Daily Quote -->
+    <div class="widget widget-quote" id="w-quote" title="Click for New Shinobi Quote">
+      <div class="widget-header">
+        <div class="widget-icon">🍥</div>
+        <span class="widget-badge">Hokage</span>
+      </div>
+      <div>
+        <div class="widget-title">Daily Quote</div>
+        <div class="widget-value" id="w-quote-val">"Never give up on your ninja way."</div>
+        <div class="widget-sub" id="w-quote-sub">— Naruto Uzumaki ✦</div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -766,6 +972,123 @@ document.querySelectorAll('.t-btn').forEach(btn => {
 });
 resize();
 setTheme('firefly');
+
+// ── CLOCK & GREETING ENGINE ────────────────
+function updateClock() {
+  const now = new Date();
+  let h = now.getHours();
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const period = h >= 12 ? 'PM' : 'AM';
+  const displayH = h % 12 || 12;
+  document.getElementById('clock').textContent = `${String(displayH).padStart(2, '0')}:${m}`;
+
+  const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
+  document.getElementById('date-line').textContent = now.toLocaleDateString(undefined, options);
+
+  let greet = 'Good Evening, Hokage';
+  if (h >= 5 && h < 12) greet = 'Good Morning, Hokage';
+  else if (h >= 12 && h < 17) greet = 'Good Afternoon, Hokage';
+  else if (h >= 17 && h < 22) greet = 'Good Evening, Hokage';
+  else greet = 'Good Night, Shinobi';
+  document.getElementById('greeting').textContent = `${greet} ✦`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── MACBOOK 3D TILT & SPECULAR SHEEN EFFECT ─
+document.querySelectorAll('.widget').forEach(widget => {
+  widget.addEventListener('mousemove', e => {
+    const rect = widget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const rotX = ((y - cy) / cy) * -12;
+    const rotY = ((x - cx) / cx) * 12;
+
+    widget.style.setProperty('--mouse-x', `${(x / rect.width) * 100}%`);
+    widget.style.setProperty('--mouse-y', `${(y / rect.height) * 100}%`);
+    widget.style.transform = `perspective(800px) rotateX(${rotX.toFixed(2)}deg) rotateY(${rotY.toFixed(2)}deg) scale3d(1.05, 1.05, 1.05) translateZ(12px)`;
+  });
+
+  widget.addEventListener('mouseleave', () => {
+    widget.style.transform = 'perspective(800px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1) translateZ(0px)';
+  });
+});
+
+// ── LIVE BATTERY TELEMETRY ─────────────────
+async function updateBatteryWidget() {
+  try {
+    const resp = await fetch('../src/jarvisx/gui/system_status.json?' + Date.now());
+    if (resp.ok) {
+      const data = await resp.json();
+      applyBatteryData(data.battery, data.charging);
+      return;
+    }
+  } catch (e) {}
+
+  if ('getBattery' in navigator) {
+    try {
+      const b = await navigator.getBattery();
+      applyBatteryData(Math.round(b.level * 100), b.charging);
+      b.addEventListener('levelchange', () => applyBatteryData(Math.round(b.level * 100), b.charging));
+      b.addEventListener('chargingchange', () => applyBatteryData(Math.round(b.level * 100), b.charging));
+    } catch (e) {}
+  }
+}
+
+function applyBatteryData(level, charging) {
+  const pct = Math.max(0, Math.min(100, parseInt(level) || 90));
+  const valEl = document.getElementById('w-batt-val');
+  const barEl = document.getElementById('w-batt-bar');
+  const subEl = document.getElementById('w-batt-sub');
+  const badgeEl = document.getElementById('w-batt-badge');
+  const iconEl = document.getElementById('w-batt-icon');
+
+  if (valEl) valEl.textContent = `${pct}%`;
+  if (barEl) {
+    barEl.style.width = `${pct}%`;
+    barEl.style.background = charging 
+      ? 'linear-gradient(90deg, #3b82f6, #60a5fa)' 
+      : (pct <= 20 ? 'linear-gradient(90deg, #ef4444, #f87171)' : 'linear-gradient(90deg, #10b981, #34d399)');
+  }
+  if (subEl) subEl.textContent = charging ? '⚡ Charging • AC Connected' : `Discharging • ${Math.round(pct * 0.06)}h rem.`;
+  if (badgeEl) badgeEl.textContent = charging ? 'Charging' : (pct <= 20 ? 'Low' : 'Normal');
+  if (iconEl) iconEl.textContent = charging ? '⚡' : (pct <= 20 ? '🪫' : '🔋');
+}
+
+updateBatteryWidget();
+setInterval(updateBatteryWidget, 5000);
+
+// ── SESSION UPTIME TIMER ───────────────────
+const sessionStart = Date.now();
+function updateSessionTimer() {
+  const elapsedSec = Math.floor((Date.now() - sessionStart) / 1000);
+  const mins = Math.floor(elapsedSec / 60);
+  const secs = elapsedSec % 60;
+  const el = document.getElementById('w-uptime-val');
+  if (el) el.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+setInterval(updateSessionTimer, 1000);
+updateSessionTimer();
+
+// ── ROTATING SHINOBI QUOTES ────────────────
+const quotes = [
+  { text: '"Never give up on your ninja way."', author: 'Naruto Uzumaki ✦' },
+  { text: '"Hard work is worthless for those who do not believe."', author: 'Naruto Uzumaki ✦' },
+  { text: '"Those who forgive themselves are truly strong."', author: 'Itachi Uchiha ✦' },
+  { text: '"A shinobi endures to achieve their goal."', author: 'Jiraiya Sensei ✦' },
+  { text: '"I will protect my precious ones with my life."', author: 'Kakashi Hatake ✦' }
+];
+let quoteIdx = 0;
+const quoteWidget = document.getElementById('w-quote');
+if (quoteWidget) {
+  quoteWidget.addEventListener('click', () => {
+    quoteIdx = (quoteIdx + 1) % quotes.length;
+    document.getElementById('w-quote-val').textContent = quotes[quoteIdx].text;
+    document.getElementById('w-quote-sub').textContent = `— ${quotes[quoteIdx].author}`;
+  });
+}
 </script>
 </body>
 </html>

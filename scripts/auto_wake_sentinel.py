@@ -72,7 +72,13 @@ def is_lockscreen_open() -> bool:
 
 def launch_lockscreen_silent():
     """Launch the 4K Live Lock Screen immediately in isolated fullscreen kiosk."""
-    file_url = "file:///" + HTML_PATH.replace("\\", "/")
+    try:
+        from scripts.get_battery import get_battery_info
+        b = get_battery_info()
+    except Exception:
+        b = {"percent": 90, "charging": False}
+    username = os.getenv("USERNAME", "Hokage")
+    file_url = "file:///" + HTML_PATH.replace("\\", "/") + f"?battery={b['percent']}&charging={1 if b['charging'] else 0}&user={username}"
     cmd = [
         EDGE_EXE,
         f"--app={file_url}",
@@ -82,11 +88,16 @@ def launch_lockscreen_silent():
         "--start-fullscreen",
         "--disable-pinch",
         "--overscroll-history-navigation=0",
-        "--no-first-run"
+        "--no-first-run",
+        "--autoplay-policy=no-user-gesture-required",
+        "--allow-file-access-from-files",
+        "--enable-gpu-rasterization",
+        "--enable-zero-copy",
+        "--ignore-gpu-blocklist"
     ]
     try:
         subprocess.Popen(cmd)
-        print("[SENTINEL] Successfully launched Naruto 4K Live Lock Screen.")
+        print(f"[SENTINEL] Successfully launched Naruto 4K Live Lock Screen (Battery: {b['percent']}%, User: {username}).")
     except Exception as e:
         print(f"[SENTINEL] Error launching lockscreen: {e}")
 

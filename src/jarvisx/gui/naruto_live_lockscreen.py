@@ -68,7 +68,14 @@ def launch_lockscreen(fullscreen: bool = True, timeout: Optional[float] = None, 
 
     import tempfile
     profile_dir = os.path.join(tempfile.gettempdir(), "naruto_lock_runtime_profile")
-    file_url = f"file:///{os.path.abspath(HTML_PATH).replace(os.sep, '/')}"
+    try:
+        sys.path.insert(0, PROJECT_ROOT)
+        from scripts.get_battery import get_battery_info
+        b = get_battery_info()
+    except Exception:
+        b = {"percent": 90, "charging": False}
+    username = os.getenv("USERNAME", "Hokage")
+    file_url = f"file:///{os.path.abspath(HTML_PATH).replace(os.sep, '/')}?battery={b['percent']}&charging={1 if b['charging'] else 0}&user={username}"
     args = [
         browser_exe,
         f"--app={file_url}",
@@ -77,6 +84,11 @@ def launch_lockscreen(fullscreen: bool = True, timeout: Optional[float] = None, 
         "--overscroll-history-navigation=0",
         "--no-first-run",
         "--no-default-browser-check",
+        "--autoplay-policy=no-user-gesture-required",
+        "--allow-file-access-from-files",
+        "--enable-gpu-rasterization",
+        "--enable-zero-copy",
+        "--ignore-gpu-blocklist"
     ]
 
     if "msedge" in browser_exe.lower():

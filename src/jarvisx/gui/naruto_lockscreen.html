@@ -154,6 +154,80 @@
       align-items: center;
       text-align: center;
       margin-top: -20px;
+    /* ── PROMINENT SHINOBI WELCOME CREST BANNER ── */
+    .welcome-banner {
+      display: inline-flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border: 1px solid rgba(255, 215, 80, 0.45);
+      border-radius: 999px;
+      padding: 10px 28px 10px 14px;
+      margin-bottom: 22px;
+      box-shadow:
+        0 12px 36px rgba(0, 0, 0, 0.35),
+        inset 0 1px 1px rgba(255, 255, 255, 0.45),
+        0 0 32px rgba(255, 200, 50, 0.22);
+      animation: welcomeFloat 5s ease-in-out infinite alternate;
+      cursor: default;
+    }
+
+    @keyframes welcomeFloat {
+      0% { transform: translateY(0px); }
+      100% { transform: translateY(-4px); }
+    }
+
+    .welcome-avatar-wrap {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #ff9100, #ff3d00);
+      box-shadow: 0 0 20px rgba(255, 145, 0, 0.6);
+    }
+
+    .welcome-avatar {
+      font-size: 24px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+
+    .welcome-text-wrap {
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+    }
+
+    .welcome-sub {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2.2px;
+      color: #ffd27d;
+      text-transform: uppercase;
+    }
+
+    .welcome-title {
+      font-size: 22px;
+      font-weight: 500;
+      color: #ffffff;
+      letter-spacing: 0.5px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+
+    .welcome-leaf {
+      font-size: 22px;
+      margin-left: 6px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+      animation: gentleSway 3s ease-in-out infinite alternate;
+    }
+
+    @keyframes gentleSway {
+      0% { transform: rotate(-8deg); }
+      100% { transform: rotate(12deg); }
     }
 
     .glass-clock-card {
@@ -370,25 +444,31 @@
     }
 
     .unlocked-toast {
-      background: rgba(16, 185, 129, 0.2);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(16, 185, 129, 0.4);
-      padding: 16px 36px;
+      background: rgba(16, 185, 129, 0.25);
+      backdrop-filter: blur(25px);
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      padding: 20px 42px;
       border-radius: 999px;
-      font-size: 15px;
-      font-weight: 500;
-      letter-spacing: 1px;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
       color: #a7f3d0;
       display: flex;
       align-items: center;
-      gap: 10px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      gap: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 25px rgba(16, 185, 129, 0.25);
+      animation: toastPop 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes toastPop {
+      0% { transform: scale(0.85) translateY(12px); opacity: 0; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
     }
   </style>
 </head>
 <body>
 
-  <!-- ── 4K HARDWARE ACCELERATED VIDEO BACKGROUND ── -->
+  <!-- 4K HARDWARE ACCELERATED VIDEO BACKGROUND -->
   <div id="video-wrap">
     <video
       id="live-video"
@@ -398,10 +478,26 @@
       playsinline
       preload="auto">
       <source src="file:///E:/naruto-endless-sky.3840x2160.mp4" type="video/mp4" />
-      <source src="E:/naruto-endless-sky.3840x2160.mp4" type="video/mp4" />
-      <source src="../../assets/wallpapers/naruto_live_lockscreen.mp4" type="video/mp4" />
     </video>
   </div>
+  <script>
+    (function() {
+      const v = document.getElementById('live-video');
+      v.muted = true;
+      v.defaultMuted = true;
+      v.playsInline = true;
+      function playVideo() {
+        if (v.paused) {
+          v.play().catch(function() {});
+        }
+      }
+      v.addEventListener('canplay', playVideo);
+      v.addEventListener('loadeddata', playVideo);
+      document.addEventListener('DOMContentLoaded', playVideo);
+      window.addEventListener('click', playVideo, { once: true });
+      window.addEventListener('keydown', playVideo, { once: true });
+    })();
+  </script>
 
   <div class="cinematic-overlay"></div>
 
@@ -437,6 +533,19 @@
 
     <!-- Center Clock & Date Glass Card -->
     <div class="center-section">
+      
+      <!-- Prominent Shinobi Welcome Crest Banner -->
+      <div class="welcome-banner" id="welcome-banner">
+        <div class="welcome-avatar-wrap">
+          <span class="welcome-avatar">🍥</span>
+        </div>
+        <div class="welcome-text-wrap">
+          <div class="welcome-sub">KONOHAGAKURE // SYSTEM ACTIVE</div>
+          <div class="welcome-title" id="welcome-title">Welcome Back, Hokage</div>
+        </div>
+        <span class="welcome-leaf">🍃</span>
+      </div>
+
       <div class="glass-clock-card" id="clock-card" title="Click to Unlock">
         <div class="clock-display-wrap">
           <div id="clock-time">00:00</div>
@@ -517,17 +626,64 @@
     setInterval(updateDateTime, 1000);
     updateDateTime();
 
-    // ── BATTERY TELEMETRY ──
-    if ('getBattery' in navigator) {
-      navigator.getBattery().then(battery => {
-        function updateBattery() {
-          const level = Math.round(battery.level * 100);
-          const charging = battery.charging ? '⚡ ' : '';
-          document.getElementById('battery-text').textContent = `${charging}${level}%`;
+    // ── MULTI-SOURCE REAL-TIME BATTERY & USER TELEMETRY ──
+    function applyBatteryTelemetry(level, charging) {
+      const battText = document.getElementById('battery-text');
+      const battIcon = document.getElementById('battery-icon');
+      if (!battText || !battIcon) return;
+
+      const numLevel = Math.max(0, Math.min(100, parseInt(level) || 0));
+      let icon = '🔋';
+      if (charging) {
+        icon = '⚡';
+      } else if (numLevel <= 15) {
+        icon = '🪫';
+      } else if (numLevel <= 40) {
+        icon = '🔋';
+      }
+      battIcon.textContent = icon;
+      battText.textContent = charging ? `⚡ ${numLevel}%` : `${numLevel}%`;
+    }
+
+    // Source 1: Direct URL Parameters (?battery=90&charging=0&user=vanga)
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramBattery = urlParams.get('battery');
+    const paramCharging = urlParams.get('charging');
+    const paramUser = urlParams.get('user');
+
+    if (paramBattery !== null) {
+      applyBatteryTelemetry(paramBattery, paramCharging === '1' || paramCharging === 'true');
+    }
+    if (paramUser) {
+      const wt = document.getElementById('welcome-title');
+      if (wt) wt.textContent = `Welcome Back, ${paramUser}`;
+    }
+
+    // Source 2: Local JSON Hardware Bridge (system_status.json)
+    async function pollHardwareTelemetry() {
+      try {
+        const resp = await fetch('system_status.json?' + Date.now());
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.battery !== undefined) {
+            applyBatteryTelemetry(data.battery, data.charging);
+          }
+          if (data.username) {
+            const wt = document.getElementById('welcome-title');
+            if (wt) wt.textContent = `Welcome Back, ${data.username}`;
+          }
         }
-        updateBattery();
-        battery.addEventListener('levelchange', updateBattery);
-        battery.addEventListener('chargingchange', updateBattery);
+      } catch (e) {}
+    }
+    pollHardwareTelemetry();
+    setInterval(pollHardwareTelemetry, 4000);
+
+    // Source 3: Web Battery API (fallback)
+    if ('getBattery' in navigator) {
+      navigator.getBattery().then(b => {
+        applyBatteryTelemetry(Math.round(b.level * 100), b.charging);
+        b.addEventListener('levelchange', () => applyBatteryTelemetry(Math.round(b.level * 100), b.charging));
+        b.addEventListener('chargingchange', () => applyBatteryTelemetry(Math.round(b.level * 100), b.charging));
       }).catch(() => {});
     }
 
@@ -556,7 +712,7 @@
             window.close();
           }
         } catch (e) {}
-      }, 550);
+      }, 2500);
 
       // Fallback toast if browser security prevents window.close():
       setTimeout(() => {
@@ -566,7 +722,7 @@
             <span>Welcome Back! Click or press Alt+F4 to return to desktop</span>
           </div>
         `;
-      }, 1000);
+      }, 3000);
     }
 
     function relockScreen() {
