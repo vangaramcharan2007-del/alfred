@@ -18,7 +18,7 @@ def find_browser():
 def launch():
     browser = find_browser()
     file_url = f"file:///{NEWTAB_PATH.replace(os.sep, '/')}"
-    args = f'--app="{file_url}" --start-maximized --autoplay-policy=no-user-gesture-required --allow-file-access-from-files'
+    args = f'--app="{file_url}" --kiosk --autoplay-policy=no-user-gesture-required --allow-file-access-from-files'
     print(f"[LAUNCH] Browser: {browser}")
     print(f"[LAUNCH] URL: {file_url}")
     
