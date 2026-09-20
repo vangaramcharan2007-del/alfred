@@ -199,6 +199,7 @@
 </head>
 <body>
 
+<video id="video-bg" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;display:none;" autoplay loop muted playsinline src="file:///E:/naruto-endless-sky.3840x2160.mp4"></video>
 <canvas id="bg"></canvas>
 
 <div id="overlay">
@@ -229,6 +230,8 @@
        style="background:radial-gradient(circle,#0d0020,#200050)">🔮</div>
   <div class="t-btn" data-theme="sakura" data-tip="Sakura"
        style="background:radial-gradient(circle,#fff0f5,#ffd6e7)">🌸</div>
+  <div class="t-btn" data-theme="naruto" data-tip="Naruto Endless Sky (4K Live)"
+       style="background:radial-gradient(circle,#38bdf8,#fef08a)">🍥</div>
 </div>
 
 <script>
@@ -687,6 +690,7 @@ const themes = {
   matrix:  { init: initMatrix,  draw: drawMatrix,  name: 'Matrix Rain',     clockColor: '#00ff41' },
   nebula:  { init: initNebula,  draw: drawNebula,  name: 'Cosmic Nebula',   clockColor: '#c8a0ff' },
   sakura:  { init: initSakura,  draw: drawSakura,  name: 'Sakura',          clockColor: '#ff9ab5' },
+  naruto:  { init: () => {},    draw: () => {},    name: 'Naruto Endless Sky (4K)', clockColor: '#ffd27d' },
 };
 
 function initTheme(name) {
@@ -709,17 +713,38 @@ function setTheme(name) {
     b.classList.toggle('active', b.dataset.theme === name);
   });
 
-  // Body bg for sakura (light theme)
-  if (name === 'sakura') {
-    document.body.style.background = '#fde8ef';
-    document.getElementById('overlay').style.color = '#4a2030';
-  } else {
+  const videoBg = document.getElementById('video-bg');
+  const bgCanvas = document.getElementById('bg');
+
+  if (name === 'naruto') {
+    if (videoBg) {
+      videoBg.style.display = 'block';
+      videoBg.play().catch(() => {});
+    }
+    if (bgCanvas) bgCanvas.style.display = 'none';
     document.body.style.background = '#000';
     document.getElementById('overlay').style.color = '';
+  } else {
+    if (videoBg) {
+      videoBg.style.display = 'none';
+      videoBg.pause();
+    }
+    if (bgCanvas) bgCanvas.style.display = 'block';
+
+    // Body bg for sakura (light theme)
+    if (name === 'sakura') {
+      document.body.style.background = '#fde8ef';
+      document.getElementById('overlay').style.color = '#4a2030';
+    } else {
+      document.body.style.background = '#000';
+      document.getElementById('overlay').style.color = '';
+    }
   }
 
   initTheme(name);
-  loop();
+  if (name !== 'naruto') {
+    loop();
+  }
 }
 
 function loop() {
@@ -727,10 +752,10 @@ function loop() {
   animId = requestAnimationFrame(loop);
 }
 
-// ── KEYBOARD SHORTCUT: 1-5 for themes ──
-const themeKeys = ['firefly','aurora','matrix','nebula','sakura'];
+// ── KEYBOARD SHORTCUT: 1-6 for themes ──
+const themeKeys = ['firefly','aurora','matrix','nebula','sakura','naruto'];
 window.addEventListener('keydown', e => {
-  if (e.key >= '1' && e.key <= '5' && document.activeElement !== document.getElementById('search')) {
+  if (e.key >= '1' && e.key <= '6' && document.activeElement !== document.getElementById('search')) {
     setTheme(themeKeys[parseInt(e.key) - 1]);
   }
 });

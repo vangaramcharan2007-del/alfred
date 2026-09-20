@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Naruto Endless Sky — Live Lock Screen</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Cinzel:wght@500;700&display=swap');
+
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #000;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #fff;
+    }
+
+    /* ── VIDEO WALLPAPER BACKGROUND ── */
+    #video-wrap {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      overflow: hidden;
+      background: #000;
+    }
+
+    #live-video {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      min-width: 100%;
+      min-height: 100%;
+      width: auto;
+      height: auto;
+      transform: translate(-50%, -50%);
+      object-fit: cover;
+      filter: contrast(104%) saturate(106%) brightness(98%);
+      transition: filter 0.8s ease, transform 0.8s ease;
+    }
+
+    /* Subtle Cinematic Vignette & Ambient Gradient */
+    .cinematic-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background: radial-gradient(circle at center, rgba(0,0,0,0) 40%, rgba(10, 20, 35, 0.35) 100%),
+                  linear-gradient(to top, rgba(5, 12, 22, 0.45) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.2) 100%);
+    }
+
+    /* ── MAIN LOCKSCREEN CONTAINER (Swipeable) ── */
+    #lockscreen-container {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 40px 50px 35px;
+      transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
+    }
+
+    #lockscreen-container.unlocked {
+      transform: translateY(-100vh);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* ── TOP STATUS BAR ── */
+    .top-bar {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+    }
+
+    .brand-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      padding: 8px 18px;
+      border-radius: 999px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+
+    .brand-icon {
+      font-size: 16px;
+      filter: drop-shadow(0 0 8px rgba(255, 170, 0, 0.6));
+    }
+
+    .brand-text {
+      font-size: 12px;
+      letter-spacing: 2px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    .system-status {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      padding: 8px 20px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+      animation: pulseDot 2s infinite ease-in-out;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* ── CENTER CLOCK & DATE SECTION ── */
+    .center-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-top: -20px;
+    }
+
+    .glass-clock-card {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(28px) saturate(170%);
+      -webkit-backdrop-filter: blur(28px) saturate(170%);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 36px;
+      padding: 38px 75px 32px;
+      box-shadow:
+        0 16px 40px rgba(0, 0, 0, 0.25),
+        inset 0 1px 1px rgba(255, 255, 255, 0.4),
+        0 0 50px rgba(255, 220, 100, 0.1);
+      animation: floatClock 6s ease-in-out infinite alternate;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .glass-clock-card:hover {
+      transform: translateY(-2px) scale(1.01);
+      box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.3),
+        inset 0 1px 1px rgba(255, 255, 255, 0.5),
+        0 0 60px rgba(255, 220, 100, 0.18);
+    }
+
+    @keyframes floatClock {
+      from { transform: translateY(0px); }
+      to { transform: translateY(-6px); }
+    }
+
+    .clock-display-wrap {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    #clock-time {
+      font-size: clamp(80px, 12vw, 128px);
+      font-weight: 300;
+      letter-spacing: -3px;
+      line-height: 0.95;
+      color: #ffffff;
+      font-variant-numeric: tabular-nums;
+      text-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.45),
+        0 0 35px rgba(255, 255, 255, 0.3);
+    }
+
+    #clock-period {
+      font-size: clamp(24px, 3.2vw, 36px);
+      font-weight: 500;
+      letter-spacing: 1px;
+      color: #ffd27d;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    }
+
+    #date-display {
+      margin-top: 14px;
+      font-size: clamp(16px, 2.2vw, 22px);
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.95);
+      letter-spacing: 2px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+      text-transform: capitalize;
+    }
+
+    .shinobi-divider {
+      width: 60px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #ffb300, transparent);
+      margin: 14px auto;
+    }
+
+    #greeting-display {
+      font-size: clamp(14px, 1.6vw, 17px);
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.88);
+      letter-spacing: 1px;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    }
+
+    #quote-display {
+      margin-top: 8px;
+      font-size: 13px;
+      font-weight: 300;
+      font-style: italic;
+      color: rgba(255, 255, 255, 0.72);
+      letter-spacing: 0.5px;
+    }
+
+    /* ── BOTTOM UNLOCK SECTION ── */
+    .bottom-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      z-index: 20;
+    }
+
+    .unlock-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 12px 30px;
+      border-radius: 999px;
+      cursor: pointer;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: pulsePill 3s infinite ease-in-out;
+    }
+
+    .unlock-pill:hover {
+      background: rgba(255, 255, 255, 0.22);
+      transform: translateY(-3px) scale(1.03);
+      box-shadow: 0 12px 36px rgba(0,0,0,0.35), 0 0 24px rgba(255, 200, 100, 0.4);
+    }
+
+    @keyframes pulsePill {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    .chevron-up {
+      font-size: 16px;
+      animation: bounceChevron 1.6s infinite ease-in-out;
+      color: #ffd27d;
+    }
+
+    @keyframes bounceChevron {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    .unlock-text {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+
+    .shortcut-hints {
+      font-size: 11px;
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.6);
+      letter-spacing: 1px;
+    }
+
+    .shortcut-hints kbd {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      font-family: inherit;
+      color: #fff;
+    }
+
+    /* ── CONTROLS PANEL (Top-Right Subtle) ── */
+    .action-controls {
+      position: fixed;
+      top: 35px;
+      right: 40px;
+      z-index: 30;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+      color: rgba(255, 255, 255, 0.85);
+      transition: all 0.25s ease;
+    }
+
+    .btn-icon:hover {
+      background: rgba(255, 255, 255, 0.28);
+      color: #fff;
+      transform: scale(1.08);
+    }
+
+    /* ── UNLOCKED DESKTOP VIEWPORT NOTIFIER ── */
+    #unlocked-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    #unlocked-screen.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .unlocked-toast {
+      background: rgba(16, 185, 129, 0.2);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      padding: 16px 36px;
+      border-radius: 999px;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 1px;
+      color: #a7f3d0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── 4K HARDWARE ACCELERATED VIDEO BACKGROUND ── -->
+  <div id="video-wrap">
+    <video
+      id="live-video"
+      autoplay
+      loop
+      muted
+      playsinline
+      preload="auto">
+      <source src="file:///E:/naruto-endless-sky.3840x2160.mp4" type="video/mp4" />
+      <source src="E:/naruto-endless-sky.3840x2160.mp4" type="video/mp4" />
+      <source src="../../assets/wallpapers/naruto_live_lockscreen.mp4" type="video/mp4" />
+    </video>
+  </div>
+
+  <div class="cinematic-overlay"></div>
+
+  <!-- ── TOP RIGHT QUICK CONTROLS ── -->
+  <div class="action-controls">
+    <button class="btn-icon" id="btn-sound" title="Toggle Nature Audio">🍃</button>
+    <button class="btn-icon" id="btn-format" title="Toggle 12h/24h Format">⏱</button>
+    <button class="btn-icon" id="btn-fullscreen" title="Toggle Fullscreen">⛶</button>
+    <button class="btn-icon" id="btn-close" title="Exit Lock Screen">✕</button>
+  </div>
+
+  <!-- ── LOCK SCREEN MAIN VIEW ── -->
+  <div id="lockscreen-container">
+    
+    <!-- Top System Bar -->
+    <div class="top-bar">
+      <div class="brand-pill">
+        <span class="brand-icon">🍥</span>
+        <span class="brand-text">Konohagakure // Jarvis X OS</span>
+      </div>
+
+      <div class="system-status">
+        <div class="status-item">
+          <span class="pulse-dot"></span>
+          <span id="system-status-text">4K 60FPS Live</span>
+        </div>
+        <div class="status-item">
+          <span id="battery-icon">🔋</span>
+          <span id="battery-text">100%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Clock & Date Glass Card -->
+    <div class="center-section">
+      <div class="glass-clock-card" id="clock-card" title="Click to Unlock">
+        <div class="clock-display-wrap">
+          <div id="clock-time">00:00</div>
+          <div id="clock-period">PM</div>
+        </div>
+        <div id="date-display">Loading Date...</div>
+        <div class="shinobi-divider"></div>
+        <div id="greeting-display">Good Afternoon, Hokage</div>
+        <div id="quote-display">「決してあきらめない」— Never give up your ninja way.</div>
+      </div>
+    </div>
+
+    <!-- Bottom Swipe / Click to Unlock -->
+    <div class="bottom-section">
+      <div class="unlock-pill" id="unlock-btn">
+        <span class="chevron-up">▲</span>
+        <span class="unlock-text">Swipe up or press any key to unlock</span>
+      </div>
+      <div class="shortcut-hints">
+        Press <kbd>Space</kbd> or <kbd>Enter</kbd> or <kbd>Esc</kbd> to unlock
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── UNLOCKED NOTIFIER (Triggers Window Exit in App Mode) ── -->
+  <div id="unlocked-screen">
+    <div class="unlocked-toast">
+      <span>🔓</span>
+      <span>Session Unlocked — Welcome Back!</span>
+    </div>
+  </div>
+
+  <!-- ── INTERACTIVE CONTROLLER SCRIPT ── -->
+  <script>
+    let is24Hour = false;
+    let isLocked = true;
+    let audioContext = null;
+    let isMuted = true;
+
+    // ── CLOCK & DATE ENGINE ──
+    function updateDateTime() {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+
+      let period = '';
+      if (!is24Hour) {
+        period = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12; // '0' should be '12'
+      }
+      const hoursStr = is24Hour ? String(hours).padStart(2, '0') : String(hours);
+
+      document.getElementById('clock-time').textContent = `${hoursStr}:${minutes}`;
+      document.getElementById('clock-period').textContent = is24Hour ? '' : period;
+
+      // Date formatting: Sunday, September 20, 2026
+      const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
+      document.getElementById('date-display').textContent = now.toLocaleDateString(undefined, options);
+
+      // Greeting based on hour
+      const rawHour = now.getHours();
+      let greeting = 'Good Evening, Hokage';
+      if (rawHour >= 5 && rawHour < 12) {
+        greeting = 'Good Morning, Hokage';
+      } else if (rawHour >= 12 && rawHour < 17) {
+        greeting = 'Good Afternoon, Hokage';
+      } else if (rawHour >= 17 && rawHour < 22) {
+        greeting = 'Good Evening, Hokage';
+      } else {
+        greeting = 'Good Night, Shinobi';
+      }
+      document.getElementById('greeting-display').textContent = `${greeting} ✦`;
+    }
+
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+
+    // ── BATTERY TELEMETRY ──
+    if ('getBattery' in navigator) {
+      navigator.getBattery().then(battery => {
+        function updateBattery() {
+          const level = Math.round(battery.level * 100);
+          const charging = battery.charging ? '⚡ ' : '';
+          document.getElementById('battery-text').textContent = `${charging}${level}%`;
+        }
+        updateBattery();
+        battery.addEventListener('levelchange', updateBattery);
+        battery.addEventListener('chargingchange', updateBattery);
+      }).catch(() => {});
+    }
+
+    // ── UNLOCK ENGINE ──
+    function unlockScreen() {
+      if (!isLocked) return;
+      isLocked = false;
+
+      const container = document.getElementById('lockscreen-container');
+      const unlockedToast = document.getElementById('unlocked-screen');
+
+      container.classList.add('unlocked');
+      unlockedToast.classList.add('active');
+
+      // Send unlock event to python / parent listener if running inside browser/webview
+      if (window.onLockscreenUnlocked) {
+        window.onLockscreenUnlocked();
+      }
+
+      // If in Electron / PyWebView / Chrome App mode, request exit after short celebration
+      setTimeout(() => {
+        try {
+          if (window.external && window.external.closeWindow) {
+            window.external.closeWindow();
+          } else if (window.opener) {
+            window.close();
+          } else {
+            // Standalone browser mode: allow re-locking by clicking screen
+            unlockedToast.innerHTML = `
+              <div class="unlocked-toast" style="cursor:pointer;" onclick="relockScreen()">
+                <span>✦</span>
+                <span>Click here to Re-Lock Screen</span>
+              </div>
+            `;
+          }
+        } catch (e) {}
+      }, 900);
+    }
+
+    function relockScreen() {
+      isLocked = true;
+      const container = document.getElementById('lockscreen-container');
+      const unlockedToast = document.getElementById('unlocked-screen');
+      container.classList.remove('unlocked');
+      unlockedToast.classList.remove('active');
+    }
+
+    // Bind triggers
+    document.getElementById('unlock-btn').addEventListener('click', unlockScreen);
+    document.getElementById('clock-card').addEventListener('click', unlockScreen);
+
+    // Keyboard unlock triggers
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') {
+        unlockScreen();
+      }
+    });
+
+    // Touch & Mouse Drag / Swipe Up
+    let startY = 0;
+    window.addEventListener('mousedown', (e) => { startY = e.clientY; });
+    window.addEventListener('mouseup', (e) => {
+      if (startY - e.clientY > 80) {
+        unlockScreen();
+      }
+    });
+    window.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, {passive:true});
+    window.addEventListener('touchend', (e) => {
+      if (startY - e.changedTouches[0].clientY > 80) {
+        unlockScreen();
+      }
+    }, {passive:true});
+
+    // ── QUICK CONTROLS ──
+    // Format toggle
+    document.getElementById('btn-format').addEventListener('click', (e) => {
+      e.stopPropagation();
+      is24Hour = !is24Hour;
+      updateDateTime();
+    });
+
+    // Fullscreen toggle
+    document.getElementById('btn-fullscreen').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+
+    // Close button
+    document.getElementById('btn-close').addEventListener('click', (e) => {
+      e.stopPropagation();
+      unlockScreen();
+      setTimeout(() => { window.close(); }, 300);
+    });
+
+    // Nature audio synthesizer (Synthesizes soft wind breeze sound when toggled on)
+    document.getElementById('btn-sound').addEventListener('click', (e) => {
+      e.stopPropagation();
+      isMuted = !isMuted;
+      const btn = document.getElementById('btn-sound');
+      if (!isMuted) {
+        btn.textContent = '🔊';
+        btn.style.background = 'rgba(255, 179, 0, 0.35)';
+        playWindSound();
+      } else {
+        btn.textContent = '🍃';
+        btn.style.background = '';
+        stopWindSound();
+      }
+    });
+
+    let windGain = null;
+    function playWindSound() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        audioContext = new AudioCtx();
+        const bufferSize = audioContext.sampleRate * 2;
+        const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+        const whiteNoise = audioContext.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+        whiteNoise.loop = true;
+
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(320, audioContext.currentTime);
+
+        windGain = audioContext.createGain();
+        windGain.gain.setValueAtTime(0.04, audioContext.currentTime);
+
+        whiteNoise.connect(filter);
+        filter.connect(windGain);
+        windGain.connect(audioContext.destination);
+        whiteNoise.start(0);
+      } catch(err) {
+        console.warn('Audio not allowed yet:', err);
+      }
+    }
+
+    function stopWindSound() {
+      if (audioContext && audioContext.state !== 'closed') {
+        try { audioContext.close(); } catch(e){}
+      }
+    }
+  </script>
+</body>
+</html>
