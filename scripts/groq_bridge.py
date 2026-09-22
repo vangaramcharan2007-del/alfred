@@ -1,6 +1,6 @@
 """
 Jarvis X - Universal eLab Groq AI Bridge
-Local lightweight proxy that connects Chrome Console on eLab to Groq AI with zero CORS issues.
+Local lightweight proxy that connects Chrome Console on eLab to Groq AI.
 """
 
 import sys
@@ -11,6 +11,18 @@ import urllib.request
 import urllib.error
 
 PORT = 8765
+
+def get_env_groq_key():
+    k = os.environ.get('GROQ_API_KEY', '').strip()
+    if not k and os.path.exists('.env'):
+        try:
+            with open('.env', 'r', encoding='utf-8') as f:
+                for line in f:
+                    if line.startswith('GROQ_API_KEY='):
+                        return line.split('=', 1)[1].strip()
+        except Exception:
+            pass
+    return k
 
 class GroqBridgeHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -26,16 +38,11 @@ class GroqBridgeHandler(BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length).decode('utf-8')
             
             try:
-                payload = json.loads(post_data)
-                groq_key = payload.get('groq_key') or os.environ.get('GROQ_API_KEY', '').strip()
-                gemini_key = os.environ.get('GEMINI_API_KEY', '').strip()
+                payload = json.loads(post_data) if post_data else {}
+                groq_key = payload.get('groq_key') or get_env_groq_key()
                 problem_desc = payload.get('problem', '')
                 error_diff = payload.get('diff', '')
                 session_name = payload.get('session', '')
-
-                if not groq_key and not gemini_key:
-                    self._send_json(400, {'error': 'No Groq or Gemini API key provided. Set GROQ_API_KEY or pass in request.'})
-                    return
 
                 # Construct AI Prompt
                 system_instruction = (
@@ -52,58 +59,51 @@ class GroqBridgeHandler(BaseHTTPRequestHandler):
                 if error_diff:
                     user_prompt += f"\nPrevious attempt failed with diff:\n{error_diff}\nFix the logic to pass 100% of all test cases.\n"
 
+                # Call Groq with openai/gpt-oss-120b or openai/gpt-oss-20b
+                models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
                 code = ""
-                if groq_key:
-                    # Call Groq API (llama-3.3-70b-versatile)
-                    req_body = json.dumps({
-                        "model": "llama-3.3-70b-versatile",
-                        "messages": [
-                            {"role": "system", "content": system_instruction},
-                            {"role": "user", "content": user_prompt}
-                        ],
-                        "temperature": 0.1,
-                        "max_tokens": 1500
-                    }).encode('utf-8')
 
-                    groq_req = urllib.request.Request(
-                        "https://api.groq.com/openai/v1/chat/completions",
-                        data=req_body,
-                        headers={
-                            "Authorization": f"Bearer {groq_key}",
-                            "Content-Type": "application/json"
-                        }
-                    )
+                for model in models:
+                    try:
+                        req_body = json.dumps({
+                            "model": model,
+                            "messages": [
+                                {"role": "system", "content": system_instruction},
+                                {"role": "user", "content": user_prompt}
+                            ],
+                            "temperature": 0.1,
+                            "max_tokens": 1500
+                        }).encode('utf-8')
 
-                    with urllib.request.urlopen(groq_req, timeout=15) as resp:
-                        res = json.loads(resp.read().decode('utf-8'))
-                        raw = res['choices'][0]['message']['content']
-                        code = self._extract_code(raw)
+                        groq_req = urllib.request.Request(
+                            "https://api.groq.com/openai/v1/chat/completions",
+                            data=req_body,
+                            headers={
+                                "Authorization": f"Bearer {groq_key.strip()}",
+                                "Content-Type": "application/json",
+                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                            }
+                        )
 
-                elif gemini_key:
-                    # Fallback to Gemini API if key is present
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
-                    req_body = json.dumps({
-                        "contents": [{
-                            "parts": [{"text": system_instruction + "\n\n" + user_prompt}]
-                        }]
-                    }).encode('utf-8')
+                        with urllib.request.urlopen(groq_req, timeout=15) as resp:
+                            res = json.loads(resp.read().decode('utf-8'))
+                            raw = res['choices'][0]['message']['content']
+                            code = self._extract_code(raw)
+                            if code:
+                                break
+                    except Exception as model_err:
+                        print(f"Model {model} error: {model_err}")
+                        continue
 
-                    gem_req = urllib.request.Request(
-                        url,
-                        data=req_body,
-                        headers={"Content-Type": "application/json"}
-                    )
-
-                    with urllib.request.urlopen(gem_req, timeout=15) as resp:
-                        res = json.loads(resp.read().decode('utf-8'))
-                        raw = res['candidates'][0]['content']['parts'][0]['text']
-                        code = self._extract_code(raw)
+                if not code:
+                    self._send_json(500, {'error': 'Failed to generate code with available Groq models.'})
+                    return
 
                 self._send_json(200, {'status': 'ok', 'code': code})
 
             except urllib.error.HTTPError as e:
                 err_text = e.read().decode('utf-8', errors='ignore')
-                self._send_json(e.code, {'error': f"AI API Error: {err_text}"})
+                self._send_json(e.code, {'error': f"Groq API Error: {err_text}"})
             except Exception as ex:
                 self._send_json(500, {'error': str(ex)})
         else:
@@ -124,12 +124,11 @@ class GroqBridgeHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(obj).encode('utf-8'))
 
     def log_message(self, format, *args):
-        # Clean terminal logging
         sys.stdout.write(f"[GROQ-BRIDGE] {args[0]} -> {args[1]}\n")
 
 def run():
     server = HTTPServer(('127.0.0.1', PORT), GroqBridgeHandler)
-    print(f"[ALFRED] Universal AI Solver Bridge running on http://127.0.0.1:{PORT}")
+    print(f"[ALFRED] Universal Groq Bridge active on http://127.0.0.1:{PORT}")
     server.serve_forever()
 
 if __name__ == '__main__':
