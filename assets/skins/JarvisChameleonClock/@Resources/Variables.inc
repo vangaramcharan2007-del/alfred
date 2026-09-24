@@ -1,13 +1,13 @@
 [Variables]
-FontTitle=Bebas Neue
-FontTime=Bebas Neue
+FontTitle=Yuji Boku
+FontTime=Yuji Boku
 FontDate=Segoe UI Semibold
 FontBold=Segoe UI Semibold
 Scale=1.0
 ColorPrimary=255, 255, 255, 255
-ColorAccent=226, 54, 54, 255
-ColorSub=0, 85, 184, 255
-ColorMuted=0, 140, 240, 240
+ColorAccent=255, 45, 55, 255
+ColorSub=220, 30, 45, 255
+ColorMuted=220, 220, 230, 220
 ColorShadow=0, 0, 0, 255
-StringEffect=Border
+StringEffect=Shadow
 ZoneName=UpperLeft

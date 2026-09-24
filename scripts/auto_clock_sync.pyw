@@ -1,6 +1,6 @@
 """
-Jarvis X - Deprecated Legacy Clock Sync Shim
-Redirects cleanly to the unified Wallpaper Chameleon Engine.
+Jarvis X - Clock Sync Shim
+Starts or redirects to the unified Wallpaper Chameleon Watcher.
 """
 import sys
 import subprocess
@@ -11,4 +11,4 @@ ENGINE_SCRIPT = PROJECT_ROOT / "scripts" / "wallpaper_chameleon_engine.py"
 
 if __name__ == "__main__":
     if ENGINE_SCRIPT.exists():
-        subprocess.run([sys.executable, str(ENGINE_SCRIPT)], check=False)
+        subprocess.run([sys.executable, str(ENGINE_SCRIPT), "--watch"], check=False)

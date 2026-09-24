@@ -477,13 +477,23 @@ AlwaysOnTop=0
         f.write(clean_ini)
     print(f"[+] Rainmeter.ini: [JarvisChameleonClock] Active=1 at ({placement['WindowX']}, {placement['WindowY']}), all redundant clocks Active=0")
 
-def reload_rainmeter():
-    """Hot-reload skin cleanly and deactivate any redundant configs."""
+def is_rainmeter_running():
     try:
-        # Enforce deactivation of all redundant clock skins
-        for skin in REDUNDANT_SKINS:
-            subprocess.run([RAINMETER_EXE, "!DeactivateConfig", skin], check=False)
+        res = subprocess.run(["tasklist", "/FI", "IMAGENAME eq Rainmeter.exe"], capture_output=True, text=True, check=False)
+        return "Rainmeter.exe" in res.stdout
+    except Exception:
+        return False
 
+def ensure_rainmeter_running():
+    if not is_rainmeter_running():
+        print("[*] Rainmeter not currently running. Launching interactive desktop instance...")
+        subprocess.run(["explorer.exe", RAINMETER_EXE], check=False)
+        time.sleep(2.0)
+
+def reload_rainmeter():
+    """Hot-reload skin cleanly and ensure single master clock."""
+    try:
+        ensure_rainmeter_running()
         subprocess.run([RAINMETER_EXE, "!ActivateConfig", "JarvisChameleonClock", "Clock.ini"], check=False)
         subprocess.run([RAINMETER_EXE, "!Refresh", "JarvisChameleonClock"], check=False)
         subprocess.run([RAINMETER_EXE, "!RefreshApp"], check=False)

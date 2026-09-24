@@ -43,10 +43,11 @@ def get_registry_wallpaper():
 def start_sentinel(poll_interval=2.0, max_iterations=None):
     """
     Continuous background loop that monitors wallpaper changes with ~0% CPU overhead.
+    Seamlessly supports both Lively Wallpaper (video/animated) and Windows Desktop wallpapers.
     """
     print("[*] Starting Jarvis Wallpaper Chameleon Sentinel...")
-    last_mtime = get_wallpaper_mtime()
-    last_reg_path = get_registry_wallpaper()
+    last_wp, _ = get_active_wallpaper()
+    last_mtime = os.path.getmtime(last_wp) if (last_wp and os.path.exists(last_wp)) else 0
     
     # Run initial sync on startup
     print("[*] Performing initial sync...")
@@ -57,25 +58,20 @@ def start_sentinel(poll_interval=2.0, max_iterations=None):
     try:
         while True:
             time.sleep(poll_interval)
-            current_mtime = get_wallpaper_mtime()
-            current_reg_path = get_registry_wallpaper()
+            current_wp, _ = get_active_wallpaper()
+            current_mtime = os.path.getmtime(current_wp) if (current_wp and os.path.exists(current_wp)) else 0
 
             changed = False
-            if current_mtime != 0 and current_mtime != last_mtime:
-                print(f"\n[!] Wallpaper file modification detected (mtime: {current_mtime})")
+            if current_wp != last_wp or (current_mtime != 0 and current_mtime != last_mtime):
+                print(f"\n[!] Wallpaper change detected: {current_wp} (mtime: {current_mtime})")
                 changed = True
+                last_wp = current_wp
                 last_mtime = current_mtime
 
-            if current_reg_path and current_reg_path != last_reg_path:
-                print(f"\n[!] Wallpaper registry update detected: {current_reg_path}")
-                changed = True
-                last_reg_path = current_reg_path
-
             if changed:
-                # Allow Windows a split second to finish writing the transcoded file
                 time.sleep(0.5)
-                print("[*] Adapting clock colors & placement to new wallpaper...")
-                run_chameleon()
+                print("[*] Adapting clock colors, typography & placement to new wallpaper...")
+                run_chameleon(wallpaper_path=current_wp)
 
             iterations += 1
             if max_iterations and iterations >= max_iterations:
