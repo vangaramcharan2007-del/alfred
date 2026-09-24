@@ -1,0 +1,11 @@
+[Variables]
+Scale=1.1
+ColorPrimary=20,25,35,250
+ColorAccent=52,142,168,255
+ColorSecondary=69,103,184,240
+ColorMuted=60,65,75,210
+ColorShadow=255,255,255,160
+FontFaceDay=Anurati
+FontFaceDate=Quicksand
+FontFaceTime=Quicksand
+ZoneName=CenterTop
