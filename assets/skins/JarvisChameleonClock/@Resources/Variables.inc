@@ -1,11 +1,10 @@
 [Variables]
-Scale=1.1
-ColorPrimary=20,25,35,250
-ColorAccent=52,142,168,255
-ColorSecondary=69,103,184,240
-ColorMuted=60,65,75,210
-ColorShadow=255,255,255,160
-FontFaceDay=Anurati
-FontFaceDate=Quicksand
-FontFaceTime=Quicksand
-ZoneName=CenterTop
+FontName=Segoe UI Light
+FontBold=Segoe UI Semibold
+Scale=1.0
+ColorPrimary=25,30,40,245
+ColorAccent=53,144,171,255
+ColorSub=71,105,188,255
+ColorMuted=70,75,85,210
+ColorShadow=255,255,255,180
+ZoneName=UpperLeft
