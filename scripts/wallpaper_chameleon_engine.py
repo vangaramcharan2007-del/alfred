@@ -59,11 +59,11 @@ REDUNDANT_SKINS = [
 
 THEMES = {
     "one_piece": {
-        "name": "One Piece (Manga Action & Ocean Blue)",
+        "name": "One Piece (Authentic Pirate Manga Typography)",
         "keywords": ["one piece", "onepiece", "luffy", "nika", "gear5", "gear 5", "sunny", "strawhat", "zoro", "sanji", "kaido", "wano", "pirate"],
-        "FontTitle": "Dela Gothic One",
-        "FontTime": "Dela Gothic One",
-        "FontDate": "Segoe UI Semibold",
+        "FontTitle": "ONE PIECE",
+        "FontTime": "ONE PIECE",
+        "FontDate": "ONE PIECE",
         "ColorAccent": "58, 146, 232, 255",     # One Piece Ocean Blue
         "ColorPrimary": "255, 255, 255, 255",   # Pure Crisp White
         "ColorSub": "255, 215, 30, 255",       # Straw Hat Gold
@@ -74,11 +74,11 @@ THEMES = {
         "PrefPlacement": "UpperLeft"
     },
     "batman": {
-        "name": "The Batman (Gritty Noir Crimson)",
+        "name": "The Batman (Authentic Batwing Gotham Typography)",
         "keywords": ["batman", "gotham", "dark knight", "pattinson", "dc", "vengeance", "riddler"],
-        "FontTitle": "Bebas Neue",
-        "FontTime": "Bebas Neue",
-        "FontDate": "Segoe UI Semibold",
+        "FontTitle": "BatmanForeverAlternate",
+        "FontTime": "BatmanForeverAlternate",
+        "FontDate": "BatmanForeverAlternate",
         "ColorAccent": "225, 25, 35, 255",      # The Batman 2022 Crimson Red
         "ColorPrimary": "255, 255, 255, 255",   # Stark White
         "ColorSub": "200, 20, 30, 255",
@@ -108,7 +108,7 @@ THEMES = {
         "keywords": ["ghost", "simon", "riley", "cod", "modern warfare", "mw2", "mwii", "warzone", "task force", "tf141", "military", "tactical", "red-ghost", "spec ops"],
         "FontTitle": "Agency FB",
         "FontTime": "Agency FB",
-        "FontDate": "Bahnschrift",
+        "FontDate": "Agency FB",
         "ColorAccent": "235, 30, 40, 255",      # Tactical NVG Crimson
         "ColorPrimary": "250, 250, 250, 255",   # Bone Skull White
         "ColorSub": "205, 25, 35, 255",        # Ghost Red
@@ -123,7 +123,7 @@ THEMES = {
         "keywords": ["samurai", "tsushima", "ronin", "katana", "jin", "sakai", "bloodfall", "pagoda", "kyoto", "bleach", "shinigami"],
         "FontTitle": "Yuji Boku",
         "FontTime": "Yuji Boku",
-        "FontDate": "Segoe UI Semibold",
+        "FontDate": "Yuji Boku",
         "ColorAccent": "255, 45, 55, 255",      # Red Maple Leaf
         "ColorPrimary": "255, 255, 255, 255",   # Rice Paper White
         "ColorSub": "220, 30, 45, 255",        # Deep Blood
@@ -137,8 +137,8 @@ THEMES = {
         "name": "Naruto Shippuden (Chakra Orange)",
         "keywords": ["naruto", "sage", "chakra", "rasengan", "sasuke", "itachi", "konoha", "shippuden", "kurama", "sharingan", "akatsuki"],
         "FontTitle": "Ninja Naruto",
-        "FontTime": "Shojumaru",
-        "FontDate": "Segoe UI Semibold",
+        "FontTime": "Ninja Naruto",
+        "FontDate": "Ninja Naruto",
         "ColorAccent": "255, 130, 10, 255",     # Kurama Chakra Orange
         "ColorPrimary": "255, 255, 255, 255",   # Pure White
         "ColorSub": "250, 204, 21, 255",       # Sage Gold
@@ -153,7 +153,7 @@ THEMES = {
         "keywords": ["rdr", "red dead", "reddead", "arthur", "morgan", "van der linde", "western", "outlaw", "cowboy", "marston", "wild west"],
         "FontTitle": "Chinese Rocks",
         "FontTime": "Chinese Rocks",
-        "FontDate": "Segoe UI Semibold",
+        "FontDate": "Chinese Rocks",
         "ColorAccent": "225, 45, 35, 255",      # Outlaw Blood Crimson
         "ColorPrimary": "250, 245, 235, 255",   # Weathered Bone White
         "ColorSub": "210, 160, 90, 255",       # Saddle Tan

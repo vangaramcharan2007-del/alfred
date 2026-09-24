@@ -1,7 +1,7 @@
 [Variables]
 FontTitle=Agency FB
 FontTime=Agency FB
-FontDate=Bahnschrift
+FontDate=Agency FB
 FontBold=Segoe UI Semibold
 Scale=1.0
 ColorPrimary=250, 250, 250, 255

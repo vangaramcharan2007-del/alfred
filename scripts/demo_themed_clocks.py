@@ -30,6 +30,7 @@ DEMO_WALLPAPERS = [
     ("THE BATMAN", os.path.join(PROJECT_DIR, "assets", "wallpapers", "the_batman_2022.png"), "batman"),
     ("NARUTO SHIPPUDEN", os.path.join(PROJECT_DIR, "assets", "wallpapers", "naruto_4k_lockscreen.jpg"), "naruto"),
     ("RED DEAD REDEMPTION 2", r"C:\Users\vanga\Pictures\AestheticThemes\RDR2_Aesthetic.jpg", "rdr2"),
+    ("CALL OF DUTY: GHOST", os.path.join(PROJECT_DIR, "assets", "wallpapers", "the_batman_2022.png"), "ghost_cod"),
 ]
 
 def print_banner(text):
@@ -39,43 +40,48 @@ def print_banner(text):
 
 def render_theme_sample(theme_key, theme_cfg, out_path):
     """Render a standalone aesthetic clock card for visual inspection."""
-    img_w, img_h = 550, 200
-    bg_color = (18, 18, 22, 255)
+    img_w, img_h = 600, 220
+    bg_color = (15, 16, 20, 255)
     img = Image.new("RGBA", (img_w, img_h), bg_color)
     draw = ImageDraw.Draw(img)
 
     fonts_dir = os.path.join(SKINS_DIR, "@Resources", "Fonts")
     
     font_name_map = {
-        "Dela Gothic One": "DelaGothicOne.ttf",
-        "Bebas Neue": "BebasNeue.ttf",
-        "Shojumaru": "Shojumaru.ttf",
+        "ONE PIECE": "OnePiece_TitleFont.ttf",
+        "BatmanForeverAlternate": "BatmanForever.ttf",
+        "Agency FB": "AgencyFB.ttf",
         "Ninja Naruto": "njnaruto.ttf",
         "Chinese Rocks": "chinese rocks rg.otf",
         "Yuji Boku": "YujiBoku.ttf",
         "Cinzel Decorative": "Cinzel.ttf",
+        "Dela Gothic One": "DelaGothicOne.ttf",
+        "Bebas Neue": "BebasNeue.ttf",
+        "Shojumaru": "Shojumaru.ttf",
         "Aquatico": "Aquatico.otf",
         "Quicksand": "Quicksand.otf"
     }
 
-    t_font_file = font_name_map.get(theme_cfg["FontTitle"], "DelaGothicOne.ttf")
-    time_font_file = font_name_map.get(theme_cfg["FontTime"], "DelaGothicOne.ttf")
+    t_font_file = font_name_map.get(theme_cfg.get("FontTitle"), "OnePiece_TitleFont.ttf")
+    time_font_file = font_name_map.get(theme_cfg.get("FontTime"), "OnePiece_TitleFont.ttf")
+    date_font_file = font_name_map.get(theme_cfg.get("FontDate"), t_font_file)
 
     t_font_path = os.path.join(fonts_dir, t_font_file)
     time_font_path = os.path.join(fonts_dir, time_font_file)
+    date_font_path = os.path.join(fonts_dir, date_font_file)
 
     try:
-        font_day = ImageFont.truetype(t_font_path, 22)
+        font_day = ImageFont.truetype(t_font_path, 26)
     except:
         font_day = ImageFont.load_default()
 
     try:
-        font_time = ImageFont.truetype(time_font_path, 72)
+        font_time = ImageFont.truetype(time_font_path, 76)
     except:
         font_time = ImageFont.load_default()
 
     try:
-        font_date = ImageFont.truetype("segoeuib.ttf", 15)
+        font_date = ImageFont.truetype(date_font_path, 17)
     except:
         font_date = ImageFont.load_default()
 
@@ -89,16 +95,16 @@ def render_theme_sample(theme_key, theme_cfg, out_path):
     shadow = parse_col(theme_cfg["ColorShadow"])
     effect = theme_cfg.get("StringEffect", "Shadow")
 
-    stroke_w = 3 if effect == "Border" else 1
+    stroke_w = 2 if effect == "Border" else 1
 
     # Day of the week (strictly day, no anime name)
-    draw.text((25, 20), "THURSDAY", font=font_day, fill=accent, stroke_width=stroke_w, stroke_fill=shadow)
+    draw.text((25, 18), "FRIDAY", font=font_day, fill=accent, stroke_width=stroke_w, stroke_fill=shadow)
 
     # Time (strictly HH:MM, no anime name)
-    draw.text((25, 52), "10:45", font=font_time, fill=primary, stroke_width=stroke_w + 1, stroke_fill=shadow)
+    draw.text((25, 52), "10:45", font=font_time, fill=primary, stroke_width=stroke_w, stroke_fill=shadow)
 
     # Date (strictly DD MONTH YYYY)
-    draw.text((27, 145), "24 SEPTEMBER 2026", font=font_date, fill=muted, stroke_width=1, stroke_fill=shadow)
+    draw.text((26, 160), "25 SEPTEMBER 2026", font=font_date, fill=muted, stroke_width=1, stroke_fill=shadow)
 
     img.save(out_path)
 
@@ -143,6 +149,24 @@ def main():
         render_theme_sample(forced_theme, THEMES[forced_theme], out_sample)
         print(f"[+] Visual sample card generated: {out_sample}")
         time.sleep(1.0)
+
+    # Composite showcase card
+    cards = []
+    for _, _, theme_key in DEMO_WALLPAPERS:
+        p = os.path.join(artifacts_dir, f"validated_theme_{theme_key}.png")
+        if os.path.exists(p):
+            cards.append(Image.open(p))
+    if cards:
+        total_w = max(c.width for c in cards)
+        total_h = sum(c.height for c in cards) + (len(cards) - 1) * 15 + 40
+        showcase = Image.new("RGBA", (total_w + 40, total_h), (10, 11, 14, 255))
+        y_off = 20
+        for c in cards:
+            showcase.paste(c, (20, y_off))
+            y_off += c.height + 15
+        showcase_path = os.path.join(artifacts_dir, "all_franchise_clocks_showcase.png")
+        showcase.save(showcase_path)
+        print(f"[+] Multi-Theme Composite Showcase generated: {showcase_path}")
 
     # Finally restore to the user's active desktop wallpaper
     print_banner("RESTORING TO ACTIVE LIVE DESKTOP WALLPAPER")
