@@ -103,9 +103,24 @@ THEMES = {
         "Scale": "1.0",
         "PrefPlacement": "UpperLeft"
     },
+    "ghost_cod": {
+        "name": "Call of Duty: Modern Warfare (Ghost / Task Force 141)",
+        "keywords": ["ghost", "simon", "riley", "cod", "modern warfare", "mw2", "mwii", "warzone", "task force", "tf141", "military", "tactical", "red-ghost", "spec ops"],
+        "FontTitle": "Agency FB",
+        "FontTime": "Agency FB",
+        "FontDate": "Bahnschrift",
+        "ColorAccent": "235, 30, 40, 255",      # Tactical NVG Crimson
+        "ColorPrimary": "250, 250, 250, 255",   # Bone Skull White
+        "ColorSub": "205, 25, 35, 255",        # Ghost Red
+        "ColorMuted": "170, 175, 185, 220",     # Comms HUD Slate
+        "ColorShadow": "0, 0, 0, 255",         # Night Vision Noir Shadow
+        "StringEffect": "Shadow",
+        "Scale": "1.0",
+        "PrefPlacement": "UpperLeft"
+    },
     "samurai": {
         "name": "Ghost of Tsushima (Katana Ink)",
-        "keywords": ["samurai", "tsushima", "ronin", "katana", "ghost", "jin", "bloodfall", "red-ghost", "pagoda", "kyoto", "bleach", "shinigami"],
+        "keywords": ["samurai", "tsushima", "ronin", "katana", "jin", "sakai", "bloodfall", "pagoda", "kyoto", "bleach", "shinigami"],
         "FontTitle": "Yuji Boku",
         "FontTime": "Yuji Boku",
         "FontDate": "Segoe UI Semibold",
@@ -460,10 +475,11 @@ SkinPath=C:\\Users\\vanga\\OneDrive\\Documents\\Rainmeter\\Skins\\
 
 [JarvisChameleonClock]
 Active=1
-WindowX={placement['WindowX']}
-WindowY={placement['WindowY']}
+WindowX={placement['WindowX']}@1
+WindowY={placement['WindowY']}@1
 AnchorX={placement['AnchorX']}
 AnchorY={placement['AnchorY']}
+AutoSelectScreen=1
 ClickThrough=0
 Draggable=1
 SnapEdges=1
@@ -475,7 +491,7 @@ AlwaysOnTop=0
 
     with open(RAINMETER_INI, "w", encoding="utf-16") as f:
         f.write(clean_ini)
-    print(f"[+] Rainmeter.ini: [JarvisChameleonClock] Active=1 at ({placement['WindowX']}, {placement['WindowY']}), all redundant clocks Active=0")
+    print(f"[+] Rainmeter.ini: [JarvisChameleonClock] Active=1 at ({placement['WindowX']}@1, {placement['WindowY']}@1), all redundant clocks Active=0")
 
 def is_rainmeter_running():
     try:
@@ -494,7 +510,6 @@ def reload_rainmeter():
     """Hot-reload skin cleanly and ensure single master clock."""
     try:
         ensure_rainmeter_running()
-        subprocess.run([RAINMETER_EXE, "!ActivateConfig", "JarvisChameleonClock", "Clock.ini"], check=False)
         subprocess.run([RAINMETER_EXE, "!Refresh", "JarvisChameleonClock"], check=False)
         subprocess.run([RAINMETER_EXE, "!RefreshApp"], check=False)
         print("[+] Hot-reloaded Rainmeter skin successfully (single master clock enforced)")
