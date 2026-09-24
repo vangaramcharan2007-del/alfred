@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Jarvis X - Wallpaper Chameleon Engine v4.0
+Jarvis X - Wallpaper Chameleon Engine v4.6
 Ultimate Theme-Aware Dynamic Desktop Clock Engine
 
 Features:
-- Authentic franchise typography (Pirata One, Dela Gothic One, Ninja Naruto, Shojumaru, Chinese Rocks, Yuji Boku, Cinzel Decorative, Quicksand)
-- Themed Title badges ("ONE PIECE // THURSDAY", "NARUTO // THURSDAY", "OUTLAWS // THURSDAY")
-- Dynamic theme detection via Windows Photos, Wallpaper History, Registry & Visual Signatures (Gear 5 Moon silhouette, Chakra Orange, Ink Brush Crimson)
-- High-contrast drop shadows for 100% legibility on any background
-- Intelligent negative space placement (avoids character heads, faces, and busy artwork)
-- Strictly ONE master clock enforced in Rainmeter.ini (zero duplicates, zero telemetry clutter)
+- Authentic franchise typography (Dela Gothic One, Bebas Neue, Ninja Naruto, Shojumaru, Chinese Rocks, Yuji Boku, Cinzel Decorative, Aquatico, Quicksand)
+- Pure minimalist clock: Time, Day, and Date with ZERO franchise names printed
+- Franchise-faithful visual stylings: Comic book black borders, gritty noir drop shadows, signature anime & film palettes
+- Real-time Lively Wallpaper & Windows Desktop wallpaper detection
+- Subject-aware negative space placement (avoids character heads, faces, and busy artwork)
+- Strictly ONE master clock enforced across all Rainmeter configs (zero duplicates, zero telemetry clutter)
 - Near-zero CPU overhead (<0.01% CPU)
 """
 
@@ -17,6 +17,7 @@ import os
 import sys
 import time
 import glob
+import json
 import argparse
 import colorsys
 import subprocess
@@ -28,71 +29,128 @@ SKINS_DIR = r"C:\Users\vanga\OneDrive\Documents\Rainmeter\Skins\JarvisChameleonC
 PROJECT_SKIN_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "skins", "JarvisChameleonClock")
 RAINMETER_INI = os.path.expanduser(r"~\AppData\Roaming\Rainmeter\Rainmeter.ini")
 
+REDUNDANT_SKINS = [
+    r"GhostMinimal\Clock",
+    r"GhostMinimal",
+    r"SpiderManCrimson\Clock",
+    r"SpiderManCrimson",
+    r"BatmanGotham\Clock",
+    r"BatmanGotham",
+    r"DemonSlayerTanjiro\Clock",
+    r"DemonSlayerTanjiro",
+    r"Gear5Nika\Clock",
+    r"Gear5Nika",
+    r"NarutoSage\Clock",
+    r"NarutoSage",
+    r"ArthurMorganRDR\Clock",
+    r"ArthurMorganRDR",
+    r"JarvisAestheticClock\Clock",
+    r"JarvisAestheticClock",
+    r"KyotoSunset\Clock",
+    r"KyotoSunset",
+    r"Mond\Clock",
+    r"Mond",
+    r"ModularClocks",
+    r"illustro\Clock",
+    r"illustro\Disk",
+    r"illustro\System",
+    r"illustro\Welcome",
+]
+
 THEMES = {
     "one_piece": {
-        "name": "One Piece / Gear 5 Sun God Nika",
-        "keywords": ["one piece", "luffy", "nika", "gear5", "gear 5", "sunny", "strawhat", "zoro", "sanji", "kaido", "wano", "pirate"],
-        "TitlePrefix": "ONE PIECE  //  ",
-        "FontTitle": "Pirata One",
+        "name": "One Piece (Manga Action & Ocean Blue)",
+        "keywords": ["one piece", "onepiece", "luffy", "nika", "gear5", "gear 5", "sunny", "strawhat", "zoro", "sanji", "kaido", "wano", "pirate"],
+        "FontTitle": "Dela Gothic One",
         "FontTime": "Dela Gothic One",
         "FontDate": "Segoe UI Semibold",
-        "ColorAccent": "255, 215, 30, 255",     # Sun God Nika Gold
+        "ColorAccent": "58, 146, 232, 255",     # One Piece Ocean Blue
         "ColorPrimary": "255, 255, 255, 255",   # Pure Crisp White
-        "ColorSub": "255, 105, 50, 255",       # Dawn Tangerine
-        "ColorMuted": "230, 240, 255, 220",     # Moonlight Ivory
-        "ColorShadow": "0, 0, 0, 240",
+        "ColorSub": "255, 215, 30, 255",       # Straw Hat Gold
+        "ColorMuted": "255, 215, 30, 240",     # Straw Hat Gold
+        "ColorShadow": "0, 0, 0, 255",         # Comic Book Black Border
+        "StringEffect": "Border",
+        "Scale": "1.0",
+        "PrefPlacement": "UpperLeft"
+    },
+    "batman": {
+        "name": "The Batman (Gritty Noir Crimson)",
+        "keywords": ["batman", "gotham", "dark knight", "pattinson", "dc", "vengeance", "riddler"],
+        "FontTitle": "Bebas Neue",
+        "FontTime": "Bebas Neue",
+        "FontDate": "Segoe UI Semibold",
+        "ColorAccent": "225, 25, 35, 255",      # The Batman 2022 Crimson Red
+        "ColorPrimary": "255, 255, 255, 255",   # Stark White
+        "ColorSub": "200, 20, 30, 255",
+        "ColorMuted": "180, 180, 190, 220",     # Gotham Slate
+        "ColorShadow": "0, 0, 0, 255",
+        "StringEffect": "Shadow",
+        "Scale": "1.0",
+        "PrefPlacement": "UpperLeft"
+    },
+    "spiderman": {
+        "name": "Spider-Man (Comic Red & Web Blue)",
+        "keywords": ["spider", "spiderman", "peter", "miles", "morales", "web", "marvel"],
+        "FontTitle": "Bebas Neue",
+        "FontTime": "Bebas Neue",
+        "FontDate": "Segoe UI Semibold",
+        "ColorAccent": "226, 54, 54, 255",      # Spider-Man Crimson
+        "ColorPrimary": "255, 255, 255, 255",   # Crisp White
+        "ColorSub": "0, 85, 184, 255",         # Web Blue
+        "ColorMuted": "0, 140, 240, 240",      # Web Cyan/Blue
+        "ColorShadow": "0, 0, 0, 255",         # Comic Black Border
+        "StringEffect": "Border",
+        "Scale": "1.0",
+        "PrefPlacement": "UpperLeft"
+    },
+    "samurai": {
+        "name": "Ghost of Tsushima (Katana Ink)",
+        "keywords": ["samurai", "tsushima", "ronin", "katana", "ghost", "jin", "bloodfall", "red-ghost", "pagoda", "kyoto", "bleach", "shinigami"],
+        "FontTitle": "Yuji Boku",
+        "FontTime": "Yuji Boku",
+        "FontDate": "Segoe UI Semibold",
+        "ColorAccent": "255, 45, 55, 255",      # Red Maple Leaf
+        "ColorPrimary": "255, 255, 255, 255",   # Rice Paper White
+        "ColorSub": "220, 30, 45, 255",        # Deep Blood
+        "ColorMuted": "220, 220, 230, 220",     # Katana Steel
+        "ColorShadow": "0, 0, 0, 255",         # Katana Ink Noir Shadow
+        "StringEffect": "Shadow",
         "Scale": "1.0",
         "PrefPlacement": "UpperLeft"
     },
     "naruto": {
-        "name": "Naruto Shippuden / Sage Mode",
+        "name": "Naruto Shippuden (Chakra Orange)",
         "keywords": ["naruto", "sage", "chakra", "rasengan", "sasuke", "itachi", "konoha", "shippuden", "kurama", "sharingan", "akatsuki"],
-        "TitlePrefix": "NARUTO  //  ",
         "FontTitle": "Ninja Naruto",
         "FontTime": "Shojumaru",
         "FontDate": "Segoe UI Semibold",
         "ColorAccent": "255, 130, 10, 255",     # Kurama Chakra Orange
         "ColorPrimary": "255, 255, 255, 255",   # Pure White
         "ColorSub": "250, 204, 21, 255",       # Sage Gold
-        "ColorMuted": "240, 225, 195, 200",     # Scroll Parchment
-        "ColorShadow": "20, 10, 5, 230",
+        "ColorMuted": "240, 225, 195, 220",     # Scroll Parchment
+        "ColorShadow": "20, 10, 5, 240",
+        "StringEffect": "Border",
         "Scale": "1.0",
         "PrefPlacement": "UpperLeft"
     },
     "rdr2": {
-        "name": "Red Dead Redemption / Western",
-        "keywords": ["rdr", "red dead", "reddead", "arthur", "morgan", "van der linde", "western", "outlaw", "cowboy", "marston"],
-        "TitlePrefix": "OUTLAWS  //  ",
+        "name": "Red Dead Redemption (Western Outlaw)",
+        "keywords": ["rdr", "red dead", "reddead", "arthur", "morgan", "van der linde", "western", "outlaw", "cowboy", "marston", "wild west"],
         "FontTitle": "Chinese Rocks",
         "FontTime": "Chinese Rocks",
         "FontDate": "Segoe UI Semibold",
         "ColorAccent": "225, 45, 35, 255",      # Outlaw Blood Crimson
-        "ColorPrimary": "250, 245, 235, 255",   # Weathered White
+        "ColorPrimary": "250, 245, 235, 255",   # Weathered Bone White
         "ColorSub": "210, 160, 90, 255",       # Saddle Tan
         "ColorMuted": "210, 200, 190, 200",     # Frontier Ash
         "ColorShadow": "10, 5, 0, 240",
-        "Scale": "1.0",
-        "PrefPlacement": "UpperLeft"
-    },
-    "samurai": {
-        "name": "Ghost of Tsushima / Samurai",
-        "keywords": ["samurai", "tsushima", "ronin", "katana", "ghost", "jin", "pagoda", "kyoto", "bleach", "shinigami"],
-        "TitlePrefix": "TSUSHIMA  //  ",
-        "FontTitle": "Yuji Boku",
-        "FontTime": "Yuji Boku",
-        "FontDate": "Segoe UI Semibold",
-        "ColorAccent": "255, 35, 50, 255",      # Red Maple Leaf
-        "ColorPrimary": "255, 255, 255, 255",   # Rice Paper White
-        "ColorSub": "200, 30, 45, 255",        # Deep Blood
-        "ColorMuted": "220, 220, 230, 200",     # Katana Steel
-        "ColorShadow": "0, 0, 0, 240",
+        "StringEffect": "Shadow",
         "Scale": "1.0",
         "PrefPlacement": "UpperLeft"
     },
     "demon_slayer": {
-        "name": "Demon Slayer / Kimetsu",
-        "keywords": ["demon", "slayer", "tanjiro", "nezuko", "rengoku", "nichirin", "kimetsu"],
-        "TitlePrefix": "KIMETSU  //  ",
+        "name": "Demon Slayer (Kimetsu Nichirin)",
+        "keywords": ["demon", "slayer", "tanjiro", "nezuko", "rengoku", "nichirin", "kimetsu", "akaza"],
         "FontTitle": "Cinzel Decorative",
         "FontTime": "Cinzel Decorative",
         "FontDate": "Segoe UI Semibold",
@@ -101,13 +159,13 @@ THEMES = {
         "ColorSub": "40, 220, 180, 255",       # Water Breathing Teal
         "ColorMuted": "220, 230, 240, 200",
         "ColorShadow": "0, 0, 0, 240",
+        "StringEffect": "Shadow",
         "Scale": "1.0",
         "PrefPlacement": "UpperLeft"
     },
     "cyberpunk": {
-        "name": "Cyberpunk / Synthwave",
-        "keywords": ["cyberpunk", "matrix", "synthwave", "neon", "sci-fi", "spider"],
-        "TitlePrefix": "NIGHT CITY  //  ",
+        "name": "Cyberpunk 2077 (Neon City)",
+        "keywords": ["cyberpunk", "matrix", "synthwave", "neon", "sci-fi"],
         "FontTitle": "Aquatico",
         "FontTime": "Segoe UI Light",
         "FontDate": "Consolas",
@@ -116,34 +174,85 @@ THEMES = {
         "ColorSub": "240, 60, 200, 255",       # Hot Magenta
         "ColorMuted": "190, 210, 230, 200",     # Chrome Blue
         "ColorShadow": "0, 0, 0, 240",
+        "StringEffect": "Shadow",
         "Scale": "1.0",
         "PrefPlacement": "UpperLeft"
     },
     "minimal": {
         "name": "Minimalist Editorial",
         "keywords": [],
-        "TitlePrefix": "",
         "FontTitle": "Quicksand",
         "FontTime": "Segoe UI Light",
         "FontDate": "Segoe UI Semibold",
         "ColorAccent": "255, 180, 40, 255",     # Warm Gold
         "ColorPrimary": "255, 255, 255, 255",
         "ColorSub": "250, 204, 21, 255",
-        "ColorMuted": "230, 230, 240, 200",
-        "ColorShadow": "0, 0, 0, 220",
+        "ColorMuted": "200, 200, 210, 200",
+        "ColorShadow": "0, 0, 0, 200",
+        "StringEffect": "Shadow",
         "Scale": "1.0",
         "PrefPlacement": "UpperLeft"
     }
 }
 
-def get_active_wallpaper():
+def get_lively_wallpaper():
     """
-    Locates current active Windows wallpaper image and associated metadata/keywords.
-    Returns (image_path, candidate_names_list).
+    Detects active animated/video wallpaper from Lively Wallpaper if running.
+    Returns (thumbnail_path or image_path, candidate_names_list) or (None, []).
     """
     candidate_names = []
+    lively_packages = glob.glob(os.path.expanduser(r"~\AppData\Local\Packages\*LivelyWallpaper*"))
+    for pkg in lively_packages:
+        layout_path = os.path.join(pkg, "LocalCache", "Local", "Lively Wallpaper", "WallpaperLayout.json")
+        if os.path.exists(layout_path):
+            try:
+                with open(layout_path, "r", encoding="utf-8") as f:
+                    layout = json.load(f)
+                for item in layout:
+                    if not item.get("LivelyScreen", {}).get("isStale", False):
+                        info_dir = item.get("LivelyInfoPath", "")
+                        dir_id = os.path.basename(info_dir)
+                        info_file_candidates = [
+                            os.path.join(pkg, "LocalCache", "Local", "Lively Wallpaper", "Library", "SaveData", "wptmp", dir_id, "LivelyInfo.json"),
+                            os.path.join(info_dir, "LivelyInfo.json")
+                        ]
+                        for info_file in info_file_candidates:
+                            if os.path.exists(info_file):
+                                with open(info_file, "r", encoding="utf-8") as inf_f:
+                                    info = json.load(inf_f)
+                                title = info.get("Title", "")
+                                fn = info.get("FileName", "")
+                                thumb_rel = info.get("Thumbnail", "")
+                                if title:
+                                    candidate_names.append(title)
+                                if fn:
+                                    candidate_names.append(fn)
+                                candidate_names.append(dir_id)
 
-    # 1. Check Photos App Background directory (used by Windows 11 Photos app "Set As Background")
+                                thumb_path = os.path.join(os.path.dirname(info_file), thumb_rel) if thumb_rel else None
+                                if thumb_path and os.path.exists(thumb_path):
+                                    return thumb_path, candidate_names
+                                for ext in ('*.jpg', '*.png', '*.webp'):
+                                    for img_f in glob.glob(os.path.join(os.path.dirname(info_file), ext)):
+                                        return img_f, candidate_names
+            except Exception:
+                pass
+    return None, candidate_names
+
+def get_active_wallpaper():
+    """
+    Locates current active wallpaper image and candidate metadata.
+    Prioritizes Lively Wallpaper if running, then Windows Desktop wallpaper.
+    Returns (image_path, candidate_names_list).
+    """
+    # 1. First check Lively Wallpaper (animated / video wallpaper)
+    lively_img, lively_cands = get_lively_wallpaper()
+    if lively_img and os.path.exists(lively_img):
+        return lively_img, lively_cands
+
+    candidate_names = list(lively_cands)
+
+    # 2. Check Photos App Background directory (used by Windows Photos app)
     photos_glob = os.path.expandvars(r"%LOCALAPPDATA%\Packages\Microsoft.Windows.Photos_*\LocalState\PhotosAppBackground\*")
     for f in glob.glob(photos_glob):
         if os.path.isfile(f) and f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
@@ -152,7 +261,7 @@ def get_active_wallpaper():
     transcoded = os.path.expandvars(r"%APPDATA%\Microsoft\Windows\Themes\TranscodedWallpaper")
     transcoded_mtime = os.path.getmtime(transcoded) if (os.path.exists(transcoded) and os.path.getsize(transcoded) > 0) else 0
 
-    # 2. Check Wallpaper registry Current/BackedUp in Explorer
+    # 3. Check Wallpaper registry Current in Explorer
     try:
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers")
         try:
@@ -165,7 +274,7 @@ def get_active_wallpaper():
     except Exception:
         pass
 
-    # 3. Check Control Panel\Desktop\WallPaper (only if fresh)
+    # 4. Check Control Panel\Desktop\WallPaper
     reg_wallpaper = None
     try:
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Control Panel\Desktop")
@@ -179,7 +288,7 @@ def get_active_wallpaper():
     except Exception:
         pass
 
-    # 4. TranscodedWallpaper is the active rendered desktop bitmap
+    # 5. TranscodedWallpaper is the active rendered desktop bitmap
     if transcoded_mtime > 0:
         return transcoded, candidate_names
 
@@ -210,7 +319,6 @@ def detect_theme_from_features(img, candidate_strings, forced_theme=None):
     w, h = img.size
 
     # A. Gear 5 Nika / Full Moon Silhouette Detection:
-    # Iconic full moon in upper-center (35%-65% X, 10%-55% Y) surrounded by dark night sky (<25 RGB)
     center_crop = img.crop((int(w * 0.35), int(h * 0.10), int(w * 0.65), int(h * 0.55))).resize((30, 30))
     center_colors = center_crop.getcolors(900) or []
     bright_center_pix = sum(c[0] for c in center_colors if sum(c[1]) / 3.0 > 180)
@@ -255,9 +363,9 @@ def detect_theme_from_features(img, candidate_strings, forced_theme=None):
     if orange_ratio > 0.20:
         return "naruto", THEMES["naruto"]
     if red_ratio > 0.22:
-        return "samurai", THEMES["samurai"]
+        return "batman", THEMES["batman"]
     if cyan_ratio > 0.18:
-        return "cyberpunk", THEMES["cyberpunk"]
+        return "one_piece", THEMES["one_piece"]
     if earth_ratio > 0.25:
         return "rdr2", THEMES["rdr2"]
 
@@ -304,7 +412,6 @@ def analyze_negative_space(img, preferred_placement=None):
         stat = ImageStat.Stat(crop_edges)
         zone_scores[zname] = stat.mean[0]
 
-    # Bias towards UpperLeft unless UpperLeft is crowded and UpperRight is much cleaner
     if zone_scores["UpperLeft"] <= zone_scores["UpperRight"] * 1.4:
         best_name = "UpperLeft"
     elif zone_scores["UpperRight"] < zone_scores["UpperLeft"]:
@@ -317,9 +424,8 @@ def analyze_negative_space(img, preferred_placement=None):
     return selected
 
 def update_skin_variables(theme_cfg, placement_name):
-    """Write updated variables with authentic themed fonts & colors."""
+    """Write updated variables with authentic themed typography, palettes, and styling."""
     content = f"""[Variables]
-TitlePrefix={theme_cfg['TitlePrefix']}
 FontTitle={theme_cfg['FontTitle']}
 FontTime={theme_cfg['FontTime']}
 FontDate={theme_cfg['FontDate']}
@@ -330,6 +436,7 @@ ColorAccent={theme_cfg['ColorAccent']}
 ColorSub={theme_cfg['ColorSub']}
 ColorMuted={theme_cfg['ColorMuted']}
 ColorShadow={theme_cfg['ColorShadow']}
+StringEffect={theme_cfg.get('StringEffect', 'Shadow')}
 ZoneName={placement_name}
 """
     targets = [
@@ -340,7 +447,7 @@ ZoneName={placement_name}
         os.makedirs(os.path.dirname(t), exist_ok=True)
         with open(t, "w", encoding="utf-8") as f:
             f.write(content)
-    print(f"[+] Updated Variables.inc: Title='{theme_cfg['TitlePrefix'].strip()}', TitleFont='{theme_cfg['FontTitle']}', TimeFont='{theme_cfg['FontTime']}', Accent={theme_cfg['ColorAccent']}")
+    print(f"[+] Updated Variables.inc: DayFont='{theme_cfg['FontTitle']}', TimeFont='{theme_cfg['FontTime']}', Accent={theme_cfg['ColorAccent']}, Effect={theme_cfg.get('StringEffect', 'Shadow')}")
 
 def update_rainmeter_ini(placement):
     """Ensure strictly ONE master clock is Active=1 and all legacy duplicates are Active=0."""
@@ -362,44 +469,25 @@ Draggable=1
 SnapEdges=1
 KeepOnScreen=1
 AlwaysOnTop=0
-
-[NarutoSage\\Clock]
-Active=0
-
-[Gear5Nika\\Clock]
-Active=0
-
-[GhostMinimal\\Clock]
-Active=0
-
-[Mond\\Clock]
-Active=0
-
-[illustro\\Clock]
-Active=0
-
-[illustro\\Disk]
-Active=0
-
-[illustro\\System]
-Active=0
-
-[illustro\\Welcome]
-Active=0
-
-[ArthurMorganRDR\\Clock]
-Active=0
 """
+    for skin in REDUNDANT_SKINS:
+        clean_ini += f"\n[{skin}]\nActive=0\n"
+
     with open(RAINMETER_INI, "w", encoding="utf-16") as f:
         f.write(clean_ini)
-    print(f"[+] Rainmeter.ini: [JarvisChameleonClock] Active=1 at ({placement['WindowX']}, {placement['WindowY']})")
+    print(f"[+] Rainmeter.ini: [JarvisChameleonClock] Active=1 at ({placement['WindowX']}, {placement['WindowY']}), all redundant clocks Active=0")
 
 def reload_rainmeter():
-    """Hot-reload skin cleanly."""
+    """Hot-reload skin cleanly and deactivate any redundant configs."""
     try:
+        # Enforce deactivation of all redundant clock skins
+        for skin in REDUNDANT_SKINS:
+            subprocess.run([RAINMETER_EXE, "!DeactivateConfig", skin], check=False)
+
+        subprocess.run([RAINMETER_EXE, "!ActivateConfig", "JarvisChameleonClock", "Clock.ini"], check=False)
         subprocess.run([RAINMETER_EXE, "!Refresh", "JarvisChameleonClock"], check=False)
         subprocess.run([RAINMETER_EXE, "!RefreshApp"], check=False)
-        print("[+] Hot-reloaded Rainmeter skin successfully")
+        print("[+] Hot-reloaded Rainmeter skin successfully (single master clock enforced)")
     except Exception as e:
         print(f"[-] Could not send refresh bang: {e}")
 
@@ -421,8 +509,8 @@ def run_chameleon(wallpaper_path=None, forced_theme=None, forced_placement=None)
         placement = analyze_negative_space(img_rgb, preferred_placement=forced_placement)
 
     print(f"[*] Theme Activated: [{theme_cfg['name'].upper()}]")
-    print(f"[*] Typography: Title='{theme_cfg['FontTitle']}' | Time='{theme_cfg['FontTime']}' | Date='{theme_cfg['FontDate']}'")
-    print(f"[*] Palette: Accent={theme_cfg['ColorAccent']} | Primary={theme_cfg['ColorPrimary']}")
+    print(f"[*] Typography: Day='{theme_cfg['FontTitle']}' | Time='{theme_cfg['FontTime']}' | Date='{theme_cfg['FontDate']}'")
+    print(f"[*] Palette: Accent={theme_cfg['ColorAccent']} | Primary={theme_cfg['ColorPrimary']} | Style={theme_cfg.get('StringEffect', 'Shadow')}")
     print(f"[*] Screen Placement: {placement['name']} ({placement['WindowX']}, {placement['WindowY']})")
 
     update_skin_variables(theme_cfg, placement['name'])
@@ -451,13 +539,13 @@ def watch_mode():
         except KeyboardInterrupt:
             print("\n[*] Watcher terminated cleanly.")
             break
-        except Exception as e:
+        except Exception:
             time.sleep(3.0)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Jarvis X Themed Chameleon Clock Engine v4.0")
+    parser = argparse.ArgumentParser(description="Jarvis X Themed Chameleon Clock Engine v4.6")
     parser.add_argument("--wallpaper", type=str, default=None, help="Explicit wallpaper path to analyze")
-    parser.add_argument("--theme", type=str, default=None, help="Force specific theme: one_piece, naruto, rdr2, samurai, demon_slayer, cyberpunk, minimal")
+    parser.add_argument("--theme", type=str, default=None, help="Force specific theme: one_piece, batman, spiderman, naruto, rdr2, samurai, demon_slayer, cyberpunk, minimal")
     parser.add_argument("--placement", type=str, default=None, help="Force placement: UpperLeft, UpperRight, CenterTop, Center")
     parser.add_argument("--watch", action="store_true", help="Run lightweight background watcher")
     args = parser.parse_args()
