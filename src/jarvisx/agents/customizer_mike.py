@@ -68,6 +68,7 @@ PRESET_THEMES: Dict[str, Dict[str, Any]] = {
         "FontTitle": "ONE PIECE",
         "FontTime": "ONE PIECE",
         "FontDate": "ONE PIECE",
+        "FontFile": "OnePiece_TitleFont.ttf",
         "ColorAccent": "58, 146, 232, 255",     # All Blue Ocean #3A92E8
         "ColorPrimary": "255, 255, 255, 255",   # Pure Crisp White
         "ColorSub": "245, 200, 66, 255",       # Straw Hat Gold #F5C842
@@ -83,6 +84,7 @@ PRESET_THEMES: Dict[str, Dict[str, Any]] = {
         "FontTitle": "BatmanForeverAlternate",
         "FontTime": "BatmanForeverAlternate",
         "FontDate": "BatmanForeverAlternate",
+        "FontFile": "BatmanForever.ttf",
         "ColorAccent": "225, 25, 35, 255",      # The Batman 2022 Crimson #E11923
         "ColorPrimary": "255, 255, 255, 255",   # Stark White
         "ColorSub": "200, 20, 30, 255",
@@ -98,6 +100,7 @@ PRESET_THEMES: Dict[str, Dict[str, Any]] = {
         "FontTitle": "Ninja Naruto",
         "FontTime": "Ninja Naruto",
         "FontDate": "Ninja Naruto",
+        "FontFile": "njnaruto.ttf",
         "ColorAccent": "255, 130, 10, 255",     # Kurama Chakra Orange #FF820A
         "ColorPrimary": "255, 255, 255, 255",   # Pure White
         "ColorSub": "247, 209, 84, 255",       # Scroll / Rasengan Gold #F7D154
@@ -113,6 +116,7 @@ PRESET_THEMES: Dict[str, Dict[str, Any]] = {
         "FontTitle": "Chinese Rocks",
         "FontTime": "Chinese Rocks",
         "FontDate": "Chinese Rocks",
+        "FontFile": "chinese rocks rg.otf",
         "ColorAccent": "225, 45, 35, 255",      # Outlaw Blood Crimson #E12D23
         "ColorPrimary": "250, 245, 235, 255",   # Weathered Bone White #FAF5EB
         "ColorSub": "212, 162, 78, 255",       # Prairie Gold #D4A24E
@@ -128,6 +132,7 @@ PRESET_THEMES: Dict[str, Dict[str, Any]] = {
         "FontTitle": "Agency FB",
         "FontTime": "Agency FB",
         "FontDate": "Agency FB",
+        "FontFile": "AgencyFB.ttf",
         "ColorAccent": "235, 30, 40, 255",      # Tactical NVG Crimson #EB1E28
         "ColorPrimary": "250, 245, 235, 255",   # Bone Skull White #FAF5EB
         "ColorSub": "205, 25, 35, 255",        # Ghost Red
@@ -143,6 +148,7 @@ PRESET_THEMES: Dict[str, Dict[str, Any]] = {
         "FontTitle": "Shojumaru",
         "FontTime": "Shojumaru",
         "FontDate": "Shojumaru",
+        "FontFile": "Shojumaru.ttf",
         "ColorAccent": "255, 45, 55, 255",      # Crimson Torii Red #FF2D37
         "ColorPrimary": "250, 245, 238, 255",   # Silk White #FAF5EE
         "ColorSub": "229, 168, 75, 255",       # Sunset Amber #E5A84B
@@ -158,6 +164,7 @@ PRESET_THEMES: Dict[str, Dict[str, Any]] = {
         "FontTitle": "Minecraft",
         "FontTime": "Minecraft",
         "FontDate": "Minecraft",
+        "FontFile": "Minecraft.ttf",
         "ColorAccent": "85, 255, 85, 255",      # Emerald XP Green #55FF55
         "ColorPrimary": "255, 255, 255, 255",   # Pure Crisp White
         "ColorSub": "255, 170, 0, 255",        # Gold Level #FFAA00

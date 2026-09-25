@@ -84,11 +84,44 @@ def parse_rgba(s):
     return tuple(parts[:3])
 
 
+FONT_FILE_MAP = {
+    "one piece": "OnePiece_TitleFont.ttf",
+    "onepiece": "OnePiece_TitleFont.ttf",
+    "onepiece_titlefont": "OnePiece_TitleFont.ttf",
+    "batmanforeveralternate": "BatmanForever.ttf",
+    "batmanforever": "BatmanForever.ttf",
+    "batman": "BatmanForever.ttf",
+    "ninja naruto": "njnaruto.ttf",
+    "njnaruto": "njnaruto.ttf",
+    "naruto": "njnaruto.ttf",
+    "chinese rocks": "chinese rocks rg.otf",
+    "chinese rocks rg": "chinese rocks rg.otf",
+    "agency fb": "AgencyFB.ttf",
+    "agencyfb": "AgencyFB.ttf",
+    "shojumaru": "Shojumaru.ttf",
+    "minecraft": "Minecraft.ttf",
+    "bebas neue": "BebasNeue.ttf",
+    "bebasneue": "BebasNeue.ttf",
+    "cinzel decorative": "Cinzel.ttf",
+    "cinzel": "Cinzel.ttf",
+    "dela gothic one": "DelaGothicOne.ttf",
+    "delagothicone": "DelaGothicOne.ttf",
+    "aquatico": "Aquatico.otf",
+    "quicksand": "Quicksand.otf",
+    "yuji boku": "YujiBoku.ttf",
+}
+
+
 def resolve_font(font_name, size):
+    name_clean = str(font_name).lower().strip()
+    target_file = FONT_FILE_MAP.get(name_clean, f"{font_name}.ttf")
+
     candidates = [
+        FONTS_DIR / target_file,
         FONTS_DIR / f"{font_name}.ttf",
         FONTS_DIR / f"{font_name}.otf",
         FONTS_DIR / f"{font_name}.TTF",
+        Path(f"C:/Windows/Fonts/{target_file}"),
         Path(f"C:/Windows/Fonts/{font_name}.ttf"),
         Path(f"C:/Windows/Fonts/{font_name}.otf")
     ]
