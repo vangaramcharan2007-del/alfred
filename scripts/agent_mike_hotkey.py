@@ -14,6 +14,18 @@ from ctypes import wintypes
 import winsound
 from pathlib import Path
 
+# Safe streams for headless pythonw.exe execution
+if sys.stdout is None:
+    class _SafeWriter:
+        def write(self, s): pass
+        def flush(self): pass
+    sys.stdout = _SafeWriter()
+if sys.stderr is None:
+    class _SafeErrWriter:
+        def write(self, s): pass
+        def flush(self): pass
+    sys.stderr = _SafeErrWriter()
+
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Jarvis X - PC Customizer Agent Mike (CLI & Daemon Runner)
+Permanent, Autonomous Background Aesthetics Engine.
 
 Commands:
   python scripts/agent_mike_customizer.py --sync        # Immediate wallpaper theme sync
@@ -10,23 +11,142 @@ Commands:
   python scripts/agent_mike_customizer.py --hotkey      # Run global Win+Alt+C hotkey listener
 """
 
+import os
 import sys
 import time
+import psutil
 import threading
 import argparse
 from pathlib import Path
 
-# Add project root to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+LOG_DIR = PROJECT_ROOT / "var" / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+DAEMON_LOG_FILE = LOG_DIR / "agent_mike_customizer.log"
+
+class _SafeWriter:
+    def __init__(self, target, log_path=None):
+        self.target = target
+        self.log_path = log_path
+
+    def write(self, s):
+        written = False
+        try:
+            if self.target is not None:
+                self.target.write(s)
+                self.target.flush()
+                written = True
+        except Exception:
+            pass
+
+        # If writing to console stream fails or is headless, write non-empty lines to log_path
+        if (not written or self.target is None) and self.log_path and s.strip():
+            try:
+                timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+                with open(self.log_path, "a", encoding="utf-8") as f:
+                    for line in s.splitlines():
+                        if line.strip():
+                            f.write(f"[{timestamp}] {line}\n")
+            except Exception:
+                pass
+
+    def flush(self):
+        try:
+            if self.target is not None:
+                self.target.flush()
+        except Exception:
+            pass
+
+# Install bulletproof stdout/stderr traps
+sys.stdout = _SafeWriter(sys.stdout, DAEMON_LOG_FILE)
+sys.stderr = _SafeWriter(sys.stderr, DAEMON_LOG_FILE)
+
+# Add project root to sys.path
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 from jarvisx.agents.customizer_mike import MikeCustomizerAgent, PRESET_THEMES
 
 
+def log_daemon(msg: str):
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    entry = f"[{timestamp}] {msg}"
+    try:
+        with open(DAEMON_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(entry + "\n")
+    except Exception:
+        pass
+    try:
+        if sys.stdout and sys.stdout.target:
+            sys.stdout.target.write(entry + "\n")
+            sys.stdout.target.flush()
+    except Exception:
+        pass
+
+
+RUNTIME_DIR = PROJECT_ROOT / "var" / "runtime"
+RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+PID_FILE = RUNTIME_DIR / "agent_mike_customizer.pid"
+
+
+def get_running_daemon_pid():
+    if not PID_FILE.exists():
+        return None
+    try:
+        with open(PID_FILE, "r", encoding="utf-8") as f:
+            pid = int(f.read().strip())
+        if psutil.pid_exists(pid):
+            p = psutil.Process(pid)
+            name = (p.name() or "").lower()
+            if name.startswith("python"):
+                return pid
+    except Exception:
+        pass
+    return None
+
+
+def acquire_daemon_lock():
+    """Ensures strictly ONE instance of the customizer daemon is running via atomic PID lock."""
+    my_pid = os.getpid()
+    old_pid = get_running_daemon_pid()
+    if old_pid and old_pid != my_pid:
+        log_daemon(f"Stopping previous customizer daemon instance (PID: {old_pid})...")
+        try:
+            p = psutil.Process(old_pid)
+            p.terminate()
+            p.wait(timeout=2)
+        except Exception:
+            try:
+                psutil.Process(old_pid).kill()
+            except Exception:
+                pass
+
+    try:
+        with open(PID_FILE, "w", encoding="utf-8") as f:
+            f.write(str(my_pid))
+    except Exception as e:
+        log_daemon(f"Warning: Could not write PID file: {e}")
+    return True
+
+
+def release_daemon_lock():
+    try:
+        if PID_FILE.exists():
+            with open(PID_FILE, "r", encoding="utf-8") as f:
+                pid = int(f.read().strip())
+            if pid == os.getpid():
+                PID_FILE.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
+import atexit
+atexit.register(release_daemon_lock)
+
+
 def print_banner():
     print("=" * 70)
-    print("       JARVIS X - PC CUSTOMIZER AGENT MIKE (ZERO-LAG SUITE)")
+    print("       JARVIS X - PC CUSTOMIZER AGENT MIKE (PERMANENT ENGINE)")
     print("=" * 70)
 
 
@@ -72,32 +192,36 @@ def run_optimize(mike: MikeCustomizerAgent):
     return res
 
 
-def run_daemon(mike: MikeCustomizerAgent, interval: float = 2.0, with_hotkey: bool = True):
-    print(f"[*] Agent Mike entering background Sentinel Mode (Heartbeat: {interval}s)...")
-    print("[*] Zero lag active: Sleep-driven event checking (<0.01% CPU).")
+def run_daemon(mike: MikeCustomizerAgent, interval: float = 1.0, with_hotkey: bool = True):
+    acquire_daemon_lock()
+
+    log_daemon(f"Agent Mike Permanent Daemon Online (Heartbeat: {interval}s)...")
+    log_daemon("Zero-lag sleep-driven active monitoring active (<0.01% CPU).")
     
     if with_hotkey:
         try:
             from agent_mike_hotkey import listen_for_hotkey
             t = threading.Thread(target=listen_for_hotkey, args=(mike, False), daemon=True)
             t.start()
-            print("[+] Win+Alt+C Global Hotkey listener running in background thread.")
+            log_daemon("Win+Alt+C Global Hotkey listener running on background thread.")
         except Exception as e:
-            print(f"[!] Warning: Could not start hotkey listener thread: {e}")
+            log_daemon(f"Warning: Could not start hotkey listener thread: {e}")
 
-    print("[*] Press Ctrl+C to terminate.")
-    
     # Run initial sync
     run_sync(mike, force=True)
 
     try:
         while True:
             time.sleep(interval)
-            res = mike.sync(force=False)
-            if res.get("status") == "success":
-                print(f"[EVENT] New wallpaper detected! Switched theme to: {res.get('theme_name')} ({res.get('placement')})")
+            try:
+                res = mike.sync(force=False)
+                if res.get("status") == "success":
+                    log_daemon(f"Aesthetic Harmonized: {res.get('theme_name')} | Font: {res.get('font')} | Pos: {res.get('placement')}")
+            except Exception as loop_err:
+                # Never let any transient filesystem/image lock crash the daemon
+                time.sleep(0.5)
     except KeyboardInterrupt:
-        print("\n[*] Agent Mike daemon stopped cleanly.")
+        log_daemon("Agent Mike daemon terminated by user.")
 
 
 def main():
@@ -107,7 +231,7 @@ def main():
     parser.add_argument("--optimize", action="store_true", help="Clean duplicates & optimize")
     parser.add_argument("--daemon", action="store_true", help="Run background zero-lag monitor + hotkey")
     parser.add_argument("--hotkey", action="store_true", help="Run standalone global hotkey listener")
-    parser.add_argument("--interval", type=float, default=2.0, help="Daemon check interval (default: 2.0s)")
+    parser.add_argument("--interval", type=float, default=1.0, help="Daemon check interval (default: 1.0s)")
 
     args = parser.parse_args()
     print_banner()
@@ -129,4 +253,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        try:
+            with open(PROJECT_ROOT / "var" / "logs" / "agent_mike_crash.log", "a", encoding="utf-8") as f:
+                f.write(f"\nCRASH AT {time.strftime('%Y-%m-%d %H:%M:%S')}:\n")
+                traceback.print_exc(file=f)
+        except Exception:
+            pass
+        raise

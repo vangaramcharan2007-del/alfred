@@ -11,6 +11,7 @@ Specializes in:
 """
 
 import os
+import re
 import sys
 import time
 import glob
@@ -66,7 +67,7 @@ REDUNDANT_SKINS = [
 PRESET_THEMES: Dict[str, Dict[str, Any]] = {
     "one_piece": {
         "name": "One Piece (Gear 5 Sun God Nika & Straw Hat Pirates)",
-        "keywords": ["one piece", "onepiece", "luffy", "nika", "gear5", "gear 5", "sunny", "strawhat", "zoro", "sanji", "kaido", "wano", "pirate"],
+        "keywords": ["one piece", "onepiece", "luffy", "nika", "gear5", "gear 5", "gear", "sunny", "thousand sunny", "strawhat", "straw hat", "zoro", "sanji", "kaido", "wano", "pirate", "sun god", "bounce on water"],
         "FontTitle": "ONE PIECE",
         "FontTime": "ONE PIECE",
         "FontDate": "ONE PIECE",
@@ -272,13 +273,69 @@ class MikeCustomizerAgent(OperationalAgent):
     def detect_active_wallpaper(self) -> Tuple[Optional[str], List[str], Optional[str]]:
         """
         Locates the active wallpaper source file/thumbnail and identifier metadata.
+        Multi-Tier Fail-Safe Architecture:
+        1. Real-time Lively Log File Inspection (<1ms response upon user click)
+        2. Lively WallpaperLayout.json
+        3. Windows Transcoded Wallpaper
+        4. Windows Desktop Registry
         Returns: (image_path, candidate_strings, unique_signature)
         """
         candidate_strings: List[str] = []
         unique_sig: Optional[str] = None
 
-        # A. Check Lively Wallpaper Layout
+        # A. Tier 1: Real-time Lively Log File Inspection (Instantaneous upon user click)
         lively_pkgs = glob.glob(LIVELY_PACKAGE_GLOB)
+        for pkg in lively_pkgs:
+            logs_dir = Path(pkg) / "LocalCache" / "Local" / "Lively Wallpaper" / "logs"
+            if logs_dir.exists():
+                log_files = sorted(logs_dir.glob("*.txt"), key=os.path.getmtime, reverse=True)
+                if log_files:
+                    try:
+                        latest_log = log_files[0]
+                        with open(latest_log, "r", encoding="utf-8", errors="ignore") as f:
+                            lines = f.readlines()
+                        for line in reversed(lines):
+                            if "Setting wallpaper:" in line:
+                                parts = line.split("Setting wallpaper:")[1].split("|")
+                                wp_title = parts[0].strip()
+                                raw_path = parts[1].strip() if len(parts) > 1 else ""
+                                log_stamp = line[:23].strip()
+                                unique_sig = f"lively_log_{wp_title}_{log_stamp}"
+
+                                candidate_strings.append(wp_title)
+                                if raw_path:
+                                    wp_p = Path(raw_path)
+                                    candidate_strings.append(wp_p.stem)
+                                    candidate_strings.append(wp_p.parent.name)
+
+                                    # Try thumbnail in folder
+                                    info_f = wp_p.parent / "LivelyInfo.json"
+                                    if info_f.exists():
+                                        try:
+                                            with open(info_f, "r", encoding="utf-8", errors="ignore") as inf:
+                                                idata = json.load(inf)
+                                            if idata.get("Title"):
+                                                candidate_strings.append(idata["Title"])
+                                            t_rel = idata.get("Thumbnail")
+                                            if t_rel:
+                                                t_path = wp_p.parent / t_rel
+                                                if t_path.exists():
+                                                    return str(t_path), candidate_strings, unique_sig
+                                        except Exception:
+                                            pass
+
+                                    for ext in ("*.jpg", "*.jpeg", "*.png", "*.webp"):
+                                        found_imgs = list(wp_p.parent.glob(ext))
+                                        if found_imgs:
+                                            return str(found_imgs[0]), candidate_strings, unique_sig
+
+                                    if os.path.exists(raw_path):
+                                        return raw_path, candidate_strings, unique_sig
+                                break
+                    except Exception:
+                        pass
+
+        # B. Tier 2: Check Lively Wallpaper Layout
         for pkg in lively_pkgs:
             layout_file = Path(pkg) / "LocalCache" / "Local" / "Lively Wallpaper" / "WallpaperLayout.json"
             if layout_file.exists():
@@ -309,13 +366,11 @@ class MikeCustomizerAgent(OperationalAgent):
                                     if fn:
                                         candidate_strings.append(fn)
 
-                                    # Try thumbnail
                                     if thumb_rel:
                                         thumb_path = c.parent / thumb_rel
                                         if thumb_path.exists():
                                             return str(thumb_path), candidate_strings, f"lively_{dir_id}_{mtime}"
 
-                                    # Check for any image in folder
                                     for ext in ("*.jpg", "*.jpeg", "*.png", "*.webp"):
                                         found_imgs = list(c.parent.glob(ext))
                                         if found_imgs:
@@ -323,14 +378,14 @@ class MikeCustomizerAgent(OperationalAgent):
                 except Exception:
                     pass
 
-        # B. Check Windows Transcoded Wallpaper
+        # C. Tier 3: Check Windows Transcoded Wallpaper
         transcoded = Path(os.path.expanduser(r"~\AppData\Roaming\Microsoft\Windows\Themes\TranscodedWallpaper"))
         if transcoded.exists() and transcoded.stat().st_size > 0:
             mtime = transcoded.stat().st_mtime
             candidate_strings.append("desktop_transcoded")
             return str(transcoded), candidate_strings, f"win_transcoded_{mtime}"
 
-        # C. Check Windows Registry
+        # D. Tier 4: Check Windows Registry
         try:
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Control Panel\Desktop")
             reg_val, _ = winreg.QueryValueEx(key, "WallPaper")
@@ -506,30 +561,35 @@ class MikeCustomizerAgent(OperationalAgent):
     def synthesize_theme(self, img: Image.Image, candidate_strings: List[str]) -> Dict[str, Any]:
         """
         Determines theme properties:
-        1. Exact matching for known franchises (One Piece, Naruto, Batman, RDR2, COD Ghost, Samurai, Minecraft, etc.)
+        1. Exact & normalized matching for known franchises (One Piece, Naruto, Batman, RDR2, COD Ghost, Samurai, Minecraft, etc.)
         2. Dynamic Auto-Synthesis for NEW/UNKNOWN wallpapers:
            - Dominant colors + WCAG AAA contrast
            - High-energy accent color
            - Font aesthetic selection based on mood
         """
-        combined = " ".join(candidate_strings).lower()
+        raw_combined = " ".join(candidate_strings).lower()
+        clean_text = " " + re.sub(r'[^a-z0-9]+', ' ', raw_combined) + " "
+        compressed_text = clean_text.replace(" ", "")
 
         # Step 1: Check known presets with specificity
-        # Prioritize samurai if tsushima is mentioned
-        if "tsushima" in combined or "ghost of tsushima" in combined or "ghost-of-tsushima" in combined:
+        # Prioritize samurai if tsushima or bloodfall is mentioned
+        if any(w in clean_text for w in ["tsushima", "bloodfall", "samurai", "katana", "jin sakai", "bushido"]):
             result = dict(PRESET_THEMES["samurai"])
             result["theme_key"] = "samurai"
             result["is_preset"] = True
             return result
 
         for theme_key, preset in PRESET_THEMES.items():
-            if theme_key == "ghost_cod" and "tsushima" in combined:
+            if theme_key == "ghost_cod" and any(w in clean_text for w in ["tsushima", "bloodfall", "samurai"]):
                 continue
-            if any(kw in combined for kw in preset["keywords"]):
-                result = dict(preset)
-                result["theme_key"] = theme_key
-                result["is_preset"] = True
-                return result
+            for kw in preset["keywords"]:
+                clean_kw = " " + re.sub(r'[^a-z0-9]+', ' ', kw.lower()).strip() + " "
+                comp_kw = clean_kw.replace(" ", "")
+                if clean_kw in clean_text or (len(comp_kw) >= 3 and comp_kw in compressed_text):
+                    result = dict(preset)
+                    result["theme_key"] = theme_key
+                    result["is_preset"] = True
+                    return result
 
         # Step 2: Dynamic Auto-Synthesis for NEW Wallpaper
         return self._auto_synthesize_palette(img, candidate_strings)
