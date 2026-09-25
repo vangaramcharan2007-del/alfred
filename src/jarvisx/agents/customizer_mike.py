@@ -175,19 +175,20 @@ PRESET_THEMES: Dict[str, Dict[str, Any]] = {
         "PrefPlacement": "UpperLeft"
     },
     "spiderman": {
-        "name": "Spider-Man (Comic Red & Web Blue)",
-        "keywords": ["spider", "spiderman", "peter", "miles", "morales", "web", "marvel"],
-        "FontTitle": "Bebas Neue",
-        "FontTime": "Bebas Neue",
-        "FontDate": "Segoe UI Semibold",
-        "ColorAccent": "226, 54, 54, 255",      # Crimson #E23636
-        "ColorPrimary": "255, 255, 255, 255",
-        "ColorSub": "0, 85, 184, 255",         # Web Blue #0055B8
-        "ColorMuted": "0, 140, 240, 240",
+        "name": "Spider-Man (The Amazing Spider-Man / Comic Crimson & Web Blue)",
+        "keywords": ["spider", "spiderman", "peter", "miles", "morales", "web", "marvel", "spiderverse", "spider-man", "crimson-sky", "into-the-spiderverse"],
+        "FontTitle": "THE AMAZING SPIDER-MAN",
+        "FontTime": "Homoarakhn",
+        "FontDate": "Homoarakhn",
+        "FontFile": "HOMOARAK.TTF",
+        "ColorAccent": "235, 30, 45, 255",      # Spider Crimson Red #EB1E2D
+        "ColorPrimary": "255, 255, 255, 255",   # Pure Stark Web White
+        "ColorSub": "0, 110, 230, 255",         # Electric Web Blue #006EE6
+        "ColorMuted": "0, 150, 255, 240",
         "ColorShadow": "0, 0, 0, 255",
         "StringEffect": "Border",
-        "Scale": "1.0",
-        "PrefPlacement": "UpperLeft"
+        "Scale": "1.15",
+        "PrefPlacement": "TopCenter"
     },
     "demon_slayer": {
         "name": "Demon Slayer (Kimetsu Nichirin)",
@@ -195,13 +196,14 @@ PRESET_THEMES: Dict[str, Dict[str, Any]] = {
         "FontTitle": "Cinzel Decorative",
         "FontTime": "Cinzel Decorative",
         "FontDate": "Segoe UI Semibold",
+        "FontFile": "Cinzel.ttf",
         "ColorAccent": "255, 80, 40, 255",      # Flame Red
         "ColorPrimary": "255, 255, 255, 255",
         "ColorSub": "40, 220, 180, 255",       # Water Breathing Teal
         "ColorMuted": "220, 230, 240, 200",
         "ColorShadow": "0, 0, 0, 240",
         "StringEffect": "Shadow",
-        "Scale": "1.0",
+        "Scale": "1.15",
         "PrefPlacement": "UpperLeft"
     },
     "cyberpunk": {
@@ -395,7 +397,7 @@ class MikeCustomizerAgent(OperationalAgent):
     # -------------------------------------------------------------------------
     # 3. Dynamic Negative-Space Placement Engine
     # -------------------------------------------------------------------------
-    def calculate_negative_space(self, img: Image.Image) -> Dict[str, Any]:
+    def calculate_negative_space(self, img: Image.Image, preferred_placement: Optional[str] = None) -> Dict[str, Any]:
         """
         Analyzes 4 quadrants and top center to find lowest visual clutter / highest negative space.
         Returns: {placement: 'UpperLeft'|'UpperRight'|..., coords: (x, y), align: 'Left'|'Right'|'Center'}
@@ -406,12 +408,11 @@ class MikeCustomizerAgent(OperationalAgent):
         thumb_h = int(320 * (h / w))
         thumb = img.resize((thumb_w, thumb_h), Image.Resampling.BILINEAR).convert("L")
 
+        # Boss preference: strictly TOP negative space placements (UpperLeft, TopCenter, UpperRight)
         regions = {
             "UpperLeft": (0, 0, int(thumb_w * 0.40), int(thumb_h * 0.40)),
-            "UpperRight": (int(thumb_w * 0.60), 0, thumb_w, int(thumb_h * 0.40)),
             "TopCenter": (int(thumb_w * 0.30), 0, int(thumb_w * 0.70), int(thumb_h * 0.35)),
-            "LowerLeft": (0, int(thumb_h * 0.60), int(thumb_w * 0.40), thumb_h),
-            "LowerRight": (int(thumb_w * 0.60), int(thumb_h * 0.60), thumb_w, thumb_h),
+            "UpperRight": (int(thumb_w * 0.60), 0, thumb_w, int(thumb_h * 0.40)),
         }
 
         # Apply edge detection filter
@@ -432,8 +433,11 @@ class MikeCustomizerAgent(OperationalAgent):
             score = (edge_mean * 1.5) + stddev
             scores[region_name] = score
 
-        # Sort by score ascending (lowest clutter first)
-        best_region = min(scores, key=scores.get)
+        # Prioritize Boss/Theme preference if specified; otherwise select lowest visual clutter
+        if preferred_placement and preferred_placement in regions:
+            best_region = preferred_placement
+        else:
+            best_region = min(scores, key=scores.get)
 
         # Coordinate mappings for Rainmeter
         if best_region == "UpperRight":
@@ -672,9 +676,21 @@ ClockAlign={placement_data.get('align', 'Left')}
             except Exception:
                 pass
 
-        # Trigger Rainmeter refresh
+        # Trigger Rainmeter repositioning and refresh
         if os.path.exists(RAINMETER_EXE):
             try:
+                pos = placement_data.get("placement", "UpperLeft")
+                if pos == "TopCenter":
+                    px, py = 730, 40
+                elif pos == "UpperRight":
+                    px, py = 1350, 40
+                else:
+                    px, py = 60, 40
+                subprocess.run(
+                    [RAINMETER_EXE, "!Move", str(px), str(py), "JarvisChameleonClock"],
+                    capture_output=True,
+                    creationflags=0x08000000 if os.name == "nt" else 0
+                )
                 subprocess.run(
                     [RAINMETER_EXE, "!Refresh", "JarvisChameleonClock"],
                     capture_output=True,
@@ -694,9 +710,9 @@ ClockAlign={placement_data.get('align', 'Left')}
         1. Detects active wallpaper
         2. Verifies if change occurred (or if forced)
         3. Enforces single clock
-        4. Calculates negative space
-        5. Synthesizes theme & typography
-        6. Applies to Rainmeter
+        4. Synthesizes theme & typography
+        5. Calculates negative space with theme placement preference
+        6. Applies to Rainmeter with dynamic repositioning
         """
         img_path, candidate_strings, signature = self.detect_active_wallpaper()
         if not img_path or not os.path.exists(img_path):
@@ -715,11 +731,11 @@ ClockAlign={placement_data.get('align', 'Left')}
         except Exception as e:
             return {"status": "error", "message": f"Failed to load image: {e}"}
 
-        # Calculate negative space
-        placement = self.calculate_negative_space(img)
-
-        # Synthesize theme & typography
+        # Synthesize theme & typography first so theme preferences guide placement
         theme = self.synthesize_theme(img, candidate_strings)
+
+        # Calculate negative space (honoring Boss/theme preference)
+        placement = self.calculate_negative_space(img, preferred_placement=theme.get("PrefPlacement"))
 
         # Apply to Rainmeter
         success = self.apply_to_rainmeter(theme, placement)
@@ -793,8 +809,8 @@ ClockAlign={placement_data.get('align', 'Left')}
             return {"status": "error", "message": f"Image path does not exist: {image_path}"}
         with Image.open(image_path) as orig_img:
             img = orig_img.convert("RGB")
-        placement = self.calculate_negative_space(img)
         theme = self.synthesize_theme(img, [title, Path(image_path).name])
+        placement = self.calculate_negative_space(img, preferred_placement=theme.get("PrefPlacement"))
         return {
             "status": "synthesized",
             "title": title,
