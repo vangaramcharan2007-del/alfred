@@ -30,7 +30,9 @@ DEMO_WALLPAPERS = [
     ("THE BATMAN", os.path.join(PROJECT_DIR, "assets", "wallpapers", "the_batman_2022.png"), "batman"),
     ("NARUTO SHIPPUDEN", os.path.join(PROJECT_DIR, "assets", "wallpapers", "naruto_4k_lockscreen.jpg"), "naruto"),
     ("RED DEAD REDEMPTION 2", r"C:\Users\vanga\Pictures\AestheticThemes\RDR2_Aesthetic.jpg", "rdr2"),
-    ("CALL OF DUTY: GHOST", os.path.join(PROJECT_DIR, "assets", "wallpapers", "the_batman_2022.png"), "ghost_cod"),
+    ("CALL OF DUTY: MODERN WARFARE", os.path.join(PROJECT_DIR, "assets", "wallpapers", "the_batman_2022.png"), "ghost_cod"),
+    ("SAMURAI / GHOST OF TSUSHIMA", os.path.join(PROJECT_DIR, "assets", "wallpapers", "the_batman_2022.png"), "samurai"),
+    ("MINECRAFT", os.path.join(PROJECT_DIR, "assets", "wallpapers", "one_piece_gear5_moon.jpg"), "minecraft"),
 ]
 
 def print_banner(text):
@@ -53,11 +55,13 @@ def render_theme_sample(theme_key, theme_cfg, out_path):
         "Agency FB": "AgencyFB.ttf",
         "Ninja Naruto": "njnaruto.ttf",
         "Chinese Rocks": "chinese rocks rg.otf",
+        "Shojumaru": "Shojumaru.ttf",
         "Yuji Boku": "YujiBoku.ttf",
+        "Minecraft": "Minecraft.ttf",
+        "Minecrafter Alt": "Minecrafter.Alt.ttf",
         "Cinzel Decorative": "Cinzel.ttf",
         "Dela Gothic One": "DelaGothicOne.ttf",
         "Bebas Neue": "BebasNeue.ttf",
-        "Shojumaru": "Shojumaru.ttf",
         "Aquatico": "Aquatico.otf",
         "Quicksand": "Quicksand.otf"
     }

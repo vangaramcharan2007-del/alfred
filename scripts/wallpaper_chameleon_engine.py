@@ -105,7 +105,7 @@ THEMES = {
     },
     "ghost_cod": {
         "name": "Call of Duty: Modern Warfare (Ghost / Task Force 141)",
-        "keywords": ["ghost", "simon", "riley", "cod", "modern warfare", "mw2", "mwii", "warzone", "task force", "tf141", "military", "tactical", "red-ghost", "spec ops"],
+        "keywords": ["ghost", "simon", "riley", "cod", "modern warfare", "mw2", "mwii", "warzone", "task force", "tf141", "military", "tactical", "red-ghost", "spec ops", "call of duty", "callofduty", "black ops", "blackops"],
         "FontTitle": "Agency FB",
         "FontTime": "Agency FB",
         "FontDate": "Agency FB",
@@ -119,16 +119,31 @@ THEMES = {
         "PrefPlacement": "UpperLeft"
     },
     "samurai": {
-        "name": "Ghost of Tsushima (Katana Ink)",
-        "keywords": ["samurai", "tsushima", "ronin", "katana", "jin", "sakai", "bloodfall", "pagoda", "kyoto", "bleach", "shinigami"],
-        "FontTitle": "Yuji Boku",
-        "FontTime": "Yuji Boku",
-        "FontDate": "Yuji Boku",
+        "name": "Ghost of Tsushima / Samurai (Katana Ink & Maple)",
+        "keywords": ["samurai", "tsushima", "ronin", "katana", "jin", "sakai", "bloodfall", "pagoda", "kyoto", "bleach", "shinigami", "bushido", "sword"],
+        "FontTitle": "Shojumaru",
+        "FontTime": "Shojumaru",
+        "FontDate": "Shojumaru",
         "ColorAccent": "255, 45, 55, 255",      # Red Maple Leaf
         "ColorPrimary": "255, 255, 255, 255",   # Rice Paper White
         "ColorSub": "220, 30, 45, 255",        # Deep Blood
         "ColorMuted": "220, 220, 230, 220",     # Katana Steel
         "ColorShadow": "0, 0, 0, 255",         # Katana Ink Noir Shadow
+        "StringEffect": "Shadow",
+        "Scale": "1.0",
+        "PrefPlacement": "UpperLeft"
+    },
+    "minecraft": {
+        "name": "Minecraft (Pixel Blocks & Emerald XP)",
+        "keywords": ["minecraft", "creeper", "steve", "alex", "nether", "enderman", "mojang", "pixel", "block", "voxel", "crafting", "diamond"],
+        "FontTitle": "Minecraft",
+        "FontTime": "Minecraft",
+        "FontDate": "Minecraft",
+        "ColorAccent": "85, 255, 85, 255",      # Emerald XP Green
+        "ColorPrimary": "255, 255, 255, 255",   # Crisp Pure White
+        "ColorSub": "255, 170, 0, 255",        # Gold Level Orange
+        "ColorMuted": "255, 170, 0, 240",      # Level Orange / Gold
+        "ColorShadow": "20, 20, 20, 255",      # Pixel Noir Shadow
         "StringEffect": "Shadow",
         "Scale": "1.0",
         "PrefPlacement": "UpperLeft"
