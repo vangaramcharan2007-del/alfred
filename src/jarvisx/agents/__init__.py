@@ -14,6 +14,7 @@ from jarvisx.agents.devops import DevOpsAgent
 from jarvisx.agents.synthesizer import SynthesizerAgent
 from jarvisx.agents.red_team import RedTeamVerifier
 from jarvisx.agents.agent_swarm_engine import AgentSwarmEngine, MicroAgentWorker
+from jarvisx.agents.customizer_mike import MikeCustomizerAgent
 
 __all__ = [
     "OperationalAgent",
@@ -28,4 +29,5 @@ __all__ = [
     "RedTeamVerifier",
     "AgentSwarmEngine",
     "MicroAgentWorker",
+    "MikeCustomizerAgent",
 ]
