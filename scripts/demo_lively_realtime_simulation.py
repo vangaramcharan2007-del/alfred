@@ -202,15 +202,15 @@ def main():
         col_primary = parse_rgba(theme.get("ColorPrimary"))
         col_sub = parse_rgba(theme.get("ColorSub"))
 
-        # Enlarged font sizes per Boss request
-        f_day = resolve_font(theme.get("FontTitle"), 34)
-        f_time = resolve_font(theme.get("FontTime"), 108)
-        f_date = resolve_font(theme.get("FontDate"), 25)
+        # Enlarged commanding font sizes per Boss request
+        f_day = resolve_font(theme.get("FontTitle"), 44)
+        f_time = resolve_font(theme.get("FontTime"), 146)
+        f_date = resolve_font(theme.get("FontDate"), 30)
 
         # Strictly TOP placement coordinates
-        py = int(h * 0.05)
+        py = int(h * 0.04)
         if pos_key == "UpperRight":
-            px = int(w * 0.68)
+            px = int(w * 0.65)
             day_x, time_x, date_x = px, px, px
         elif pos_key == "TopCenter":
             # Harmonious true center alignment
@@ -222,19 +222,19 @@ def main():
             date_x = (w - date_w) // 2
             px = time_x
         else:  # UpperLeft
-            px = int(w * 0.06)
+            px = int(w * 0.05)
             day_x, time_x, date_x = px, px, px
 
         # Draw drop shadow / border
-        for dx, dy in [(-3, -3), (-3, 3), (3, -3), (3, 3), (0, 4), (0, -4), (4, 0), (-4, 0)]:
+        for dx, dy in [(-4, -4), (-4, 4), (4, -4), (4, 4), (0, 5), (0, -5), (5, 0), (-5, 0)]:
             draw.text((day_x + dx, py + dy), "FRIDAY", font=f_day, fill=(0, 0, 0))
-            draw.text((time_x + dx, py + 42 + dy), "10:45", font=f_time, fill=(0, 0, 0))
-            draw.text((date_x + dx, py + 165 + dy), "25 SEPTEMBER 2026", font=f_date, fill=(0, 0, 0))
+            draw.text((time_x + dx, py + 52 + dy), "10:45", font=f_time, fill=(0, 0, 0))
+            draw.text((date_x + dx, py + 214 + dy), "25 SEPTEMBER 2026", font=f_date, fill=(0, 0, 0))
 
         # Draw foreground text
         draw.text((day_x, py), "FRIDAY", font=f_day, fill=col_accent)
-        draw.text((time_x, py + 42), "10:45", font=f_time, fill=col_primary)
-        draw.text((date_x, py + 165), "25 SEPTEMBER 2026", font=f_date, fill=col_sub)
+        draw.text((time_x, py + 52), "10:45", font=f_time, fill=col_primary)
+        draw.text((date_x, py + 214), "25 SEPTEMBER 2026", font=f_date, fill=col_sub)
 
         # Bottom HUD Spec Bar
         bar_h = 75
