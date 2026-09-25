@@ -16,6 +16,8 @@ import time
 import glob
 import json
 import winreg
+import ctypes
+import shutil
 import colorsys
 import subprocess
 from pathlib import Path
@@ -354,8 +356,15 @@ class MikeCustomizerAgent(OperationalAgent):
         # A. Clean up Rainmeter.ini active flags for redundant skins
         if RAINMETER_INI.exists():
             try:
-                with open(RAINMETER_INI, "r", encoding="utf-8", errors="ignore") as f:
-                    content = f.read()
+                content = ""
+                enc = "utf-16le"
+                try:
+                    with open(RAINMETER_INI, "r", encoding="utf-16le") as f:
+                        content = f.read()
+                except Exception:
+                    enc = "utf-8"
+                    with open(RAINMETER_INI, "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
 
                 modified = False
                 lines = content.splitlines()
@@ -375,7 +384,7 @@ class MikeCustomizerAgent(OperationalAgent):
                     new_lines.append(line)
 
                 if modified:
-                    with open(RAINMETER_INI, "w", encoding="utf-8") as f:
+                    with open(RAINMETER_INI, "w", encoding=enc) as f:
                         f.write("\n".join(new_lines) + "\n")
             except Exception:
                 pass
@@ -676,18 +685,36 @@ ClockAlign={placement_data.get('align', 'Left')}
             except Exception:
                 pass
 
+        # Ensure Visualizer skin exists in live directory
+        live_viz = LIVE_SKINS_DIR / "Visualizer" / "Visualizer.ini"
+        repo_viz = REPO_SKINS_DIR / "Visualizer" / "Visualizer.ini"
+        if not live_viz.exists() and repo_viz.exists():
+            try:
+                live_viz.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(repo_viz, live_viz)
+            except Exception:
+                pass
+
         # Trigger Rainmeter repositioning and refresh
         if os.path.exists(RAINMETER_EXE):
             try:
                 pos = placement_data.get("placement", "UpperLeft")
                 if pos == "TopCenter":
                     px, py = 730, 40
+                    vx, vy = 690, 310
                 elif pos == "UpperRight":
                     px, py = 1350, 40
+                    vx, vy = 1320, 320
                 else:
                     px, py = 60, 40
+                    vx, vy = 60, 320
                 subprocess.run(
                     [RAINMETER_EXE, "!Move", str(px), str(py), "JarvisChameleonClock"],
+                    capture_output=True,
+                    creationflags=0x08000000 if os.name == "nt" else 0
+                )
+                subprocess.run(
+                    [RAINMETER_EXE, "!Move", str(vx), str(vy), r"JarvisChameleonClock\Visualizer"],
                     capture_output=True,
                     creationflags=0x08000000 if os.name == "nt" else 0
                 )
@@ -696,10 +723,63 @@ ClockAlign={placement_data.get('align', 'Left')}
                     capture_output=True,
                     creationflags=0x08000000 if os.name == "nt" else 0
                 )
+                subprocess.run(
+                    [RAINMETER_EXE, "!Refresh", r"JarvisChameleonClock\Visualizer"],
+                    capture_output=True,
+                    creationflags=0x08000000 if os.name == "nt" else 0
+                )
             except Exception:
                 pass
 
         return written
+
+    # -------------------------------------------------------------------------
+    # 5b. Windows Taskbar & DWM Accent Color Synchronizer
+    # -------------------------------------------------------------------------
+    def apply_windows_accent(self, theme_data: Dict[str, Any]) -> bool:
+        """
+        Dynamically updates Windows DWM & System Accent color to match active theme palette.
+        Ensures acrylic taskbar, window borders, and system highlights synchronize in real time.
+        """
+        if os.name != "nt":
+            return False
+
+        accent_str = theme_data.get("ColorAccent", "58, 146, 232, 255")
+        try:
+            parts = [int(p.strip()) for p in accent_str.split(",")[:3]]
+            r, g, b = parts[0], parts[1], parts[2]
+
+            # Windows DWM expects ABGR DWORD: 0xAABBGGRR
+            accent_dword = (0xFF << 24) | (b << 16) | (g << 8) | r
+
+            # 1. Update HKCU\Software\Microsoft\Windows\DWM
+            dwm_key_path = r"Software\Microsoft\Windows\DWM"
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, dwm_key_path, 0, winreg.KEY_SET_VALUE) as key:
+                winreg.SetValueEx(key, "AccentColor", 0, winreg.REG_DWORD, accent_dword)
+                winreg.SetValueEx(key, "ColorizationColor", 0, winreg.REG_DWORD, accent_dword)
+                winreg.SetValueEx(key, "ColorPrevalence", 0, winreg.REG_DWORD, 1)
+
+            # 2. Update HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize
+            pers_key_path = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, pers_key_path, 0, winreg.KEY_SET_VALUE) as key:
+                winreg.SetValueEx(key, "ColorPrevalence", 0, winreg.REG_DWORD, 1)
+                winreg.SetValueEx(key, "EnableTransparency", 0, winreg.REG_DWORD, 1)
+
+            # 3. Broadcast WM_THEMECHANGED and WM_DWMCOLORIZATIONCOLORCHANGED
+            HWND_BROADCAST = 0xFFFF
+            WM_THEMECHANGED = 0x031A
+            WM_DWMCOLORIZATIONCOLORCHANGED = 0x0320
+            WM_SETTINGCHANGE = 0x001A
+            SMTO_ABORTIFHUNG = 0x0002
+
+            user32 = ctypes.windll.user32
+            result = ctypes.c_ulong()
+            user32.SendMessageTimeoutW(HWND_BROADCAST, WM_DWMCOLORIZATIONCOLORCHANGED, accent_dword, 1, SMTO_ABORTIFHUNG, 500, ctypes.byref(result))
+            user32.SendMessageTimeoutW(HWND_BROADCAST, WM_THEMECHANGED, 0, 0, SMTO_ABORTIFHUNG, 500, ctypes.byref(result))
+            user32.SendMessageTimeoutW(HWND_BROADCAST, WM_SETTINGCHANGE, 0, "ImmersiveColorSet", SMTO_ABORTIFHUNG, 500, ctypes.byref(result))
+            return True
+        except Exception:
+            return False
 
     # -------------------------------------------------------------------------
     # 6. Primary Operations: Sync, Status, Optimize
@@ -713,6 +793,7 @@ ClockAlign={placement_data.get('align', 'Left')}
         4. Synthesizes theme & typography
         5. Calculates negative space with theme placement preference
         6. Applies to Rainmeter with dynamic repositioning
+        7. Synchronizes Windows DWM & Taskbar accent color
         """
         img_path, candidate_strings, signature = self.detect_active_wallpaper()
         if not img_path or not os.path.exists(img_path):
@@ -740,6 +821,9 @@ ClockAlign={placement_data.get('align', 'Left')}
         # Apply to Rainmeter
         success = self.apply_to_rainmeter(theme, placement)
 
+        # Apply to Windows Taskbar & DWM Accent Color
+        accent_synced = self.apply_windows_accent(theme)
+
         self.last_sync_signature = signature
         self.active_theme_name = theme.get("name", "Unknown")
         self.active_placement = placement.get("placement", "UpperLeft")
@@ -754,7 +838,8 @@ ClockAlign={placement_data.get('align', 'Left')}
             "placement": self.active_placement,
             "accent_color": theme.get("ColorAccent"),
             "single_clock_enforced": enforce_result.get("unloaded_skins", []),
-            "rainmeter_updated": success
+            "rainmeter_updated": success,
+            "windows_accent_synced": accent_synced
         }
 
     def get_customizer_status(self) -> Dict[str, Any]:

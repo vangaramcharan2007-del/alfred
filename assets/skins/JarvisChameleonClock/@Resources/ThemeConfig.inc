@@ -16,8 +16,8 @@ ColorShadow=0, 0, 0, 255
 StringEffect=Shadow
 Scale=1.0
 
-; Dynamic Negative-Space Placement: LowerRight
-PlacementName="LowerRight"
-ClockX=(#SCREENAREAWIDTH# - 40)
-ClockY=(#SCREENAREAHEIGHT# - 220)
-ClockAlign=Right
+; Dynamic Negative-Space Placement: UpperLeft
+PlacementName="UpperLeft"
+ClockX=50
+ClockY=40
+ClockAlign=Left
