@@ -494,8 +494,17 @@ class MikeCustomizerAgent(OperationalAgent):
         """
         combined = " ".join(candidate_strings).lower()
 
-        # Step 1: Check known presets
+        # Step 1: Check known presets with specificity
+        # Prioritize samurai if tsushima is mentioned
+        if "tsushima" in combined or "ghost of tsushima" in combined or "ghost-of-tsushima" in combined:
+            result = dict(PRESET_THEMES["samurai"])
+            result["theme_key"] = "samurai"
+            result["is_preset"] = True
+            return result
+
         for theme_key, preset in PRESET_THEMES.items():
+            if theme_key == "ghost_cod" and "tsushima" in combined:
+                continue
             if any(kw in combined for kw in preset["keywords"]):
                 result = dict(preset)
                 result["theme_key"] = theme_key
