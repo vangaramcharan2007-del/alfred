@@ -125,18 +125,17 @@ class RDR2PerformanceSentinel:
                 '    <treeQuality value="2" />\n'
                 '    <textureQuality value="3" />\n'
                 '    <anisotropicFiltering value="4" />\n'
-                '    <taa value="2" />\n'
+                '    <taa value="1" />\n'
                 '    <fxaa value="0" />\n'
                 '    <msaa value="0" />\n'
-                '    <fsr2Quality value="2" />\n'
                 '    <motionBlur value="0" />\n'
                 '    <windowWidth value="1920" />\n'
                 '    <windowHeight value="1080" />\n'
                 '    <refreshRateIndex value="0" />\n'
                 '    <windowed value="0" />\n'
-                '    <API value="kSettingAPI_Vulkan" />\n'
+                '    <API value="kSettingAPI_DX12" />\n'
                 '    <locked value="0" />\n'
-                '    <asyncComputeEnabled value="1" />\n'
+                '    <asyncComputeEnabled value="0" />\n'
                 '  </graphics>\n'
                 '</config>\n'
             )
@@ -148,9 +147,8 @@ class RDR2PerformanceSentinel:
             res["target_fps"] = "50-60 FPS Locked"
             res["textures"] = "Ultra"
             res["shadows"] = "Medium (Cooling optimized)"
-            res["fsr2"] = "Balanced (Dynamic 60 FPS upscaling)"
-            res["api"] = "Vulkan (Low CPU overhead)"
-            self.logger.info("Calibrated 50-60 FPS Golden Frontier graphics preset.")
+            res["api"] = "DirectX 12 (Intel Arc native hardware pipeline)"
+            self.logger.info("Calibrated 50-60 FPS Golden Frontier graphics preset (DX12).")
         except Exception as e:
             res["status"] = "error"
             res["error"] = str(e)
