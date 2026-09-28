@@ -72,6 +72,7 @@ class RDR2PerformanceSentinel:
         self.last_ram_trim_time = 0.0
         self.session_start_time: Optional[float] = None
         self.metrics_history: List[Dict[str, Any]] = []
+        self._muted_audio_pids: List[int] = []
 
     def _init_logger(self):
         self.logger = logging.getLogger("RDR2Sentinel")
@@ -246,7 +247,67 @@ class RDR2PerformanceSentinel:
         }
 
     # -------------------------------------------------------------------------
-    # 5. Core Monitoring Loop (Autonomous Daemon)
+    # 5. Background Audio Blocking (Anti-FMOD Crash & Immersion Shield)
+    # -------------------------------------------------------------------------
+    def block_background_audio(self) -> Dict[str, Any]:
+        """
+        Silences all background application audio sessions (browsers, music, media)
+        during gameplay to prevent audio focus contention, micro-stutters, and
+        FMOD sound engine crashes in Red Dead Redemption 2.
+        """
+        muted_apps = []
+        try:
+            from pycaw.pycaw import AudioUtilities, ISimpleAudioVolume
+            sessions = AudioUtilities.GetAllSessions()
+            for session in sessions:
+                if not session.Process:
+                    continue
+                pname = (session.Process.name() or "").lower()
+                pid = session.ProcessId
+                # Never mute the game or launcher processes
+                if pname in self.target_exe_names or (self.game_pid and pid == self.game_pid):
+                    continue
+                try:
+                    volume = session._ctl.QueryInterface(ISimpleAudioVolume)
+                    if not volume.GetMute():
+                        volume.SetMute(1, None)
+                        if pid not in self._muted_audio_pids:
+                            self._muted_audio_pids.append(pid)
+                        muted_apps.append({"name": pname, "pid": pid})
+                except Exception:
+                    pass
+            self.logger.info(f"Background audio blocked for {len(muted_apps)} applications: {[a['name'] for a in muted_apps]}")
+        except Exception as e:
+            self.logger.warning(f"Could not block background audio: {e}")
+
+        return {"status": "success", "muted_count": len(muted_apps), "muted_apps": muted_apps}
+
+    def restore_background_audio(self) -> Dict[str, Any]:
+        """Restores unmuted audio state to background applications after game exit."""
+        restored_apps = []
+        try:
+            from pycaw.pycaw import AudioUtilities, ISimpleAudioVolume
+            sessions = AudioUtilities.GetAllSessions()
+            for session in sessions:
+                if not session.Process:
+                    continue
+                pid = session.ProcessId
+                if pid in self._muted_audio_pids:
+                    try:
+                        volume = session._ctl.QueryInterface(ISimpleAudioVolume)
+                        volume.SetMute(0, None)
+                        restored_apps.append({"name": session.Process.name(), "pid": pid})
+                    except Exception:
+                        pass
+            self._muted_audio_pids.clear()
+            self.logger.info(f"Background audio restored for {len(restored_apps)} applications.")
+        except Exception as e:
+            self.logger.warning(f"Could not restore background audio: {e}")
+
+        return {"status": "success", "restored_count": len(restored_apps), "restored_apps": restored_apps}
+
+    # -------------------------------------------------------------------------
+    # 6. Core Monitoring Loop (Autonomous Daemon)
     # -------------------------------------------------------------------------
     def run_sentinel_cycle(self) -> Dict[str, Any]:
         """Executes a single monitoring cycle; detects game launch/exit and applies tuning."""
@@ -281,9 +342,13 @@ class RDR2PerformanceSentinel:
                 from jarvisx.agents.game_turbo import GameTurboOptimizer
                 GameTurboOptimizer().set_background_quiet_mode(pause=True)
 
+                # Block background application audio to eliminate FMOD conflicts & distraction
+                audio_res = self.block_background_audio()
+
                 cycle_info["event"] = "game_engaged"
                 cycle_info["boost"] = boost_res
                 cycle_info["noise_throttled"] = noise_count
+                cycle_info["audio_blocked"] = audio_res
             else:
                 # Game is continuing - maintain optimal conditions
                 cycle_info["event"] = "game_running"
@@ -306,11 +371,15 @@ class RDR2PerformanceSentinel:
                 from jarvisx.agents.game_turbo import GameTurboOptimizer
                 GameTurboOptimizer().set_background_quiet_mode(pause=False)
 
+                # Restore background application audio
+                restore_audio_res = self.restore_background_audio()
+
                 self.game_proc = None
                 self.game_pid = None
                 self.session_start_time = None
                 cycle_info["event"] = "game_disengaged"
                 cycle_info["session_duration_s"] = duration
+                cycle_info["audio_restored"] = restore_audio_res
             else:
                 cycle_info["event"] = "standing_by"
 
