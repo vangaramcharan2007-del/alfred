@@ -133,7 +133,7 @@ class RDR2PerformanceSentinel:
                 '    <windowHeight value="1080" />\n'
                 '    <refreshRateIndex value="0" />\n'
                 '    <windowed value="0" />\n'
-                '    <API value="kSettingAPI_DX12" />\n'
+                '    <API value="kSettingAPI_Vulkan" />\n'
                 '    <locked value="0" />\n'
                 '    <asyncComputeEnabled value="0" />\n'
                 '  </graphics>\n'
@@ -147,8 +147,8 @@ class RDR2PerformanceSentinel:
             res["target_fps"] = "50-60 FPS Locked"
             res["textures"] = "Ultra"
             res["shadows"] = "Medium (Cooling optimized)"
-            res["api"] = "DirectX 12 (Intel Arc native hardware pipeline)"
-            self.logger.info("Calibrated 50-60 FPS Golden Frontier graphics preset (DX12).")
+            res["api"] = "Vulkan (Rockstar Recommended / Anti-FFFFFFFF)"
+            self.logger.info("Calibrated 50-60 FPS Golden Frontier graphics preset (Vulkan).")
         except Exception as e:
             res["status"] = "error"
             res["error"] = str(e)
