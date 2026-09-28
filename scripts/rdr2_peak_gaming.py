@@ -133,6 +133,7 @@ def main():
     parser.add_argument("--optimize", action="store_true", help="Apply full peak gaming tuning & RDR2 theme")
     parser.add_argument("--status", action="store_true", help="Display system gaming readiness report")
     parser.add_argument("--tune-graphics", action="store_true", help="Calibrate RDR2 graphics settings XML for Intel Arc")
+    parser.add_argument("--sentinel", action="store_true", help="Spawn autonomous RDR2 Performance & Thermal Sentinel daemon")
     parser.add_argument("--launch", action="store_true", help="Optimize + Launch RDR2 with active sentinel")
     parser.add_argument("--revert", action="store_true", help="Restore balanced power plan and desktop suite")
 
@@ -142,6 +143,18 @@ def main():
     if args.status:
         print_banner()
         display_dashboard(turbo.get_system_audit())
+        try:
+            from rdr2_sentinel_daemon import check_status
+            check_status()
+        except Exception as e:
+            print(f"[-] Sentinel check error: {e}")
+    elif args.sentinel:
+        print_banner()
+        try:
+            from rdr2_sentinel_daemon import start_daemon
+            start_daemon()
+        except Exception as e:
+            print(f"[-] Sentinel launch error: {e}")
     elif args.tune_graphics:
         print_banner()
         print("[*] Calibrating Golden Standard RDR2 Graphics Configuration...")
@@ -154,7 +167,15 @@ def main():
         print(f"[+] Target Screen   : {res.get('resolution')}")
         print(f"[+] Settings Saved  : {res.get('settings_path')}\n")
     elif args.launch:
+        # Also ensure sentinel is active
+        try:
+            from rdr2_sentinel_daemon import start_daemon
+            start_daemon()
+        except Exception:
+            pass
         run_launch(turbo)
+
+
 
     elif args.revert:
         print_banner()
