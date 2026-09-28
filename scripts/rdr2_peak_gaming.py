@@ -62,12 +62,21 @@ def run_optimize(turbo: GameTurboOptimizer):
     print(f"      Trimmed {ram_res['processes_trimmed']} background processes.")
     print(f"      Reclaimed: +{ram_res['ram_freed_gb']} GB RAM (Available: {ram_res['ram_after_gb']} GB)")
 
-    print("[3/4] Binding High-Performance GPU Affinity for RDR2...")
+    print("[3/5] Binding High-Performance GPU Affinity for RDR2...")
     gpu_res = turbo.configure_gpu_and_gaming_registry()
     print(f"      DirectX UserGpuPreferences: {gpu_res.get('gpu_preferences_registered')}")
     print(f"      Windows Game Mode Registry: {gpu_res.get('game_mode_enabled')}")
 
-    print("[4/4] Applying Authentic Red Dead Redemption 2 Outlaw Atmosphere...")
+    print("[4/5] Calibrating Golden Standard RDR2 Graphics Settings (Vulkan + Ultra Textures + FSR 2.0)...")
+    gfx_res = turbo.optimize_rdr2_graphics()
+    print(f"      API & Render Engine : {gfx_res.get('api')} (Async Compute: {gfx_res.get('async_compute')})")
+    print(f"      Texture Quality     : {gfx_res.get('texture_quality')}")
+    print(f"      FSR 2.0 Upscaler    : {gfx_res.get('fsr2_quality')}")
+    print(f"      Shadows & Pacing    : {gfx_res.get('shadow_quality')}")
+    print(f"      Target Resolution   : {gfx_res.get('resolution')}")
+    print(f"      Config File Written : {gfx_res.get('settings_path')}")
+
+    print("[5/5] Applying Authentic Red Dead Redemption 2 Outlaw Atmosphere...")
     vibe_res = turbo.apply_rdr2_vibes()
     print(f"      Theme Name      : {vibe_res.get('theme')}")
     print(f"      Typography      : {vibe_res.get('font')} (140pt UpperLeft)")
@@ -80,6 +89,7 @@ def run_optimize(turbo: GameTurboOptimizer):
     display_dashboard(after, "POST-OPTIMIZATION PEAK GAMING READY")
     print("[✔] PC is 100% primed for peak zero-lag gameplay. Enjoy the frontier, Boss!\n")
     return after
+
 
 
 def run_launch(turbo: GameTurboOptimizer):
@@ -122,6 +132,7 @@ def main():
     parser = argparse.ArgumentParser(description="Jarvis X RDR2 Peak Gaming & Immersion Controller")
     parser.add_argument("--optimize", action="store_true", help="Apply full peak gaming tuning & RDR2 theme")
     parser.add_argument("--status", action="store_true", help="Display system gaming readiness report")
+    parser.add_argument("--tune-graphics", action="store_true", help="Calibrate RDR2 graphics settings XML for Intel Arc")
     parser.add_argument("--launch", action="store_true", help="Optimize + Launch RDR2 with active sentinel")
     parser.add_argument("--revert", action="store_true", help="Restore balanced power plan and desktop suite")
 
@@ -131,8 +142,20 @@ def main():
     if args.status:
         print_banner()
         display_dashboard(turbo.get_system_audit())
+    elif args.tune_graphics:
+        print_banner()
+        print("[*] Calibrating Golden Standard RDR2 Graphics Configuration...")
+        res = turbo.optimize_rdr2_graphics()
+        print(f"[+] Status          : {res.get('status')}")
+        print(f"[+] API             : {res.get('api')}")
+        print(f"[+] Textures        : {res.get('texture_quality')}")
+        print(f"[+] Upscaling       : {res.get('fsr2_quality')}")
+        print(f"[+] Shadows         : {res.get('shadow_quality')}")
+        print(f"[+] Target Screen   : {res.get('resolution')}")
+        print(f"[+] Settings Saved  : {res.get('settings_path')}\n")
     elif args.launch:
         run_launch(turbo)
+
     elif args.revert:
         print_banner()
         turbo.set_background_quiet_mode(pause=False)
