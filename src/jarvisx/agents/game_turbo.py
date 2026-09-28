@@ -20,8 +20,14 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, List
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_RDR2_PATH = r"F:\Games\Red Dead Redemption 2\RDR2.exe"
-DEFAULT_PLAY_RDR2 = r"F:\Games\Red Dead Redemption 2\PlayRDR2.exe"
+C_RDR2_PATH = r"C:\Games\Red Dead Redemption 2\RDR2.exe"
+C_PLAY_RDR2 = r"C:\Games\Red Dead Redemption 2\PlayRDR2.exe"
+F_RDR2_PATH = r"F:\Games\Red Dead Redemption 2\RDR2.exe"
+F_PLAY_RDR2 = r"F:\Games\Red Dead Redemption 2\PlayRDR2.exe"
+
+DEFAULT_RDR2_PATH = C_RDR2_PATH if os.path.exists(C_RDR2_PATH) else F_RDR2_PATH
+DEFAULT_PLAY_RDR2 = C_PLAY_RDR2 if os.path.exists(C_PLAY_RDR2) else F_PLAY_RDR2
+
 
 # Win32 Constants
 PROCESS_QUERY_INFORMATION = 0x0400
@@ -246,12 +252,17 @@ class GameTurboOptimizer:
             
             exes_to_register = [
                 str(self.game_exe),
-                str(self.game_exe.parent / "PlayRDR2.exe")
+                str(self.game_exe.parent / "PlayRDR2.exe"),
+                C_RDR2_PATH,
+                C_PLAY_RDR2,
+                F_RDR2_PATH,
+                F_PLAY_RDR2,
             ]
-            for exe in exes_to_register:
+            for exe in set(exes_to_register):
                 winreg.SetValueEx(key, exe, 0, winreg.REG_SZ, "GpuPreference=2;")
             winreg.CloseKey(key)
             results["gpu_preferences_registered"] = True
+
         except Exception as e:
             results["gpu_preferences_registered"] = False
             results["gpu_pref_error"] = str(e)
