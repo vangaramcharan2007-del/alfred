@@ -61,7 +61,7 @@ class RDR2PerformanceSentinel:
     """Enterprise-grade background sentinel protecting RDR2 50-60 FPS and thermals."""
 
     def __init__(self, target_exe_names: Optional[List[str]] = None):
-        self.target_exe_names = [n.lower() for n in (target_exe_names or ["rdr2.exe", "playrdr2.exe"])]
+        self.target_exe_names = [n.lower() for n in (target_exe_names or ["rdr2.exe", "playrdr2.exe", "launcher.exe"])]
         self.log_file = PROJECT_ROOT / "logs" / "rdr2_sentinel.log"
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
         self._init_logger()
