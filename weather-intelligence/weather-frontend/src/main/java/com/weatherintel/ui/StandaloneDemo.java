@@ -10,8 +10,8 @@ import java.util.List;
 /**
  * Live Demonstration Runner for Weather Intelligence & Monitoring System
  * Demonstrates real runtime execution, pure Java standalone engine ("no localhost"),
- * multi-city weather tracking, forecast analysis, alerts, historical analytics,
- * CSV export, and Swing UI initialization.
+ * user authentication & login portal, multi-city weather tracking, forecast analysis,
+ * alerts, historical analytics, CSV export, and Swing UI initialization.
  */
 public class StandaloneDemo {
 
@@ -24,6 +24,23 @@ public class StandaloneDemo {
         ApiClient client = new ApiClient();
         System.out.println("[INIT] ApiClient initialized. Mode: " + (client.isFallbackMode() ? "STANDALONE IN-PROCESS ENGINE" : "REST BACKEND"));
         System.out.println("[INIT] Server / Engine Status: " + (client.ping() ? "HEALTHY / ACTIVE" : "OFFLINE"));
+        System.out.println();
+
+        // 0. User Authentication & Login Portal Demo
+        System.out.println("--------------------------------------------------------------------------------");
+        System.out.println(" 0. USER AUTHENTICATION & LOGIN PORTAL");
+        System.out.println("--------------------------------------------------------------------------------");
+        ApiClient.UserProfile adminUser = client.login("admin", "admin123");
+        System.out.printf(" >> [SUCCESS] Authenticated as: %s | Role: %s | Email: %s%n",
+                adminUser.getFullName(), adminUser.getRole(), adminUser.getEmail());
+        ApiClient.UserProfile analystUser = client.login("analyst", "analyst123");
+        System.out.printf(" >> [SUCCESS] Authenticated as: %s | Role: %s | Email: %s%n",
+                analystUser.getFullName(), analystUser.getRole(), analystUser.getEmail());
+        try {
+            client.login("admin", "wrongpassword");
+        } catch (SecurityException ex) {
+            System.out.println(" >> [VALIDATION] Invalid password rejected as expected: " + ex.getMessage());
+        }
         System.out.println();
 
         // 1. Current Weather Observation Demo
@@ -113,14 +130,19 @@ public class StandaloneDemo {
         csvPreview.lines().forEach(line -> System.out.println("   " + line));
         System.out.println();
 
-        // 6. Swing UI Initialization & Verification
+        // 6. Swing Desktop UI Component Initialization Check
         System.out.println("--------------------------------------------------------------------------------");
-        System.out.println(" 6. SWING DESKTOP UI COMPONENT INITIALIZATION CHECK");
+        System.out.println(" 6. SWING DESKTOP UI COMPONENT & LOGIN PORTAL INITIALIZATION CHECK");
         System.out.println("--------------------------------------------------------------------------------");
         try {
             SwingUtilities.invokeAndWait(() -> {
-                WeatherApp app = new WeatherApp();
-                System.out.println(" [OK] WeatherApp JFrame instantiated successfully.");
+                LoginDialog loginDialog = new LoginDialog(null, client);
+                System.out.println(" [OK] LoginDialog JDialog instantiated successfully.");
+                System.out.println("      -> Title: " + loginDialog.getTitle());
+                loginDialog.dispose();
+
+                WeatherApp app = new WeatherApp(adminUser, client);
+                System.out.println(" [OK] WeatherApp JFrame instantiated successfully with user: " + app.getCurrentUser().getFullName());
                 System.out.println(" [OK] TabbedPane loaded with " + app.getTabbedPane().getTabCount() + " tabs:");
                 for (int i = 0; i < app.getTabbedPane().getTabCount(); i++) {
                     System.out.println("      -> Tab " + (i + 1) + ": " + app.getTabbedPane().getTitleAt(i).trim());

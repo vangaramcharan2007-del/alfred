@@ -32,6 +32,7 @@ public class ApiClient {
     private final ObjectMapper objectMapper;
     private final EmbeddedWeatherProvider embeddedProvider = new EmbeddedWeatherProvider();
     private volatile boolean fallbackMode = false;
+    private volatile UserProfile currentUser = new UserProfile(1L, "admin", "admin@weatherintel.com", "ADMIN", "System Administrator");
 
     public ApiClient() {
         this("http://localhost:8080");
@@ -87,6 +88,41 @@ public class ApiClient {
 
     public EmbeddedWeatherProvider getEmbeddedProvider() {
         return embeddedProvider;
+    }
+
+    /**
+     * Authenticates a user with username and password.
+     */
+    public UserProfile login(String username, String password) {
+        if (fallbackMode) {
+            UserProfile profile = embeddedProvider.login(username, password);
+            this.currentUser = profile;
+            return profile;
+        }
+        try {
+            UserProfile profile = embeddedProvider.login(username, password);
+            this.currentUser = profile;
+            return profile;
+        } catch (SecurityException | IllegalArgumentException ex) {
+            throw ex;
+        } catch (Exception e) {
+            fallbackMode = true;
+            UserProfile profile = embeddedProvider.login(username, password);
+            this.currentUser = profile;
+            return profile;
+        }
+    }
+
+    public UserProfile getCurrentUser() {
+        return currentUser;
+    }
+
+    public void setCurrentUser(UserProfile currentUser) {
+        this.currentUser = currentUser;
+    }
+
+    public void logout() {
+        this.currentUser = null;
     }
 
     /**
@@ -741,5 +777,25 @@ public class ApiClient {
         public String getType() { return type != null ? type : "INFO"; }
         public boolean isRead() { return read; }
         public String getCreatedAt() { return createdAt != null ? createdAt : ""; }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record UserProfile(
+            Long id,
+            String username,
+            String email,
+            String role,
+            String fullName
+    ) {
+        public Long getId() { return id; }
+        public String getUsername() { return username != null ? username : ""; }
+        public String getEmail() { return email != null ? email : ""; }
+        public String getRole() { return role != null ? role : "USER"; }
+        public String getFullName() { return (fullName != null && !fullName.isBlank()) ? fullName : (username != null ? username : ""); }
+
+        @Override
+        public String toString() {
+            return getFullName() + " [" + getRole() + "]";
+        }
     }
 }

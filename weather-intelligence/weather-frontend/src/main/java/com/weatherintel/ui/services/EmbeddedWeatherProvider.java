@@ -43,6 +43,10 @@ public class EmbeddedWeatherProvider {
     private final AtomicLong favIdGen = new AtomicLong(10);
     private final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    private final Map<String, UserCredentials> users = new ConcurrentHashMap<>();
+
+    private record UserCredentials(ApiClient.UserProfile profile, String password) {}
+
     public EmbeddedWeatherProvider() {
         String key = System.getenv("OPENWEATHER_API_KEY");
         if (key == null || key.isBlank()) {
@@ -63,6 +67,13 @@ public class EmbeddedWeatherProvider {
     private void initDefaultData() {
         String nowStr = LocalDateTime.now().format(dtf);
 
+        // Seed default users
+        users.put("admin", new UserCredentials(new ApiClient.UserProfile(1L, "admin", "admin@weatherintel.com", "ADMIN", "System Administrator"), "admin123"));
+        users.put("analyst", new UserCredentials(new ApiClient.UserProfile(2L, "analyst", "analyst@weatherintel.com", "ANALYST", "Chief Meteorologist"), "analyst123"));
+        users.put("operator", new UserCredentials(new ApiClient.UserProfile(3L, "operator", "operator@weatherintel.com", "OPERATOR", "Station Operator"), "operator123"));
+        users.put("demo", new UserCredentials(new ApiClient.UserProfile(4L, "demo", "demo@weatherintel.com", "USER", "Demo Operator"), "demo123"));
+        users.put("guest", new UserCredentials(new ApiClient.UserProfile(5L, "guest", "guest@weatherintel.com", "VIEWER", "Guest Observer"), "guest123"));
+
         // Seed default favorites
         favorites.add(new ApiClient.FavoriteData(1L, 1L, 1L, "London", "GB", 17.5, "Scattered clouds", "03d", nowStr));
         favorites.add(new ApiClient.FavoriteData(2L, 1L, 2L, "New York", "US", 22.0, "Clear sky", "01d", nowStr));
@@ -75,6 +86,24 @@ public class EmbeddedWeatherProvider {
         // Seed initial notifications
         notifications.add(new ApiClient.NotificationData(1L, 1L, "Weather Alert: London", "Temperature reached high threshold in London", "ALERT", false, nowStr));
         notifications.add(new ApiClient.NotificationData(2L, 1L, "Standalone Mode Active", "Weather Intelligence operating in pure Java mode with embedded intelligence", "INFO", true, nowStr));
+    }
+
+    public ApiClient.UserProfile login(String username, String password) {
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("Username cannot be empty");
+        }
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException("Password cannot be empty");
+        }
+        UserCredentials creds = users.get(username.trim().toLowerCase());
+        if (creds == null || !creds.password().equals(password.trim())) {
+            throw new SecurityException("Invalid username or password");
+        }
+        return creds.profile();
+    }
+
+    public List<ApiClient.UserProfile> listDemoUsers() {
+        return users.values().stream().map(UserCredentials::profile).toList();
     }
 
     public boolean hasRealApiKey() {
