@@ -1,0 +1,6 @@
+@echo off
+echo Compiling NEXUS V4 (XP & Pie Chart Update)...
+javac -cp "lib/flatlaf.jar;lib/sqlite-jdbc.jar;lib/slf4j-api.jar;lib/slf4j-nop.jar" -d bin -sourcepath src src/nexus/Main.java
+echo Launching...
+java -cp "bin;lib/flatlaf.jar;lib/sqlite-jdbc.jar;lib/slf4j-api.jar;lib/slf4j-nop.jar" nexus.Main
+pause

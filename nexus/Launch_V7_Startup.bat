@@ -1,0 +1,6 @@
+@echo off
+echo Compiling NEXUS V7 (Startup Edition)...
+javac -cp "lib/flatlaf.jar;lib/sqlite-jdbc.jar;lib/slf4j-api.jar;lib/slf4j-nop.jar;lib/jsoup.jar" -d bin -sourcepath src src/nexus/Main.java
+echo Launching...
+java -cp "bin;lib/flatlaf.jar;lib/sqlite-jdbc.jar;lib/slf4j-api.jar;lib/slf4j-nop.jar;lib/jsoup.jar" nexus.Main
+pause

@@ -1,0 +1,6 @@
+@echo off
+echo Compiling NEXUS V2 (Frontend Showcase Only)...
+javac -cp "lib/flatlaf.jar;lib/sqlite-jdbc.jar" -d bin -sourcepath src src/nexus/Main.java
+echo Launching NEXUS V2 Frontend...
+java -cp "bin;lib/flatlaf.jar;lib/sqlite-jdbc.jar" -Dnexus.mockBackend=true nexus.Main
+pause
